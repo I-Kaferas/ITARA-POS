@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "ITARA",
+    "welcome": "Murakaza neza muri sisitemu ya POS y'umwuga"
+  },
+  "nav": {
+    "dashboard": "Ikibaho",
+    "home": "Ahabanza"
+  },
+  "common": {
+    "loading": "Birategurwa...",
+    "save": "Bika",
+    "delete": "Siba",
+    "cancel": "Hagarika"
+  },
+  "health": {
+    "apiStatus": "Imiterere ya API",
+    "checking": "Gusuzuma umurongo wa API..."
+  }
+}

@@ -1,0 +1,227 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
+import AppModal from '../../../components/ui/AppModal.vue'
+import { useBackofficeStore } from '../../../stores/backoffice'
+import type { Product } from '../../../types'
+
+type OptionGroup = { name: string; values: string[]; draft: string }
+
+const { t } = useI18n()
+const store = useBackofficeStore()
+
+const products = ref<Product[]>([])
+const showModal = ref(false)
+const saving = ref(false)
+const productId = ref('')
+const groups = ref<OptionGroup[]>([{ name: '', values: [], draft: '' }])
+
+const eligible = computed(() => products.value.filter(product => !['service', 'digital', 'bundle'].includes(product.product_type ?? '')))
+const transformed = computed(() => products.value.filter(product => (product.metadata?.option_groups?.length ?? 0) > 0 || product.product_type === 'variant'))
+
+const preview = computed(() => {
+  const ready = groups.value
+    .map(group => ({ name: group.name.trim(), values: group.values }))
+    .filter(group => group.name && group.values.length)
+  if (!ready.length) return []
+  let rows: Record<string, string>[] = [{}]
+  for (const group of ready) {
+    rows = rows.flatMap(current => group.values.map(value => ({ ...current, [group.name]: value })))
+  }
+  return rows.slice(0, 100)
+})
+
+onMounted(load)
+
+async function load() {
+  await store.loadCompanies()
+  const companyId = store.companies[0]?.id
+  if (!companyId) return
+  const catalogs = await store.loadCatalogs(companyId)
+  const catalogId = catalogs.find(item => item.is_default)?.id ?? catalogs[0]?.id
+  if (!catalogId) return
+  products.value = await store.loadProducts(catalogId)
+}
+
+function openCreate() {
+  productId.value = ''
+  groups.value = [{ name: '', values: [], draft: '' }]
+  showModal.value = true
+}
+
+function openEdit(product: Product) {
+  productId.value = product.id
+  const saved = product.metadata?.option_groups ?? []
+  const fromVariants = groupsFromVariants(product)
+  const source = saved.length ? saved : fromVariants
+  groups.value = source.length
+    ? source.map(group => ({ name: group.name, values: [...group.values], draft: '' }))
+    : [{ name: '', values: [], draft: '' }]
+  showModal.value = true
+}
+
+function groupsFromVariants(product: Product): { name: string; values: string[] }[] {
+  const map = new Map<string, string[]>()
+  for (const variant of product.variants ?? []) {
+    const options = variant.attributes?.options ?? {}
+    const entries = Object.keys(options).length
+      ? Object.entries(options)
+      : [
+          ...(variant.size ? [['Taille', variant.size]] : []),
+          ...(variant.color ? [['Couleur', variant.color]] : []),
+        ]
+    for (const [name, value] of entries) {
+      if (!value) continue
+      const values = map.get(name) ?? []
+      if (!values.includes(value)) values.push(value)
+      map.set(name, values)
+    }
+  }
+  return [...map.entries()].map(([name, values]) => ({ name, values }))
+}
+
+function addGroup() {
+  if (groups.value.length >= 4) return
+  groups.value.push({ name: '', values: [], draft: '' })
+}
+
+function commitDraft(group: OptionGroup) {
+  const parts = group.draft.split(',').map(value => value.trim()).filter(Boolean)
+  for (const value of parts) {
+    if (!group.values.includes(value) && group.values.length < 20) group.values.push(value)
+  }
+  group.draft = ''
+}
+
+function onValueKey(event: KeyboardEvent, group: OptionGroup) {
+  if (event.key !== 'Enter' && event.key !== ',') return
+  event.preventDefault()
+  commitDraft(group)
+}
+
+async function apply() {
+  const payload = groups.value
+    .map(group => ({ name: group.name.trim(), values: group.values }))
+    .filter(group => group.name && group.values.length)
+  if (!productId.value || !payload.length) return
+  saving.value = true
+  try {
+    await store.transformProductOptions(productId.value, payload)
+    showModal.value = false
+    await load()
+  } finally {
+    saving.value = false
+  }
+}
+
+function optionLabel(product: Product) {
+  const groups = product.metadata?.option_groups ?? []
+  if (groups.length) return groups.map(group => `${group.name}: ${group.values.join(', ')}`).join(' · ')
+  return (product.variants ?? []).map(variant => variant.name).filter(Boolean).join(', ') || '—'
+}
+</script>
+
+<template>
+  <CatalogLayout>
+    <div class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="m-0 max-w-2xl text-sm text-slate-500">{{ t('catalog.options.hint') }}</p>
+        <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('catalog.options.transform') }}</button>
+      </div>
+
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium">{{ t('catalog.options.product') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('catalog.options.optionsCount') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.articles') }}</th>
+              <th class="px-4 py-3 text-right">{{ t('common.edit') }}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="product in transformed" :key="product.id" class="hover:bg-slate-50">
+              <td class="px-4 py-3">
+                <span class="block font-medium">{{ product.name }}</span>
+                <span class="font-mono text-xs text-slate-500">{{ product.sku }}</span>
+              </td>
+              <td class="px-4 py-3 text-slate-600">{{ optionLabel(product) }}</td>
+              <td class="px-4 py-3">{{ product.variants?.filter(item => item.is_active !== false).length ?? 0 }}</td>
+              <td class="px-4 py-3 text-right">
+                <button class="text-brand-600" @click="openEdit(product)">{{ t('catalog.options.edit') }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!transformed.length" class="px-4 py-8 text-center text-slate-500">{{ t('catalog.options.empty') }}</p>
+      </div>
+    </div>
+
+    <AppModal
+      :open="showModal"
+      :title="t('catalog.options.transform')"
+      icon="catalog"
+      tone="info"
+      size="lg"
+      @close="showModal = false"
+    >
+      <form class="space-y-4" @submit.prevent="apply">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ t('catalog.options.product') }}</label>
+          <select v-model="productId" required class="field" :disabled="saving">
+            <option value="">{{ t('catalog.options.selectProduct') }}</option>
+            <option v-for="product in eligible" :key="product.id" :value="product.id">{{ product.sku }} — {{ product.name }}</option>
+          </select>
+        </div>
+
+        <div v-for="(group, index) in groups" :key="index" class="rounded-lg border border-slate-200 p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-sm font-medium">{{ t('catalog.options.group') }} {{ index + 1 }}</span>
+            <button v-if="groups.length > 1" type="button" class="text-sm text-red-600" @click="groups.splice(index, 1)">{{ t('common.delete') }}</button>
+          </div>
+          <input v-model="group.name" class="field" :placeholder="t('catalog.options.groupName')" />
+          <div>
+            <label class="mb-1 block text-xs text-slate-500">{{ t('catalog.options.values') }}</label>
+            <div class="flex flex-wrap gap-2">
+              <span v-for="(value, valueIndex) in group.values" :key="value" class="option-chip">
+                {{ value }}
+                <button type="button" @click="group.values.splice(valueIndex, 1)">×</button>
+              </span>
+            </div>
+            <input
+              v-model="group.draft"
+              class="field mt-2"
+              :placeholder="t('catalog.options.valuesHint')"
+              @keydown="onValueKey($event, group)"
+              @blur="commitDraft(group)"
+            />
+          </div>
+        </div>
+
+        <button v-if="groups.length < 4" type="button" class="text-sm text-brand-600" @click="addGroup">+ {{ t('catalog.options.addGroup') }}</button>
+
+        <div v-if="preview.length" class="rounded-lg bg-slate-50 p-3">
+          <p class="mb-2 text-sm font-medium">{{ t('catalog.options.preview') }} ({{ preview.length }})</p>
+          <ul class="m-0 max-h-40 space-y-1 overflow-auto pl-4 text-sm text-slate-600">
+            <li v-for="(row, index) in preview" :key="index">{{ Object.values(row).join(' / ') }}</li>
+          </ul>
+        </div>
+
+        <div class="app-modal__actions">
+          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :disabled="saving || !productId || !preview.length">{{ t('catalog.options.apply') }}</button>
+        </div>
+      </form>
+    </AppModal>
+  </CatalogLayout>
+</template>
+
+<style scoped>
+.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
+.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
+.text-brand-600 { color: var(--color-brand-600); }
+.option-chip { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; background: #4a6d86; color: #fff; padding: 0.15rem 0.55rem; font-size: 0.75rem; }
+.option-chip button { color: #fff; line-height: 1; }
+</style>
