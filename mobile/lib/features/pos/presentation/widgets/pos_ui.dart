@@ -45,6 +45,8 @@ abstract final class PosUi {
 
   static bool isWide(BuildContext context) => isDesk(context);
 
+  static bool isDesktop(BuildContext context) => isDesk(context);
+
   static bool isPhone(BuildContext context) =>
       MediaQuery.sizeOf(context).width < phoneBreakpoint;
 

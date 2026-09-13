@@ -19,7 +19,17 @@ const showModal = ref(false)
 const editing = ref<Supplier | null>(null)
 const saving = ref(false)
 const debtBySupplier = ref<Record<string, PayableSupplierRow>>({})
-const form = ref({ name: '', code: '', email: '', phone: '', is_active: true })
+const form = ref({
+  name: '',
+  code: '',
+  email: '',
+  phone: '',
+  contact_person: '',
+  address_line: '',
+  city: '',
+  country: '',
+  is_active: true,
+})
 
 onMounted(async () => {
   await Promise.all([store.loadSuppliers(), store.loadPayablesSummary()])
@@ -38,7 +48,7 @@ function openDetail(item: Supplier) {
 
 function openCreate() {
   editing.value = null
-  form.value = { name: '', code: '', email: '', phone: '', is_active: true }
+  form.value = { name: '', code: '', email: '', phone: '', contact_person: '', address_line: '', city: '', country: '', is_active: true }
   showModal.value = true
 }
 
@@ -49,6 +59,10 @@ function openEdit(item: Supplier) {
     code: item.code,
     email: item.email ?? '',
     phone: item.phone ?? '',
+    contact_person: item.contact_person ?? '',
+    address_line: item.address?.line1 ?? '',
+    city: item.address?.city ?? '',
+    country: item.address?.country ?? '',
     is_active: item.is_active,
   }
   showModal.value = true
@@ -57,7 +71,19 @@ function openEdit(item: Supplier) {
 async function save() {
   saving.value = true
   try {
-    await store.saveSupplier(form.value, editing.value?.id)
+    await store.saveSupplier({
+      name: form.value.name,
+      code: form.value.code,
+      email: form.value.email || null,
+      phone: form.value.phone || null,
+      contact_person: form.value.contact_person || null,
+      address: {
+        line1: form.value.address_line || null,
+        city: form.value.city || null,
+        country: form.value.country || null,
+      },
+      is_active: form.value.is_active,
+    }, editing.value?.id)
     await store.loadSuppliers(search.value)
     showModal.value = false
   } finally {
@@ -92,6 +118,7 @@ async function remove(item: Supplier) {
             <tr>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.code') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.name') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('suppliers.phone') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('auth.email') }}</th>
               <th class="px-4 py-3 text-right font-medium">{{ t('payables.outstanding') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
@@ -104,6 +131,7 @@ async function remove(item: Supplier) {
               <td class="px-4 py-3">
                 <button class="font-medium text-brand-600" @click="openDetail(item)">{{ item.name }}</button>
               </td>
+              <td class="px-4 py-3 text-slate-600">{{ item.phone || '—' }}</td>
               <td class="px-4 py-3 text-slate-600">{{ item.email ?? '—' }}</td>
               <td class="px-4 py-3 text-right font-medium">
                 {{ formatMoney(debtBySupplier[item.id]?.debt ?? 0) }}
@@ -130,8 +158,14 @@ async function remove(item: Supplier) {
       <form class="space-y-3" @submit.prevent="save">
         <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="form.name" required class="field" /></div>
         <div><label class="mb-1 block text-sm font-medium">{{ t('org.code') }}</label><input v-model="form.code" required class="field" /></div>
+        <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.contactPerson') }}</label><input v-model="form.contact_person" class="field" /></div>
         <div><label class="mb-1 block text-sm font-medium">{{ t('auth.email') }}</label><input v-model="form.email" type="email" class="field" /></div>
         <div><label class="mb-1 block text-sm font-medium">{{ t('common.phone') }}</label><input v-model="form.phone" class="field" /></div>
+        <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.street') }}</label><input v-model="form.address_line" class="field" /></div>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.city') }}</label><input v-model="form.city" class="field" /></div>
+          <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.country') }}</label><input v-model="form.country" class="field" /></div>
+        </div>
         <label class="flex items-center gap-2 text-sm"><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>

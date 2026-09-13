@@ -17,6 +17,10 @@ const tabs = computed(() => [
     to: '/admin/purchases/invoices',
     label: `${t('purchases.tabs.invoices')}`,
   },
+  {
+    to: '/admin/purchases/payments',
+    label: `${t('purchases.workflow.payment')}`,
+  },
 ])
 
 function isActive(path: string) {

@@ -147,6 +147,13 @@ class Product extends Model
         return $this->hasMany(SerialNumber::class);
     }
 
+    public function suppliers(): BelongsToMany
+    {
+        return $this->belongsToMany(Supplier::class, 'product_supplier')
+            ->withPivot(['supplier_sku', 'cost_price'])
+            ->withTimestamps();
+    }
+
     public function stockBalances(): HasMany
     {
         return $this->hasMany(StockBalance::class);

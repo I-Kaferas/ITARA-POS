@@ -55,10 +55,16 @@ class TerminalConfig {
     this.masterDeviceId = '',
     this.masterHost = '',
     this.currencyCode = 'USD',
+    this.locale = 'fr',
+    this.timezone = 'Africa/Bujumbura',
+    this.companyProfile = '',
     this.isConfigured = false,
     this.isSignedIn = false,
     this.cashierId = '',
     this.cashierName = '',
+    this.permissions = const [],
+    this.roles = const [],
+    this.pinVerifier = '',
     this.printerHost = '',
     this.printerPort = 9100,
     this.printerEnabled = false,
@@ -89,10 +95,16 @@ class TerminalConfig {
       masterDeviceId: json['master_device_id'] as String? ?? '',
       masterHost: json['master_host'] as String? ?? '',
       currencyCode: json['currency_code'] as String? ?? 'USD',
+      locale: json['locale'] as String? ?? 'fr',
+      timezone: json['timezone'] as String? ?? 'Africa/Bujumbura',
+      companyProfile: json['company_profile'] as String? ?? '',
       isConfigured: json['is_configured'] as bool? ?? false,
       isSignedIn: json['is_signed_in'] as bool? ?? false,
       cashierId: json['cashier_id'] as String? ?? '',
       cashierName: json['cashier_name'] as String? ?? '',
+      permissions: (json['permissions'] as List?)?.map((item) => item.toString()).toList() ?? const [],
+      roles: (json['roles'] as List?)?.map((item) => item.toString()).toList() ?? const [],
+      pinVerifier: json['pin_verifier'] as String? ?? '',
       printerHost: json['printer_host'] as String? ?? '',
       printerPort: json['printer_port'] as int? ?? 9100,
       printerEnabled: json['printer_enabled'] as bool? ?? false,
@@ -122,10 +134,18 @@ class TerminalConfig {
   final String masterDeviceId;
   final String masterHost;
   final String currencyCode;
+  final String locale;
+  final String timezone;
+  final String companyProfile;
   final bool isConfigured;
   final bool isSignedIn;
   final String cashierId;
   final String cashierName;
+  final List<String> permissions;
+  final List<String> roles;
+  final String pinVerifier;
+
+  bool get canWorkOffline => pinVerifier.isNotEmpty && permissions.isNotEmpty && authToken.isNotEmpty;
   final String printerHost;
   final int printerPort;
   final bool printerEnabled;
@@ -159,10 +179,16 @@ class TerminalConfig {
         'master_device_id': masterDeviceId,
         'master_host': masterHost,
         'currency_code': currencyCode,
+        'locale': locale,
+        'timezone': timezone,
+        'company_profile': companyProfile,
         'is_configured': isConfigured,
         'is_signed_in': isSignedIn,
         'cashier_id': cashierId,
         'cashier_name': cashierName,
+        'permissions': permissions,
+        'roles': roles,
+        'pin_verifier': pinVerifier,
         'printer_host': printerHost,
         'printer_port': printerPort,
         'printer_enabled': printerEnabled,
@@ -192,10 +218,16 @@ class TerminalConfig {
     String? masterDeviceId,
     String? masterHost,
     String? currencyCode,
+    String? locale,
+    String? timezone,
+    String? companyProfile,
     bool? isConfigured,
     bool? isSignedIn,
     String? cashierId,
     String? cashierName,
+    List<String>? permissions,
+    List<String>? roles,
+    String? pinVerifier,
     String? printerHost,
     int? printerPort,
     bool? printerEnabled,
@@ -224,10 +256,16 @@ class TerminalConfig {
       masterDeviceId: masterDeviceId ?? this.masterDeviceId,
       masterHost: masterHost ?? this.masterHost,
       currencyCode: currencyCode ?? this.currencyCode,
+      locale: locale ?? this.locale,
+      timezone: timezone ?? this.timezone,
+      companyProfile: companyProfile ?? this.companyProfile,
       isConfigured: isConfigured ?? this.isConfigured,
       isSignedIn: isSignedIn ?? this.isSignedIn,
       cashierId: cashierId ?? this.cashierId,
       cashierName: cashierName ?? this.cashierName,
+      permissions: permissions ?? this.permissions,
+      roles: roles ?? this.roles,
+      pinVerifier: pinVerifier ?? this.pinVerifier,
       printerHost: printerHost ?? this.printerHost,
       printerPort: printerPort ?? this.printerPort,
       printerEnabled: printerEnabled ?? this.printerEnabled,

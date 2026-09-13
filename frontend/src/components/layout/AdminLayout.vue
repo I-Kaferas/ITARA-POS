@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../ui/AppIcon.vue'
@@ -28,7 +28,9 @@ const brandingStore = useBrandingStore()
 const context = useContextStore()
 const moduleSearch = ref<InstanceType<typeof ModuleSearch> | null>(null)
 const userMenuOpen = ref(false)
-const userMenu = ref<HTMLElement | null>(null)
+const userMenuTrigger = ref<HTMLElement | null>(null)
+const userMenuPanel = ref<HTMLElement | null>(null)
+const userMenuStyle = ref<Record<string, string>>({})
 
 const expandedMenus = ref<Record<string, boolean>>({})
 const sidebarOpen = ref(localStorage.getItem('pos_sidebar_open') !== '0')
@@ -71,8 +73,10 @@ const navSections = computed(() => [
           { name: 'beverages', to: '/admin/catalog/beverages', label: t('nav.beverages') },
           { name: 'catalog-gallery', to: '/admin/catalog/gallery', label: t('nav.catalogGallery') },
           { name: 'price-lists', to: '/admin/catalog/prices', label: t('nav.priceLists') },
+          { name: 'catalog-categories', to: '/admin/catalog/categories', label: t('catalog.tabs.categories') },
           { name: 'catalog-brands', to: '/admin/catalog/brands', label: t('nav.brands') },
           { name: 'catalog-units', to: '/admin/catalog/units', label: t('nav.units') },
+          { name: 'catalog-attributes', to: '/admin/catalog/attributes', label: t('nav.attributes') },
           { name: 'customers', to: '/admin/customers', label: t('nav.customers') },
         ],
       },
@@ -197,8 +201,23 @@ function onStoreChange(event: Event) {
   context.selectStore(id || null)
 }
 
+function placeUserMenu() {
+  const rect = userMenuTrigger.value?.getBoundingClientRect()
+  if (!rect) return
+  userMenuStyle.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${Math.max(12, window.innerWidth - rect.right)}px`,
+  }
+}
+
 function onUserMenuPointer(event: PointerEvent) {
-  if (!userMenu.value?.contains(event.target as Node)) userMenuOpen.value = false
+  const target = event.target as Node
+  if (userMenuTrigger.value?.contains(target) || userMenuPanel.value?.contains(target)) return
+  userMenuOpen.value = false
+}
+
+function onUserMenuKey(event: KeyboardEvent) {
+  if (event.key === 'Escape') userMenuOpen.value = false
 }
 
 function goUserMenu(path: string) {
@@ -220,17 +239,27 @@ function onSidebarPref(event: Event) {
 
 onMounted(() => {
   window.addEventListener('pointerdown', onUserMenuPointer)
+  window.addEventListener('keydown', onUserMenuKey)
+  window.addEventListener('resize', placeUserMenu)
   window.addEventListener('pos-sidebar-pref', onSidebarPref)
   void brandingStore.loadCurrent().catch(() => undefined)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onUserMenuPointer)
+  window.removeEventListener('keydown', onUserMenuKey)
+  window.removeEventListener('resize', placeUserMenu)
   window.removeEventListener('pos-sidebar-pref', onSidebarPref)
 })
 
 watch(() => route.path, () => {
   userMenuOpen.value = false
+})
+
+watch(userMenuOpen, async (open) => {
+  if (!open) return
+  await nextTick()
+  placeUserMenu()
 })
 </script>
 
@@ -348,13 +377,15 @@ watch(() => route.path, () => {
               </option>
             </select>
           </div>
-          <div ref="userMenu" class="user-menu">
+          <div class="user-menu">
             <button
+              ref="userMenuTrigger"
               type="button"
               class="user-menu__trigger"
               :class="{ 'user-menu__trigger--open': userMenuOpen }"
               :title="auth.user?.name"
               :aria-expanded="userMenuOpen"
+              aria-haspopup="menu"
               @click="userMenuOpen = !userMenuOpen"
             >
               <span class="user-chip__avatar">{{ userInitials }}</span>
@@ -364,25 +395,34 @@ watch(() => route.path, () => {
               </span>
               <AppIcon name="chevron-right" :size="13" class="user-menu__caret" :class="{ 'user-menu__caret--open': userMenuOpen }" />
             </button>
-            <div v-if="userMenuOpen" class="user-menu__panel" role="menu">
-              <button type="button" class="user-menu__item" @click="goUserMenu('/admin')">
+          </div>
+          <Teleport to="body">
+            <div
+              v-if="userMenuOpen"
+              ref="userMenuPanel"
+              class="user-menu__panel"
+              :style="userMenuStyle"
+              role="menu"
+            >
+              <p class="user-menu__heading">{{ auth.user?.name }}</p>
+              <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin')">
                 <AppIcon name="dashboard" :size="15" />
                 {{ t('nav.dashboard') }}
               </button>
-              <button type="button" class="user-menu__item" @click="goUserMenu('/admin/profile')">
+              <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin/profile')">
                 <AppIcon name="account" :size="15" />
                 {{ t('auth.profile') }}
               </button>
-              <button type="button" class="user-menu__item" @click="goUserMenu('/admin/settings')">
+              <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin/settings')">
                 <AppIcon name="organization" :size="15" />
                 {{ t('auth.settings') }}
               </button>
-              <button type="button" class="user-menu__item user-menu__item--danger" @click="logout">
+              <button type="button" class="user-menu__item user-menu__item--danger" role="menuitem" @click="logout">
                 <AppIcon name="logout" :size="15" />
                 {{ t('auth.logout') }}
               </button>
             </div>
-          </div>
+          </Teleport>
         </div>
       </header>
 
@@ -440,5 +480,103 @@ watch(() => route.path, () => {
   padding: 0.1rem 0.35rem;
   font-size: 0.62rem;
   color: #e39b2b;
+}
+
+.user-menu__trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: 16rem;
+  border: 1px solid #d7dbe6;
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.28rem 0.65rem 0.28rem 0.28rem;
+  cursor: pointer;
+}
+
+.user-menu__trigger--open {
+  border-color: #4a6d86;
+  box-shadow: 0 0 0 3px rgba(74, 109, 134, 0.12);
+}
+
+.user-menu__identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  text-align: left;
+}
+
+.user-menu__name {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0f172a;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu__email {
+  overflow: hidden;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  color: #64748b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu__caret {
+  flex-shrink: 0;
+  color: #64748b;
+  transform: rotate(90deg);
+  transition: transform 0.16s ease;
+}
+
+.user-menu__caret--open {
+  transform: rotate(-90deg);
+}
+
+.user-menu__panel {
+  position: fixed;
+  z-index: 500;
+  width: 15.5rem;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.85rem;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+}
+
+.user-menu__heading {
+  margin: 0;
+  padding: 0.7rem 0.85rem 0.45rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.user-menu__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  background: #fff;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.user-menu__item:hover {
+  background: #f4f8fb;
+}
+
+.user-menu__item--danger {
+  border-top: 1px solid #f1f5f9;
+  color: #b91c1c;
 }
 </style>

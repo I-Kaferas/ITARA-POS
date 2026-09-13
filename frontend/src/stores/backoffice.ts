@@ -13,7 +13,9 @@ import { api, type ApiItemResponse, type ApiListResponse } from '../api/client'
 import type {
   BarcodeType,
   Branch,
+  BranchExpense,
   Brand,
+  CatalogAttribute,
   Catalog,
   Category,
   Company,
@@ -94,6 +96,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   const catalogs = ref<Catalog[]>([])
   const categories = ref<Category[]>([])
   const brands = ref<Brand[]>([])
+  const catalogAttributes = ref<CatalogAttribute[]>([])
   const units = ref<Unit[]>([])
   const taxes = ref<Tax[]>([])
   const currencies = ref<Currency[]>([])
@@ -130,6 +133,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   const serialNumbers = ref<SerialNumber[]>([])
   const productBatches = ref<ProductBatch[]>([])
   const loading = ref(false)
+
+  function unwrapWarehouses(payload: { data?: Warehouse[] | { data?: Warehouse[] } | null }): Warehouse[] {
+    const body = payload?.data
+    if (Array.isArray(body)) return body.filter((item) => item?.id && item?.name)
+    if (body && Array.isArray(body.data)) return body.data.filter((item) => item?.id && item?.name)
+    return []
+  }
 
   async function loadPaginated<T>(path: string): Promise<T[]> {
     const res = await api.get<{ data: { data: T[] } }>(`${path}${path.includes('?') ? '&' : '?'}per_page=100`)
@@ -251,6 +261,14 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     await api.delete(`/branches/${id}`)
   }
 
+  async function loadBranchProfile(id: string) {
+    return (await api.get<ApiItemResponse<Branch>>(`/branches/${id}`)).data
+  }
+
+  async function addBranchExpense(branchId: string, payload: { description: string; amount: number; category?: string; occurred_on?: string }) {
+    return (await api.post<ApiItemResponse<BranchExpense>>(`/branches/${branchId}/expenses`, payload)).data
+  }
+
   // Stores (per branch)
   async function loadStores(branchId: string) {
     stores.value = (await api.get<ApiListResponse<Store>>(`/branches/${branchId}/stores`)).data
@@ -295,6 +313,10 @@ export const useBackofficeStore = defineStore('backoffice', () => {
 
   async function deleteDevice(id: string) {
     await api.delete(`/devices/${id}`)
+  }
+
+  async function revokeDevice(id: string) {
+    return (await api.post<ApiItemResponse<Device>>(`/devices/${id}/revoke`, {})).data
   }
 
   async function regenerateDeviceToken(id: string) {
@@ -546,6 +568,21 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     await api.delete(`/units/${id}`)
   }
 
+  async function loadCatalogAttributes(ensureDefaults = false) {
+    const q = ensureDefaults ? '?ensure_defaults=1' : ''
+    catalogAttributes.value = (await api.get<ApiListResponse<CatalogAttribute>>(`/catalog-attributes${q}`)).data
+    return catalogAttributes.value
+  }
+
+  async function saveCatalogAttribute(payload: Partial<CatalogAttribute>, id?: string) {
+    if (id) return (await api.patch<ApiItemResponse<CatalogAttribute>>(`/catalog-attributes/${id}`, payload)).data
+    return (await api.post<ApiItemResponse<CatalogAttribute>>('/catalog-attributes', payload)).data
+  }
+
+  async function deleteCatalogAttribute(id: string) {
+    await api.delete(`/catalog-attributes/${id}`)
+  }
+
   async function loadTaxes(activeOnly = true) {
     const query = activeOnly ? '?active_only=1' : ''
     taxes.value = (await api.get<ApiListResponse<Tax>>(`/taxes${query}`)).data
@@ -640,6 +677,26 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   }
 
   // Products
+  async function loadPriceList(catalogId: string) {
+    return api.get<{
+      default_currency: string
+      currencies: Currency[]
+      data: Array<{
+        id: string
+        sku: string
+        name: string
+        tax: { code?: string; name: string; rate: number; is_inclusive: boolean } | null
+        prices: Record<string, {
+          amount: number
+          currency_code: string
+          price_id?: string | null
+          quote: { ht: number; tva: number; ttc: number }
+          in_default: number
+        }>
+      }>
+    }>(`/catalogs/${catalogId}/price-list`)
+  }
+
   async function loadProducts(catalogId: string, search = '') {
     const q = search ? `?search=${encodeURIComponent(search)}` : ''
     products.value = (await api.get<ApiListResponse<Product>>(`/catalogs/${catalogId}/products${q}`)).data
@@ -714,13 +771,26 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   }
 
   async function loadAllWarehouses(): Promise<Warehouse[]> {
+    try {
+      const fromList = unwrapWarehouses(await api.get<{ data: Warehouse[] | { data?: Warehouse[] } }>('/warehouses'))
+      if (fromList.length) return fromList
+    } catch {
+      // Fall back to the branch listing used by organization screens.
+    }
+
     await loadCompanies()
     const all: Warehouse[] = []
-    for (const company of companies.value) {
-      const companyBranches = await loadBranches(company.id)
-      for (const branch of companyBranches) {
-        const branchWarehouses = await api.get<ApiListResponse<Warehouse>>(`/branches/${branch.id}/warehouses`)
-        all.push(...branchWarehouses.data)
+    const companiesList = Array.isArray(companies.value) ? companies.value : []
+    for (const company of companiesList) {
+      const companyBranches = await loadBranches(company.id).catch(() => [])
+      const branches = Array.isArray(companyBranches) ? companyBranches : []
+      for (const branch of branches) {
+        try {
+          const payload = await api.get<{ data: Warehouse[] | { data?: Warehouse[] } }>(`/branches/${branch.id}/warehouses`)
+          all.push(...unwrapWarehouses(payload))
+        } catch {
+          // Skip a branch the current role cannot list.
+        }
       }
     }
     return all
@@ -811,6 +881,26 @@ export const useBackofficeStore = defineStore('backoffice', () => {
 
   async function loadSupplierDueDates(supplierId: string) {
     return (await api.get<ApiItemResponse<SupplierDueDates>>(`/suppliers/${supplierId}/due-dates`)).data
+  }
+
+  async function loadSupplierProducts(supplierId: string) {
+    return (await api.get<ApiListResponse<{ id: string; sku: string; name: string; supplier_sku?: string | null; cost_price?: number | null }>>(`/suppliers/${supplierId}/products`)).data
+  }
+
+  async function attachSupplierProduct(supplierId: string, payload: { product_id: string; supplier_sku?: string | null; cost_price?: number | null }) {
+    return (await api.post<ApiListResponse<{ id: string; sku: string; name: string; supplier_sku?: string | null; cost_price?: number | null }>>(`/suppliers/${supplierId}/products`, payload)).data
+  }
+
+  async function detachSupplierProduct(supplierId: string, productId: string) {
+    await api.delete(`/suppliers/${supplierId}/products/${productId}`)
+  }
+
+  async function loadSupplierOrders(supplierId: string) {
+    return (await api.get<ApiListResponse<{ id: string; order_number: string; status: string; total: number; ordered_at?: string | null; expected_at?: string | null }>>(`/suppliers/${supplierId}/orders`)).data
+  }
+
+  async function loadSupplierInvoices(supplierId: string) {
+    return (await api.get<ApiListResponse<{ id: string; invoice_number: string; status: string; total: number; paid_amount: number; due_date?: string | null; invoiced_at?: string | null }>>(`/suppliers/${supplierId}/invoices`)).data
   }
 
   async function loadSupplierPayments(supplierId: string) {
@@ -997,6 +1087,18 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.post<ApiItemResponse<Record<string, unknown>>>(`/purchase-returns/${id}/act`, { action })).data
   }
 
+  async function loadPurchasePayments() {
+    return loadPaginated<{
+      id: string
+      payment_number: string
+      amount: number
+      payment_method: string
+      reference?: string | null
+      paid_at?: string | null
+      invoice?: { id: string; invoice_number: string; supplier?: { id: string; name: string } | null } | null
+    }>('/purchase-payments')
+  }
+
   async function loadPurchaseInvoices(params: string | Record<string, string> = '') {
     loading.value = true
     try {
@@ -1026,10 +1128,11 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.post<ApiItemResponse<InventoryMovement>>(`/warehouses/${warehouseId}/movements`, payload)).data
   }
 
-  async function loadStockBalances(warehouseId: string) {
+  async function loadStockBalances(warehouseId: string, inStockOnly = true) {
     loading.value = true
     try {
-      stockBalances.value = await loadPaginated<StockBalance>(`/warehouses/${warehouseId}/stock?in_stock_only=1`)
+      const query = inStockOnly ? '?in_stock_only=1' : ''
+      stockBalances.value = await loadPaginated<StockBalance>(`/warehouses/${warehouseId}/stock${query}`)
     } finally {
       loading.value = false
     }
@@ -1093,15 +1196,23 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.post<ApiItemResponse<StockTransfer>>(`/stock-transfers/${id}/confirm`)).data
   }
 
-  async function completeStockTransfer(id: string) {
-    return (await api.post<ApiItemResponse<StockTransfer>>(`/stock-transfers/${id}/complete`)).data
+  async function approveStockTransfer(id: string) {
+    return (await api.post<ApiItemResponse<StockTransfer>>(`/stock-transfers/${id}/approve`)).data
+  }
+
+  async function shipStockTransfer(id: string) {
+    return (await api.post<ApiItemResponse<StockTransfer>>(`/stock-transfers/${id}/ship`)).data
+  }
+
+  async function receiveStockTransfer(id: string) {
+    return (await api.post<ApiItemResponse<StockTransfer>>(`/stock-transfers/${id}/receive`)).data
   }
 
   async function createStockAdjustment(payload: {
     warehouse_id: string
     movement_type: string
     reason?: string
-    items: { product_id: string; quantity: number; product_variant_id?: string | null }[]
+    items: { product_id: string; quantity: number; sale_unit_id?: string | null; product_variant_id?: string | null }[]
   }) {
     return (await api.post<ApiItemResponse<StockAdjustment>>('/stock-adjustments', payload)).data
   }
@@ -1374,6 +1485,10 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.get<ApiListResponse<CustomerPayment>>(`/customers/${id}/payments`)).data
   }
 
+  async function redeemCustomerLoyalty(id: string, points: number) {
+    return (await api.post<{ data: { points: number; tier: string; tier_label: string; next_tier: string | null; points_to_next: number | null } }>(`/customers/${id}/loyalty/redeem`, { points })).data
+  }
+
   async function loadCustomerSales(id: string) {
     return (await api.get<ApiListResponse<Sale>>(`/customers/${id}/sales`)).data
   }
@@ -1570,6 +1685,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   return {
     companies, branches, catalogs, categories, brands, units, taxes, currencies, paymentMethods, promotions, promotionTypes, products,
     stores, warehouses, devices, cashRegisters, cashierShifts, currentCashierShift, users, roles, permissions, storeProducts, stats,
+    catalogAttributes,
     suppliers, customers, purchaseOrders, purchaseInvoices,
     payablesSummary, payablesSchedule, supplierPayments,
     stockBalances, stockTransfers, stockAdjustments, inventoryCounts, inventoryAlerts, sales,
@@ -1578,17 +1694,18 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadStats, loadCompanies, loadCompanyDetail, saveCompany, deleteCompany, uploadCompanyLogo, deleteCompanyLogo,
     loadCurrencies, saveCurrency, deleteCurrency,
     loadPaymentMethods, savePaymentMethod, updatePaymentMethod, deletePaymentMethod, reorderPaymentMethods,
-    loadBranches, saveBranch, deleteBranch, loadStores, saveStore, deleteStore,
-    loadWarehouses, saveWarehouse, deleteWarehouse, loadDevices, saveDevice, deleteDevice, regenerateDeviceToken,
+    loadBranches, saveBranch, deleteBranch, loadBranchProfile, addBranchExpense, loadStores, saveStore, deleteStore,
+    loadWarehouses, saveWarehouse, deleteWarehouse, loadDevices, saveDevice, deleteDevice, revokeDevice, regenerateDeviceToken,
     loadCashRegisters, saveCashRegister, deleteCashRegister,
     loadStoreCashierShifts, loadCashierShiftDetail, loadCurrentCashierShift, openCashierShift, closeCashierShift,
     getCurrentRegisterSession, openRegisterSession, closeRegisterSession, recordRegisterMovement,
     loadUsers, loadUserSessions, resetUserPassword, setUserActive, revokeUserSessions, loadRoles, loadPermissions, saveRole, deleteRole, assignUserRole, assignUserStore, removeUserRole,
     loadCatalogs, saveCatalog, deleteCatalog, loadCategories, saveCategory, deleteCategory,
     loadBrands, saveBrand, deleteBrand, loadUnits, saveUnit, deleteUnit,
+    loadCatalogAttributes, saveCatalogAttribute, deleteCatalogAttribute,
     loadTaxes, saveTax, deleteTax,
     loadPromotionTypes, loadPromotions, savePromotion, deletePromotion,
-    loadProducts, loadProduct, saveProduct, deleteProduct, transformProductOptions,
+    loadProducts, loadPriceList, loadProduct, saveProduct, deleteProduct, transformProductOptions,
     generateBarcode, printBarcode,
     uploadProductImage, deleteProductImage, setPrimaryImage,
     loadStoreProducts, importToStore, updateStoreProduct, removeFromStore,
@@ -1596,9 +1713,9 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadSuppliers, saveSupplier, deleteSupplier,
     loadPayablesSummary, loadPayablesSchedule, loadRecentSupplierPayments,
     loadSupplierSummary, loadSupplierDetail, loadSupplierStatement, loadSupplierDueDates,
-    loadSupplierPayments, recordSupplierPayment, recordPurchaseInvoicePayment,
+    loadSupplierPayments, loadSupplierProducts, attachSupplierProduct, detachSupplierProduct, loadSupplierOrders, loadSupplierInvoices, recordSupplierPayment, recordPurchaseInvoicePayment,
     loadCustomers, saveCustomer, deleteCustomer,
-    loadPurchaseOrders, loadPurchaseInvoices,
+    loadPurchaseOrders, loadPurchaseInvoices, loadPurchasePayments,
     loadExpenseDashboard, loadExpenses, createExpense, submitExpense, decideExpense, payExpense, cancelExpense,
     loadExpenseCategories, saveExpenseCategory, loadRecurringExpenses, saveRecurringExpense, generateRecurringExpenses, loadExpenseReport,
     loadPurchaseOverview, loadPurchaseRequisitions, createPurchaseRequisition, actPurchaseRequisition, convertPurchaseRequisition,
@@ -1606,7 +1723,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadPurchaseReturns, createPurchaseReturn, actPurchaseReturn,
     loadStockBalances, loadStockTransfers, loadStockAdjustments, loadInventoryAlerts,
     acknowledgeInventoryAlert, resolveInventoryAlert, refreshInventoryAlerts,
-    createStockTransfer, loadStockTransfer, confirmStockTransfer, completeStockTransfer,
+    createStockTransfer, loadStockTransfer, confirmStockTransfer, approveStockTransfer, shipStockTransfer, receiveStockTransfer,
     createStockAdjustment, loadStockAdjustment, confirmStockAdjustment, completeStockAdjustment,
     loadInventoryCounts, loadInventoryCount, createInventoryCount, createOpeningBalance, loadOpenedProductIds, loadStockLedger,
     loadTaxReport, loadTaxRegister, calculateTaxes, loadTaxGroups, saveTaxGroup, deleteTaxGroup,
@@ -1617,7 +1734,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     confirmPurchaseOrderStep,
     loadAllProducts,
     loadSales, exportSales, loadSaleReceipt, loadSaleInvoice, loadSale, loadSaleReturns, loadStoreSaleReturns, loadSaleReturn, loadReturnReasons, createSaleReturn,
-    loadCustomerDetail, loadCustomerSummary, loadCustomerHistory, loadCustomerPayments,
+    loadCustomerDetail, loadCustomerSummary, loadCustomerHistory, loadCustomerPayments, redeemCustomerLoyalty,
     loadCustomerSales, recordCustomerPayment,
     loadCustomerAddresses, saveCustomerAddress, deleteCustomerAddress,
     loadSupplierContacts, saveSupplierContact, deleteSupplierContact,

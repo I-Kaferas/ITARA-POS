@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useRoute, useRouter } from 'vue-router'
+import { extractApiErrorMessage } from '../../../api/client'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -28,10 +29,12 @@ const statement = ref<CustomerStatementLine[]>([])
 const payments = ref<CustomerPayment[]>([])
 const salesHistory = ref<Sale[]>([])
 const addresses = ref<CustomerAddress[]>([])
-const activeTab = ref<'statement' | 'payments' | 'sales' | 'addresses'>('statement')
+const activeTab = ref<'statement' | 'payments' | 'sales' | 'loyalty' | 'addresses'>('statement')
 const showPaymentModal = ref(false)
 const showAddressModal = ref(false)
 const saving = ref(false)
+const redeemPoints = ref(100)
+const redeemError = ref('')
 const editingAddress = ref<CustomerAddress | null>(null)
 
 const paymentForm = ref({
@@ -55,6 +58,7 @@ const addressForm = ref({
 })
 
 const customerId = computed(() => route.params.id as string)
+const primaryAddress = computed(() => addresses.value.find(item => item.is_primary) ?? addresses.value[0] ?? null)
 
 onMounted(() => loadAll())
 
@@ -129,6 +133,19 @@ async function removeAddress(address: CustomerAddress) {
   addresses.value = await store.loadCustomerAddresses(customerId.value)
 }
 
+async function redeemLoyalty() {
+  redeemError.value = ''
+  saving.value = true
+  try {
+    await store.redeemCustomerLoyalty(customerId.value, Math.max(1, Math.round(redeemPoints.value)))
+    await loadAll()
+  } catch (error) {
+    redeemError.value = extractApiErrorMessage(error, t('customers.redeemFailed'))
+  } finally {
+    saving.value = false
+  }
+}
+
 function transactionTypeLabel(type: string): string {
   const map: Record<string, string> = {
     SALE: 'Vente',
@@ -154,18 +171,34 @@ function transactionTypeLabel(type: string): string {
         <button class="btn-primary" @click="openPaymentModal">{{ t('customers.recordPayment') }}</button>
       </div>
 
+      <div v-if="customer" class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <p class="m-0 text-xs font-medium uppercase tracking-wide text-slate-400">{{ t('customers.identity') }}</p>
+        <div class="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+          <p class="m-0"><span class="text-slate-400">{{ t('customers.name') }}</span> · {{ customer.name }}</p>
+          <p class="m-0"><span class="text-slate-400">{{ t('customers.phone') }}</span> · {{ customer.phone || '—' }}</p>
+          <p class="m-0"><span class="text-slate-400">{{ t('auth.email') }}</span> · {{ customer.email || '—' }}</p>
+          <p class="m-0"><span class="text-slate-400">{{ t('customers.types.company') }}</span> · {{ customer.company_name || '—' }}</p>
+          <p class="m-0 sm:col-span-2">
+            <span class="text-slate-400">{{ t('customers.addresses') }}</span> ·
+            {{ primaryAddress ? [primaryAddress.line1, primaryAddress.city].filter(Boolean).join(', ') : '—' }}
+          </p>
+        </div>
+      </div>
+
       <div v-if="summary" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="stat-card">
           <p class="stat-label">{{ t('customers.receivable') }}</p>
           <p class="stat-value">{{ formatMoney(summary.receivable) }}</p>
         </div>
         <div class="stat-card">
-          <p class="stat-label">{{ t('customers.credit') }}</p>
-          <p class="stat-value">{{ formatMoney(summary.credit) }}</p>
+          <p class="stat-label">{{ t('customers.creditLimit') }}</p>
+          <p class="stat-value">{{ summary.credit_limit == null ? '—' : formatMoney(summary.credit_limit) }}</p>
+          <p class="m-0 mt-1 text-xs text-slate-400">{{ t('customers.availableCredit') }} · {{ summary.available_credit == null ? '—' : formatMoney(summary.available_credit) }}</p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('customers.loyaltyPoints') }}</p>
           <p class="stat-value">{{ summary.loyalty_points }}</p>
+          <p class="m-0 mt-1 text-xs text-slate-400">{{ summary.loyalty_tier || 'standard' }}</p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('customers.totalSales') }}</p>
@@ -175,7 +208,7 @@ function transactionTypeLabel(type: string): string {
 
       <div class="flex gap-2 border-b border-slate-200">
         <button
-          v-for="tab in ([['statement', t('payables.tabs.statement')], ['payments', t('payables.tabs.payments')], ['sales', t('nav.sales')], ['addresses', t('customers.addresses')]] as const)"
+          v-for="tab in ([['statement', t('payables.tabs.statement')], ['payments', t('payables.tabs.payments')], ['sales', t('nav.sales')], ['loyalty', t('customers.loyalty')], ['addresses', t('customers.addresses')]] as const)"
           :key="tab[0]"
           class="tab-btn"
           :class="{ 'tab-btn--active': activeTab === tab[0] }"
@@ -256,6 +289,19 @@ function transactionTypeLabel(type: string): string {
           </tbody>
         </table>
         <p v-if="!salesHistory.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+
+      <div v-else-if="activeTab === 'loyalty'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-3">
+        <p class="m-0 text-sm text-slate-500">{{ t('customers.loyaltyHint') }}</p>
+        <p class="m-0 text-sm">{{ summary?.loyalty_points ?? 0 }} {{ t('customers.loyaltyPoints') }} · {{ summary?.loyalty_tier || 'standard' }}</p>
+        <form class="flex flex-wrap items-end gap-3" @submit.prevent="redeemLoyalty">
+          <label class="text-sm">
+            <span class="mb-1 block font-medium">{{ t('customers.redeemPoints') }}</span>
+            <input v-model.number="redeemPoints" type="number" min="1" class="field w-32" />
+          </label>
+          <button type="submit" class="btn-primary" :disabled="saving">{{ t('customers.redeem') }}</button>
+        </form>
+        <p v-if="redeemError" class="m-0 text-sm text-red-600">{{ redeemError }}</p>
       </div>
 
       <div v-else class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">

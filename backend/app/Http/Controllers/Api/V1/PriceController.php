@@ -2,18 +2,90 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\PriceType;
 use App\Http\Controllers\Controller;
+use App\Models\Catalog;
+use App\Models\Currency;
 use App\Models\Price;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Store;
+use App\Models\StoreProduct;
+use App\Services\Catalog\CurrencyConverter;
 use App\Services\Catalog\PriceService;
+use App\Services\Catalog\TaxQuote;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class PriceController extends Controller
 {
-    public function __construct(private PriceService $prices) {}
+    public function __construct(
+        private PriceService $prices,
+        private TaxQuote $quotes,
+        private CurrencyConverter $currencies,
+    ) {}
+
+    public function types(): JsonResponse
+    {
+        return response()->json([
+            'data' => array_map(
+                fn (string $code) => ['code' => $code, 'label' => config("product_types.price_types.{$code}", $code)],
+                PriceType::sellableValues(),
+            ),
+        ]);
+    }
+
+    public function catalog(Catalog $catalog): JsonResponse
+    {
+        $default = $this->currencies->defaultCode();
+        $products = $catalog->products()
+            ->with(['tax', 'prices'])
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'default_currency' => $default,
+            'currencies' => Currency::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('code')->get(),
+            'data' => $products->map(fn (Product $product) => $this->presentRow($product, $default))->values(),
+        ]);
+    }
+
+    public function resolveForStoreProduct(Request $request, Store $store, Product $product): JsonResponse
+    {
+        $data = $request->validate([
+            'price_type' => ['nullable', 'string', Rule::in(PriceType::values())],
+            'quantity' => ['nullable', 'integer', 'min:1'],
+            'currency' => ['nullable', 'string', 'size:3'],
+        ]);
+
+        $storeProduct = StoreProduct::query()
+            ->where('store_id', $store->id)
+            ->where('product_id', $product->id)
+            ->first();
+
+        $type = $data['price_type'] ?? 'retail';
+        $quantity = (int) ($data['quantity'] ?? 1);
+        $resolved = $storeProduct
+            ? $this->prices->resolveForStoreProduct($storeProduct, $type, $quantity)
+            : $this->prices->resolve($product, $store, $type, $quantity, currency: $data['currency'] ?? null);
+
+        if (! empty($data['currency']) && $resolved->currencyCode) {
+            $resolved = $this->prices->resolve($product, $store, $resolved->priceType, $quantity, currency: $data['currency']);
+        }
+
+        $product->loadMissing('tax');
+
+        return response()->json([
+            'data' => [
+                'amount' => $resolved->amount,
+                'price_type' => $resolved->priceType,
+                'source' => $resolved->source,
+                'currency_code' => $resolved->currencyCode,
+                'quote' => $this->quotes->quote($resolved->amount, $product->tax),
+            ],
+        ]);
+    }
 
     public function indexForProduct(Product $product): JsonResponse
     {
@@ -66,6 +138,39 @@ class PriceController extends Controller
         $price->delete();
 
         return response()->json(['message' => 'Deleted.']);
+    }
+
+    /** @return array<string, mixed> */
+    private function presentRow(Product $product, string $defaultCurrency): array
+    {
+        $tiers = [];
+        foreach (PriceType::sellableValues() as $type) {
+            $resolved = $this->prices->resolve($product, priceType: $type);
+            $quote = $this->quotes->quote($resolved->amount, $product->tax);
+            $currency = $resolved->currencyCode ?: $defaultCurrency;
+            $tiers[$type] = [
+                'amount' => $resolved->amount,
+                'currency_code' => $currency,
+                'source' => $resolved->source,
+                'price_id' => $resolved->priceId,
+                'quote' => $quote,
+                'in_default' => $this->currencies->convert($resolved->amount, $currency, $defaultCurrency),
+            ];
+        }
+
+        return [
+            'id' => $product->id,
+            'sku' => $product->sku,
+            'name' => $product->name,
+            'tax' => $product->tax ? [
+                'id' => $product->tax->id,
+                'code' => $product->tax->code,
+                'name' => $product->tax->name,
+                'rate' => $product->tax->rate,
+                'is_inclusive' => $product->tax->is_inclusive,
+            ] : null,
+            'prices' => $tiers,
+        ];
     }
 
     /** @return array<string, mixed> */

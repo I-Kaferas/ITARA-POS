@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -55,13 +57,27 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
     try {
       final session = await _auth.login(_pin);
       final repo = TerminalConfigRepository.instance;
+      final profile = await _auth.downloadCompanyProfile(
+        token: session.token,
+        tenantId: repo.config.tenantId,
+      );
+      final currency = (profile?['currency_code'] as String?)?.trim();
+      final locale = (profile?['locale'] as String?)?.trim();
+      final timezone = (profile?['timezone'] as String?)?.trim();
       await repo.save(repo.config.copyWith(
         authToken: session.token,
         refreshToken: session.refreshToken,
         tokenExpiresAt: DateTime.now().add(Duration(seconds: session.expiresIn)).toIso8601String(),
         cashierId: session.id,
         cashierName: session.name,
+        permissions: session.permissions,
+        roles: session.roles,
+        pinVerifier: PinAuthService.pinVerifier(session.id, _pin),
         isSignedIn: true,
+        currencyCode: currency == null || currency.isEmpty ? repo.config.currencyCode : currency,
+        locale: locale == null || locale.isEmpty ? repo.config.locale : locale,
+        timezone: timezone == null || timezone.isEmpty ? repo.config.timezone : timezone,
+        companyProfile: profile == null ? repo.config.companyProfile : jsonEncode(profile),
       ));
     } catch (error) {
       if (!mounted) return;

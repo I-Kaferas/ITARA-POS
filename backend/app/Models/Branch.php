@@ -19,6 +19,7 @@ class Branch extends Model
         'name',
         'code',
         'address',
+        'settings',
         'is_active',
     ];
 
@@ -26,6 +27,7 @@ class Branch extends Model
     {
         return [
             'address' => 'array',
+            'settings' => 'array',
             'is_active' => 'boolean',
         ];
     }
@@ -43,5 +45,10 @@ class Branch extends Model
     public function warehouses(): HasMany
     {
         return $this->hasMany(Warehouse::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(BranchExpense::class);
     }
 }

@@ -24,7 +24,7 @@ const historyLoading = ref(false)
 const saving = ref(false)
 
 const movementTypes = [
-  { value: 'INITIAL_STOCK', label: t('inventory.types.initial') },
+  { value: 'OPENING', label: t('inventory.types.opening') },
   { value: 'PURCHASE', label: t('inventory.types.purchase') },
   { value: 'SALE', label: t('inventory.types.sale') },
   { value: 'SALE_RETURN', label: t('inventory.types.saleReturn') },
@@ -81,7 +81,7 @@ onMounted(async () => {
 
 watch(warehouseId, async (id) => {
   if (!id) return
-  await store.loadStockBalances(id)
+  await store.loadStockBalances(id, false)
 })
 
 function stockQty(row: StockBalance) {
@@ -97,7 +97,7 @@ async function openCreate() {
   }
   form.value = {
     product_id: products.value[0]?.id ?? '',
-    movement_type: 'INITIAL_STOCK',
+    movement_type: 'OPENING',
     quantity: 1,
     notes: '',
   }
@@ -115,7 +115,7 @@ async function save() {
       notes: form.value.notes || undefined,
     })
     showModal.value = false
-    await store.loadStockBalances(warehouseId.value)
+    await store.loadStockBalances(warehouseId.value, false)
   } finally {
     saving.value = false
   }
@@ -127,17 +127,23 @@ function unitLabel(row: StockBalance) {
 }
 
 function movementLabel(type: string) {
+  if (type === 'INITIAL_STOCK' || type === 'OPENING') return t('inventory.types.opening')
   return movementTypes.find(item => item.value === type)?.label ?? type
+}
+
+function specCode(row: InventoryMovement) {
+  return row.spec_code || (row.movement_type === 'INITIAL_STOCK' ? 'OPENING' : row.movement_type)
+}
+
+function signedQty(row: InventoryMovement) {
+  const qty = Number(row.quantity) || 0
+  return `${qty > 0 ? '+' : ''}${qty}`
 }
 
 function isInbound(row: InventoryMovement) {
   const qty = Number(row.quantity) || 0
   if (qty !== 0) return qty > 0
   return inboundTypes.has(row.movement_type)
-}
-
-function displayQty(row: InventoryMovement) {
-  return Math.abs(Number(row.quantity) || 0)
 }
 
 async function openHistory(row: StockBalance) {
@@ -170,6 +176,7 @@ async function openHistory(row: StockBalance) {
         <button class="btn-primary" :disabled="!warehouseId" @click="openCreate">+ {{ t('inventory.newMovement') }}</button>
       </div>
 
+      <p class="m-0 text-xs text-slate-500">{{ t('inventory.movementRule') }}</p>
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -221,31 +228,31 @@ async function openHistory(row: StockBalance) {
           {{ historyRow?.product?.sku }} · {{ t('inventory.onHand') }} {{ historyRow ? stockQty(historyRow) : '—' }}
         </p>
         <p v-if="historyLoading" class="text-sm text-slate-500">{{ t('common.loading') }}</p>
-        <div v-else class="history-list">
+        <div v-else class="overflow-hidden rounded-xl ring-1 ring-slate-200">
           <p v-if="!history.length" class="px-3 py-6 text-center text-sm text-slate-500">{{ t('inventory.historyEmpty') }}</p>
-          <div v-for="row in history" :key="row.id" class="history-row">
-            <span
-              class="history-arrow"
-              :class="isInbound(row) ? 'history-arrow--in' : 'history-arrow--out'"
-              :title="isInbound(row) ? t('inventory.historyIn') : t('inventory.historyOut')"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path v-if="isInbound(row)" d="M12 19V6M6.5 11.5 12 5l5.5 6.5" />
-                <path v-else d="M12 5v13M6.5 12.5 12 19l5.5-6.5" />
-              </svg>
-            </span>
-            <div class="min-w-0 flex-1">
-              <span class="block font-medium">{{ movementLabel(row.movement_type) }}</span>
-              <span class="text-xs text-slate-500">
-                {{ formatDate(row.occurred_at) }}
-                <span v-if="row.performed_by?.name"> · {{ row.performed_by.name }}</span>
-              </span>
-              <span v-if="row.notes" class="mt-0.5 block truncate text-xs text-slate-500">{{ row.notes }}</span>
-            </div>
-            <span class="history-qty" :class="isInbound(row) ? 'history-qty--in' : 'history-qty--out'">
-              {{ isInbound(row) ? '+' : '−' }}{{ displayQty(row) }}
-            </span>
-          </div>
+          <table v-else class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <tr>
+                <th class="px-3 py-2">{{ t('inventory.movementType') }}</th>
+                <th class="px-3 py-2 text-right">{{ t('sales.qty') }}</th>
+                <th class="px-3 py-2 text-right">{{ t('inventory.balanceAfter') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in history" :key="row.id" class="border-t border-slate-100">
+                <td class="px-3 py-2">
+                  <span class="font-mono font-semibold">{{ specCode(row) }}</span>
+                  <span class="mt-0.5 block text-xs text-slate-500">
+                    {{ movementLabel(row.movement_type) }} · {{ formatDate(row.occurred_at) }}
+                  </span>
+                </td>
+                <td class="px-3 py-2 text-right font-mono" :class="isInbound(row) ? 'text-emerald-700' : 'text-rose-700'">
+                  {{ signedQty(row) }}
+                </td>
+                <td class="px-3 py-2 text-right font-mono font-semibold">{{ row.balance_after ?? '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showHistory = false">{{ t('common.cancel') }}</button>

@@ -7,6 +7,7 @@ import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
 import type { Barcode, BarcodeType, Brand, Category, Price, Product, ProductBundleItem, ProductImage, ProductType, ProductVariant, Tax, Unit } from '../../types'
 import { getAppCurrency } from '../../utils/currency'
+import { taxQuote } from '../../utils/taxQuote'
 import { isStockableProduct } from '../../utils/product'
 
 const STOCKABLE_TYPES: ProductType[] = ['simple', 'variant', 'batch', 'bundle']
@@ -54,6 +55,9 @@ const allProducts = ref<Product[]>([])
 const brandOptions = ref<Brand[]>([])
 const unitOptions = ref<Unit[]>([])
 const taxOptions = ref<Tax[]>([])
+
+const selectedTax = computed(() => taxOptions.value.find(tax => tax.id === form.value.tax_id) ?? null)
+const sellingQuote = computed(() => taxQuote(toCents(form.value.base_price), Number(selectedTax.value?.rate ?? 0), Boolean(selectedTax.value?.is_inclusive)))
 
 const isQuantifiable = computed(() => isStockableProduct(form.value))
 const stockableComponents = computed(() => allProducts.value.filter(isStockableProduct))
@@ -118,6 +122,7 @@ async function loadLookups() {
     store.loadBrands().catch(() => store.brands),
     store.loadUnits(false).catch(() => store.units),
     store.loadTaxes(true).catch(() => store.taxes),
+    store.loadCurrencies(true).catch(() => store.currencies),
   ])
   brandOptions.value = asList<Brand>(brands)
   unitOptions.value = asList<Unit>(units)
@@ -204,6 +209,10 @@ async function printBarcodeRow(bc: Partial<Barcode>) {
 
 function addPrice() {
   prices.value.push({ price_type: 'retail', amount: 0, currency_code: getAppCurrency(), min_quantity: 1, is_active: true })
+}
+
+function formatQuote(cents: number) {
+  return (cents / 100).toFixed(2)
 }
 
 function toCents(value: unknown): number {
@@ -443,6 +452,9 @@ async function makePrimary(id: string) {
           <input v-model.number="form.expiration_days" type="number" min="1" class="field max-w-xs" />
         </div>
         <label class="flex items-center gap-2 text-sm"><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
+        <p v-if="product && isQuantifiable" class="text-sm text-slate-600">
+          {{ t('products.stock') }} : <span class="font-medium">{{ product.stock ?? 0 }}</span>
+        </p>
       </div>
 
       <!-- Pricing -->
@@ -452,11 +464,17 @@ async function makePrimary(id: string) {
           <div><label class="label">{{ t('products.price') }}</label><input v-model.number="form.base_price" type="number" step="0.01" min="0" class="field" /></div>
           <div><label class="label">{{ t('products.cost') }}</label><input v-model.number="form.cost_price" type="number" step="0.01" min="0" class="field" /></div>
         </div>
+        <p class="m-0 text-sm text-slate-600">
+          HT {{ formatQuote(sellingQuote.ht) }}
+          · TVA {{ formatQuote(sellingQuote.tva) }}
+          · TTC {{ formatQuote(sellingQuote.ttc) }}
+          <span v-if="selectedTax" class="text-slate-400">({{ selectedTax.code }} {{ selectedTax.rate }}%)</span>
+        </p>
         <div class="flex items-center justify-between">
           <h3 class="font-medium">{{ t('products.priceTiers') }}</h3>
           <button type="button" class="text-sm text-brand-600" @click="addPrice">+ {{ t('products.addPrice') }}</button>
         </div>
-        <div v-for="(price, i) in prices" :key="i" class="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-4">
+        <div v-for="(price, i) in prices" :key="i" class="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-5">
           <select v-model="price.price_type" class="field">
             <option value="base">{{ t('products.priceTypes.base') }}</option>
             <option value="retail">{{ t('products.priceTypes.retail') }}</option>
@@ -466,6 +484,10 @@ async function makePrimary(id: string) {
             <option value="special">{{ t('products.priceTypes.special') }}</option>
           </select>
           <input v-model.number="price.amount" type="number" step="0.01" min="0" class="field" :placeholder="t('common.amount')" />
+          <select v-model="price.currency_code" class="field">
+            <option v-for="currency in store.currencies" :key="currency.id" :value="currency.code">{{ currency.code }}</option>
+            <option v-if="!store.currencies.length" :value="getAppCurrency()">{{ getAppCurrency() }}</option>
+          </select>
           <input v-model.number="price.min_quantity" type="number" min="1" class="field" :placeholder="t('common.minQty')" />
           <button type="button" class="text-red-600 text-sm" @click="prices.splice(i, 1)">{{ t('common.delete') }}</button>
         </div>

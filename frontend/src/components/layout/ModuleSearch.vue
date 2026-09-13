@@ -27,6 +27,7 @@ const modules = computed(() => [
   { to: '/admin/catalog/units', label: t('nav.units'), group: t('nav.catalog'), keywords: 'unite mesure unit kg piece' },
   { to: '/admin/catalog/catalogs', label: t('catalog.tabs.catalogs'), group: t('nav.catalog'), keywords: 'catalogues' },
   { to: '/admin/catalog/categories', label: t('catalog.tabs.categories'), group: t('nav.catalog'), keywords: 'categories' },
+  { to: '/admin/catalog/attributes', label: t('nav.attributes'), group: t('nav.catalog'), keywords: 'attributs couleur taille variantes' },
   { to: '/admin/catalog/taxes', label: t('catalog.tabs.taxes'), group: t('nav.catalog'), keywords: 'taxes tva' },
   { to: '/admin/customers', label: t('nav.customers'), group: t('nav.catalog'), keywords: 'clients' },
   { to: '/admin/stores', label: t('nav.stores'), group: t('nav.section.commerce'), keywords: 'magasins' },

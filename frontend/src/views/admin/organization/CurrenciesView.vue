@@ -151,6 +151,7 @@ function closeModal() {
           <div>
             <label class="label">{{ t('org.exchangeRate') }}</label>
             <input v-model.number="form.exchange_rate" type="number" min="0" step="0.00000001" required class="field" />
+            <p class="mt-1 text-xs text-slate-500">{{ t('org.exchangeRateHint') }}</p>
           </div>
         </div>
 

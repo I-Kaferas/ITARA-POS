@@ -19,6 +19,7 @@ class Store extends Model
         'branch_id',
         'name',
         'code',
+        'kind',
         'is_active',
     ];
 
@@ -32,6 +33,16 @@ class Store extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function cashRegisters(): HasMany
+    {
+        return $this->hasMany(CashRegister::class);
+    }
+
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'store_user')->withTimestamps();
     }
 
     public function devices(): HasMany

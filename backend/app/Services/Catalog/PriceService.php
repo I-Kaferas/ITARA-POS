@@ -22,7 +22,19 @@ class PriceService
         }
 
         foreach ($prices as $item) {
-            $this->createOrUpdate($model, $item);
+            $existing = null;
+            if (! empty($item['id'])) {
+                $existing = $model->prices()->whereKey($item['id'])->first();
+            }
+            if (! $existing && ! empty($item['price_type'])) {
+                $existing = $model->prices()
+                    ->where('price_type', $item['price_type'])
+                    ->where('store_id', $item['store_id'] ?? null)
+                    ->where('currency_code', strtoupper($item['currency_code'] ?? $this->resolveCurrencyCode($model)))
+                    ->where('min_quantity', $item['min_quantity'] ?? 1)
+                    ->first();
+            }
+            $this->createOrUpdate($model, $item, $existing);
         }
 
         $base = collect($prices)->firstWhere('price_type', 'base')
@@ -66,6 +78,7 @@ class PriceService
         string $priceType = 'retail',
         int $quantity = 1,
         ?Carbon $at = null,
+        ?string $currency = null,
     ): ResolvedPrice {
         $at ??= now();
 
@@ -73,20 +86,22 @@ class PriceService
             $tier = $this->findActiveTier($model, $type, $store, $quantity, $at);
 
             if ($tier !== null) {
-                return new ResolvedPrice(
+                return $this->inCurrency(new ResolvedPrice(
                     amount: $tier->amount,
                     priceType: $type,
                     source: 'tier',
                     priceId: $tier->id,
-                );
+                    currencyCode: strtoupper($tier->currency_code ?: $this->resolveCurrencyCode($model)),
+                ), $currency);
             }
         }
 
-        return new ResolvedPrice(
+        return $this->inCurrency(new ResolvedPrice(
             amount: $model->base_price,
             priceType: $priceType,
             source: 'base_fallback',
-        );
+            currencyCode: $this->resolveCurrencyCode($model),
+        ), $currency);
     }
 
     public function resolveForStoreProduct(
@@ -100,6 +115,7 @@ class PriceService
                 amount: $storeProduct->price_override,
                 priceType: $priceType,
                 source: 'store_override',
+                currencyCode: $this->resolveCurrencyCode($storeProduct->product),
             );
         }
 
@@ -199,5 +215,21 @@ class PriceService
         $companyCode = Company::query()->where('is_active', true)->value('currency_code');
 
         return strtoupper($companyCode ?: 'FBU');
+    }
+
+    private function inCurrency(ResolvedPrice $price, ?string $currency): ResolvedPrice
+    {
+        $target = strtoupper(trim((string) $currency));
+        if ($target === '' || $target === strtoupper((string) $price->currencyCode)) {
+            return $price;
+        }
+
+        return new ResolvedPrice(
+            amount: app(CurrencyConverter::class)->convert($price->amount, (string) $price->currencyCode, $target),
+            priceType: $price->priceType,
+            source: $price->source,
+            priceId: $price->priceId,
+            currencyCode: $target,
+        );
     }
 }

@@ -17,6 +17,15 @@ class WarehouseController extends Controller
         ]);
     }
 
+    public function indexAll(): JsonResponse
+    {
+        return response()->json([
+            'data' => Warehouse::query()
+                ->orderBy('name')
+                ->get(),
+        ]);
+    }
+
     public function store(Request $request, Branch $branch): JsonResponse
     {
         $data = $request->validate([

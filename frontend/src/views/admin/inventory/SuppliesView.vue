@@ -150,6 +150,18 @@ async function confirm(id: string, status: string) {
   ))) return
   try {
     await store.confirmPurchaseOrderStep(id)
+    if (approve) {
+      const order = await store.loadPurchaseOrder(id)
+      const items = (order.items ?? [])
+        .map(item => ({
+          purchase_order_item_id: item.id,
+          quantity: item.remaining ?? Math.max(0, (item.quantity_ordered ?? item.quantity) - (item.received_quantity ?? item.quantity_received ?? 0)),
+        }))
+        .filter(item => item.quantity > 0)
+      if (items.length) {
+        await store.receivePurchaseOrder(id, { notes: 'Confirmation de l’approvisionnement', items })
+      }
+    }
     await store.loadPurchaseOrders()
   } catch (error) {
     await notify(extractApiErrorMessage(error))

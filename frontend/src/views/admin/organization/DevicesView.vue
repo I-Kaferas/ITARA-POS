@@ -204,7 +204,19 @@ function connectionIcon(connection: string) {
 }
 
 function registrationLabel(status?: string) {
-  return status === 'registered' ? t('org.registrationRegistered') : t('org.registrationPending')
+  if (status === 'registered' || status === 'active') return t('org.registrationRegistered')
+  if (status === 'revoked') return t('org.deviceRevoked')
+  return t('org.registrationPending')
+}
+
+function deviceStatus(device: Device) {
+  return device.status ?? (device.registration_status === 'registered' ? 'active' : device.registration_status)
+}
+
+async function revoke(device: Device) {
+  if (!confirm(t('org.confirmRevokeDevice'))) return
+  await store.revokeDevice(device.id)
+  if (storeId.value) await store.loadDevices(storeId.value)
 }
 </script>
 
@@ -229,6 +241,7 @@ function registrationLabel(status?: string) {
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
             <tr>
+              <th class="px-4 py-3 text-left font-medium">{{ t('org.deviceCode') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.deviceName') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.deviceCategory') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.deviceRole') }}</th>
@@ -240,8 +253,13 @@ function registrationLabel(status?: string) {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr v-for="device in store.devices" :key="device.id" class="hover:bg-slate-50">
+              <td class="px-4 py-3 font-mono text-xs">{{ device.code || '—' }}</td>
               <td class="px-4 py-3">
                 <p class="m-0 font-medium">{{ device.name }}</p>
+                <p class="m-0 text-xs text-slate-400">
+                  {{ device.user?.name || '—' }} · {{ device.branch?.name || '—' }}
+                  <template v-if="device.app_version"> · {{ device.app_version }}</template>
+                </p>
                 <p v-if="device.connection_type" class="m-0 text-xs text-slate-400">
                   {{ t(`org.connections.${device.connection_type}`) }}
                   <template v-if="device.ip_address"> · {{ device.ip_address }}<span v-if="device.port">:{{ device.port }}</span></template>
@@ -250,9 +268,13 @@ function registrationLabel(status?: string) {
               <td class="px-4 py-3 text-slate-600">{{ categoryLabel(device.category ?? device.device_type) }}</td>
               <td class="px-4 py-3 text-slate-600">{{ t(`org.roles.${device.pos_role ?? 'standalone'}`) }}</td>
               <td class="px-4 py-3">
-                <span class="reg-pill" :class="device.registration_status === 'registered' ? 'reg-pill--ok' : 'reg-pill--pending'">
-                  {{ registrationLabel(device.registration_status) }}
+                <span class="reg-pill" :class="deviceStatus(device) === 'active' ? 'reg-pill--ok' : 'reg-pill--pending'">
+                  {{ registrationLabel(deviceStatus(device)) }}
                 </span>
+                <p v-if="device.local_server" class="m-0 mt-1 text-xs text-slate-400">{{ device.local_server }}</p>
+                <p v-if="device.last_sync || device.last_sync_at" class="m-0 mt-1 text-xs text-slate-400">
+                  {{ t('org.lastSync') }} · {{ device.last_sync || device.last_sync_at }}
+                </p>
               </td>
               <td class="px-4 py-3">
                 <div v-if="device.sync_token" class="token-cell">
@@ -268,6 +290,7 @@ function registrationLabel(status?: string) {
               <td class="px-4 py-3"><StatusBadge :active="device.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
                 <button class="text-brand-600" @click="openEdit(device)">{{ t('common.edit') }}</button>
+                <button v-if="deviceStatus(device) !== 'revoked'" class="text-amber-700" @click="revoke(device)">{{ t('org.revokeDevice') }}</button>
                 <button class="text-red-600" @click="remove(device)">{{ t('common.delete') }}</button>
               </td>
             </tr>

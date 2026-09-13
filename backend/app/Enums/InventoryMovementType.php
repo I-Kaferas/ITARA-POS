@@ -23,6 +23,25 @@ enum InventoryMovementType: string
         return array_column(self::cases(), 'value');
     }
 
+    /**
+     * Spec ledger label. Opening stock is stored as INITIAL_STOCK and shown as OPENING.
+     */
+    public function specCode(): string
+    {
+        return $this === self::InitialStock ? 'OPENING' : $this->value;
+    }
+
+    public static function parse(string $value): self
+    {
+        $normalized = strtoupper(trim($value));
+
+        if ($normalized === 'OPENING') {
+            return self::InitialStock;
+        }
+
+        return self::from($normalized);
+    }
+
     public function isInbound(): bool
     {
         return match ($this) {

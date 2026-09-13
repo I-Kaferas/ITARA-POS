@@ -12,6 +12,8 @@ class PurchaseOrderItem extends Model
 {
     use BelongsToTenant, HasUuids;
 
+    protected $appends = ['quantity', 'remaining'];
+
     protected $fillable = [
         'tenant_id',
         'purchase_order_id',
@@ -60,6 +62,16 @@ class PurchaseOrderItem extends Model
     public function quantityRemaining(): int
     {
         return max(0, $this->quantity_ordered - $this->quantity_received);
+    }
+
+    public function getQuantityAttribute(): int
+    {
+        return (int) $this->quantity_ordered;
+    }
+
+    public function getRemainingAttribute(): int
+    {
+        return $this->quantityRemaining();
     }
 
     public static function computeLineTotal(int $quantity, int $unitCost, float $taxRate = 0): int

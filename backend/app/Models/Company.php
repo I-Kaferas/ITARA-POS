@@ -26,6 +26,8 @@ class Company extends Model
         'website',
         'logo_url',
         'currency_code',
+        'locale',
+        'timezone',
         'address',
         'settings',
         'is_active',

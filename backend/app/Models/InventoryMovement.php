@@ -16,6 +16,8 @@ class InventoryMovement extends Model
 
     public const UPDATED_AT = null;
 
+    protected $appends = ['spec_code'];
+
     protected $fillable = [
         'tenant_id',
         'warehouse_id',
@@ -43,6 +45,11 @@ class InventoryMovement extends Model
             'unit_cost' => 'integer',
             'occurred_at' => 'datetime',
         ];
+    }
+
+    public function getSpecCodeAttribute(): string
+    {
+        return $this->movement_type->specCode();
     }
 
     public static function booted(): void

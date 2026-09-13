@@ -379,6 +379,11 @@ class PosCartLine {
 
   int get lineSubtotal => unitPrice * quantity;
 
+  int get lineTax {
+    final base = (lineSubtotal - lineDiscountFixed).clamp(0, lineSubtotal);
+    return (base * taxRate / 100).round();
+  }
+
   String get displayName {
     final option = variantLabel?.trim();
     if (option == null || option.isEmpty) return product.name;

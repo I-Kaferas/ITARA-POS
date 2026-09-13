@@ -29,6 +29,10 @@ class RoleProvisioningService
                 ],
             );
 
+            if ($role->is_system && $role->name !== $definition['name']) {
+                $role->forceFill(['name' => $definition['name']])->save();
+            }
+
             $this->syncRolePermissions($role, $definition['permissions']);
 
             $roles->put($slug, $role);

@@ -68,6 +68,7 @@ class StockAdjustmentController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'uuid', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.sale_unit_id' => ['nullable', 'uuid', 'exists:product_sale_units,id'],
             'items.*.product_variant_id' => ['nullable', 'uuid', 'exists:product_variants,id'],
             'items.*.batch_id' => ['nullable', 'uuid', 'exists:batches,id'],
             'items.*.unit_cost' => ['nullable', 'integer', 'min:0'],

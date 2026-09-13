@@ -32,7 +32,10 @@ const preview = computed(() => {
   return rows.slice(0, 100)
 })
 
-onMounted(load)
+onMounted(async () => {
+  await store.loadCatalogAttributes(true)
+  await load()
+})
 
 async function load() {
   await store.loadCompanies()
@@ -79,6 +82,16 @@ function groupsFromVariants(product: Product): { name: string; values: string[] 
     }
   }
   return [...map.entries()].map(([name, values]) => ({ name, values }))
+}
+
+function useAttribute(code: string, index: number) {
+  const attribute = store.catalogAttributes.find(item => item.code === code)
+  if (!attribute) return
+  groups.value[index] = {
+    name: attribute.name,
+    values: [...attribute.values],
+    draft: '',
+  }
 }
 
 function addGroup() {
@@ -180,6 +193,12 @@ function optionLabel(product: Product) {
             <span class="text-sm font-medium">{{ t('catalog.options.group') }} {{ index + 1 }}</span>
             <button v-if="groups.length > 1" type="button" class="text-sm text-red-600" @click="groups.splice(index, 1)">{{ t('common.delete') }}</button>
           </div>
+          <select class="field" :value="''" @change="useAttribute(($event.target as HTMLSelectElement).value, index); ($event.target as HTMLSelectElement).value = ''">
+            <option value="">{{ t('catalog.options.useAttribute') }}</option>
+            <option v-for="attribute in store.catalogAttributes" :key="attribute.id" :value="attribute.code">
+              {{ attribute.name }} — {{ attribute.values.join(', ') }}
+            </option>
+          </select>
           <input v-model="group.name" class="field" :placeholder="t('catalog.options.groupName')" />
           <div>
             <label class="mb-1 block text-xs text-slate-500">{{ t('catalog.options.values') }}</label>

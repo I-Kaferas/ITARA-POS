@@ -125,6 +125,9 @@ const productCount = computed(() => store.products.length)
             <th>{{ t('products.name') }}</th>
             <th>{{ t('products.type') }}</th>
             <th>{{ t('products.price') }}</th>
+            <th>{{ t('products.cost') }}</th>
+            <th>{{ t('catalog.tabs.taxes') }}</th>
+            <th>{{ t('products.stock') }}</th>
             <th>{{ t('products.status') }}</th>
             <th />
           </tr>
@@ -142,8 +145,16 @@ const productCount = computed(() => store.products.length)
                 <AppIcon name="products" :size="16" />
               </div>
             </td>
-            <td><code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{{ product.sku }}</code></td>
-            <td class="!font-semibold !text-slate-800">{{ product.name }}</td>
+            <td>
+              <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{{ product.sku }}</code>
+              <span v-if="product.barcode" class="mt-1 block text-xs text-slate-400">{{ product.barcode }}</span>
+            </td>
+            <td class="!font-semibold !text-slate-800">
+              {{ product.name }}
+              <span class="mt-1 block text-xs font-normal text-slate-400">
+                {{ [product.category?.name, product.brand?.name, product.unit_model?.symbol || product.unit].filter(Boolean).join(' · ') || '—' }}
+              </span>
+            </td>
             <td>
               <Badge :variant="isStockableProduct(product) ? 'brand' : 'warning'">
                 {{ isStockableProduct(product) ? t('products.natures.quantifiable.label') : t('products.natures.service.label') }}
@@ -153,6 +164,9 @@ const productCount = computed(() => store.products.length)
               </span>
             </td>
             <td class="!font-medium">{{ formatPrice(product.base_price) }}</td>
+            <td>{{ formatPrice(product.cost_price ?? 0) }}</td>
+            <td class="text-slate-600">{{ product.tax ? `${product.tax.code ?? product.tax.name}` : '—' }}</td>
+            <td>{{ isStockableProduct(product) ? (product.stock ?? 0) : '—' }}</td>
             <td>
               <Badge :variant="product.is_active ? 'success' : 'neutral'">
                 {{ product.is_active ? t('products.active') : t('products.inactive') }}

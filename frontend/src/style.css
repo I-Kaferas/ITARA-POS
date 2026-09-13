@@ -972,7 +972,7 @@ body {
   width: 100%;
   max-height: min(90dvh, 44rem);
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: auto;
   border-radius: 0.9rem;
   border: 1px solid #e2e8f0;
@@ -1098,7 +1098,13 @@ body {
   border: 1px solid #cbd5e1;
   padding: 0.45rem 0.7rem;
   font-size: 0.875rem;
+  color: #0f172a;
   background: white;
+}
+
+.app-modal__body select.field option {
+  color: #0f172a;
+  background: #fff;
 }
 
 .app-modal__body .label,

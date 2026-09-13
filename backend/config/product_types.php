@@ -25,6 +25,9 @@ return [
         'base' => 'Prix de base',
         'retail' => 'Prix détail',
         'wholesale' => 'Prix gros',
+        'vip' => 'Prix VIP',
+        'special' => 'Prix spécial',
+        'distributor' => 'Distributeur',
         'promo' => 'Promotion',
     ],
 

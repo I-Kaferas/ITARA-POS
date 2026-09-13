@@ -330,12 +330,12 @@ class CycleCountService
                         'warehouse' => $count->warehouse,
                         'product' => $product,
                         'movement_type' => $delta > 0
-                            ? InventoryMovementType::CycleCountAdjustmentIn
-                            : InventoryMovementType::CycleCountAdjustmentOut,
+                            ? InventoryMovementType::AdjustmentIn
+                            : InventoryMovementType::AdjustmentOut,
                         'quantity' => abs($delta),
                         'reference' => $count,
                         'performed_by' => $user->id,
-                        'notes' => trim("Différence comptage cyclique {$count->count_number}".($item->variance_reason ? ' · '.$item->variance_reason : '').($item->notes ? ' · '.$item->notes : '')),
+                        'notes' => trim("Comptage cyclique {$count->count_number} · stock système {$system} · stock physique {$physical} · différence ".($delta > 0 ? '+' : '').$delta.($item->variance_reason ? ' · '.$item->variance_reason : '')),
                         'occurred_at' => now(),
                     ]);
                 }

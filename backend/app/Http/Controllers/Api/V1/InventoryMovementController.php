@@ -23,6 +23,7 @@ class InventoryMovementController extends Controller
         return response()->json([
             'data' => collect(InventoryMovementType::cases())->map(fn (InventoryMovementType $type) => [
                 'value' => $type->value,
+                'spec_code' => $type->specCode(),
                 'direction' => $type->isInbound() ? 'in' : 'out',
             ])->values(),
         ]);
@@ -40,7 +41,15 @@ class InventoryMovementController extends Controller
         }
 
         if ($request->filled('movement_type')) {
-            $query->where('movement_type', $request->string('movement_type'));
+            $query->where('movement_type', InventoryMovementType::parse($request->string('movement_type'))->value);
+        }
+
+        if ($request->filled('product_id')) {
+            return response()->json([
+                'data' => [
+                    'data' => $this->ledgerWithBalance($query),
+                ],
+            ]);
         }
 
         return response()->json([
@@ -52,7 +61,7 @@ class InventoryMovementController extends Controller
     {
         $data = $request->validate([
             'product_id' => ['required', 'uuid', 'exists:products,id'],
-            'movement_type' => ['required', Rule::in(InventoryMovementType::values())],
+            'movement_type' => ['required', Rule::in([...InventoryMovementType::values(), 'OPENING'])],
             'quantity' => ['required', 'integer', 'min:1'],
             'product_variant_id' => ['nullable', 'uuid', 'exists:product_variants,id'],
             'batch_id' => ['nullable', 'uuid', 'exists:batches,id'],
@@ -63,7 +72,7 @@ class InventoryMovementController extends Controller
         ]);
 
         $product = Product::query()->findOrFail($data['product_id']);
-        $movementType = InventoryMovementType::from($data['movement_type']);
+        $movementType = InventoryMovementType::parse($data['movement_type']);
 
         $movement = $this->movementService->record([
             'warehouse' => $warehouse,
@@ -80,5 +89,27 @@ class InventoryMovementController extends Controller
         ]);
 
         return response()->json(['data' => $movement->load(['product', 'warehouse'])], 201);
+    }
+
+    /**
+     * Chronological ledger: each line keeps its signed quantity and the stock after it.
+     * Example: +100 OPENING (100), -3 SALE (97).
+     *
+     * @return list<InventoryMovement>
+     */
+    private function ledgerWithBalance($query): array
+    {
+        $running = 0;
+
+        return $query
+            ->reorder()
+            ->orderBy('occurred_at')
+            ->orderBy('id')
+            ->get()
+            ->each(function (InventoryMovement $movement) use (&$running): void {
+                $running += (int) $movement->quantity;
+                $movement->setAttribute('balance_after', $running);
+            })
+            ->all();
     }
 }

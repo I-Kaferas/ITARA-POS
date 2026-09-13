@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
+import WarehouseOptions from './WarehouseOptions.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
 import { useBackofficeStore } from '../../stores/backoffice'
@@ -216,9 +217,7 @@ async function submit() {
       <div class="grid gap-3 sm:grid-cols-2">
         <div>
           <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
-          <select v-model="form.warehouse_id" required class="field">
-            <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">{{ warehouse.name }}</option>
-          </select>
+          <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" />
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium">{{ t('inventory.openingDate') }}</label>

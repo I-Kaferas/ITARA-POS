@@ -32,12 +32,14 @@ class StoreController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:50'],
+            'kind' => ['nullable', 'in:store,boutique'],
             'is_active' => ['boolean'],
         ]);
 
         $store = $branch->stores()->create([
             ...$data,
             'tenant_id' => app('tenant.id'),
+            'kind' => $data['kind'] ?? 'store',
             'is_active' => $data['is_active'] ?? true,
         ]);
 
@@ -54,6 +56,7 @@ class StoreController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'code' => ['sometimes', 'string', 'max:50'],
+            'kind' => ['sometimes', 'in:store,boutique'],
             'is_active' => ['boolean'],
         ]);
 

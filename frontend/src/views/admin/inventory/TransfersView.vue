@@ -113,10 +113,41 @@ async function openDetails(id: string) {
 }
 
 function statusLabel(status: string) {
-  if (status === 'draft') return t('inventory.statusDraft')
-  if (status === 'pending' || status === 'confirmed') return t('inventory.statusPending')
-  if (status === 'completed') return t('inventory.statusCompleted')
-  return status
+  const key = `inventory.transferStatus.${status}`
+  const label = t(key)
+  return label === key ? status : label
+}
+
+function transferSteps(status?: string) {
+  const labels = [
+    t('inventory.storeA'),
+    t('inventory.transferSteps.request'),
+    t('inventory.transferSteps.validation'),
+    t('inventory.transferSteps.shipment'),
+    t('inventory.transferSteps.transit'),
+    t('inventory.transferSteps.reception'),
+    t('inventory.storeB'),
+  ]
+  const activeIndex = ({
+    draft: 1,
+    pending: 2,
+    approved: 3,
+    in_transit: 4,
+    completed: labels.length,
+  } as Record<string, number>)[status ?? 'draft'] ?? 1
+  return labels.map((label, index) => ({
+    label,
+    done: status === 'completed' || index < activeIndex,
+    active: status !== 'completed' && index === activeIndex,
+  }))
+}
+
+function nextAction(status: string) {
+  if (status === 'draft') return { kind: 'request' as const, label: t('inventory.transferActions.request') }
+  if (status === 'pending') return { kind: 'validate' as const, label: t('inventory.transferActions.validate') }
+  if (status === 'approved') return { kind: 'ship' as const, label: t('inventory.transferActions.ship') }
+  if (status === 'in_transit') return { kind: 'receive' as const, label: t('inventory.transferActions.receive') }
+  return null
 }
 
 async function save() {
@@ -156,44 +187,21 @@ async function save() {
   }
 }
 
-async function askStep(kind: 'confirm' | 'approve', id: string) {
-  let detail
-  try {
-    detail = await store.loadStockTransfer(id)
-  } catch (error) {
-    await notify(extractApiErrorMessage(error))
-    return false
+async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'receive') {
+  const messages = {
+    request: t('inventory.transferActions.requestHint'),
+    validate: t('inventory.transferActions.validateHint'),
+    ship: t('inventory.transferActions.shipHint'),
+    receive: t('inventory.transferActions.receiveHint'),
   }
-  return confirmDialog(
-    kind === 'approve' ? t('inventory.approveModalMessage') : t('inventory.confirmModalMessage'),
-    {
-      title: kind === 'approve' ? t('inventory.approveModalTitle') : t('inventory.confirmModalTitle'),
-      confirmLabel: kind === 'approve' ? t('inventory.confirmFinal') : t('inventory.confirm'),
-      danger: false,
-      items: (detail.items ?? []).map(item => ({
-        name: item.product?.name ?? '—',
-        detail: item.product?.sku,
-        quantity: item.quantity_requested ?? item.quantity,
-      })),
-    },
-  )
-}
-
-async function confirm(id: string) {
-  if (!(await askStep('confirm', id))) return
+  if (!(await confirmDialog(messages[kind], { title: t('inventory.tabs.transfers'), confirmLabel: t('inventory.confirm'), danger: false }))) return
   try {
-    await store.confirmStockTransfer(id)
+    if (kind === 'request') await store.confirmStockTransfer(id)
+    else if (kind === 'validate') await store.approveStockTransfer(id)
+    else if (kind === 'ship') await store.shipStockTransfer(id)
+    else await store.receiveStockTransfer(id)
     await store.loadStockTransfers()
-  } catch (error) {
-    await notify(extractApiErrorMessage(error))
-  }
-}
-
-async function complete(id: string) {
-  if (!(await askStep('approve', id))) return
-  try {
-    await store.completeStockTransfer(id)
-    await store.loadStockTransfers()
+    if (detail.value?.id === id) detail.value = await store.loadStockTransfer(id)
   } catch (error) {
     await notify(extractApiErrorMessage(error))
   }
@@ -202,6 +210,7 @@ async function complete(id: string) {
 
 <template>
   <InventoryLayout>
+    <p class="mb-4 text-xs text-slate-500">{{ t('inventory.transferFlowHint') }}</p>
     <div class="mb-4 flex justify-end">
       <button class="btn-primary" @click="openCreate">+ {{ t('inventory.newTransfer') }}</button>
     </div>
@@ -211,8 +220,8 @@ async function complete(id: string) {
         <thead class="bg-slate-50">
           <tr>
             <th class="px-4 py-3 text-left font-medium">#</th>
-            <th class="px-4 py-3 text-left font-medium">{{ t('inventory.source') }}</th>
-            <th class="px-4 py-3 text-left font-medium">{{ t('inventory.destination') }}</th>
+            <th class="px-4 py-3 text-left font-medium">{{ t('inventory.storeA') }}</th>
+            <th class="px-4 py-3 text-left font-medium">{{ t('inventory.storeB') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
             <th class="px-4 py-3 text-right font-medium">{{ t('common.edit') }}</th>
@@ -227,11 +236,8 @@ async function complete(id: string) {
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
             <td class="px-4 py-3 text-right">
               <button class="text-slate-600" @click="openDetails(row.id)">{{ t('inventory.viewDetails') }}</button>
-              <button v-if="row.status === 'draft'" class="ml-3 text-brand-600" @click="confirm(row.id)">
-                {{ t('inventory.confirm') }}
-              </button>
-              <button v-else-if="row.status === 'pending'" class="ml-3 text-brand-600" @click="complete(row.id)">
-                {{ t('inventory.confirmFinal') }}
+              <button v-if="nextAction(row.status)" class="ml-3 text-brand-600" @click="advance(row.id, nextAction(row.status)!.kind)">
+                {{ nextAction(row.status)!.label }}
               </button>
             </td>
           </tr>
@@ -250,13 +256,13 @@ async function complete(id: string) {
     >
       <form class="space-y-3" @submit.prevent="save">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.source') }}</label>
+          <label class="mb-1 block text-sm font-medium">{{ t('inventory.storeA') }}</label>
           <select v-model="form.source_warehouse_id" required class="field">
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.destination') }}</label>
+          <label class="mb-1 block text-sm font-medium">{{ t('inventory.storeB') }}</label>
           <select v-model="form.destination_warehouse_id" required class="field">
             <option value="">—</option>
             <option v-for="w in destinationWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
@@ -297,14 +303,17 @@ async function complete(id: string) {
       :confirmed-by="confirmedActor(detail)"
       :approved-by="approvedActor(detail)"
       :fields="[
-        { label: t('inventory.source'), value: detail?.source_warehouse?.name },
-        { label: t('inventory.destination'), value: detail?.destination_warehouse?.name },
+        { label: t('inventory.storeA'), value: detail?.source_warehouse?.name },
+        { label: t('inventory.storeB'), value: detail?.destination_warehouse?.name },
         { label: t('inventory.date'), value: formatDate(detail?.created_at) },
+        { label: t('inventory.transferActions.ship'), value: detail?.shipped_at ? formatDateTime(detail.shipped_at) : '—' },
+        { label: t('inventory.transferActions.receive'), value: detail?.received_at ? formatDateTime(detail.received_at) : '—' },
       ]"
+      :steps="detail ? transferSteps(detail.status) : []"
       :items="(detail?.items ?? []).map(item => ({
         name: item.product?.name ?? '—',
         sku: item.product?.sku,
-        quantity: item.quantity_requested ?? item.quantity,
+        quantity: `${item.quantity_requested ?? item.quantity} · ${t('inventory.transferSteps.shipment')} ${item.quantity_shipped ?? 0} · ${t('inventory.transferSteps.reception')} ${item.quantity_received ?? 0}`,
       }))"
       @close="showDetails = false"
     />

@@ -167,7 +167,16 @@ class InventoryPhase11Test extends TestCase
             ],
         ], $headers)->assertCreated()->json('data');
 
-        $this->postJson("/api/v1/stock-transfers/{$transfer['id']}/complete", [], $headers)
+        $this->postJson("/api/v1/stock-transfers/{$transfer['id']}/confirm", [], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pending');
+        $this->postJson("/api/v1/stock-transfers/{$transfer['id']}/approve", [], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'approved');
+        $this->postJson("/api/v1/stock-transfers/{$transfer['id']}/ship", [], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'in_transit');
+        $this->postJson("/api/v1/stock-transfers/{$transfer['id']}/receive", [], $headers)
             ->assertOk()
             ->assertJsonPath('data.status', 'completed');
 

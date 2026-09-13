@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\Store;
+use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ class DeviceController extends Controller
 {
     public function index(Request $request, Store $store): JsonResponse
     {
-        $query = $store->devices()->with('warehouses:id,name,code')->orderByDesc('created_at');
+        $query = $store->devices()->with(['warehouses:id,name,code', 'user:id,name', 'branch:id,name', 'store:id,name,branch_id'])->orderBy('code');
 
         if ($type = $request->string('device_type')->toString()) {
             $query->where(function ($builder) use ($type) {
@@ -36,6 +37,9 @@ class DeviceController extends Controller
             ...$this->attributes($data),
             'tenant_id' => app('tenant.id'),
             'identifier' => $data['identifier'] ?? $token,
+            'code' => Device::nextCode((string) app('tenant.id')),
+            'branch_id' => $store->branch_id,
+            'status' => 'pending',
             'sync_token' => $token,
             'token_generated_at' => now(),
             'registration_status' => 'pending',
@@ -98,6 +102,9 @@ class DeviceController extends Controller
                 'master_host' => $data['master_host'] ?? null,
                 'platform' => $data['platform'] ?? null,
                 'app_version' => $data['app_version'] ?? null,
+                'branch_id' => $store->branch_id,
+                'user_id' => $request->user() instanceof User ? $request->user()->id : null,
+                'status' => 'active',
                 'is_active' => true,
                 'registration_status' => 'registered',
                 'registered_at' => now(),
@@ -105,10 +112,11 @@ class DeviceController extends Controller
             ],
         );
 
-        if (! $device->sync_token) {
+        if (! $device->sync_token || ! $device->code) {
             $device->forceFill([
-                'sync_token' => Device::issueSyncToken(),
-                'token_generated_at' => now(),
+                'sync_token' => $device->sync_token ?: Device::issueSyncToken(),
+                'token_generated_at' => $device->token_generated_at ?? now(),
+                'code' => $device->code ?: Device::nextCode((string) $device->tenant_id),
             ])->save();
         }
 
@@ -132,7 +140,7 @@ class DeviceController extends Controller
             $device = Device::query()->where('sync_token', $data['sync_token'])->first();
         }
 
-        if (! $device || ! $device->is_active) {
+        if (! $device || $device->isRevoked()) {
             return response()->json(['message' => 'Jeton de synchronisation invalide.'], 422);
         }
 
@@ -151,12 +159,54 @@ class DeviceController extends Controller
             'identifier' => $data['identifier'] ?? $device->identifier,
             'platform' => $data['platform'] ?? $device->platform,
             'app_version' => $data['app_version'] ?? $device->app_version,
+            'branch_id' => $device->store?->branch_id ?? $device->branch_id,
+            'user_id' => $request->user() instanceof User ? $request->user()->id : $device->user_id,
+            'status' => 'active',
+            'code' => $device->code ?: Device::nextCode((string) $device->tenant_id),
             'registration_status' => 'registered',
             'registered_at' => $device->registered_at ?? now(),
             'last_sync_at' => now(),
         ])->save();
 
         return response()->json(['data' => $this->present($device->fresh('warehouses'))]);
+    }
+
+    public function heartbeat(Request $request, Device $device): JsonResponse
+    {
+        if ($device->isRevoked()) {
+            return response()->json(['message' => 'Appareil révoqué.'], 403);
+        }
+
+        $data = $request->validate([
+            'app_version' => ['nullable', 'string', 'max:30'],
+            'local_server' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $device->forceFill([
+            'app_version' => $data['app_version'] ?? $device->app_version,
+            'local_server' => $data['local_server'] ?? $device->local_server,
+            'user_id' => $request->user() instanceof User ? $request->user()->id : $device->user_id,
+            'branch_id' => $device->store?->branch_id ?? $device->branch_id,
+            'last_sync_at' => now(),
+            'status' => 'active',
+            'registration_status' => 'registered',
+            'is_active' => true,
+        ])->save();
+
+        return response()->json(['data' => $this->present($device->fresh(['user', 'branch', 'store']))]);
+    }
+
+    public function revoke(Device $device): JsonResponse
+    {
+        $device->forceFill([
+            'status' => 'revoked',
+            'registration_status' => 'revoked',
+            'is_active' => false,
+            'sync_token' => null,
+            'revoked_at' => now(),
+        ])->save();
+
+        return response()->json(['data' => $this->present($device->fresh(['user', 'branch', 'store']))]);
     }
 
     public function regenerateToken(Device $device): JsonResponse
@@ -285,10 +335,21 @@ class DeviceController extends Controller
      */
     private function present(Device $device): array
     {
-        $device->loadMissing('warehouses:id,name,code');
+        $device->loadMissing(['warehouses:id,name,code', 'user:id,name', 'branch:id,name', 'store.branch:id,name']);
+        $status = $device->status ?: ($device->is_active ? 'active' : 'revoked');
 
         return [
             ...$device->toArray(),
+            'device_id' => $device->id,
+            'code' => $device->code,
+            'user' => $device->user ? ['id' => $device->user->id, 'name' => $device->user->name] : null,
+            'branch' => $device->branch ? ['id' => $device->branch->id, 'name' => $device->branch->name] : (
+                $device->store?->branch ? ['id' => $device->store->branch->id, 'name' => $device->store->branch->name] : null
+            ),
+            'app_version' => $device->app_version,
+            'last_sync' => $device->last_sync_at,
+            'status' => $status,
+            'local_server' => $device->local_server ?: $device->master_host,
             'warehouse_ids' => $device->warehouses->pluck('id')->values(),
         ];
     }

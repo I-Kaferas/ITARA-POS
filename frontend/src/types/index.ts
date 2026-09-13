@@ -92,6 +92,9 @@ export interface Company {
   website?: string | null
   logo_url?: string | null
   currency_code: string
+  locale?: string
+  timezone?: string
+  taxes?: Tax[]
   address?: CompanyAddress | null
   settings?: CompanySettings | null
   is_active: boolean
@@ -134,8 +137,25 @@ export interface Branch {
   name: string
   code: string
   is_active: boolean
+  settings?: { timezone?: string; receipt_footer?: string } | null
   stores?: Store[]
   warehouses?: Warehouse[]
+  stock?: { lines: number; warehouses: Warehouse[] }
+  users?: Array<{ id: string; name: string; email: string }>
+  registers?: Array<{ id: string; store_id: string; store_name: string; name: string; code: string; is_active: boolean }>
+  sales_count?: number
+  expenses?: BranchExpense[]
+}
+
+export interface BranchExpense {
+  id: string
+  branch_id: string
+  store_id?: string | null
+  category: string
+  description: string
+  amount: number
+  currency_code: string
+  occurred_on: string
 }
 
 export interface Store {
@@ -144,6 +164,7 @@ export interface Store {
   branch_id: string
   name: string
   code: string
+  kind?: 'store' | 'boutique'
   is_active: boolean
   branch?: Branch & { company?: Company }
 }
@@ -160,7 +181,8 @@ export interface Warehouse {
 export type DeviceCategory = 'pos' | 'printer' | 'tablet' | 'computer' | 'other' | 'scanner'
 export type DeviceConnection = 'network' | 'usb' | 'bluetooth'
 export type DeviceRole = 'master' | 'slave' | 'standalone'
-export type DeviceRegistration = 'pending' | 'registered'
+export type DeviceRegistration = 'pending' | 'registered' | 'revoked'
+export type DeviceStatus = 'pending' | 'active' | 'revoked'
 
 export interface Device {
   id: string
@@ -170,7 +192,14 @@ export interface Device {
   device_type: DeviceCategory
   category?: DeviceCategory
   pos_role?: DeviceRole
+  code?: string | null
   identifier: string
+  user?: { id: string; name: string } | null
+  branch?: { id: string; name: string } | null
+  app_version?: string | null
+  last_sync?: string | null
+  status?: DeviceStatus
+  local_server?: string | null
   connection_type?: DeviceConnection | null
   ip_address?: string | null
   port?: number | null
@@ -339,6 +368,15 @@ export interface Category {
   is_active: boolean
   children?: Category[]
   parent?: Category | null
+}
+
+export interface CatalogAttribute {
+  id: string
+  name: string
+  code: string
+  values: string[]
+  sort_order?: number
+  is_active: boolean
 }
 
 export interface Brand {
@@ -562,6 +600,7 @@ export interface Product {
   bottle_volume_ml?: number | null
   base_price: number
   cost_price: number
+  stock?: number
   created_at?: string | null
   is_active: boolean
   is_serialized?: boolean
@@ -570,6 +609,9 @@ export interface Product {
   expiration_days?: number | null
   category?: Category | null
   brand?: Brand | null
+  sale_units?: { id: string; name: string; volume_ml: number; is_base?: boolean }[]
+  unit_model?: { id: string; name: string; symbol?: string | null; code?: string } | null
+  tax?: { id: string; name: string; code?: string; rate?: number } | null
   images?: ProductImage[]
   barcodes?: Barcode[]
   prices?: Price[]
@@ -723,7 +765,10 @@ export interface Customer {
   tax_id?: string | null
   email?: string | null
   phone?: string | null
+  date_of_birth?: string | null
   credit_limit?: number | null
+  loyalty_points?: number
+  loyalty_tier?: string | null
   payment_terms_days?: number | null
   notes?: string | null
   metadata?: Record<string, unknown> | null
@@ -796,7 +841,9 @@ export interface StockBalance {
 export interface InventoryMovement {
   id: string
   movement_type: string
+  spec_code?: string
   quantity: number
+  balance_after?: number
   notes?: string | null
   occurred_at?: string | null
   product?: { id: string; sku: string; name: string } | null
@@ -811,6 +858,8 @@ export interface StockTransfer {
   source_warehouse_id: string
   destination_warehouse_id: string
   created_at?: string
+  shipped_at?: string | null
+  received_at?: string | null
   source_warehouse?: { id: string; name: string; code: string } | null
   destination_warehouse?: { id: string; name: string; code: string } | null
 }
@@ -879,6 +928,8 @@ export interface InventoryCountItem {
   product?: {
     id: string
     sku: string
+    barcode?: string | null
+    barcodes?: { barcode: string }[]
     name: string
     unit?: string
     bottle_volume_ml?: number | null
@@ -1150,10 +1201,31 @@ export interface PurchaseOrderItem {
   product_variant_id?: string | null
   quantity: number
   quantity_ordered?: number
+  quantity_received?: number
+  remaining?: number
   unit_cost: number
   line_total: number
   received_quantity?: number
   product?: { id: string; sku: string; name: string } | null
+}
+
+export interface PurchaseReceipt {
+  id: string
+  receipt_number: string
+  received_at?: string | null
+  notes?: string | null
+  items?: Array<{ id: string; quantity_received: number; product?: { id: string; sku: string; name: string } | null }>
+  invoice?: { id: string; invoice_number: string; status: string; total: number; paid_amount: number } | null
+}
+
+export interface PurchaseOrderInvoice {
+  id: string
+  invoice_number: string
+  status: string
+  total: number
+  paid_amount: number
+  due_date?: string | null
+  payments?: Array<{ id: string; payment_number: string; amount: number; payment_method: string; paid_at?: string | null }>
 }
 
 export interface PurchaseOrderDetail extends PurchaseOrder {
@@ -1161,8 +1233,8 @@ export interface PurchaseOrderDetail extends PurchaseOrder {
   submitted_at?: string | null
   approved_at?: string | null
   items?: PurchaseOrderItem[]
-  goods_receipts?: unknown[]
-  invoices?: unknown[]
+  goods_receipts?: PurchaseReceipt[]
+  invoices?: PurchaseOrderInvoice[]
   created_by_user?: { id: string; name: string } | null
   confirmed_by_user?: { id: string; name: string } | null
   approved_by_user?: { id: string; name: string } | null
@@ -1178,7 +1250,7 @@ export interface StockTransferItem {
 export interface StockTransferDetail extends StockTransfer {
   notes?: string | null
   confirmed_at?: string | null
-  items?: (StockTransferItem & { quantity_requested?: number })[]
+  items?: (StockTransferItem & { quantity_requested?: number; quantity_shipped?: number; quantity_received?: number })[]
   requested_by?: { id: string; name: string } | null
   confirmed_by?: { id: string; name: string } | null
   approved_by?: { id: string; name: string } | null
@@ -1188,6 +1260,9 @@ export interface StockAdjustmentItem {
   id: string
   product_id: string
   quantity: number
+  entered_quantity?: number | null
+  unit_name?: string | null
+  sale_unit_id?: string | null
   product?: { id: string; sku: string; name: string } | null
 }
 

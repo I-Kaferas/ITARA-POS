@@ -16,7 +16,10 @@ const companyId = ref('')
 const showModal = ref(false)
 const editing = ref<Branch | null>(null)
 const saving = ref(false)
-const form = ref({ name: '', code: '', is_active: true })
+const form = ref({ name: '', code: '', is_active: true, receipt_footer: '' })
+const selected = ref<Branch | null>(null)
+const expenseDescription = ref('')
+const expenseAmount = ref('')
 
 onMounted(async () => {
   await store.loadCompanies()
@@ -27,13 +30,18 @@ watch(companyId, (id) => { if (id) store.loadBranches(id) })
 
 function openCreate() {
   editing.value = null
-  form.value = { name: '', code: '', is_active: true }
+  form.value = { name: '', code: '', is_active: true, receipt_footer: '' }
   showModal.value = true
 }
 
 function openEdit(branch: Branch) {
   editing.value = branch
-  form.value = { name: branch.name, code: branch.code, is_active: branch.is_active }
+  form.value = {
+    name: branch.name,
+    code: branch.code,
+    is_active: branch.is_active,
+    receipt_footer: branch.settings?.receipt_footer ?? '',
+  }
   showModal.value = true
 }
 
@@ -41,12 +49,32 @@ async function save() {
   if (!companyId.value) return
   saving.value = true
   try {
-    await store.saveBranch(companyId.value, form.value, editing.value?.id)
+    await store.saveBranch(companyId.value, {
+      name: form.value.name,
+      code: form.value.code,
+      is_active: form.value.is_active,
+      settings: { receipt_footer: form.value.receipt_footer },
+    }, editing.value?.id)
     await store.loadBranches(companyId.value)
     showModal.value = false
   } finally {
     saving.value = false
   }
+}
+
+async function openProfile(branch: Branch) {
+  selected.value = await store.loadBranchProfile(branch.id)
+}
+
+async function addExpense() {
+  if (!selected.value || !expenseDescription.value.trim()) return
+  await store.addBranchExpense(selected.value.id, {
+    description: expenseDescription.value.trim(),
+    amount: Math.round(Number(expenseAmount.value) || 0),
+  })
+  expenseDescription.value = ''
+  expenseAmount.value = ''
+  selected.value = await store.loadBranchProfile(selected.value.id)
 }
 
 async function remove(branch: Branch) {
@@ -77,11 +105,11 @@ async function remove(branch: Branch) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="branch in store.branches" :key="branch.id" class="hover:bg-slate-50">
+            <tr v-for="branch in store.branches" :key="branch.id" class="cursor-pointer hover:bg-slate-50" @click="openProfile(branch)">
               <td class="px-4 py-3 font-medium">{{ branch.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ branch.code }}</td>
               <td class="px-4 py-3"><StatusBadge :active="branch.is_active" /></td>
-              <td class="px-4 py-3 text-right space-x-2">
+              <td class="px-4 py-3 text-right space-x-2" @click.stop>
                 <button class="text-brand-600" @click="openEdit(branch)">{{ t('common.edit') }}</button>
                 <button class="text-red-600" @click="remove(branch)">{{ t('common.delete') }}</button>
               </td>
@@ -90,6 +118,45 @@ async function remove(branch: Branch) {
         </table>
         <p v-if="!store.branches.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
+
+      <section v-if="selected" class="space-y-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <h2 class="font-semibold">{{ selected.name }}</h2>
+        <div class="grid gap-3 sm:grid-cols-3">
+          <article class="rounded-lg bg-slate-50 p-3 text-sm">
+            <p class="font-medium">{{ t('org.branchStock') }}</p>
+            <p>{{ selected.stock?.warehouses?.map(item => item.name).join(', ') || '—' }}</p>
+            <p class="text-slate-500">{{ selected.stock?.lines ?? 0 }}</p>
+          </article>
+          <article class="rounded-lg bg-slate-50 p-3 text-sm">
+            <p class="font-medium">{{ t('org.branchUsers') }}</p>
+            <p>{{ selected.users?.map(item => item.name).join(', ') || '—' }}</p>
+          </article>
+          <article class="rounded-lg bg-slate-50 p-3 text-sm">
+            <p class="font-medium">{{ t('org.branchRegisters') }}</p>
+            <p>{{ selected.registers?.map(item => item.name).join(', ') || '—' }}</p>
+          </article>
+          <article class="rounded-lg bg-slate-50 p-3 text-sm">
+            <p class="font-medium">{{ t('org.branchSales') }}</p>
+            <p>{{ selected.sales_count ?? 0 }}</p>
+          </article>
+          <article class="rounded-lg bg-slate-50 p-3 text-sm sm:col-span-2">
+            <p class="font-medium">{{ t('org.storeKind') }} / {{ t('org.boutiqueKind') }}</p>
+            <p>{{ selected.stores?.map(item => `${item.name} (${item.kind === 'boutique' ? t('org.boutiqueKind') : t('org.storeKind')})`).join(', ') || '—' }}</p>
+          </article>
+        </div>
+        <div>
+          <p class="mb-2 text-sm font-medium">{{ t('org.branchExpenses') }}</p>
+          <ul class="mb-3 space-y-1 text-sm text-slate-600">
+            <li v-for="expense in selected.expenses ?? []" :key="expense.id">{{ expense.description }} — {{ expense.amount }}</li>
+            <li v-if="!(selected.expenses ?? []).length">{{ t('org.empty') }}</li>
+          </ul>
+          <form class="flex flex-wrap gap-2" @submit.prevent="addExpense">
+            <input v-model="expenseDescription" class="field" :placeholder="t('org.expenseDescription')" required />
+            <input v-model="expenseAmount" class="field w-32" inputmode="numeric" :placeholder="t('org.expenseAmount')" required />
+            <button class="btn-secondary" type="submit">{{ t('org.addExpense') }}</button>
+          </form>
+        </div>
+      </section>
     </div>
 
     <AppModal
@@ -102,6 +169,7 @@ async function remove(branch: Branch) {
       <form class="space-y-3" @submit.prevent="save">
         <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="form.name" required class="field" /></div>
         <div><label class="mb-1 block text-sm font-medium">{{ t('org.code') }}</label><input v-model="form.code" required class="field" /></div>
+        <div><label class="mb-1 block text-sm font-medium">{{ t('org.branchSettings') }}</label><input v-model="form.receipt_footer" class="field" :placeholder="t('org.receiptFooter')" /></div>
         <label class="flex items-center gap-2 text-sm"><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>

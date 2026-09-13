@@ -16,6 +16,9 @@ class Device extends Model
     protected $fillable = [
         'tenant_id',
         'store_id',
+        'branch_id',
+        'user_id',
+        'code',
         'name',
         'device_type',
         'category',
@@ -24,12 +27,15 @@ class Device extends Model
         'master_host',
         'platform',
         'app_version',
+        'local_server',
         'identifier',
         'connection_type',
         'ip_address',
         'port',
         'description',
         'registration_status',
+        'status',
+        'revoked_at',
         'sync_token',
         'token_generated_at',
         'registered_at',
@@ -45,6 +51,7 @@ class Device extends Model
             'last_sync_at' => 'datetime',
             'token_generated_at' => 'datetime',
             'registered_at' => 'datetime',
+            'revoked_at' => 'datetime',
         ];
     }
 
@@ -55,6 +62,37 @@ class Device extends Model
         } while (static::withoutGlobalScopes()->where('sync_token', $token)->exists());
 
         return $token;
+    }
+
+    public static function nextCode(string $tenantId): string
+    {
+        $latest = static::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('code', 'like', 'DEVICE-%')
+            ->orderByDesc('code')
+            ->value('code');
+
+        $number = 1;
+        if (is_string($latest) && preg_match('/DEVICE-(\d+)/', $latest, $matches) === 1) {
+            $number = ((int) $matches[1]) + 1;
+        }
+
+        return 'DEVICE-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT);
+    }
+
+    public function isRevoked(): bool
+    {
+        return $this->status === 'revoked' || ! $this->is_active;
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function store(): BelongsTo

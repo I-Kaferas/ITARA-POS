@@ -11,6 +11,10 @@ class PosCartEngine extends ChangeNotifier {
   String? note;
   int discountAmount = 0;
   double discountPercent = 0;
+  final List<int> _fees = [];
+  String? _activeHoldId;
+  String? _activeHoldLabel;
+  String? _pendingServerId;
 
   List<PosCartLine> get lines => List.unmodifiable(_lines);
   List<PosHeldSale> get heldSales => List.unmodifiable(_heldSales);
@@ -20,6 +24,19 @@ class PosCartEngine extends ChangeNotifier {
 
   int get taxTotal => _lines.fold(0, (sum, line) => sum + line.lineTax);
 
+  int get lineDiscountsTotal =>
+      _lines.fold(0, (sum, line) => sum + line.lineDiscountFixed);
+
+  int get globalDiscountTotal => discountTotal;
+
+  int get feesTotal => _fees.fold(0, (sum, fee) => sum + fee);
+
+  bool get isEditingHold => _activeHoldId != null;
+
+  String? get activeHoldLabel => _activeHoldLabel;
+
+  String? get pendingServerId => _pendingServerId;
+
   int get discountTotal {
     if (discountPercent > 0) {
       return (subtotal * discountPercent / 100).round();
@@ -27,13 +44,19 @@ class PosCartEngine extends ChangeNotifier {
     return discountAmount.clamp(0, subtotal);
   }
 
-  int get total => (subtotal + taxTotal - discountTotal).clamp(0, 1 << 31);
+  int get total =>
+      (subtotal + taxTotal + feesTotal - discountTotal - lineDiscountsTotal).clamp(0, 1 << 31);
 
   int get itemCount => _lines.fold(0, (sum, line) => sum + line.quantity);
 
-  void addProduct(PosProduct product, {int quantity = 1}) {
+  bool get canSplit => itemCount >= 2;
+
+  void addProduct(PosProduct product, {int quantity = 1, PosVariant? variant}) {
+    final variantId = variant?.id;
     final existing = _lines.cast<PosCartLine?>().firstWhere(
-          (line) => line!.product.productId == product.productId,
+          (line) =>
+              line!.product.productId == product.productId &&
+              line.variantId == variantId,
           orElse: () => null,
         );
 
@@ -42,11 +65,14 @@ class PosCartEngine extends ChangeNotifier {
     } else {
       _lines.add(
         PosCartLine(
-          lineId: '${product.productId}-${DateTime.now().microsecondsSinceEpoch}',
+          lineId: '${product.productId}-${variantId ?? 'base'}-${DateTime.now().microsecondsSinceEpoch}',
           product: product,
-          unitPrice: product.price,
+          unitPrice: variant?.price ?? product.price,
           quantity: quantity,
           taxRate: product.taxRate,
+          taxInclusive: product.taxInclusive,
+          variantId: variantId,
+          variantLabel: variant?.displayLabel,
         ),
       );
     }
@@ -142,12 +168,111 @@ class PosCartEngine extends ChangeNotifier {
 
   int get heldCounter => _heldCounter;
 
-  void retrieveSale(String heldSaleId) {
-    if (_lines.isNotEmpty) {
+  void restoreHeldSales(List<PosHeldSale> sales) {
+    _heldSales
+      ..clear()
+      ..addAll(sales);
+    notifyListeners();
+  }
+
+  void rememberRemoteHold({
+    required String serverId,
+    required String label,
+    DateTime? heldAt,
+  }) {
+    final existing = heldById(serverId);
+    if (existing != null) return;
+
+    _heldSales.insert(
+      0,
+      PosHeldSale(
+        id: serverId,
+        serverId: serverId,
+        label: label,
+        lines: const [],
+        heldAt: heldAt ?? DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  PosHeldSale? heldById(String id) {
+    for (final sale in _heldSales) {
+      if (sale.id == id || sale.serverId == id) return sale;
+    }
+    return null;
+  }
+
+  void attachLines(String heldId, List<PosCartLine> lines) {
+    final index = _heldSales.indexWhere(
+      (sale) => sale.id == heldId || sale.serverId == heldId,
+    );
+    if (index < 0) return;
+
+    final held = _heldSales[index];
+    _heldSales[index] = PosHeldSale(
+      id: held.id,
+      label: held.label,
+      lines: lines.map((line) => line.copy()).toList(),
+      heldAt: held.heldAt,
+      serverId: held.serverId,
+      customer: held.customer,
+      note: held.note,
+      discountAmount: held.discountAmount,
+      discountPercent: held.discountPercent,
+      fees: held.fees,
+    );
+    notifyListeners();
+  }
+
+  String? startNewSale() {
+    if (_lines.isEmpty) return null;
+    return holdSale();
+  }
+
+  String splitSale(Map<String, int> moves) {
+    final moved = <PosCartLine>[];
+    for (final entry in moves.entries) {
+      if (entry.value <= 0) continue;
+      final line = _lineById(entry.key);
+      if (line == null) continue;
+      final take = entry.value.clamp(1, line.quantity);
+      final copy = line.copy()..quantity = take;
+      moved.add(copy);
+      line.quantity -= take;
+    }
+    _lines.removeWhere((line) => line.quantity <= 0);
+    if (moved.isEmpty) {
+      throw StateError('Aucun article à séparer');
+    }
+
+    _heldCounter += 1;
+    final label = 'Séparation #$_heldCounter — ${moved.fold<int>(0, (sum, line) => sum + line.quantity)} art.';
+    _heldSales.insert(
+      0,
+      PosHeldSale(
+        id: 'hold-$_heldCounter',
+        label: label,
+        lines: moved,
+        heldAt: DateTime.now(),
+        customer: customer,
+        note: note,
+      ),
+    );
+    notifyListeners();
+    return label;
+  }
+
+  void retrieveSale(String heldSaleId, {bool parkCurrentFirst = false}) {
+    if (parkCurrentFirst && _lines.isNotEmpty) {
+      holdSale();
+    } else if (_lines.isNotEmpty) {
       throw StateError('Clear or hold the current sale before retrieving');
     }
 
-    final index = _heldSales.indexWhere((sale) => sale.id == heldSaleId);
+    final index = _heldSales.indexWhere(
+      (sale) => sale.id == heldSaleId || sale.serverId == heldSaleId,
+    );
     if (index < 0) return;
 
     final held = _heldSales.removeAt(index);
@@ -156,6 +281,23 @@ class PosCartEngine extends ChangeNotifier {
     note = held.note;
     discountAmount = held.discountAmount;
     discountPercent = held.discountPercent;
+    _fees
+      ..clear()
+      ..addAll(held.fees);
+    _activeHoldId = held.id;
+    _activeHoldLabel = held.label;
+    _pendingServerId = held.serverId;
+    notifyListeners();
+  }
+
+  void consumeActiveHold() {
+    final id = _activeHoldId;
+    if (id != null) {
+      _heldSales.removeWhere((sale) => sale.id == id || sale.serverId == id);
+    }
+    _activeHoldId = null;
+    _activeHoldLabel = null;
+    _pendingServerId = null;
     notifyListeners();
   }
 
@@ -215,6 +357,10 @@ class PosCartEngine extends ChangeNotifier {
     note = null;
     discountAmount = 0;
     discountPercent = 0;
+    _fees.clear();
+    _activeHoldId = null;
+    _activeHoldLabel = null;
+    _pendingServerId = null;
     if (notify) notifyListeners();
   }
 }

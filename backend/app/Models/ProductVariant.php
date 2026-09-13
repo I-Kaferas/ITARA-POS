@@ -76,7 +76,7 @@ class ProductVariant extends Model
         $options = is_array($this->attributes['options'] ?? null) ? $this->attributes['options'] : [];
         $label = $options !== []
             ? implode(' / ', array_values($options))
-            : trim(implode(' / ', array_filter([$this->size, $this->color]))) ?: ($this->name ?? $this->sku);
+            : (trim(implode(' / ', array_filter([$this->size, $this->color]))) ?: ($this->name ?? $this->sku));
 
         return [
             'variant_id' => $this->id,

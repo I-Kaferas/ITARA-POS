@@ -6,6 +6,7 @@ enum StockTransferStatus: string
 {
     case Draft = 'draft';
     case Pending = 'pending';
+    case Approved = 'approved';
     case InTransit = 'in_transit';
     case Completed = 'completed';
     case Cancelled = 'cancelled';

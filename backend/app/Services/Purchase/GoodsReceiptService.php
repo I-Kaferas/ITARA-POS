@@ -134,7 +134,7 @@ class GoodsReceiptService
                     'batch_id' => $line['batch_id'] ?? null,
                     'reference' => $receipt,
                     'performed_by' => $receivedBy?->id,
-                    'notes' => $notes,
+                    'notes' => trim(($notes ? $notes.' · ' : '')."Réception {$receipt->receipt_number} · +{$qty}"),
                 ]);
 
                 $poItem->increment('quantity_received', $qty);

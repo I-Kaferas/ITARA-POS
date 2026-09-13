@@ -200,8 +200,9 @@ class FullPhysicalCountService
                 $product = $item->product ?? Product::query()->findOrFail($item->product_id);
                 $product->assertStockable();
                 $type = $delta > 0
-                    ? InventoryMovementType::InventoryAdjustmentIn
-                    : InventoryMovementType::InventoryAdjustmentOut;
+                    ? InventoryMovementType::AdjustmentIn
+                    : InventoryMovementType::AdjustmentOut;
+                $signed = ($delta > 0 ? '+' : '').$delta;
 
                 $this->movementService->record([
                     'warehouse' => $count->warehouse,
@@ -211,7 +212,7 @@ class FullPhysicalCountService
                     'unit_cost' => $this->unitCost($product),
                     'reference' => $count,
                     'performed_by' => $user->id,
-                    'notes' => trim("Inventaire {$count->count_number} · ".($item->variance_reason ?: 'ajustement').($item->notes ? ' · '.$item->notes : '')),
+                    'notes' => trim("Inventaire {$count->count_number} · stock système {$system} · stock physique {$physical} · différence {$signed}".($item->variance_reason ? ' · '.$item->variance_reason : '')),
                     'occurred_at' => $count->counted_at ?? now(),
                 ]);
             }
@@ -258,7 +259,8 @@ class FullPhysicalCountService
             'performedBy:id,name',
             'confirmedBy:id,name',
             'approvedBy:id,name',
-            'items.product:id,sku,name,unit,bottle_volume_ml,cost_price,category_id',
+            'items.product:id,sku,barcode,name,unit,bottle_volume_ml,cost_price,category_id',
+            'items.product.barcodes:id,barcodeable_id,barcodeable_type,barcode',
             'items.product.category:id,name',
             'items.product.saleUnits:id,product_id,name,volume_ml,is_base',
             'items.saleUnit:id,name,volume_ml',

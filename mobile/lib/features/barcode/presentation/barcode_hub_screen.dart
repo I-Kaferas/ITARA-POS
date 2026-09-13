@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide BarcodeType;
@@ -183,6 +186,14 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
   }
 
   void _openCameraScanner() {
+    final cameraSupported = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    if (!cameraSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('La caméra n’est disponible que sur mobile. Utilisez le scanner USB / Bluetooth.')),
+      );
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => CameraScanScreen(onScan: _onCameraScan),
@@ -196,9 +207,10 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
     final previewType = _generated?.type ?? _lookup?.barcode?.type ?? PosBarcodeType.internal;
     final previewLabel = _lookup?.productName ?? _generated?.productName;
 
-    return ColoredBox(
-      color: AppColors.canvas,
-      child: Stack(
+    return Scaffold(
+      backgroundColor: AppColors.canvas,
+      appBar: AppBar(title: const Text('Codes-barres')),
+      body: Stack(
         children: [
           Align(
             alignment: Alignment.topCenter,

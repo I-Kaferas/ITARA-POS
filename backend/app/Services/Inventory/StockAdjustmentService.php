@@ -16,6 +16,8 @@ class StockAdjustmentService
 {
     public function __construct(
         private readonly InventoryMovementService $movementService,
+        private readonly OpeningStockService $openingStock,
+        private readonly StockBalanceService $stockBalanceService,
     ) {}
 
     /**
@@ -25,6 +27,7 @@ class StockAdjustmentService
      *     product_variant_id?: string|null,
      *     batch_id?: string|null,
      *     unit_cost?: int|null,
+     *     sale_unit_id?: string|null,
      *     notes?: string|null,
      * }>  $items
      */
@@ -50,7 +53,7 @@ class StockAdjustmentService
         return DB::transaction(function () use ($warehouse, $movementType, $items, $performedBy, $reason): StockAdjustment {
             $adjustment = StockAdjustment::query()->create([
                 'tenant_id' => $warehouse->tenant_id,
-                'adjustment_number' => $this->nextAdjustmentNumber($warehouse->tenant_id),
+                'adjustment_number' => $this->nextAdjustmentNumber($warehouse->tenant_id, $movementType),
                 'warehouse_id' => $warehouse->id,
                 'movement_type' => $movementType,
                 'status' => StockAdjustmentStatus::Draft,
@@ -111,6 +114,7 @@ class StockAdjustmentService
             foreach ($adjustment->items as $item) {
                 $product = $item->product ?? Product::query()->findOrFail($item->product_id);
                 $product->assertStockable();
+                $this->assertAvailable($adjustment, $product, $item);
 
                 $this->movementService->record([
                     'warehouse' => $adjustment->warehouse,
@@ -136,6 +140,31 @@ class StockAdjustmentService
         });
     }
 
+    private function assertAvailable(StockAdjustment $adjustment, Product $product, StockAdjustmentItem $item): void
+    {
+        if (! $adjustment->movement_type->isOutbound()) {
+            return;
+        }
+
+        $available = $this->stockBalanceService->availableQuantity(
+            warehouse: $adjustment->warehouse,
+            product: $product,
+            productVariantId: $item->product_variant_id,
+            batchId: $item->batch_id,
+        );
+
+        if ($available >= (int) $item->quantity) {
+            return;
+        }
+
+        $have = $this->openingStock->describe($product, $available);
+        $need = $this->openingStock->describe($product, (int) $item->quantity);
+
+        throw ValidationException::withMessages([
+            'quantity' => ["Stock insuffisant pour {$product->name}. Disponible : {$have['display']}, demandé : {$need['display']}."],
+        ]);
+    }
+
     /** @param  list<array<string, mixed>>  $items */
     private function syncItems(StockAdjustment $adjustment, array $items): void
     {
@@ -143,25 +172,49 @@ class StockAdjustmentService
             $product = Product::query()->findOrFail($item['product_id']);
             $product->assertStockable();
 
+            $resolved = $this->openingStock->resolveLine(
+                $product,
+                (int) $item['quantity'],
+                $item['sale_unit_id'] ?? null,
+                (int) ($item['unit_cost'] ?? 0),
+            );
+
+            if ($resolved['base_quantity'] < 1) {
+                throw ValidationException::withMessages([
+                    'items' => ["La quantité de {$product->name} doit être supérieure ou égale à 1."],
+                ]);
+            }
+
             StockAdjustmentItem::query()->create([
                 'tenant_id' => $adjustment->tenant_id,
                 'stock_adjustment_id' => $adjustment->id,
                 'product_id' => $product->id,
                 'product_variant_id' => $item['product_variant_id'] ?? null,
                 'batch_id' => $item['batch_id'] ?? null,
-                'quantity' => $item['quantity'],
-                'unit_cost' => $item['unit_cost'] ?? null,
+                'sale_unit_id' => $resolved['sale_unit_id'],
+                'quantity' => $resolved['base_quantity'],
+                'entered_quantity' => $resolved['entered_quantity'],
+                'unit_name' => $resolved['unit_name'],
+                'unit_cost' => $resolved['base_unit_cost'] ?: ($item['unit_cost'] ?? null),
                 'notes' => $item['notes'] ?? null,
             ]);
         }
     }
 
-    private function nextAdjustmentNumber(string $tenantId): string
+    private function nextAdjustmentNumber(string $tenantId, InventoryMovementType $movementType): string
     {
+        $prefix = in_array($movementType, [
+            InventoryMovementType::AdjustmentOut,
+            InventoryMovementType::Damage,
+            InventoryMovementType::Loss,
+            InventoryMovementType::Expired,
+        ], true) ? 'ISS' : 'ADJ';
+
         $count = StockAdjustment::query()
             ->where('tenant_id', $tenantId)
+            ->where('adjustment_number', 'like', $prefix.'-%')
             ->count();
 
-        return 'ADJ-'.str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+        return $prefix.'-'.str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
     }
 }

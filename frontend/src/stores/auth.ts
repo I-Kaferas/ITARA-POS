@@ -119,6 +119,15 @@ export const useAuthStore = defineStore('auth', () => {
     return api.post<{ message: string }>('/auth/forgot-password', { email })
   }
 
+  async function changePassword(currentPassword: string, password: string, passwordConfirmation: string) {
+    const res = await api.patch<{ message: string }>('/auth/password', {
+      current_password: currentPassword,
+      password,
+      password_confirmation: passwordConfirmation,
+    })
+    return res
+  }
+
   async function resetPassword(token: string, email: string, password: string, passwordConfirmation: string) {
     return api.post<{ message: string }>('/auth/reset-password', {
       token,
@@ -190,6 +199,7 @@ export const useAuthStore = defineStore('auth', () => {
     fetchMe,
     logout,
     forgotPassword,
+    changePassword,
     resetPassword,
     emailVerificationStatus,
     resendEmailVerification,

@@ -74,6 +74,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/admin/catalog/attributes',
+      name: 'catalog-attributes',
+      component: () => import('../views/admin/catalog/AttributesView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin/catalog/taxes',
       name: 'catalog-taxes',
       component: () => import('../views/admin/catalog/TaxesView.vue'),

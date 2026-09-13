@@ -44,7 +44,8 @@ class PurchaseOrderController extends Controller
                 'items.product:id,sku,name',
                 'supplier',
                 'warehouse',
-                'goodsReceipts.items',
+                'goodsReceipts.items.product:id,sku,name',
+                'goodsReceipts.invoice:id,goods_receipt_id,invoice_number,status,total,paid_amount',
                 'invoices.payments',
                 'createdByUser:id,name',
                 'approvedByUser:id,name',
@@ -117,28 +118,9 @@ class PurchaseOrderController extends Controller
         }
 
         if ($purchaseOrder->status === PurchaseOrderStatus::Pending) {
-            $approved = $this->purchaseOrderService->approve($purchaseOrder, $request->user());
-            $items = $approved->items()
-                ->get()
-                ->map(fn ($item) => [
-                    'purchase_order_item_id' => $item->id,
-                    'quantity' => max(0, $item->quantity_ordered - $item->quantity_received),
-                ])
-                ->filter(fn ($item) => $item['quantity'] > 0)
-                ->values()
-                ->all();
-
-            if ($items !== []) {
-                $this->goodsReceiptService->receive(
-                    purchaseOrder: $approved->fresh(['items.product', 'warehouse', 'supplier']),
-                    items: $items,
-                    receivedBy: $request->user(),
-                    notes: 'Confirmation de l’approvisionnement',
-                );
-            }
-
             return response()->json([
-                'data' => $approved->fresh(['supplier:id,name,code', 'warehouse:id,name,code', 'items.product:id,sku,name']),
+                'data' => $this->purchaseOrderService->approve($purchaseOrder, $request->user())
+                    ->fresh(['supplier:id,name,code', 'warehouse:id,name,code', 'items.product:id,sku,name']),
             ]);
         }
 

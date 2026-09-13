@@ -29,7 +29,7 @@ class AuthorizationService
             return true;
         }
 
-        return in_array($permission, $this->getPermissionSlugs($user), true);
+        return $this->matches($permission, $this->getPermissionSlugs($user));
     }
 
     public function hasAnyPermission(User $user, array $permissions): bool
@@ -41,7 +41,7 @@ class AuthorizationService
         $userPermissions = $this->getPermissionSlugs($user);
 
         foreach ($permissions as $permission) {
-            if (in_array($permission, $userPermissions, true)) {
+            if ($this->matches($permission, $userPermissions)) {
                 return true;
             }
         }
@@ -58,7 +58,7 @@ class AuthorizationService
         $userPermissions = $this->getPermissionSlugs($user);
 
         foreach ($permissions as $permission) {
-            if (! in_array($permission, $userPermissions, true)) {
+            if (! $this->matches($permission, $userPermissions)) {
                 return false;
             }
         }
@@ -137,9 +137,45 @@ class AuthorizationService
             ->with('permissions:id,slug')
             ->get()
             ->flatMap(fn ($role) => $role->permissions->pluck('slug'))
+            ->flatMap(fn (string $slug) => $this->equivalents($slug))
             ->unique()
             ->values()
             ->all();
+    }
+
+    /** @param  list<string>  $owned */
+    private function matches(string $permission, array $owned): bool
+    {
+        foreach ($this->equivalents($permission) as $candidate) {
+            if (in_array($candidate, $owned, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return list<string> */
+    private function equivalents(string $permission): array
+    {
+        $aliases = [
+            'sale.create' => 'sales.create',
+            'sale.refund' => 'sales.refund',
+            'sale.view' => 'sales.view',
+            'payment.create' => 'payments.create',
+            'receipt.print' => 'receipts.print',
+            'stock.adjust' => 'inventory.adjust',
+        ];
+        $related = [$permission];
+        if (isset($aliases[$permission])) {
+            $related[] = $aliases[$permission];
+        }
+        $canonical = array_search($permission, $aliases, true);
+        if (is_string($canonical)) {
+            $related[] = $canonical;
+        }
+
+        return array_values(array_unique($related));
     }
 
     private function cacheKey(User $user): string

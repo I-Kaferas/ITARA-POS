@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\Product;
+use App\Models\PurchaseInvoice;
 use App\Models\Supplier;
 use App\Services\Supplier\SupplierLedgerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class SupplierController extends Controller
@@ -253,6 +256,74 @@ class SupplierController extends Controller
                     'outstanding' => $tx->outstandingAmount(),
                 ])->values(),
             ],
+        ]);
+    }
+
+    public function products(Supplier $supplier): JsonResponse
+    {
+        if (! Schema::hasTable('product_supplier')) {
+            return response()->json(['data' => []]);
+        }
+
+        $products = $supplier->products()->orderBy('name')->get()->map(fn (Product $product) => [
+            'id' => $product->id,
+            'sku' => $product->sku,
+            'name' => $product->name,
+            'supplier_sku' => $product->pivot->supplier_sku,
+            'cost_price' => $product->pivot->cost_price,
+        ]);
+
+        return response()->json(['data' => $products]);
+    }
+
+    public function attachProduct(Request $request, Supplier $supplier): JsonResponse
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'uuid', 'exists:products,id'],
+            'supplier_sku' => ['nullable', 'string', 'max:100'],
+            'cost_price' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $pivot = [
+            'supplier_sku' => $data['supplier_sku'] ?? null,
+            'cost_price' => $data['cost_price'] ?? null,
+        ];
+        if ($supplier->products()->whereKey($data['product_id'])->exists()) {
+            $supplier->products()->updateExistingPivot($data['product_id'], $pivot);
+        } else {
+            $supplier->products()->attach($data['product_id'], $pivot);
+        }
+
+        return $this->products($supplier);
+    }
+
+    public function detachProduct(Supplier $supplier, Product $product): JsonResponse
+    {
+        $supplier->products()->detach($product->id);
+
+        return response()->json(['message' => 'Deleted.']);
+    }
+
+    public function orders(Supplier $supplier): JsonResponse
+    {
+        return response()->json([
+            'data' => $supplier->purchaseOrders()
+                ->orderByDesc('created_at')
+                ->get(['id', 'order_number', 'status', 'total', 'ordered_at', 'expected_at']),
+        ]);
+    }
+
+    public function invoices(Supplier $supplier): JsonResponse
+    {
+        if (! Schema::hasTable('purchase_invoices')) {
+            return response()->json(['data' => []]);
+        }
+
+        return response()->json([
+            'data' => PurchaseInvoice::query()
+                ->where('supplier_id', $supplier->id)
+                ->orderByDesc('invoiced_at')
+                ->get(['id', 'invoice_number', 'status', 'total', 'paid_amount', 'due_date', 'invoiced_at']),
         ]);
     }
 

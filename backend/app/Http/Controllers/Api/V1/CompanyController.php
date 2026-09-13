@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Currency;
+use App\Models\Tax;
 use App\Services\Catalog\ProductImageService;
+use App\Services\Organization\BranchEstablishmentService;
+use App\Services\Organization\CompanyTaxDefaults;
 use App\Services\Payments\CompanyPaymentMethodService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,16 +19,35 @@ class CompanyController extends Controller
     public function __construct(
         private readonly CompanyPaymentMethodService $paymentMethods,
         private readonly ProductImageService $images,
+        private readonly CompanyTaxDefaults $taxDefaults,
+        private readonly BranchEstablishmentService $establishments,
     ) {}
 
     public function index(): JsonResponse
     {
-        return response()->json(['data' => Company::query()->orderByDesc('created_at')->get()]);
+        $companies = Company::query()->orderByDesc('created_at')->get()
+            ->map(fn (Company $company) => $this->profile($company));
+
+        return response()->json(['data' => $companies]);
+    }
+
+    public function current(): JsonResponse
+    {
+        $this->taxDefaults->ensure((string) app('tenant.id'));
+
+        $company = Company::query()->where('is_active', true)->oldest()->first()
+            ?? Company::query()->oldest()->first();
+
+        if ($company === null) {
+            return response()->json(['message' => 'Aucune entreprise pour ce tenant.'], 404);
+        }
+
+        return response()->json(['data' => $this->profile($company)]);
     }
 
     public function store(Request $request): JsonResponse
     {
-        $data = $this->validated($request);
+        $data = $this->withLocaleTimezone($this->validated($request));
 
         $company = Company::create([
             ...$data,
@@ -36,18 +58,20 @@ class CompanyController extends Controller
 
         $this->syncDefaultCurrency($company->currency_code);
         $this->paymentMethods->ensureDefaults($company);
+        $this->taxDefaults->ensure((string) $company->tenant_id);
+        $this->establishments->ensure($company);
 
-        return response()->json(['data' => $company], 201);
+        return response()->json(['data' => $this->profile($company)], 201);
     }
 
     public function show(Company $company): JsonResponse
     {
-        return response()->json(['data' => $company->load(['branches.stores', 'catalogs'])]);
+        return response()->json(['data' => $this->profile($company->load(['branches.stores', 'catalogs']))]);
     }
 
     public function update(Request $request, Company $company): JsonResponse
     {
-        $data = $this->validated($request, updating: true);
+        $data = $this->withLocaleTimezone($this->validated($request, updating: true), $company);
 
         if (isset($data['currency_code'])) {
             $data['currency_code'] = strtoupper($data['currency_code']);
@@ -63,7 +87,7 @@ class CompanyController extends Controller
             $this->syncDefaultCurrency($data['currency_code']);
         }
 
-        return response()->json(['data' => $company->fresh()]);
+        return response()->json(['data' => $this->profile($company->fresh())]);
     }
 
     public function uploadLogo(Request $request, Company $company): JsonResponse
@@ -94,7 +118,7 @@ class CompanyController extends Controller
             'settings' => $settings,
         ]);
 
-        return response()->json(['data' => $company->fresh()]);
+        return response()->json(['data' => $this->profile($company->fresh())]);
     }
 
     public function deleteLogo(Company $company): JsonResponse
@@ -108,7 +132,7 @@ class CompanyController extends Controller
             'settings' => $settings,
         ]);
 
-        return response()->json(['data' => $company->fresh()]);
+        return response()->json(['data' => $this->profile($company->fresh())]);
     }
 
     public function destroy(Company $company): JsonResponse
@@ -135,6 +159,8 @@ class CompanyController extends Controller
             'website' => ['nullable', 'string', 'max:255'],
             'logo_url' => ['nullable', 'string', 'max:500'],
             'currency_code' => [$updating ? 'sometimes' : 'nullable', 'string', 'size:3'],
+            'locale' => ['nullable', 'string', 'max:20'],
+            'timezone' => ['nullable', 'string', 'max:64'],
             'address' => ['nullable', 'array'],
             'address.street' => ['nullable', 'string', 'max:255'],
             'address.number' => ['nullable', 'string', 'max:50'],
@@ -172,6 +198,48 @@ class CompanyController extends Controller
         }
 
         Storage::disk($this->images->mediaDisk())->delete($path);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withLocaleTimezone(array $data, ?Company $company = null): array
+    {
+        $settings = array_merge($company->settings ?? [], is_array($data['settings'] ?? null) ? $data['settings'] : []);
+        $locale = $data['locale'] ?? $settings['locale'] ?? $company?->locale ?? 'fr';
+        $timezone = $data['timezone'] ?? $settings['timezone'] ?? $company?->timezone ?? 'Africa/Bujumbura';
+        $settings['locale'] = $locale;
+        $settings['timezone'] = $timezone;
+        $data['locale'] = $locale;
+        $data['timezone'] = $timezone;
+        $data['settings'] = $settings;
+
+        return $data;
+    }
+
+    /** @return array<string, mixed> */
+    private function profile(Company $company): array
+    {
+        $data = $company->toArray();
+        $settings = is_array($company->settings) ? $company->settings : [];
+        $data['locale'] = $company->locale ?: ($settings['locale'] ?? 'fr');
+        $data['timezone'] = $company->timezone ?: ($settings['timezone'] ?? 'Africa/Bujumbura');
+        $data['taxes'] = Tax::query()
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Tax $tax) => [
+                'id' => $tax->id,
+                'name' => $tax->name,
+                'code' => $tax->code,
+                'rate' => (float) $tax->rate,
+                'is_inclusive' => $tax->is_inclusive,
+                'is_active' => $tax->is_active,
+            ])
+            ->values()
+            ->all();
+
+        return $data;
     }
 
     private function defaultCurrencyCode(): string

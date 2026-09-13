@@ -365,7 +365,17 @@ async function printInvoice() {
               <div class="grid gap-5 sm:grid-cols-2">
                 <div>
                   <p class="meta-label">{{ t('sales.customer') }}</p>
-                  <p class="meta-value">{{ sale.customer?.name ?? t('sales.walkIn') }}</p>
+                  <p class="meta-value">
+                    <button
+                      v-if="sale.customer?.id"
+                      type="button"
+                      class="text-brand-600"
+                      @click="router.push({ name: 'customer-detail', params: { id: sale.customer.id } })"
+                    >
+                      {{ sale.customer.name }}
+                    </button>
+                    <template v-else>{{ t('sales.walkIn') }}</template>
+                  </p>
                   <p v-if="sale.customer?.email" class="meta-sub">{{ sale.customer.email }}</p>
                 </div>
                 <div>

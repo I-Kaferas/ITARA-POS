@@ -11,9 +11,11 @@ use App\Http\Controllers\Api\V1\BeverageController;
 use App\Http\Controllers\Api\V1\BatchController;
 use App\Http\Controllers\Api\V1\BranchController;
 use App\Http\Controllers\Api\V1\BrandController;
+use App\Http\Controllers\Api\V1\CatalogAttributeController;
 use App\Http\Controllers\Api\V1\CatalogController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\PlatformTenantController;
 use App\Http\Controllers\Api\V1\CompanyPaymentMethodController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\CustomerAddressController;
@@ -111,6 +113,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::patch('/auth/profile', [AuthController::class, 'updateProfile']);
+        Route::patch('/auth/password', [AuthController::class, 'changePassword'])
+            ->middleware('throttle:auth-password');
 
         Route::post('/auth/email/resend', [EmailVerificationController::class, 'send'])
             ->middleware('throttle:6,1');
@@ -230,6 +234,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:settings.manage,organization.companies.manage');
 
         // Companies
+        Route::get('tenant/profile', [CompanyController::class, 'current'])
+            ->middleware('permission:dashboard.view');
+        Route::post('platform/tenants', [PlatformTenantController::class, 'store']);
+
         Route::get('companies', [CompanyController::class, 'index'])
             ->middleware('permission:organization.companies.view');
         Route::post('companies', [CompanyController::class, 'store'])
@@ -276,6 +284,12 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:organization.branches.view');
         Route::post('companies/{company}/branches', [BranchController::class, 'store'])
             ->middleware('permission:organization.branches.manage');
+        Route::get('branches/{branch}', [BranchController::class, 'show'])
+            ->middleware('permission:organization.branches.view');
+        Route::get('branches/{branch}/expenses', [BranchController::class, 'expenses'])
+            ->middleware('permission:expenses.view,organization.branches.view');
+        Route::post('branches/{branch}/expenses', [BranchController::class, 'storeExpense'])
+            ->middleware('permission:expenses.create,organization.branches.manage');
         Route::patch('branches/{branch}', [BranchController::class, 'update'])
             ->middleware('permission:organization.branches.manage');
         Route::delete('branches/{branch}', [BranchController::class, 'destroy'])
@@ -314,6 +328,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:sales.create');
         Route::post('devices/pair', [DeviceController::class, 'pair'])
             ->middleware('permission:sales.create,organization.devices.manage');
+        Route::post('devices/{device}/heartbeat', [DeviceController::class, 'heartbeat'])
+            ->middleware('permission:sales.create,organization.devices.view');
+        Route::post('devices/{device}/revoke', [DeviceController::class, 'revoke'])
+            ->middleware('permission:organization.devices.manage');
         Route::post('devices/{device}/sync-token', [DeviceController::class, 'regenerateToken'])
             ->middleware('permission:organization.devices.manage');
         Route::patch('devices/{device}', [DeviceController::class, 'update'])
@@ -403,6 +421,16 @@ Route::prefix('v1')->group(function () {
         Route::delete('units/{unit}', [UnitController::class, 'destroy'])
             ->middleware('permission:catalog.products.manage');
 
+        // Catalog attributes (color, size, …) used to generate variants
+        Route::get('catalog-attributes', [CatalogAttributeController::class, 'index'])
+            ->middleware('permission:catalog.products.view');
+        Route::post('catalog-attributes', [CatalogAttributeController::class, 'store'])
+            ->middleware('permission:catalog.products.manage');
+        Route::patch('catalog-attributes/{catalogAttribute}', [CatalogAttributeController::class, 'update'])
+            ->middleware('permission:catalog.products.manage');
+        Route::delete('catalog-attributes/{catalogAttribute}', [CatalogAttributeController::class, 'destroy'])
+            ->middleware('permission:catalog.products.manage');
+
         // Taxes
         Route::get('taxes', [TaxController::class, 'index'])
             ->middleware('permission:catalog.products.view');
@@ -470,6 +498,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:catalog.products.manage');
 
         // Product prices
+        Route::get('catalogs/{catalog}/price-list', [PriceController::class, 'catalog'])
+            ->middleware('permission:catalog.products.view');
         Route::get('prices/types', [PriceController::class, 'types'])
             ->middleware('permission:catalog.products.view');
         Route::get('stores/{store}/products/{product}/resolve-price', [PriceController::class, 'resolveForStoreProduct'])
@@ -599,6 +629,8 @@ Route::prefix('v1')->group(function () {
 
         Route::get('inventory/movement-types', [InventoryMovementController::class, 'types'])
             ->middleware('permission:inventory.view');
+        Route::get('warehouses', [WarehouseController::class, 'indexAll'])
+            ->middleware('permission:organization.warehouses.view,inventory.view,inventory.count.create,inventory.count.enter,purchases.view,sales.view');
         Route::get('warehouses/{warehouse}/movements', [InventoryMovementController::class, 'index'])
             ->middleware('permission:inventory.view');
         Route::post('warehouses/{warehouse}/movements', [InventoryMovementController::class, 'store'])
@@ -616,7 +648,11 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:inventory.view');
         Route::post('stock-transfers/{stockTransfer}/confirm', [StockTransferController::class, 'confirm'])
             ->middleware('permission:inventory.transfer');
-        Route::post('stock-transfers/{stockTransfer}/complete', [StockTransferController::class, 'complete'])
+        Route::post('stock-transfers/{stockTransfer}/approve', [StockTransferController::class, 'approve'])
+            ->middleware('permission:inventory.transfer');
+        Route::post('stock-transfers/{stockTransfer}/ship', [StockTransferController::class, 'ship'])
+            ->middleware('permission:inventory.transfer');
+        Route::post('stock-transfers/{stockTransfer}/receive', [StockTransferController::class, 'receive'])
             ->middleware('permission:inventory.transfer');
 
         Route::get('stock-adjustments', [StockAdjustmentController::class, 'index'])
@@ -737,6 +773,16 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:suppliers.view');
         Route::get('suppliers/{supplier}/due-dates', [SupplierController::class, 'dueDates'])
             ->middleware('permission:suppliers.view');
+        Route::get('suppliers/{supplier}/products', [SupplierController::class, 'products'])
+            ->middleware('permission:suppliers.view');
+        Route::post('suppliers/{supplier}/products', [SupplierController::class, 'attachProduct'])
+            ->middleware('permission:suppliers.manage');
+        Route::delete('suppliers/{supplier}/products/{product}', [SupplierController::class, 'detachProduct'])
+            ->middleware('permission:suppliers.manage');
+        Route::get('suppliers/{supplier}/orders', [SupplierController::class, 'orders'])
+            ->middleware('permission:suppliers.view');
+        Route::get('suppliers/{supplier}/invoices', [SupplierController::class, 'invoices'])
+            ->middleware('permission:suppliers.view');
         Route::get('suppliers/{supplier}/purchases', [SupplierController::class, 'purchaseHistory'])
             ->middleware('permission:suppliers.view');
 
@@ -842,6 +888,8 @@ Route::prefix('v1')->group(function () {
         Route::get('purchase-invoices', [PurchaseInvoiceController::class, 'index'])
             ->middleware('permission:purchases.view');
         Route::get('purchase-invoices/{purchaseInvoice}', [PurchaseInvoiceController::class, 'show'])
+            ->middleware('permission:purchases.view');
+        Route::get('purchase-payments', [PurchasePaymentController::class, 'index'])
             ->middleware('permission:purchases.view');
         Route::post('purchase-invoices/{purchaseInvoice}/payments', [PurchasePaymentController::class, 'store'])
             ->middleware('permission:purchases.manage');
@@ -959,7 +1007,7 @@ Route::prefix('v1')->group(function () {
         Route::post('stores/{store}/pos/shifts/close', [PosController::class, 'closeShift'])
             ->middleware('permission:sales.create');
         Route::post('stores/{store}/pos/sales/{sale}/refund', [PosController::class, 'refundSale'])
-            ->middleware('permission:sales.create');
+            ->middleware('permission:sales.refund');
 
         Route::post('stores/{store}/cart/calculate', [CartController::class, 'calculate'])
             ->middleware('permission:sales.create');
@@ -1013,7 +1061,7 @@ Route::prefix('v1')->group(function () {
         Route::get('sales/{sale}/receipt', [SaleReceiptController::class, 'show'])
             ->middleware('permission:sales.view');
         Route::post('sales/{sale}/receipt', [SaleReceiptController::class, 'store'])
-            ->middleware('permission:sales.create');
+            ->middleware('permission:receipts.print,sales.create');
         Route::get('sales/{sale}/receipts', [SaleReceiptController::class, 'index'])
             ->middleware('permission:sales.view');
         Route::get('sales/{sale}/invoice', [SaleInvoiceController::class, 'show'])
@@ -1029,9 +1077,9 @@ Route::prefix('v1')->group(function () {
         Route::get('payments/methods', [PaymentController::class, 'methods'])
             ->middleware('permission:sales.view');
         Route::post('stores/{store}/payments/validate', [PaymentController::class, 'validate'])
-            ->middleware('permission:sales.create');
+            ->middleware('permission:payments.create,sales.create');
         Route::post('stores/{store}/payments/process', [PaymentController::class, 'process'])
-            ->middleware('permission:sales.create');
+            ->middleware('permission:payments.create,sales.create');
         Route::get('payment-transactions/{paymentTransaction}', [PaymentController::class, 'show'])
             ->middleware('permission:sales.view');
     });

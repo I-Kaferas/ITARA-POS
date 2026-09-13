@@ -89,18 +89,32 @@ class StockTransferService
 
         $transfer->update([
             'status' => StockTransferStatus::Pending,
-            'confirmed_by' => $confirmedBy?->id,
-            'confirmed_at' => now(),
         ]);
 
         return $transfer->fresh(['items.product:id,sku,name', 'sourceWarehouse', 'destinationWarehouse']);
     }
 
-    public function complete(StockTransfer $transfer, ?User $performedBy = null): StockTransfer
+    public function approve(StockTransfer $transfer, ?User $approvedBy = null): StockTransfer
     {
         if ($transfer->status !== StockTransferStatus::Pending) {
             throw ValidationException::withMessages([
-                'status' => ['Confirmez d’abord la saisie avant la confirmation finale.'],
+                'status' => ['Seule une demande peut être validée.'],
+            ]);
+        }
+
+        $transfer->update([
+            'status' => StockTransferStatus::Approved,
+            'approved_by' => $approvedBy?->id,
+        ]);
+
+        return $transfer->fresh(['items.product:id,sku,name', 'sourceWarehouse', 'destinationWarehouse']);
+    }
+
+    public function ship(StockTransfer $transfer, ?User $performedBy = null): StockTransfer
+    {
+        if ($transfer->status !== StockTransferStatus::Approved) {
+            throw ValidationException::withMessages([
+                'status' => ['Validez le transfert avant l’expédition.'],
             ]);
         }
 
@@ -121,7 +135,34 @@ class StockTransferService
                     'source_warehouse_id' => $transfer->source_warehouse_id,
                     'destination_warehouse_id' => $transfer->destination_warehouse_id,
                     'performed_by' => $performedBy?->id,
+                    'notes' => 'Expédition '.$transfer->transfer_number,
                 ]);
+
+                $item->update(['quantity_shipped' => $quantity]);
+            }
+
+            $transfer->update([
+                'status' => StockTransferStatus::InTransit,
+                'shipped_at' => now(),
+            ]);
+
+            return $transfer->fresh(['items.product:id,sku,name', 'sourceWarehouse', 'destinationWarehouse']);
+        });
+    }
+
+    public function receive(StockTransfer $transfer, ?User $performedBy = null): StockTransfer
+    {
+        if ($transfer->status !== StockTransferStatus::InTransit) {
+            throw ValidationException::withMessages([
+                'status' => ['Le transfert doit être en transport avant la réception.'],
+            ]);
+        }
+
+        $transfer->load(['items.product', 'sourceWarehouse', 'destinationWarehouse']);
+
+        return DB::transaction(function () use ($transfer, $performedBy): StockTransfer {
+            foreach ($transfer->items as $item) {
+                $quantity = $item->quantity_shipped ?: $item->quantity_requested;
 
                 $this->movementService->record([
                     'warehouse' => $transfer->destinationWarehouse,
@@ -134,22 +175,18 @@ class StockTransferService
                     'source_warehouse_id' => $transfer->source_warehouse_id,
                     'destination_warehouse_id' => $transfer->destination_warehouse_id,
                     'performed_by' => $performedBy?->id,
+                    'notes' => 'Réception '.$transfer->transfer_number,
                 ]);
 
-                $item->update([
-                    'quantity_shipped' => $quantity,
-                    'quantity_received' => $quantity,
-                ]);
+                $item->update(['quantity_received' => $quantity]);
             }
 
             $transfer->update([
                 'status' => StockTransferStatus::Completed,
-                'approved_by' => $performedBy?->id,
-                'shipped_at' => now(),
                 'received_at' => now(),
             ]);
 
-            return $transfer->fresh(['items', 'sourceWarehouse', 'destinationWarehouse']);
+            return $transfer->fresh(['items.product:id,sku,name', 'sourceWarehouse', 'destinationWarehouse']);
         });
     }
 

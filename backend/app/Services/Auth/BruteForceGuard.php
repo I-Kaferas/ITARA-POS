@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 
 class BruteForceGuard
 {
-    public function ensureNotLocked(string $email, ?string $ipAddress): void
+    public function ensureNotLocked(string $email, ?string $ipAddress, string $field = 'email'): void
     {
         $config = config('auth_tokens.brute_force');
         $lockKey = $this->lockKey($email, $ipAddress);
@@ -17,7 +17,7 @@ class BruteForceGuard
         if (Cache::has($lockKey)) {
             $minutes = $config['lockout_minutes'];
             throw ValidationException::withMessages([
-                'email' => ["Trop de tentatives. Réessayez dans {$minutes} minutes."],
+                $field => ["Trop de tentatives. Réessayez dans {$minutes} minutes."],
             ])->status(429);
         }
     }

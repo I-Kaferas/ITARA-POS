@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { extractApiErrorMessage } from '../../../api/client'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -14,7 +15,7 @@ const { t, locale } = useI18n()
 const store = useBackofficeStore()
 const context = useContextStore()
 
-type CompanyTab = 'identity' | 'contact' | 'address' | 'invoices'
+type CompanyTab = 'identity' | 'contact' | 'address' | 'invoices' | 'taxes'
 
 const companyId = ref('')
 const countries = computed(() => countryOptions(locale.value))
@@ -73,15 +74,21 @@ const form = ref({
   },
 })
 
+const taxName = ref('')
+const taxCode = ref('')
+const taxRate = ref('18')
+const taxError = ref('')
+
 const tabs = computed(() => [
   { id: 'identity' as const, label: t('org.identity') },
   { id: 'contact' as const, label: t('org.contact') },
   { id: 'address' as const, label: t('org.address') },
   { id: 'invoices' as const, label: t('org.receiptSettings') },
+  { id: 'taxes' as const, label: t('org.taxesTitle') },
 ])
 
 onMounted(async () => {
-  await Promise.all([store.loadCompanies(), store.loadCurrencies(true)])
+  await Promise.all([store.loadCompanies(), store.loadCurrencies(true), store.loadTaxes(false)])
   if (store.companies.length) companyId.value = store.companies[0].id
 })
 
@@ -163,6 +170,29 @@ async function removeLogo() {
     logoError.value = t('org.logoError')
   } finally {
     logoBusy.value = false
+  }
+}
+
+async function addTax() {
+  taxError.value = ''
+  if (!taxName.value.trim() || !taxCode.value.trim()) return
+  saving.value = true
+  try {
+    await store.saveTax({
+      name: taxName.value.trim(),
+      code: taxCode.value.trim().toUpperCase(),
+      rate: Number(taxRate.value) || 0,
+      is_inclusive: false,
+      is_active: true,
+    })
+    taxName.value = ''
+    taxCode.value = ''
+    taxRate.value = '18'
+    await store.loadTaxes(false)
+  } catch (e) {
+    taxError.value = extractApiErrorMessage(e, t('common.error'))
+  } finally {
+    saving.value = false
   }
 }
 
@@ -426,6 +456,36 @@ async function save() {
                 </select>
               </div>
             </div>
+          </div>
+
+          <div v-show="activeTab === 'taxes'" class="space-y-4" role="tabpanel">
+            <p class="text-sm text-slate-600">{{ t('org.taxesHint') }}</p>
+            <div class="overflow-hidden rounded-xl ring-1 ring-slate-200">
+              <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-left text-slate-500">
+                  <tr>
+                    <th class="px-3 py-2 font-medium">{{ t('org.taxName') }}</th>
+                    <th class="px-3 py-2 font-medium">{{ t('org.code') }}</th>
+                    <th class="px-3 py-2 font-medium">{{ t('org.taxRate') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="tax in store.taxes" :key="tax.id" class="border-t border-slate-100">
+                    <td class="px-3 py-2">{{ tax.name }}</td>
+                    <td class="px-3 py-2">{{ tax.code }}</td>
+                    <td class="px-3 py-2">{{ tax.rate }}%</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p v-if="!store.taxes.length" class="px-3 py-4 text-sm text-slate-500">{{ t('org.empty') }}</p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-4">
+              <input v-model="taxName" class="field sm:col-span-2" :placeholder="t('org.taxName')" />
+              <input v-model="taxCode" class="field" :placeholder="t('org.code')" />
+              <input v-model="taxRate" class="field" inputmode="decimal" :placeholder="t('org.taxRate')" />
+            </div>
+            <p v-if="taxError" class="text-sm text-red-700">{{ taxError }}</p>
+            <button type="button" class="btn-secondary" :disabled="saving" @click="addTax">{{ t('org.addTax') }}</button>
           </div>
 
           <div v-show="activeTab === 'invoices'" class="space-y-4" role="tabpanel">

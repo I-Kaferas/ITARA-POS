@@ -2,6 +2,7 @@
 
 namespace App\Services\Auth;
 
+use App\Models\Device;
 use App\Models\User;
 use App\Services\Authorization\AuthorizationService;
 use Illuminate\Http\Request;
@@ -49,6 +50,87 @@ class AuthService
         }
 
         return $this->tokenResponse($user, $request, $deviceName);
+    }
+
+    /**
+     * PIN login for an authorized terminal. Permissions are included so the client can keep working offline.
+     *
+     * @return array<string, mixed>
+     */
+    public function attemptPinLogin(
+        string $tenantId,
+        string $pin,
+        ?Request $request = null,
+        ?string $deviceName = null,
+        ?string $deviceId = null,
+        ?string $deviceIdentifier = null,
+    ): array {
+        $ip = $request?->ip();
+        $subject = 'pin:'.$tenantId;
+        $this->bruteForce->ensureNotLocked($subject, $ip, 'pin');
+
+        $user = User::query()
+            ->where('tenant_id', $tenantId)
+            ->where('pin', $pin)
+            ->first();
+
+        if (! $user || ! $user->is_active) {
+            $this->bruteForce->recordFailure($subject, $ip);
+            throw ValidationException::withMessages([
+                'pin' => ['PIN invalide.'],
+            ]);
+        }
+
+        $this->assertAuthorizedDevice($tenantId, $deviceId, $deviceIdentifier);
+        $this->bruteForce->recordSuccess($subject, $ip);
+
+        return $this->tokenResponse($user, $request, $deviceName);
+    }
+
+    public function changePassword(User $user, string $currentPassword, string $newPassword, ?string $exceptTokenId = null): void
+    {
+        if (! Hash::check($currentPassword, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Mot de passe actuel incorrect.'],
+            ]);
+        }
+
+        $user->forceFill(['password' => $newPassword])->save();
+        $this->tokens->revokeAllForUser($user, $exceptTokenId);
+    }
+
+    /**
+     * @param  array{name?: string, phone?: ?string}  $data
+     */
+    public function updateProfile(User $user, array $data): User
+    {
+        $user->fill([
+            'name' => $data['name'] ?? $user->name,
+            'phone' => array_key_exists('phone', $data) ? $data['phone'] : $user->phone,
+        ])->save();
+
+        return $user->fresh() ?? $user;
+    }
+
+    private function assertAuthorizedDevice(string $tenantId, ?string $deviceId, ?string $identifier): void
+    {
+        if (($deviceId === null || $deviceId === '') && ($identifier === null || $identifier === '')) {
+            return;
+        }
+
+        $device = Device::query()
+            ->where('tenant_id', $tenantId)
+            ->when($deviceId, fn ($query) => $query->whereKey($deviceId))
+            ->when(! $deviceId && $identifier, fn ($query) => $query->where('identifier', $identifier))
+            ->first();
+
+        if (! $device || $device->isRevoked() || $device->registration_status !== 'registered') {
+            throw ValidationException::withMessages([
+                'device_id' => ['Appareil non autorisé.'],
+            ]);
+        }
+
+        $device->forceFill(['last_sync_at' => now()])->save();
     }
 
     /**

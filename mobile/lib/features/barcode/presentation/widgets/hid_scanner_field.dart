@@ -39,11 +39,14 @@ class _HidScannerFieldState extends State<HidScannerField> {
         child: SizedBox(
           height: 1,
           width: 1,
-          child: TextField(
-            controller: widget.controller.textController,
-            enableInteractiveSelection: false,
-            showCursor: false,
-            decoration: const InputDecoration(border: InputBorder.none),
+          child: Material(
+            type: MaterialType.transparency,
+            child: TextField(
+              controller: widget.controller.textController,
+              enableInteractiveSelection: false,
+              showCursor: false,
+              decoration: const InputDecoration(border: InputBorder.none),
+            ),
           ),
         ),
       ),

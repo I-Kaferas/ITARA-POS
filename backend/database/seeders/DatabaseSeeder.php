@@ -21,6 +21,7 @@ use App\Models\Supplier;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Organization\CompanyTaxDefaults;
 use App\Services\Payments\CompanyPaymentMethodService;
 use App\Enums\InventoryMovementType;
 use App\Enums\PurchaseInvoiceStatus;
@@ -85,6 +86,8 @@ class DatabaseSeeder extends Seeder
             'email' => 'contact@maboutique.local',
             'website' => 'https://maboutique.local',
             'currency_code' => 'FBU',
+            'locale' => 'fr',
+            'timezone' => 'Africa/Bujumbura',
             'address' => [
                 'street' => 'Avenue de l\'Indépendance',
                 'city' => 'Bujumbura',
@@ -103,6 +106,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         app(CompanyPaymentMethodService::class)->ensureDefaults($company);
+        app(CompanyTaxDefaults::class)->ensure($tenant->id);
 
         Currency::create([
             'tenant_id' => $tenant->id,

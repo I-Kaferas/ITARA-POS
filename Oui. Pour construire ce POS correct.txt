@@ -1,0 +1,1092 @@
+Oui. Pour construire ce POS correctement, il faut le décomposer comme un ERP/POS modulaire, avec un noyau commun puis des modules métier. Le point essentiel est que l’offline et la synchronisation ne doivent pas être développés à la fin : ils font partie du noyau dès le début.
+
+Voici une décomposition étape par étape.
+
+Architecture globale du projet
+POS UNIVERSAL
+│
+├── 00. Architecture & infrastructure
+│
+├── 01. Authentification & sécurité
+├── 02. Entreprises / tenants
+├── 03. Branches / magasins
+├── 04. Utilisateurs / rôles / permissions
+├── 05. Appareils / caisses
+│
+├── 06. Catalogue produits
+├── 07. Catégories / marques / unités
+├── 08. Prix / taxes / devises
+├── 09. Clients
+├── 10. Fournisseurs
+│
+├── 11. Inventaire / stock
+├── 12. Achats
+├── 13. Transferts
+├── 14. Inventaires physiques
+│
+├── 15. POS / panier
+├── 16. Ventes
+├── 17. Paiements
+├── 18. Caisse
+├── 19. Retours / remboursements
+│
+├── 20. Promotions
+├── 21. Fidélité
+├── 22. Crédit client
+├── 23. Dépenses
+│
+├── 24. Synchronisation offline
+├── 25. Serveur local Android
+├── 26. Multi-caisses
+│
+├── 27. Restaurant
+├── 28. Hôtel
+├── 29. Services / rendez-vous
+├── 30. Production / recettes
+│
+├── 31. Comptabilité
+├── 32. Rapports
+├── 33. Notifications
+├── 34. Audit
+├── 35. Paramètres
+├── 36. Sauvegardes
+│
+└── 37. SaaS / abonnements / administration globale
+PHASE 0 — Architecture et fondations
+
+C'est la première étape absolue.
+
+Avant de faire l'écran de caisse, on construit les fondations.
+
+Laravel
+Laravel
+PHP
+MySQL/MariaDB
+Redis
+Queue
+REST API
+WebSocket
+Vue.js
+Vue 3
+TypeScript
+Vite
+Pinia
+Vue Router
+Tailwind
+Flutter
+Flutter
+Dart
+SQLite
+Bloc
+Local API
+Sync Engine
+À créer
+Central Server
+Local Server
+Database
+API
+Authentication
+Logging
+Event system
+Résultat
+
+À la fin de cette phase :
+
+Laravel fonctionne
+Vue fonctionne
+Flutter fonctionne
+API fonctionne
+DB fonctionne
+Flutter communique avec API
+PHASE 1 — Authentification
+
+Le système commence avec les utilisateurs.
+
+Fonctionnalités
+login ;
+logout ;
+changement de mot de passe ;
+PIN ;
+sessions ;
+refresh token ;
+appareils autorisés ;
+verrouillage ;
+permissions.
+Exemple
+Utilisateur
+   │
+   ├── email
+   ├── password
+   ├── PIN
+   └── rôle
+Flutter
+
+L'utilisateur se connecte une première fois.
+
+Ensuite l'application conserve les informations nécessaires pour pouvoir fonctionner offline.
+
+Important
+
+Il doit être possible de faire :
+
+Login ONLINE
+      ↓
+Télécharger les permissions
+      ↓
+OFFLINE
+      ↓
+Utilisateur peut continuer
+PHASE 2 — Entreprise / Tenant
+
+C'est le cœur du multi-tenant.
+
+Entreprise
+│
+├── informations
+├── logo
+├── devise
+├── langue
+├── timezone
+├── taxes
+└── paramètres
+
+Exemple :
+
+Entreprise A
+Entreprise B
+Entreprise C
+
+Les données doivent être complètement isolées.
+
+PHASE 3 — Branches / magasins
+
+Une entreprise peut avoir plusieurs établissements.
+
+Entreprise
+│
+├── Magasin 1
+├── Magasin 2
+├── Entrepôt
+└── Boutique
+
+Chaque branche possède :
+
+stock ;
+utilisateurs ;
+caisses ;
+ventes ;
+dépenses ;
+paramètres.
+PHASE 4 — Utilisateurs, rôles et permissions
+
+On construit ensuite le RBAC.
+
+Admin
+Manager
+Caissier
+Comptable
+Stock Manager
+Serveur
+Réceptionniste
+
+Exemple :
+
+Cashier
+   ├── sale.create
+   ├── payment.create
+   └── receipt.print
+
+Manager
+   ├── sale.create
+   ├── sale.refund
+   ├── stock.adjust
+   └── reports.view
+
+Le backend doit toujours vérifier les permissions.
+
+PHASE 5 — Gestion des appareils
+
+Chaque téléphone/tablette devient un appareil connu.
+
+DEVICE-001
+DEVICE-002
+DEVICE-003
+
+Informations :
+
+device_id
+user
+branch
+app_version
+last_sync
+status
+local_server
+
+On peut ensuite révoquer un appareil.
+
+PHASE 6 — Catalogue
+
+Maintenant on construit les produits.
+
+Produit
+Produit
+├── nom
+├── SKU
+├── barcode
+├── catégorie
+├── marque
+├── unité
+├── prix achat
+├── prix vente
+├── taxe
+└── stock
+Exemple
+Coca-Cola 50cl
+SKU: COKE50
+Barcode: 123456789
+Prix: 2000
+PHASE 7 — Catégories, marques et unités
+
+Créer :
+
+Categories
+Brands
+Units
+Attributes
+Variants
+
+Exemple :
+
+Vêtement
+ └── T-shirt
+      ├── Rouge / S
+      ├── Rouge / M
+      ├── Bleu / S
+      └── Bleu / M
+PHASE 8 — Prix, taxes et devises
+
+Un produit peut avoir plusieurs prix.
+
+Prix détail
+Prix gros
+Prix VIP
+Prix spécial
+
+Et :
+
+HT
+TVA
+TTC
+
+Le système doit également gérer plusieurs devises.
+
+PHASE 9 — Clients
+
+Créer le CRM.
+
+Client
+├── identité
+├── téléphone
+├── adresse
+├── historique
+├── crédit
+└── fidélité
+
+Chaque vente peut être liée à un client.
+
+PHASE 10 — Fournisseurs
+
+Même principe.
+
+Fournisseur
+├── coordonnées
+├── produits
+├── commandes
+├── factures
+├── paiements
+└── dette
+PHASE 11 — STOCK
+
+C'est l'un des modules les plus importants.
+
+Il ne faut jamais simplement faire :
+
+stock = stock - quantité
+
+Il faut créer un mouvement.
+
+SALE
+ ↓
+StockMovement
+ ↓
+StockBalance
+
+Exemple :
+
+Stock initial : 100
+
+Vente : -3
+
+Stock : 97
+
+Mais l'historique conserve :
+
++100 OPENING
+-3 SALE
+PHASE 12 — Achats
+
+Workflow :
+
+Commande fournisseur
+        ↓
+Réception
+        ↓
+Stock
+        ↓
+Facture
+        ↓
+Paiement
+
+Une réception augmente le stock.
+
+PHASE 13 — Transferts
+
+Pour les entreprises multi-sites :
+
+Magasin A
+   ↓
+Demande transfert
+   ↓
+Validation
+   ↓
+Expédition
+   ↓
+Transport
+   ↓
+Réception
+   ↓
+Magasin B
+PHASE 14 — Inventaire physique
+
+Le magasin peut scanner ses produits.
+
+Produit
+Stock système = 100
+Stock physique = 97
+Différence = -3
+
+Le système crée alors un mouvement d'ajustement.
+
+PHASE 15 — POS
+
+Maintenant on peut construire l'écran de caisse.
+
+┌───────────────────────────────┐
+│ Recherche / Scanner            │
+├──────────────┬────────────────┤
+│ Catégories   │ Produits       │
+│              │                │
+│ Boissons     │ Coca           │
+│ Aliments     │ Fanta          │
+│ Hygiène      │ Eau            │
+├──────────────┴────────────────┤
+│            PANIER              │
+│ Coca x2          4 000         │
+│ Eau x1           1 000         │
+│                                │
+│ TOTAL            5 000         │
+│                                │
+│       [ PAYER ]                │
+└───────────────────────────────┘
+
+Le POS doit être extrêmement rapide.
+
+PHASE 16 — Vente
+
+Lorsqu'on appuie sur Payer :
+
+Cart
+ ↓
+Sale
+ ↓
+SaleItems
+ ↓
+Payment
+ ↓
+StockMovement
+ ↓
+Receipt
+ ↓
+SyncEvent
+
+C'est une transaction critique.
+
+Elle doit être atomique.
+
+PHASE 17 — Paiements
+
+Une vente peut avoir :
+
+Cash
+Mobile Money
+Carte
+Virement
+Crédit
+
+Et surtout :
+
+Paiement mixte
+
+Exemple :
+
+Total = 50 000
+
+Cash = 20 000
+Mobile Money = 30 000
+PHASE 18 — Caisse
+
+Une caisse fonctionne avec des sessions.
+
+OUVERTURE
+    ↓
+VENTES
+    ↓
+ENTRÉES
+    ↓
+SORTIES
+    ↓
+FERMETURE
+
+À la fermeture :
+
+Cash théorique = 450 000
+Cash réel = 448 000
+
+Différence = -2 000
+
+Le manager doit pouvoir justifier la différence.
+
+PHASE 19 — Retours et remboursements
+
+Le système doit permettre :
+
+Vente
+ ↓
+Retour
+ ↓
+Remboursement
+
+Ou :
+
+Vente
+ ↓
+Retour partiel
+ ↓
+Remboursement partiel
+
+Le stock est automatiquement corrigé.
+
+PHASE 20 — Promotions
+
+Créer un moteur de règles.
+
+Exemples :
+
+10% de remise
+
+ou :
+
+Achetez 2 → 1 gratuit
+
+ou :
+
+Prix spécial entre 18h et 20h
+PHASE 21 — Fidélité
+Client
+ ↓
+Achats
+ ↓
+Points
+ ↓
+Récompenses
+
+Exemple :
+
+1000 F dépensés = 1 point
+PHASE 22 — Crédit client
+
+Créer un ledger.
+
+Client
+Solde initial = 0
+
+Vente à crédit = +100 000
+Paiement = -50 000
+
+Solde = 50 000
+
+Chaque mouvement reste historique.
+
+PHASE 23 — Dépenses
+
+Exemples :
+
+transport ;
+électricité ;
+loyer ;
+salaire ;
+achat urgent ;
+entretien.
+
+Une dépense peut être liée à :
+
+Branch
+CashSession
+User
+ExpenseCategory
+PHASE 24 — MOTEUR OFFLINE
+
+Cette phase est centrale.
+
+L'application Android doit posséder sa propre base.
+
+Flutter
+   ↓
+SQLite
+
+Lorsqu'une vente est effectuée :
+
+POS
+ ↓
+SQLite
+ ↓
+Sale
+ ↓
+Payment
+ ↓
+Stock Movement
+ ↓
+Sync Event
+
+Même sans Internet, tout fonctionne.
+
+PHASE 25 — Sync Engine
+
+Lorsqu'Internet revient :
+
+Sync Queue
+     ↓
+API Laravel
+     ↓
+Server
+     ↓
+ACK
+     ↓
+Mark as synced
+
+Exemple :
+
+100 ventes offline
+
+Internet revient
+
+100 événements envoyés
+
+100 ACK
+
+0 événement perdu
+PHASE 26 — Serveur local Android
+
+C'est ici qu'on ajoute ton idée très importante.
+
+Un Android peut devenir :
+
+LOCAL MASTER SERVER
+
+Il possède :
+
+SQLite
++
+Local API
++
+Sync Engine
+
+Les autres caisses se connectent au réseau local.
+
+                 Android Master
+                      │
+             Local HTTP API
+                      │
+          ┌───────────┼───────────┐
+          │           │           │
+        POS 1       POS 2       POS 3
+
+Même sans Internet :
+
+POS 1 → Master
+POS 2 → Master
+POS 3 → Master
+PHASE 27 — Multi-caisses
+
+Chaque caisse possède :
+
+Device ID
+Cash Register
+Cash Session
+User
+
+Le serveur local coordonne les opérations.
+
+Il faut surtout gérer les ventes simultanées.
+
+Exemple :
+
+Stock Coca = 5
+
+POS 1 vend 3
+POS 2 vend 2
+
+Le système doit finir avec :
+
+Stock = 0
+
+et non :
+
+Stock = 2
+
+C'est pourquoi les transactions et événements sont essentielles.
+
+PHASE 28 — Restaurant
+
+Ce module utilise le même moteur POS mais ajoute :
+
+Tables
+Zones
+Serveurs
+Orders
+Kitchen
+KDS
+Courses
+Split bills
+
+Workflow :
+
+Table
+ ↓
+Commande
+ ↓
+Cuisine
+ ↓
+Préparation
+ ↓
+Service
+ ↓
+Paiement
+PHASE 29 — Hôtel
+
+Ajouter :
+
+Rooms
+Room Types
+Reservations
+Check-in
+Check-out
+Guest
+Folio
+Minibar
+Room Service
+
+Une consommation peut être envoyée dans la chambre :
+
+Restaurant
+ ↓
+Room 203
+ ↓
+Folio
+ ↓
+Facture hôtel
+PHASE 30 — Services
+
+Pour les activités non commerciales :
+
+Service
+ ↓
+Appointment
+ ↓
+Employee
+ ↓
+Service completion
+ ↓
+Payment
+
+Exemples :
+
+salon ;
+garage ;
+réparation ;
+maintenance.
+PHASE 31 — Production / recettes
+
+Très utile pour restaurant et fabrication.
+
+Pizza
+ ├── Farine
+ ├── Fromage
+ ├── Sauce
+ └── Viande
+
+Lors de la production :
+
+matières premières -
+produit fini +
+PHASE 32 — Comptabilité
+
+Une comptabilité simplifiée peut être construite autour de ledgers.
+
+Revenue
+Expense
+Receivable
+Payable
+Cash
+Inventory
+Profit
+
+On pourra ensuite évoluer vers une comptabilité plus complète.
+
+PHASE 33 — Rapports
+
+Le reporting doit utiliser les données des modules précédents.
+
+Ventes
+Jour
+Semaine
+Mois
+Année
+Produit
+Catégorie
+Caissier
+Magasin
+Stock
+Stock actuel
+Stock faible
+Mouvements
+Valorisation
+Pertes
+Expiration
+Finance
+CA
+Dépenses
+Marge
+Bénéfice
+Crédit
+Dettes
+PHASE 34 — Notifications
+
+Le système surveille :
+
+Stock faible
+Produit expiré
+Sync échouée
+Caisse ouverte
+Crédit en retard
+Commande en attente
+PHASE 35 — Audit
+
+Chaque action importante produit :
+
+AuditLog
+
+Exemple :
+
+USER: Jean
+ACTION: CHANGE_PRICE
+PRODUCT: Coca-Cola
+OLD: 1800
+NEW: 2000
+DEVICE: POS-03
+TIME: ...
+PHASE 36 — Paramètres
+
+Centraliser les configurations.
+
+Entreprise
+Magasin
+POS
+Taxes
+Devise
+Impression
+Stock
+Sync
+Restaurant
+Hôtel
+PHASE 37 — Sauvegardes
+Cloud
+Database
+Files
+Logs
+Backups
+Android
+SQLite
+Sync Events
+Configuration
+
+Prévoir restauration.
+
+PHASE 38 — Administration SaaS
+
+Si tu veux commercialiser le système :
+
+Super Admin
+│
+├── Entreprises
+├── Licences
+├── Abonnements
+├── Appareils
+├── Modules
+├── Utilisateurs
+├── Statistiques
+└── Support
+
+Une entreprise peut par exemple activer uniquement :
+
+POS + Stock
+
+Une autre :
+
+POS + Stock + Restaurant
+
+Une autre :
+
+POS + Stock + Hôtel + Restaurant
+L'ordre exact dans lequel je développerais le projet
+
+Je ne développerais pas les 38 modules indépendamment. Je les regrouperais en sprints.
+
+SPRINT 1 — Fondations
+Laravel
+Vue
+Flutter
+Database
+API
+Authentication
+Tenant
+Branch
+User
+Role
+Permission
+Device
+SPRINT 2 — Catalogue
+Products
+Categories
+Brands
+Units
+Variants
+Taxes
+Prices
+Currencies
+SPRINT 3 — Stock
+Stock
+StockMovement
+Warehouse
+Transfers
+Inventory
+Lots
+Serial Numbers
+Expiration
+SPRINT 4 — Achats
+Suppliers
+Purchase Orders
+Purchase Reception
+Supplier Invoice
+Supplier Payment
+SPRINT 5 — POS
+Cart
+Sale
+Sale Items
+Payment
+Receipt
+Barcode
+Customer
+Cash Register
+Cash Session
+SPRINT 6 — Offline
+SQLite
+Local Repository
+Sync Event
+Sync Queue
+Sync Manager
+Retry
+Idempotency
+Conflict Resolution
+SPRINT 7 — Serveur local
+Local HTTP Server
+Device Discovery
+LAN
+Local Authentication
+Multi-device
+Local Synchronization
+SPRINT 8 — Finance
+Expenses
+Customer Credit
+Supplier Debt
+Cash Flow
+Profit
+Accounting Ledger
+SPRINT 9 — CRM
+Customers
+Loyalty
+Promotions
+Coupons
+Rewards
+SPRINT 10 — Restaurant
+Tables
+Zones
+Orders
+Kitchen
+KDS
+Waiters
+Split Bill
+SPRINT 11 — Hôtel
+Rooms
+Reservations
+Guests
+Check-in
+Check-out
+Folio
+Room Service
+SPRINT 12 — Services
+Services
+Employees
+Appointments
+Commissions
+Work Orders
+SPRINT 13 — Reporting
+Dashboard
+Sales Reports
+Stock Reports
+Finance Reports
+Cash Reports
+Performance Reports
+SPRINT 14 — Administration
+Audit
+Notifications
+Settings
+Backups
+Devices
+System Health
+SPRINT 15 — SaaS
+Subscriptions
+Licensing
+Plans
+Feature Flags
+Tenant Billing
+Global Admin
+Le fonctionnement d'une vente complète
+
+Voici le scénario le plus important du système :
+
+                    CLIENT
+                       │
+                       ▼
+                 SCAN PRODUIT
+                       │
+                       ▼
+                    PANIER
+                       │
+                       ▼
+                    CLIENT
+                       │
+                       ▼
+                   PAIEMENT
+                       │
+                       ▼
+                 TRANSACTION DB
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+       VENTE        PAIEMENT      STOCK
+          │            │            │
+          └────────────┼────────────┘
+                       ▼
+                  CAISSE SESSION
+                       │
+                       ▼
+                    RECEIPT
+                       │
+                       ▼
+                  SYNC EVENT
+                       │
+              ┌────────┴────────┐
+              │                 │
+          INTERNET           OFFLINE
+              │                 │
+              ▼                 ▼
+        CLOUD SERVER       SYNC QUEUE
+                                │
+                         Internet revient
+                                │
+                                ▼
+                         CLOUD SERVER
+Le principe fondamental du projet
+
+Il faut séparer les données métier et la synchronisation.
+
+Par exemple :
+
+Sale
+Payment
+StockMovement
+Customer
+
+sont des données métier.
+
+Alors que :
+
+SyncEvent
+SyncQueue
+SyncConflict
+SyncMetadata
+
+sont le moteur de distribution.
+
+Cela permettra d'avoir :
+
+              BUSINESS CORE
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+      CLOUD       ANDROID     LOCAL LAN
+
+sans réécrire les fonctionnalités métier.
+
+Et surtout : ne pas commencer par Vue.js
+
+L'ordre technique que je recommande est :
+
+1. Architecture
+       ↓
+2. Database / ERD
+       ↓
+3. Laravel Domain
+       ↓
+4. API
+       ↓
+5. SQLite / Flutter
+       ↓
+6. Offline engine
+       ↓
+7. Synchronisation
+       ↓
+8. Local Android Server
+       ↓
+9. POS Flutter
+       ↓
+10. Vue.js Backoffice
+       ↓
+11. Modules avancés
+       ↓
+12. Tests
+       ↓
+13. Production
+
+La prochaine étape logique est donc le SPRINT 1 : définir précisément l'architecture du noyau, avec les tables companies, branches, users, roles, permissions, devices, les relations, les UUID, les migrations Laravel, les modèles, l'API d'authentification et la structure exacte des projets Laravel/Vue/Flutter. C'est cette base qui déterminera si le POS pourra réellement supporter le mode offline et plusieurs caisses sans devenir impossible à maintenir.

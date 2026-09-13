@@ -74,6 +74,11 @@ onMounted(async () => {
 
   ])
 
+  if (typeof route.query.supplier === 'string' && route.query.supplier) {
+    await openCreateOrder()
+    poForm.value.supplier_id = route.query.supplier
+  }
+
 })
 
 
@@ -92,7 +97,7 @@ function openPay(invoice: PurchaseInvoice) {
 
   payForm.value = {
 
-    amount: outstanding(invoice),
+    amount: outstanding(invoice) / 100,
 
     payment_method: 'bank_transfer',
 
@@ -116,7 +121,10 @@ async function submitPayment() {
 
   try {
 
-    await store.recordPurchaseInvoicePayment(payingInvoice.value.id, payForm.value)
+    await store.recordPurchaseInvoicePayment(payingInvoice.value.id, {
+      ...payForm.value,
+      amount: Math.round(payForm.value.amount * 100),
+    })
 
     showPayModal.value = false
 
@@ -150,7 +158,7 @@ async function openCreateOrder() {
 
     notes: '',
 
-    items: [{ product_id: products.value[0]?.id ?? '', quantity: 1, unit_cost: products.value[0]?.cost_price ?? 0 }],
+    items: [{ product_id: products.value[0]?.id ?? '', quantity: 1, unit_cost: (products.value[0]?.cost_price ?? 0) / 100 }],
 
   }
 
@@ -183,11 +191,13 @@ async function submitCreateOrder() {
 
       warehouse_id: poForm.value.warehouse_id,
 
-      supplier_id: poForm.value.supplier_id || null,
+      supplier_id: poForm.value.supplier_id,
 
       notes: poForm.value.notes || undefined,
 
-      items: poForm.value.items.filter(i => i.product_id && i.quantity > 0),
+      items: poForm.value.items
+        .filter(i => i.product_id && i.quantity > 0)
+        .map(i => ({ ...i, unit_cost: Math.round(Number(i.unit_cost) * 100) })),
 
     })
 
@@ -206,6 +216,14 @@ async function submitCreateOrder() {
 }
 
 
+
+function nextStep(status: string): string {
+  if (status === 'draft') return t('purchases.submit')
+  if (status === 'pending') return t('purchases.approve')
+  if (status === 'approved' || status === 'partially_received') return t('purchases.receive')
+  if (status === 'received') return t('purchases.pay')
+  return '—'
+}
 
 function orderStatusLabel(status: string): string {
 
@@ -310,7 +328,7 @@ function invoiceStatusActive(status: string): boolean {
             <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
 
             <th class="px-4 py-3 text-right font-medium">{{ t('products.price') }}</th>
-
+            <th class="px-4 py-3 text-left font-medium">{{ t('purchases.nextStep') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
 
           </tr>
@@ -339,7 +357,7 @@ function invoiceStatusActive(status: string): boolean {
             </td>
 
             <td class="px-4 py-3 text-right">{{ formatMoney(row.total) }}</td>
-
+            <td class="px-4 py-3 text-slate-600">{{ nextStep(row.status) }}</td>
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
 
           </tr>
@@ -463,8 +481,7 @@ function invoiceStatusActive(status: string): boolean {
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium">{{ t('nav.suppliers') }}</label>
-          <select v-model="poForm.supplier_id" class="field">
-            <option value="">—</option>
+          <select v-model="poForm.supplier_id" required class="field">
             <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
         </div>

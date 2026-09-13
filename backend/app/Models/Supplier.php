@@ -6,6 +6,7 @@ use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -60,6 +61,18 @@ class Supplier extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(SupplierPayment::class)->orderByDesc('paid_at');
+    }
+
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_supplier')
+            ->withPivot(['supplier_sku', 'cost_price'])
+            ->withTimestamps();
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(PurchaseInvoice::class)->orderByDesc('invoiced_at');
     }
 
     public function purchaseOrders(): HasMany

@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Catalog;
 use App\Models\Product;
+use App\Models\StockBalance;
 use App\Services\Catalog\ProductCatalogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
@@ -17,7 +20,7 @@ class ProductController extends Controller
     public function index(Request $request, Catalog $catalog): JsonResponse
     {
         $query = $catalog->products()
-            ->with(['category', 'brand', 'unitModel', 'images', 'variants'])
+            ->with(['category', 'brand', 'unitModel', 'tax', 'images', 'variants'])
             ->orderBy('name');
 
         if ($type = $request->string('product_type')->toString()) {
@@ -48,7 +51,7 @@ class ProductController extends Controller
             });
         }
 
-        return response()->json(['data' => $query->get()]);
+        return response()->json(['data' => $this->withStock($query->get())]);
     }
 
     public function store(Request $request, Catalog $catalog): JsonResponse
@@ -56,15 +59,17 @@ class ProductController extends Controller
         $data = $this->validateProduct($request);
 
         $product = $this->catalog->create($catalog, $data);
+        $this->withStock(collect([$product]));
 
         return response()->json(['data' => $product], 201);
     }
 
     public function show(Product $product): JsonResponse
     {
-        return response()->json([
-            'data' => $product->load($this->catalog->defaultRelations()),
-        ]);
+        $product->load($this->catalog->defaultRelations());
+        $this->withStock(collect([$product]));
+
+        return response()->json(['data' => $product]);
     }
 
     public function update(Request $request, Product $product): JsonResponse
@@ -72,6 +77,7 @@ class ProductController extends Controller
         $data = $this->validateProduct($request, partial: true);
 
         $product = $this->catalog->update($product, $data);
+        $this->withStock(collect([$product]));
 
         return response()->json(['data' => $product]);
     }
@@ -81,6 +87,31 @@ class ProductController extends Controller
         $product->delete();
 
         return response()->json(['message' => 'Deleted.']);
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     * @return Collection<int, Product>
+     */
+    private function withStock(Collection $products): Collection
+    {
+        if ($products->isEmpty() || ! Schema::hasTable('stock_balances')) {
+            $products->each(fn (Product $product) => $product->setAttribute('stock', 0));
+
+            return $products;
+        }
+
+        $stock = StockBalance::query()
+            ->whereIn('product_id', $products->pluck('id'))
+            ->selectRaw('product_id, SUM(quantity_on_hand) as qty')
+            ->groupBy('product_id')
+            ->pluck('qty', 'product_id');
+
+        $products->each(function (Product $product) use ($stock): void {
+            $product->setAttribute('stock', (int) ($stock[$product->id] ?? 0));
+        });
+
+        return $products;
     }
 
     /** @return array<string, mixed> */

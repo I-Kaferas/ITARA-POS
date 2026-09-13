@@ -38,7 +38,6 @@ class StockTransferController extends Controller
                 'sourceWarehouse',
                 'destinationWarehouse',
                 'requestedBy:id,name',
-                'confirmedBy:id,name',
                 'approvedBy:id,name',
             ]),
         ]);
@@ -78,10 +77,24 @@ class StockTransferController extends Controller
         ]);
     }
 
-    public function complete(Request $request, StockTransfer $stockTransfer): JsonResponse
+    public function approve(Request $request, StockTransfer $stockTransfer): JsonResponse
     {
-        $transfer = $this->transferService->complete($stockTransfer, $request->user());
+        return response()->json([
+            'data' => $this->transferService->approve($stockTransfer, $request->user()),
+        ]);
+    }
 
-        return response()->json(['data' => $transfer]);
+    public function ship(Request $request, StockTransfer $stockTransfer): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->transferService->ship($stockTransfer, $request->user()),
+        ]);
+    }
+
+    public function receive(Request $request, StockTransfer $stockTransfer): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->transferService->receive($stockTransfer, $request->user()),
+        ]);
     }
 }

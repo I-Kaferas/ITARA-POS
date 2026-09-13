@@ -6,8 +6,9 @@ import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
-import type { DueDateItem, Supplier, SupplierContact, SupplierStatementLine, SupplierSummary } from '../../../types'
+import type { DueDateItem, Product, Supplier, SupplierContact, SupplierStatementLine, SupplierSummary } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
+import { parseMoneyInput } from '../../../utils/money'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -21,18 +22,26 @@ const statement = ref<SupplierStatementLine[]>([])
 const dueDates = ref<{ open: DueDateItem[]; overdue: DueDateItem[] }>({ open: [], overdue: [] })
 const payments = ref<Awaited<ReturnType<typeof store.loadSupplierPayments>>>([])
 const contacts = ref<SupplierContact[]>([])
-const activeTab = ref<'statement' | 'schedule' | 'payments' | 'contacts'>('statement')
+const products = ref<Array<{ id: string; sku: string; name: string; supplier_sku?: string | null; cost_price?: number | null }>>([])
+const orders = ref<Array<{ id: string; order_number: string; status: string; total: number; ordered_at?: string | null }>>([])
+const invoices = ref<Array<{ id: string; invoice_number: string; status: string; total: number; paid_amount: number; due_date?: string | null }>>([])
+const catalogProducts = ref<Product[]>([])
+const activeTab = ref<'statement' | 'schedule' | 'payments' | 'products' | 'orders' | 'invoices' | 'contacts'>('statement')
 const showPaymentModal = ref(false)
 const showContactModal = ref(false)
+const showProductModal = ref(false)
 const saving = ref(false)
 const editingContact = ref<SupplierContact | null>(null)
 
+const payingInvoiceId = ref<string | null>(null)
 const paymentForm = ref({
-  amount: 0,
+  amount: '',
   payment_method: 'bank_transfer',
   reference: '',
   notes: '',
 })
+
+const productForm = ref({ product_id: '', supplier_sku: '', cost_price: 0 })
 
 const contactForm = ref({
   name: '',
@@ -57,11 +66,16 @@ async function loadAll() {
   dueDates.value = await store.loadSupplierDueDates(id)
   payments.value = await store.loadSupplierPayments(id)
   contacts.value = await store.loadSupplierContacts(id)
+  products.value = await store.loadSupplierProducts(id)
+  orders.value = await store.loadSupplierOrders(id)
+  invoices.value = await store.loadSupplierInvoices(id)
 }
 
-function openPaymentModal() {
+function openPaymentModal(invoice?: { id: string; total: number; paid_amount: number }) {
+  payingInvoiceId.value = invoice?.id ?? null
+  const due = invoice ? Math.max(0, invoice.total - invoice.paid_amount) : (summary.value?.debt ?? 0)
   paymentForm.value = {
-    amount: summary.value?.debt ?? 0,
+    amount: String(due / 100),
     payment_method: 'bank_transfer',
     reference: '',
     notes: '',
@@ -72,12 +86,15 @@ function openPaymentModal() {
 async function submitPayment() {
   saving.value = true
   try {
-    await store.recordSupplierPayment(supplierId.value, {
-      amount: paymentForm.value.amount,
+    const amount = parseMoneyInput(paymentForm.value.amount)
+    const payload = {
+      amount,
       payment_method: paymentForm.value.payment_method,
       reference: paymentForm.value.reference || undefined,
       notes: paymentForm.value.notes || undefined,
-    })
+    }
+    if (payingInvoiceId.value) await store.recordPurchaseInvoicePayment(payingInvoiceId.value, payload)
+    else await store.recordSupplierPayment(supplierId.value, payload)
     showPaymentModal.value = false
     await loadAll()
   } finally {
@@ -115,6 +132,51 @@ async function removeContact(contact: SupplierContact) {
   contacts.value = await store.loadSupplierContacts(supplierId.value)
 }
 
+const addressLine = computed(() => {
+  const address = supplier.value?.address
+  if (!address || typeof address === 'string') return address || ''
+  return [address.line1, address.city, address.country].filter(Boolean).join(', ')
+})
+
+async function openProductModal() {
+  productForm.value = { product_id: '', supplier_sku: '', cost_price: 0 }
+  await store.loadCompanies()
+  const companyId = store.companies[0]?.id
+  if (companyId) {
+    const catalogs = await store.loadCatalogs(companyId)
+    const catalogId = catalogs.find(item => item.is_default)?.id ?? catalogs[0]?.id
+    catalogProducts.value = catalogId ? await store.loadProducts(catalogId) : []
+  }
+  showProductModal.value = true
+}
+
+async function attachProduct() {
+  if (!productForm.value.product_id) return
+  saving.value = true
+  try {
+    products.value = await store.attachSupplierProduct(supplierId.value, {
+      product_id: productForm.value.product_id,
+      supplier_sku: productForm.value.supplier_sku || null,
+      cost_price: Math.max(0, Math.round(Number(productForm.value.cost_price) * 100) || 0),
+    })
+    showProductModal.value = false
+  } finally {
+    saving.value = false
+  }
+}
+
+async function detachProduct(productId: string) {
+  if (!(await confirmDialog(t('org.confirmDelete')))) return
+  await store.detachSupplierProduct(supplierId.value, productId)
+  products.value = await store.loadSupplierProducts(supplierId.value)
+}
+
+function statusLabel(status: unknown) {
+  if (typeof status === 'string') return status
+  if (status && typeof status === 'object' && 'value' in status) return String((status as { value: string }).value)
+  return '—'
+}
+
 function transactionTypeLabel(type: string): string {
   const map: Record<string, string> = {
     PURCHASE: 'Achat',
@@ -135,13 +197,23 @@ function transactionTypeLabel(type: string): string {
 
     <div class="space-y-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <button class="btn-secondary" @click="router.push({ name: 'payables' })">← {{ t('payables.title') }}</button>
+        <button class="btn-secondary" @click="router.push({ name: 'suppliers' })">← {{ t('nav.suppliers') }}</button>
         <button class="btn-primary" @click="openPaymentModal">{{ t('payables.recordPayment') }}</button>
+      </div>
+
+      <div v-if="supplier" class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <p class="m-0 text-xs font-medium uppercase tracking-wide text-slate-400">{{ t('suppliers.contactDetails') }}</p>
+        <div class="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+          <p class="m-0"><span class="text-slate-400">{{ t('suppliers.contactPerson') }}</span> · {{ supplier.contact_person || '—' }}</p>
+          <p class="m-0"><span class="text-slate-400">{{ t('suppliers.phone') }}</span> · {{ supplier.phone || '—' }}</p>
+          <p class="m-0"><span class="text-slate-400">{{ t('suppliers.email') }}</span> · {{ supplier.email || '—' }}</p>
+          <p class="m-0 sm:col-span-2"><span class="text-slate-400">{{ t('suppliers.address') }}</span> · {{ addressLine || '—' }}</p>
+        </div>
       </div>
 
       <div v-if="summary" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="stat-card">
-          <p class="stat-label">{{ t('payables.outstanding') }}</p>
+          <p class="stat-label">{{ t('suppliers.debt') }}</p>
           <p class="stat-value">{{ formatMoney(summary.debt) }}</p>
         </div>
         <div class="stat-card">
@@ -164,6 +236,9 @@ function transactionTypeLabel(type: string): string {
             ['statement', t('payables.tabs.statement')],
             ['schedule', t('payables.tabs.schedule')],
             ['payments', t('payables.tabs.payments')],
+            ['products', t('suppliers.products')],
+            ['orders', t('suppliers.orders')],
+            ['invoices', t('suppliers.invoices')],
             ['contacts', t('suppliers.contacts')],
           ] as const)"
           :key="tab[0]"
@@ -248,6 +323,85 @@ function transactionTypeLabel(type: string): string {
         <p v-if="!payments.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
 
+      <div v-else-if="activeTab === 'products'" class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('suppliers.products') }}</h3>
+          <button class="btn-primary" @click="openProductModal">+ {{ t('suppliers.addProduct') }}</button>
+        </div>
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium">SKU</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('products.name') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('suppliers.supplierSku') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('products.cost') }}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="product in products" :key="product.id">
+              <td class="px-4 py-3 font-mono text-xs">{{ product.sku }}</td>
+              <td class="px-4 py-3">{{ product.name }}</td>
+              <td class="px-4 py-3 text-slate-500">{{ product.supplier_sku || '—' }}</td>
+              <td class="px-4 py-3 text-right">{{ product.cost_price != null ? formatMoney(product.cost_price) : '—' }}</td>
+              <td class="px-4 py-3 text-right"><button class="text-red-600" @click="detachProduct(product.id)">{{ t('common.delete') }}</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!products.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+
+      <div v-else-if="activeTab === 'orders'" class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="flex justify-end border-b border-slate-100 px-4 py-3">
+          <button class="btn-primary" @click="router.push({ name: 'purchase-orders', query: { supplier: supplierId } })">+ {{ t('purchases.newOrder') }}</button>
+        </div>
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium">{{ t('purchases.order') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('products.price') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="order in orders" :key="order.id" class="cursor-pointer hover:bg-slate-50" @click="router.push({ name: 'purchase-order-detail', params: { id: order.id } })">
+              <td class="px-4 py-3 font-mono">{{ order.order_number }}</td>
+              <td class="px-4 py-3">{{ statusLabel(order.status) }}</td>
+              <td class="px-4 py-3 text-right">{{ formatMoney(order.total) }}</td>
+              <td class="px-4 py-3 text-slate-500">{{ formatDate(order.ordered_at) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!orders.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+
+      <div v-else-if="activeTab === 'invoices'" class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium">{{ t('purchases.tabs.invoices') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('products.price') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('purchases.outstanding') }}</th>
+              <th class="px-4 py-3 text-right font-medium"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="invoice in invoices" :key="invoice.id">
+              <td class="px-4 py-3 font-mono">{{ invoice.invoice_number }}</td>
+              <td class="px-4 py-3">{{ statusLabel(invoice.status) }}</td>
+              <td class="px-4 py-3 text-right">{{ formatMoney(invoice.total) }}</td>
+              <td class="px-4 py-3 text-right font-medium">{{ formatMoney(Math.max(0, invoice.total - invoice.paid_amount)) }}</td>
+              <td class="px-4 py-3 text-right">
+                <button v-if="invoice.paid_amount < invoice.total" class="text-brand-600" @click="openPaymentModal(invoice)">{{ t('purchases.pay') }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!invoices.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+
       <div v-else class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('suppliers.contacts') }}</h3>
@@ -288,7 +442,7 @@ function transactionTypeLabel(type: string): string {
       <form class="space-y-3" @submit.prevent="submitPayment">
         <div>
           <label class="mb-1 block text-sm font-medium">{{ t('products.price') }}</label>
-          <input v-model.number="paymentForm.amount" type="number" min="1" required class="field" />
+          <input v-model="paymentForm.amount" required class="field" />
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium">{{ t('payables.method') }}</label>
@@ -310,6 +464,30 @@ function transactionTypeLabel(type: string): string {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showPaymentModal = false">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+        </div>
+      </form>
+    </AppModal>
+
+    <AppModal
+      :open="showProductModal"
+      :title="t('suppliers.addProduct')"
+      icon="products"
+      tone="info"
+      @close="showProductModal = false"
+    >
+      <form class="space-y-3" @submit.prevent="attachProduct">
+        <div>
+          <label class="mb-1 block text-sm font-medium">{{ t('products.name') }}</label>
+          <select v-model="productForm.product_id" required class="field">
+            <option value="">{{ t('suppliers.selectProduct') }}</option>
+            <option v-for="item in catalogProducts" :key="item.id" :value="item.id">{{ item.sku }} — {{ item.name }}</option>
+          </select>
+        </div>
+        <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.supplierSku') }}</label><input v-model="productForm.supplier_sku" class="field" /></div>
+        <div><label class="mb-1 block text-sm font-medium">{{ t('products.cost') }}</label><input v-model.number="productForm.cost_price" type="number" min="0" step="0.01" class="field" /></div>
+        <div class="app-modal__actions">
+          <button type="button" class="btn-secondary" @click="showProductModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
         </div>
       </form>

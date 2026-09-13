@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import OpeningBalanceModal from '../../../components/inventory/OpeningBalanceModal.vue'
+import WarehouseOptions from '../../../components/inventory/WarehouseOptions.vue'
 import FullCountSheet from '../../../components/inventory/FullCountSheet.vue'
 import CycleCountModal from '../../../components/inventory/CycleCountModal.vue'
 import { useConfirm } from '../../../composables/useConfirm'
@@ -472,9 +473,7 @@ async function completeFromPreview() {
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
             <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
-            <select v-model="form.warehouse_id" required class="field">
-              <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
-            </select>
+            <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" />
           </div>
           <div>
             <label class="mb-1 block text-sm font-medium">{{ t('inventory.countDate') }} *</label>

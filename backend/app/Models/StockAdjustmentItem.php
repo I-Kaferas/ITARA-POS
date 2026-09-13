@@ -17,7 +17,10 @@ class StockAdjustmentItem extends Model
         'product_id',
         'product_variant_id',
         'batch_id',
+        'sale_unit_id',
         'quantity',
+        'entered_quantity',
+        'unit_name',
         'unit_cost',
         'notes',
     ];
@@ -26,6 +29,7 @@ class StockAdjustmentItem extends Model
     {
         return [
             'quantity' => 'integer',
+            'entered_quantity' => 'integer',
             'unit_cost' => 'integer',
         ];
     }
@@ -38,5 +42,10 @@ class StockAdjustmentItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function saleUnit(): BelongsTo
+    {
+        return $this->belongsTo(ProductSaleUnit::class, 'sale_unit_id');
     }
 }

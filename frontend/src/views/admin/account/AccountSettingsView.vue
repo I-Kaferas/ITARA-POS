@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import { extractApiErrorMessage } from '../../../api/client'
 import { useAuthStore } from '../../../stores/auth'
 
 const { t } = useI18n()
@@ -14,6 +15,10 @@ const twoFactorSecret = ref('')
 const twoFactorQr = ref('')
 const confirmCode = ref('')
 const disablePassword = ref('')
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordError = ref('')
 const message = ref('')
 const loading = ref(false)
 
@@ -23,6 +28,26 @@ onMounted(async () => {
   const status = await auth.emailVerificationStatus()
   emailVerified.value = status.email_verified
 })
+
+async function changePassword() {
+  passwordError.value = ''
+  if (newPassword.value !== confirmPassword.value) {
+    passwordError.value = t('account.passwordMismatch')
+    return
+  }
+  loading.value = true
+  try {
+    const res = await auth.changePassword(currentPassword.value, newPassword.value, confirmPassword.value)
+    message.value = res.message || t('account.passwordChanged')
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+  } catch (e) {
+    passwordError.value = extractApiErrorMessage(e, t('common.error'))
+  } finally {
+    loading.value = false
+  }
+}
 
 async function resendEmail() {
   const res = await auth.resendEmailVerification()
@@ -85,6 +110,18 @@ async function logoutAll() {
     <p v-if="message" class="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">{{ message }}</p>
 
     <div class="grid gap-6 lg:grid-cols-2">
+      <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <h2 class="mb-2 font-semibold">{{ t('account.passwordTitle') }}</h2>
+        <p class="mb-4 text-sm text-slate-600">{{ t('account.passwordHint') }}</p>
+        <form class="space-y-3" @submit.prevent="changePassword">
+          <input v-model="currentPassword" type="password" required class="field" :placeholder="t('account.currentPassword')" autocomplete="current-password" />
+          <input v-model="newPassword" type="password" required minlength="8" class="field" :placeholder="t('account.newPassword')" autocomplete="new-password" />
+          <input v-model="confirmPassword" type="password" required minlength="8" class="field" :placeholder="t('account.confirmPassword')" autocomplete="new-password" />
+          <p v-if="passwordError" class="text-sm text-red-700">{{ passwordError }}</p>
+          <button class="btn-primary" type="submit" :disabled="loading">{{ t('account.changePassword') }}</button>
+        </form>
+      </section>
+
       <!-- Email -->
       <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <h2 class="mb-4 font-semibold">{{ t('account.email') }}</h2>
