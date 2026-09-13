@@ -568,7 +568,8 @@
   "pos": {
     "title": "Point of sale",
     "subtitle": "Register and checkout",
-    "searchPlaceholder": "Search product, SKU or scan barcode…",
+    "searchPlaceholder": "Search / Scan",
+    "scanHint": "Enter adds the product. F2 search. F8 pay.",
     "scanHint": "Enter to add",
     "categories": "Categories",
     "cart": "Ticket",
@@ -1367,6 +1368,7 @@
     "history": "History",
     "historyTitle": "Product history",
     "historyEmpty": "No movement for this product.",
+    "historyEmptyPeriod": "No movement in this period.",
     "movementRule": "Stock is never reduced directly. A sale writes a SALE movement, then the balance. History keeps both lines, for example +100 OPENING and −3 SALE.",
     "balanceAfter": "Stock",
     "historyIn": "In",

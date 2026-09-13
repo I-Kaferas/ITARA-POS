@@ -21,6 +21,8 @@ const showHistory = ref(false)
 const historyRow = ref<StockBalance | null>(null)
 const history = ref<InventoryMovement[]>([])
 const historyLoading = ref(false)
+const historyFrom = ref('')
+const historyTo = ref('')
 const saving = ref(false)
 
 const movementTypes = [
@@ -150,16 +152,36 @@ async function openHistory(row: StockBalance) {
   if (!warehouseId.value || !row.product_id) return
   historyRow.value = row
   history.value = []
+  historyFrom.value = ''
+  historyTo.value = ''
   showHistory.value = true
+  await loadHistory()
+}
+
+async function loadHistory() {
+  const row = historyRow.value
+  if (!warehouseId.value || !row?.product_id) return
   historyLoading.value = true
   try {
+    const params = new URLSearchParams({
+      product_id: row.product_id,
+      per_page: '100',
+    })
+    if (historyFrom.value) params.set('from', historyFrom.value)
+    if (historyTo.value) params.set('to', historyTo.value)
     const res = await api.get<{ data: { data: InventoryMovement[] } }>(
-      `/warehouses/${warehouseId.value}/movements?product_id=${row.product_id}&per_page=100`,
+      `/warehouses/${warehouseId.value}/movements?${params}`,
     )
     history.value = res.data.data ?? []
   } finally {
     historyLoading.value = false
   }
+}
+
+function clearHistoryDates() {
+  historyFrom.value = ''
+  historyTo.value = ''
+  void loadHistory()
 }
 </script>
 

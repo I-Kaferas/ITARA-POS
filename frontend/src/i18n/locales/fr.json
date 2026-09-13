@@ -570,7 +570,8 @@
   "pos": {
     "title": "Point de vente",
     "subtitle": "Caisse et encaissement",
-    "searchPlaceholder": "Rechercher produit, SKU ou scanner code-barres…",
+    "searchPlaceholder": "Recherche / Scanner",
+    "scanHint": "Entrée ajoute le produit. F2 recherche. F8 payer.",
     "scanHint": "Entrée pour ajouter",
     "categories": "Catégories",
     "cart": "Ticket",
@@ -1395,6 +1396,7 @@
     "history": "Historique",
     "historyTitle": "Historique du produit",
     "historyEmpty": "Aucun mouvement pour ce produit.",
+    "historyEmptyPeriod": "Aucun mouvement sur cette période.",
     "movementRule": "Le stock ne se soustrait jamais directement. Une vente crée un mouvement (SALE), puis le solde. L'historique conserve par exemple +100 OPENING et −3 SALE.",
     "balanceAfter": "Stock",
     "historyIn": "Entrée",

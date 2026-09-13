@@ -566,7 +566,8 @@
   "pos": {
     "title": "Kituo cha mauzo",
     "subtitle": "Kasha na malipo",
-    "searchPlaceholder": "Tafuta bidhaa, SKU au changanua msimbo pau…",
+    "searchPlaceholder": "Tafuta / Changanua",
+    "scanHint": "Enter inaongeza bidhaa. F2 utafutaji. F8 lipa.",
     "scanHint": "Enter kuongeza",
     "categories": "Kategoria",
     "cart": "Tiketi",
@@ -1357,6 +1358,7 @@
     "history": "Historia",
     "historyTitle": "Historia ya bidhaa",
     "historyEmpty": "Hakuna mienendo kwa bidhaa hii.",
+    "historyEmptyPeriod": "Hakuna mienendo katika kipindi hiki.",
     "movementRule": "Stoo haipunguzwi moja kwa moja. Mauzo huandika mwenendo wa SALE, kisha salio. Historia huhifadhi mistari yote, kwa mfano +100 OPENING na −3 SALE.",
     "balanceAfter": "Stoo",
     "historyIn": "Ingizo",

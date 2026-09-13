@@ -43,7 +43,7 @@ const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.qu
         <div class="pos-cart__body">
           <div class="pos-cart__line-top">
             <div class="min-w-0">
-              <p class="pos-cart__name">{{ line.product.name }}</p>
+              <p class="pos-cart__name">{{ line.product.name }} <span class="pos-cart__times">x{{ line.quantity }}</span></p>
               <p class="pos-cart__sku">
                 <span v-if="line.product.category_name">{{ line.product.category_name }} · </span>{{ line.product.sku }}
               </p>
@@ -174,6 +174,11 @@ const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.qu
   font-weight: 700;
   line-height: 1.3;
   color: #0f172a;
+}
+
+.pos-cart__times {
+  font-weight: 600;
+  color: #64748b;
 }
 
 .pos-cart__remove {

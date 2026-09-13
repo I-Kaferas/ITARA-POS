@@ -28,6 +28,7 @@ const showClose = ref(false)
 const searchQuery = ref('')
 const selectedCategoryId = ref<string | null>(null)
 const footerRef = ref<{ openPaymentModal: () => void } | null>(null)
+const searchRef = ref<{ focus: () => void } | null>(null)
 const unitProduct = ref<PosProduct | null>(null)
 const unitId = ref('')
 const unitQty = ref(1)
@@ -271,6 +272,23 @@ async function onSearchSubmit(value: string) {
   const code = value.trim()
   if (!code) return
 
+  const local = pos.products.find(p => pos.productMatchesBarcode(p, code))
+  if (local) {
+    onAddProduct(local)
+    searchQuery.value = ''
+    return
+  }
+
+  const q = code.toLowerCase()
+  const named = pos.products.filter(product =>
+    product.name.toLowerCase() === q || product.sku.toLowerCase() === q || product.name.toLowerCase().includes(q),
+  )
+  if (named.length === 1) {
+    onAddProduct(named[0])
+    searchQuery.value = ''
+    return
+  }
+
   if (context.currentStoreId) {
     const product = await pos.lookupBarcode(context.currentStoreId, code)
     if (product) {
@@ -280,14 +298,7 @@ async function onSearchSubmit(value: string) {
     }
   }
 
-  const local = pos.products.find(p => pos.productMatchesBarcode(p, code))
-  if (local) {
-    onAddProduct(local)
-    searchQuery.value = ''
-    return
-  }
-
-  pos.setStatus(t('pos.barcodeNotFound', { code }))
+  if (/^\d{4,}$/.test(code)) pos.setStatus(t('pos.barcodeNotFound', { code }))
 }
 
 async function onHold() {
@@ -347,6 +358,16 @@ let scanTimer: ReturnType<typeof setTimeout> | null = null
 
 function onScanKey(event: KeyboardEvent) {
   if (!pos.shift || event.ctrlKey || event.metaKey || event.altKey) return
+  if (event.key === 'F2') {
+    event.preventDefault()
+    searchRef.value?.focus()
+    return
+  }
+  if (event.key === 'F8' && !pos.isEmpty) {
+    event.preventDefault()
+    footerRef.value?.openPaymentModal()
+    return
+  }
   const target = event.target as HTMLElement | null
   if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
   if (event.key === 'Enter') {
@@ -464,8 +485,10 @@ onUnmounted(() => {
           @close-shift="closeShift"
         />
         <PosSearchBar
+          ref="searchRef"
           v-model="searchQuery"
           :placeholder="t('pos.searchPlaceholder')"
+          :hint="t('pos.scanHint')"
           @submit="onSearchSubmit"
         />
 

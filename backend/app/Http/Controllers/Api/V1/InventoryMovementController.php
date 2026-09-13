@@ -44,12 +44,21 @@ class InventoryMovementController extends Controller
             $query->where('movement_type', InventoryMovementType::parse($request->string('movement_type'))->value);
         }
 
+        [$from, $to] = $this->dateRange($request);
+
         if ($request->filled('product_id')) {
             return response()->json([
                 'data' => [
-                    'data' => $this->ledgerWithBalance($query),
+                    'data' => $this->ledgerWithBalance($query, $from, $to),
                 ],
             ]);
+        }
+
+        if ($from) {
+            $query->where('occurred_at', '>=', $from);
+        }
+        if ($to) {
+            $query->where('occurred_at', '<=', $to);
         }
 
         return response()->json([
@@ -95,21 +104,41 @@ class InventoryMovementController extends Controller
      * Chronological ledger: each line keeps its signed quantity and the stock after it.
      * Example: +100 OPENING (100), -3 SALE (97).
      *
+     * Date filters hide lines outside the period but keep the stock that existed before it.
+     *
      * @return list<InventoryMovement>
      */
-    private function ledgerWithBalance($query): array
+    private function ledgerWithBalance($query, ?\Illuminate\Support\Carbon $from = null, ?\Illuminate\Support\Carbon $to = null): array
     {
         $running = 0;
+        $rows = [];
 
-        return $query
-            ->reorder()
-            ->orderBy('occurred_at')
-            ->orderBy('id')
-            ->get()
-            ->each(function (InventoryMovement $movement) use (&$running): void {
-                $running += (int) $movement->quantity;
-                $movement->setAttribute('balance_after', $running);
-            })
-            ->all();
+        foreach ($query->reorder()->orderBy('occurred_at')->orderBy('id')->get() as $movement) {
+            $running += (int) $movement->quantity;
+            $movement->setAttribute('balance_after', $running);
+            $at = $movement->occurred_at ?? $movement->created_at;
+            if ($from && (! $at || $at->lt($from))) {
+                continue;
+            }
+            if ($to && (! $at || $at->gt($to))) {
+                continue;
+            }
+            $rows[] = $movement;
+        }
+
+        return $rows;
+    }
+
+    /** @return array{0: ?\Illuminate\Support\Carbon, 1: ?\Illuminate\Support\Carbon} */
+    private function dateRange(Request $request): array
+    {
+        $from = $request->filled('from') ? $request->date('from')?->startOfDay() : null;
+        $to = $request->filled('to') ? $request->date('to')?->endOfDay() : null;
+
+        if ($from && $to && $from->greaterThan($to)) {
+            return [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+        }
+
+        return [$from, $to];
     }
 }
