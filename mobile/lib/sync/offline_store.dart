@@ -1,18 +1,31 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/config/app_config.dart';
 import '../core/config/terminal_config_repository.dart';
 import '../data/local/local_database.dart';
 import '../features/pos/domain/pos_models.dart';
 import 'sync_models.dart';
 
+class StockConflict implements Exception {
+  StockConflict(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class OfflineStore {
   OfflineStore._();
 
   static final OfflineStore instance = OfflineStore._();
+
+  Future<void> _stockChain = Future<void>.value();
 
   Future<Database> get _db => LocalDatabase.instance.database;
 
@@ -29,10 +42,34 @@ class OfflineStore {
       categories[category.id] = category;
     }
 
+    final existingStock = <String, Map<String, dynamic>>{};
+    final existingRows = await db.query('products', where: 'store_id = ?', whereArgs: [catalog.storeId]);
+    for (final row in existingRows) {
+      final decoded = jsonDecode(row['json'] as String);
+      if (decoded is Map<String, dynamic>) {
+        existingStock[row['product_id'] as String] = decoded;
+      }
+    }
+
+    final localOnly = existingRows.where((row) {
+      final productId = row['product_id'] as String? ?? '';
+      final json = existingStock[productId];
+      return json?['local_production'] == true && !products.containsKey(productId);
+    }).toList();
+
     await db.transaction((txn) async {
       await txn.delete('products', where: 'store_id = ?', whereArgs: [catalog.storeId]);
       await txn.delete('categories', where: 'store_id = ?', whereArgs: [catalog.storeId]);
       for (final product in products.values) {
+        final json = _productToJson(product);
+        final previous = existingStock[product.productId];
+        final previousVersion = (previous?['stock_version'] as num?)?.toInt() ?? 0;
+        if (previous != null && previousVersion > product.stockVersion) {
+          json['quantity_on_hand'] = previous['quantity_on_hand'];
+          json['stock_version'] = previousVersion;
+          if (previous['stock_display'] != null) json['stock_display'] = previous['stock_display'];
+        }
+        if (previous?['local_production'] == true) json['local_production'] = true;
         await txn.insert(
           'products',
           {
@@ -42,11 +79,14 @@ class OfflineStore {
             'name': product.name,
             'price': product.price,
             'category_id': product.categoryId,
-            'json': jsonEncode(_productToJson(product)),
+            'json': jsonEncode(json),
             'updated_at': DateTime.now().toIso8601String(),
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+      }
+      for (final row in localOnly) {
+        await txn.insert('products', row, conflictAlgorithm: ConflictAlgorithm.replace);
       }
       for (final category in categories.values) {
         await txn.insert(
@@ -335,7 +375,11 @@ class OfflineStore {
     final payload = {
       'idempotency_key': id,
       'client_reference': reference,
-      if (config.deviceId.isNotEmpty) 'device_id': config.deviceId,
+      'device_id': config.deviceId.isNotEmpty ? config.deviceId : config.deviceIdentifier,
+      if (config.cashRegisterId.isNotEmpty) 'cash_register_id': config.cashRegisterId,
+      if (config.cashSessionId.isNotEmpty) 'cash_session_id': config.cashSessionId,
+      if (config.cashierId.isNotEmpty) 'user_id': config.cashierId,
+      if (config.cashierName.isNotEmpty) 'cashier_name': config.cashierName,
       'store_id': config.storeId,
       'items': items,
       'payments': payments,
@@ -349,7 +393,55 @@ class OfflineStore {
       'sold_at': now,
     };
 
-    await db.transaction((txn) async {
+    await exclusiveStock(() => db.transaction((txn) async {
+      await _bindLane(txn, payload);
+      final paymentRows = <Map<String, dynamic>>[];
+      for (final payment in payments) {
+        final amount = _asInt(payment['amount']);
+        if (amount <= 0) continue;
+        paymentRows.add({
+          'id': const Uuid().v4(),
+          'sale_id': id,
+          'method': payment['method']?.toString().isNotEmpty == true ? payment['method'].toString() : method,
+          'amount': amount,
+          'currency': payment['currency']?.toString().isNotEmpty == true
+              ? payment['currency'].toString()
+              : AppConfig.currencyCode,
+          'reference': payment['reference']?.toString(),
+          'created_at': now,
+        });
+      }
+      if (paymentRows.isEmpty) {
+        paymentRows.add({
+          'id': const Uuid().v4(),
+          'sale_id': id,
+          'method': method,
+          'amount': paidAmount,
+          'currency': AppConfig.currencyCode,
+          'reference': null,
+          'created_at': now,
+        });
+      }
+
+      final eventId = const Uuid().v4();
+      final sequence = await _nextSyncSequence(txn);
+      final eventPayload = {
+        'reference': reference,
+        'total': total,
+        'paid_amount': paidAmount,
+        'outstanding_amount': outstandingAmount,
+        'method': method,
+        'payment_ids': paymentRows.map((row) => row['id']).toList(),
+        'movement_ids': <String>[],
+        'item_count': items.length,
+        'device_id': payload['device_id'],
+        'cash_register_id': payload['cash_register_id'],
+        'cash_session_id': payload['cash_session_id'],
+        'user_id': payload['user_id'],
+      };
+      payload['local_sync_event_id'] = eventId;
+      payload['local_sequence'] = sequence;
+
       await txn.insert('sales', {
         'id': id,
         'reference': reference,
@@ -360,23 +452,48 @@ class OfflineStore {
         'outstanding_amount': outstandingAmount,
         'method': method,
         'sync_status': SyncQueueStatus.pending.name,
+        'device_id': payload['device_id'],
+        'cash_register_id': payload['cash_register_id'],
+        'cash_session_id': payload['cash_session_id'],
+        'user_id': payload['user_id'],
         'created_at': now,
       });
 
+      for (final row in paymentRows) {
+        await txn.insert('payments', row);
+      }
+
+      final movementIds = <String>[];
       for (final item in items) {
-        final productId = item['product_id'] as String?;
-        final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
-        if (productId == null || quantity <= 0) continue;
+        final productId = item['product_id']?.toString() ?? '';
+        final quantity = _asInt(item['quantity']);
+        if (productId.isEmpty || quantity <= 0) continue;
+        final movementId = const Uuid().v4();
+        movementIds.add(movementId);
         await txn.insert('stock_movements', {
-          'id': const Uuid().v4(),
+          'id': movementId,
           'sale_id': id,
           'product_id': productId,
           'quantity': -quantity,
           'type': 'SALE',
           'created_at': now,
         });
-        await _decrementLocalStock(txn, productId, quantity);
+        await _applyStockDelta(txn, productId, quantity, authoritative: config.isMaster || !config.isSlave);
       }
+      eventPayload['movement_ids'] = movementIds;
+
+      await txn.insert('sync_events', {
+        'id': eventId,
+        'store_id': config.storeId,
+        'device_id': config.deviceId.isEmpty ? null : config.deviceId,
+        'sequence': sequence,
+        'event_type': 'sale.completed',
+        'entity_type': 'sale',
+        'entity_id': id,
+        'payload': jsonEncode(eventPayload),
+        'occurred_at': now,
+        'sync_status': SyncQueueStatus.pending.name,
+      });
 
       await txn.insert('sync_queue', {
         'id': const Uuid().v4(),
@@ -389,7 +506,17 @@ class OfflineStore {
         'attempts': 0,
         'created_at': now,
       });
-    });
+    }));
+
+    final registerId = payload['cash_register_id']?.toString() ?? '';
+    final sessionId = payload['cash_session_id']?.toString() ?? '';
+    if (registerId.isNotEmpty &&
+        (config.cashRegisterId != registerId || config.cashSessionId != sessionId)) {
+      await TerminalConfigRepository.instance.save(config.copyWith(
+        cashRegisterId: registerId,
+        cashSessionId: sessionId,
+      ));
+    }
 
     return PosSaleResult(
       saleId: id,
@@ -399,7 +526,330 @@ class OfflineStore {
       outstandingAmount: outstandingAmount,
       paymentStatus: outstandingAmount > 0 ? 'partial' : 'paid',
       dueDate: dueDate,
+      storedLocally: true,
+      pendingSync: true,
     );
+  }
+
+  Future<Map<String, dynamic>> acceptRemoteOperation(Map<String, dynamic> operation) async {
+    final entityType = operation['entity_type']?.toString() ?? '';
+    final entityId = operation['entity_id']?.toString() ?? '';
+    final op = operation['operation']?.toString() ?? '';
+    final rawPayload = operation['payload'];
+    final payload = rawPayload is Map ? Map<String, dynamic>.from(rawPayload) : <String, dynamic>{};
+    if (entityId.isEmpty) {
+      return {
+        'id': operation['id'],
+        'entity_id': entityId,
+        'status': 'failed',
+        'error': 'entity_id manquant',
+      };
+    }
+    if (entityType == 'customer' && op == 'create') {
+      return _acceptRemoteCustomer(operation['id']?.toString() ?? '', entityId, payload);
+    }
+    if (entityType == 'sale' && op == 'create') {
+      return _acceptRemoteSale(operation['id']?.toString() ?? '', entityId, payload);
+    }
+    return {
+      'id': operation['id'],
+      'entity_id': entityId,
+      'status': 'conflict',
+      'error': 'Unsupported sync operation.',
+    };
+  }
+
+  Future<bool> remoteOperationStored({
+    required String entityType,
+    required String entityId,
+    String? serverId,
+  }) async {
+    if (entityType == 'customer') {
+      if (await findCustomer(entityId) != null) return true;
+      if (serverId != null && serverId.isNotEmpty && await findCustomer(serverId) != null) return true;
+      return false;
+    }
+    final db = await _db;
+    final rows = await db.query('sales', where: 'id = ?', whereArgs: [entityId], limit: 1);
+    if (rows.isNotEmpty) return true;
+    if (serverId == null || serverId.isEmpty) return false;
+    final byServer = await db.query(
+      'sales',
+      where: 'id = ? OR server_id = ?',
+      whereArgs: [serverId, serverId],
+      limit: 1,
+    );
+    return byServer.isNotEmpty;
+  }
+
+  Future<Map<String, dynamic>> catalogDocument(String storeId) async {
+    final catalog = await loadCatalog(storeId);
+    final db = await _db;
+    final seqRows = await db.rawQuery('SELECT MAX(sequence) AS seq FROM sync_events');
+    return {
+      'store_id': storeId,
+      'server_sequence': (seqRows.first['seq'] as int?) ?? 0,
+      'products': catalog?.products.map(_productToJson).toList() ?? [],
+      'categories': catalog?.categories
+              .map((category) => {
+                    'id': category.id,
+                    'name': category.name,
+                    'parent_id': category.parentId,
+                    'sort_order': category.sortOrder,
+                  })
+              .toList() ??
+          [],
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> customerDocuments({int limit = 100}) async {
+    final customers = await searchCustomers('', limit: limit);
+    return customers.map((customer) => customer.toJson()).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> paymentMethodDocuments() async {
+    final methods = await loadPaymentMethods();
+    return methods.map((method) => method.toJson()).toList();
+  }
+
+  Future<String> acceptRemoteHold(Map<String, dynamic> hold) async {
+    final holds = await loadLocalHolds();
+    final existingId = hold['id']?.toString();
+    final id = existingId != null && existingId.isNotEmpty ? existingId : const Uuid().v4();
+    final next = holds.where((item) => item['id']?.toString() != id).toList()
+      ..add({
+        ...hold,
+        'id': id,
+        'server_id': id,
+      });
+    await saveLocalHolds(next);
+    return id;
+  }
+
+  Future<Map<String, dynamic>> _acceptRemoteSale(
+    String queueId,
+    String entityId,
+    Map<String, dynamic> incoming,
+  ) async {
+    final db = await _db;
+    final existing = await db.query('sales', where: 'id = ?', whereArgs: [entityId], limit: 1);
+    if (existing.isNotEmpty) {
+      return {
+        'id': queueId,
+        'entity_id': entityId,
+        'status': 'synced',
+        'server_id': entityId,
+        'reference': existing.first['reference'],
+      };
+    }
+
+    final config = TerminalConfigRepository.instance.config;
+    final items = (incoming['items'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+    final payments = (incoming['payments'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+    if (items.isEmpty) {
+      return {
+        'id': queueId,
+        'entity_id': entityId,
+        'status': 'failed',
+        'error': 'At least one item is required.',
+      };
+    }
+
+    final paidAmount = payments.fold<int>(0, (sum, payment) => sum + ((payment['amount'] as num?)?.toInt() ?? 0));
+    final total = items.fold<int>(0, (sum, item) {
+      final price = (item['unit_price'] as num?)?.toInt() ?? 0;
+      final qty = (item['quantity'] as num?)?.toInt() ?? 0;
+      return sum + price * qty;
+    });
+    final method = payments.isEmpty ? 'cash' : payments.first['method']?.toString() ?? 'cash';
+    final reference = incoming['client_reference']?.toString().isNotEmpty == true
+        ? incoming['client_reference'].toString()
+        : await _nextReference(db, incoming['device_id']?.toString() ?? config.deviceIdentifier);
+    final now = incoming['sold_at']?.toString() ?? DateTime.now().toIso8601String();
+    final payload = {
+      ...incoming,
+      'idempotency_key': incoming['idempotency_key'] ?? entityId,
+      'client_reference': reference,
+      'store_id': incoming['store_id'] ?? config.storeId,
+    };
+
+    final stock = <Map<String, dynamic>>[];
+    Map<String, String> lane = {};
+    try {
+      await exclusiveStock(() => db.transaction((txn) async {
+      lane = await _bindLane(txn, payload);
+      await txn.insert('sales', {
+        'id': entityId,
+        'reference': reference,
+        'store_id': payload['store_id'],
+        'payload_json': jsonEncode(payload),
+        'total': total,
+        'paid_amount': paidAmount,
+        'outstanding_amount': total > paidAmount ? total - paidAmount : 0,
+        'method': method,
+        'sync_status': SyncQueueStatus.pending.name,
+        'device_id': payload['device_id'],
+        'cash_register_id': payload['cash_register_id'],
+        'cash_session_id': payload['cash_session_id'],
+        'user_id': payload['user_id'],
+        'created_at': now,
+      });
+      for (final payment in payments) {
+        final amount = (payment['amount'] as num?)?.toInt() ?? 0;
+        if (amount <= 0) continue;
+        await txn.insert('payments', {
+          'id': const Uuid().v4(),
+          'sale_id': entityId,
+          'method': payment['method']?.toString() ?? method,
+          'amount': amount,
+          'currency': payment['currency']?.toString() ?? 'BIF',
+          'reference': payment['reference']?.toString(),
+          'created_at': now,
+        });
+      }
+      for (final item in items) {
+        final productId = item['product_id']?.toString();
+        final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
+        if (productId == null || productId.isEmpty || quantity <= 0) continue;
+        await txn.insert('stock_movements', {
+          'id': const Uuid().v4(),
+          'sale_id': entityId,
+          'product_id': productId,
+          'quantity': -quantity,
+          'type': 'SALE',
+          'created_at': now,
+        });
+        stock.add(await _applyStockDelta(txn, productId, quantity, authoritative: true));
+      }
+      final eventId = const Uuid().v4();
+      await txn.insert('sync_events', {
+        'id': eventId,
+        'store_id': payload['store_id']?.toString(),
+        'device_id': payload['device_id']?.toString(),
+        'sequence': await _nextSyncSequence(txn),
+        'event_type': 'sale.completed',
+        'entity_type': 'sale',
+        'entity_id': entityId,
+        'payload': jsonEncode({
+          'reference': reference,
+          'total': total,
+          'paid_amount': paidAmount,
+          'source': 'satellite',
+          'device_id': payload['device_id'],
+          'cash_register_id': payload['cash_register_id'],
+          'cash_session_id': payload['cash_session_id'],
+          'user_id': payload['user_id'],
+          'stock': stock.where((line) => line.isNotEmpty).toList(),
+        }),
+        'occurred_at': now,
+        'sync_status': SyncQueueStatus.pending.name,
+      });
+      await txn.insert('sync_queue', {
+        'id': const Uuid().v4(),
+        'entity_type': 'sale',
+        'entity_id': entityId,
+        'operation': 'create',
+        'payload': jsonEncode(payload),
+        'priority': 1,
+        'status': SyncQueueStatus.pending.name,
+        'attempts': 0,
+        'created_at': now,
+      });
+    }));
+    } on StockConflict catch (error) {
+      return {
+        'id': queueId,
+        'entity_id': entityId,
+        'status': 'failed',
+        'error': error.message,
+      };
+    }
+
+    return {
+      'id': queueId,
+      'entity_id': entityId,
+      'status': 'synced',
+      'server_id': entityId,
+      'reference': reference,
+      'stock': stock.where((line) => line.isNotEmpty).toList(),
+      ...lane,
+    };
+  }
+
+  Future<Map<String, dynamic>> _acceptRemoteCustomer(
+    String queueId,
+    String entityId,
+    Map<String, dynamic> incoming,
+  ) async {
+    final existing = await findCustomer(entityId);
+    if (existing != null) {
+      return {
+        'id': queueId,
+        'entity_id': entityId,
+        'status': 'synced',
+        'server_id': existing.serverId ?? entityId,
+      };
+    }
+    final name = incoming['name']?.toString().trim() ?? '';
+    if (name.isEmpty) {
+      return {
+        'id': queueId,
+        'entity_id': entityId,
+        'status': 'failed',
+        'error': 'Customer name is required.',
+      };
+    }
+    final now = DateTime.now().toIso8601String();
+    final customer = PosCustomer(
+      id: entityId,
+      name: name,
+      phone: incoming['phone']?.toString(),
+      email: incoming['email']?.toString(),
+      pending: true,
+    );
+    final payload = {
+      ...incoming,
+      'idempotency_key': incoming['idempotency_key'] ?? entityId,
+      'client_id': entityId,
+      'name': name,
+    };
+    final db = await _db;
+    await db.transaction((txn) async {
+      await txn.insert('customers', {
+        'id': entityId,
+        'server_id': null,
+        'name': name,
+        'code': null,
+        'email': customer.email,
+        'phone': customer.phone,
+        'json': jsonEncode(customer.toJson()),
+        'sync_status': SyncQueueStatus.pending.name,
+        'created_at': now,
+      });
+      await txn.insert('sync_queue', {
+        'id': const Uuid().v4(),
+        'entity_type': 'customer',
+        'entity_id': entityId,
+        'operation': 'create',
+        'payload': jsonEncode(payload),
+        'priority': 0,
+        'status': SyncQueueStatus.pending.name,
+        'attempts': 0,
+        'created_at': now,
+      });
+    });
+    return {
+      'id': queueId,
+      'entity_id': entityId,
+      'status': 'synced',
+      'server_id': entityId,
+    };
   }
 
   Future<void> releaseStuck() async {
@@ -412,7 +862,7 @@ class OfflineStore {
     );
   }
 
-  Future<List<Map<String, dynamic>>> pendingQueue({int limit = 25}) async {
+  Future<List<Map<String, dynamic>>> pendingQueue({int limit = 50}) async {
     final db = await _db;
     final now = DateTime.now().toIso8601String();
     return db.query(
@@ -469,6 +919,12 @@ class OfflineStore {
             if (serverId != null) 'server_id': serverId,
           },
           where: 'id = ?',
+          whereArgs: [entityId],
+        );
+        await txn.update(
+          'sync_events',
+          {'sync_status': SyncQueueStatus.synced.name},
+          where: "entity_type = 'sale' AND entity_id = ?",
           whereArgs: [entityId],
         );
       }
@@ -591,6 +1047,43 @@ class OfflineStore {
     }
   }
 
+  Future<Map<String, int>> localLedgerCounts() async {
+    final db = await _db;
+    Future<int> count(String table) async {
+      final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM $table');
+      return (rows.first['c'] as num?)?.toInt() ?? 0;
+    }
+
+    return {
+      'sales': await count('sales'),
+      'payments': await count('payments'),
+      'stock_movements': await count('stock_movements'),
+      'sync_events': await count('sync_events'),
+    };
+  }
+
+  Future<Map<String, dynamic>?> latestSaleChain() async {
+    final db = await _db;
+    final sales = await db.query('sales', orderBy: 'created_at DESC', limit: 1);
+    if (sales.isEmpty) return null;
+    final sale = sales.first;
+    final id = sale['id'] as String;
+    Future<int> count(String sql) async {
+      final rows = await db.rawQuery(sql, [id]);
+      return (rows.first['c'] as num?)?.toInt() ?? 0;
+    }
+
+    return {
+      'reference': sale['reference'],
+      'sync_status': sale['sync_status'],
+      'payments': await count('SELECT COUNT(*) AS c FROM payments WHERE sale_id = ?'),
+      'movements': await count('SELECT COUNT(*) AS c FROM stock_movements WHERE sale_id = ?'),
+      'events': await count(
+        "SELECT COUNT(*) AS c FROM sync_events WHERE entity_type = 'sale' AND entity_id = ?",
+      ),
+    };
+  }
+
   Future<void> setCheckpoint(String key, String value) async {
     final db = await _db;
     await db.insert(
@@ -616,6 +1109,17 @@ class OfflineStore {
     });
   }
 
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  Future<int> _nextSyncSequence(Transaction txn) async {
+    final rows = await txn.rawQuery('SELECT MAX(sequence) AS seq FROM sync_events');
+    return ((rows.first['seq'] as int?) ?? 0) + 1;
+  }
+
   Future<String> _nextReference(Database db, String deviceIdentifier) async {
     final day = DateTime.now();
     final stamp = '${day.year}${day.month.toString().padLeft(2, '0')}${day.day.toString().padLeft(2, '0')}';
@@ -626,19 +1130,212 @@ class OfflineStore {
     return 'SALE-$pos-$stamp-${seq.toString().padLeft(6, '0')}';
   }
 
-  Future<void> _decrementLocalStock(Transaction txn, String productId, int quantity) async {
+  Future<T> exclusiveStock<T>(Future<T> Function() action) {
+    final previous = _stockChain;
+    final gate = Completer<void>();
+    _stockChain = gate.future;
+    return previous.catchError((Object _) {}).then((_) => action()).whenComplete(gate.complete);
+  }
+
+  Future<List<Map<String, dynamic>>> applyProduction({
+    required String productionId,
+    required String finishedProductId,
+    required int finishedQuantity,
+    required List<Map<String, dynamic>> ingredients,
+  }) async {
+    if (finishedQuantity <= 0) throw Exception('Quantité de production invalide');
+    if (ingredients.isEmpty) throw Exception('La recette n’a pas de matières premières');
+    final db = await _db;
+    final now = DateTime.now().toIso8601String();
+    final stock = <Map<String, dynamic>>[];
+    await exclusiveStock(() => db.transaction((txn) async {
+      for (final line in ingredients) {
+        final productId = line['product_id']?.toString() ?? '';
+        final quantity = (line['quantity'] as num?)?.toInt() ?? 0;
+        if (productId.isEmpty || quantity <= 0) continue;
+        await txn.insert('stock_movements', {
+          'id': const Uuid().v4(),
+          'sale_id': productionId,
+          'product_id': productId,
+          'quantity': -quantity,
+          'type': 'PRODUCTION_OUT',
+          'created_at': now,
+        });
+        stock.add(await _adjustTrackedStock(txn, productId, -quantity));
+      }
+      await txn.insert('stock_movements', {
+        'id': const Uuid().v4(),
+        'sale_id': productionId,
+        'product_id': finishedProductId,
+        'quantity': finishedQuantity,
+        'type': 'PRODUCTION_IN',
+        'created_at': now,
+      });
+      stock.add(await _adjustTrackedStock(txn, finishedProductId, finishedQuantity));
+      await txn.insert('sync_events', {
+        'id': const Uuid().v4(),
+        'store_id': TerminalConfigRepository.instance.config.storeId,
+        'device_id': TerminalConfigRepository.instance.config.deviceId.isEmpty
+            ? null
+            : TerminalConfigRepository.instance.config.deviceId,
+        'sequence': await _nextSyncSequence(txn),
+        'event_type': 'production.completed',
+        'entity_type': 'production',
+        'entity_id': productionId,
+        'payload': jsonEncode({
+          'finished_product_id': finishedProductId,
+          'finished_quantity': finishedQuantity,
+          'ingredients': ingredients,
+        }),
+        'occurred_at': now,
+        'sync_status': SyncQueueStatus.pending.name,
+      });
+    }));
+    return stock.where((line) => line.isNotEmpty).toList();
+  }
+
+  Future<Map<String, dynamic>> _adjustTrackedStock(Transaction txn, String productId, int delta) async {
     final rows = await txn.query('products', where: 'product_id = ?', whereArgs: [productId], limit: 1);
-    if (rows.isEmpty) return;
+    if (rows.isEmpty) throw StockConflict('Produit introuvable pour la production');
     final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
-    final current = (json['quantity_on_hand'] as num?)?.toInt();
-    if (current == null) return;
-    json['quantity_on_hand'] = current - quantity;
+    final current = (json['quantity_on_hand'] as num?)?.toInt() ?? 0;
+    final next = current + delta;
+    if (next < 0) {
+      final name = json['name']?.toString() ?? 'Article';
+      throw StockConflict('Stock insuffisant pour $name');
+    }
+    final version = ((json['stock_version'] as num?)?.toInt() ?? 0) + 1;
+    json['quantity_on_hand'] = next;
+    json['stock_version'] = version;
     await txn.update(
       'products',
       {'json': jsonEncode(json)},
       where: 'product_id = ?',
       whereArgs: [productId],
     );
+    return {
+      'product_id': productId,
+      'quantity_on_hand': next,
+      'stock_version': version,
+    };
+  }
+
+  Future<void> applyAuthoritativeStock(List<dynamic> lines) async {
+    if (lines.isEmpty) return;
+    await exclusiveStock(() async {
+      final db = await _db;
+      await db.transaction((txn) async {
+        for (final line in lines.whereType<Map>()) {
+          final productId = line['product_id']?.toString() ?? '';
+          final version = (line['stock_version'] as num?)?.toInt();
+          final quantity = (line['quantity_on_hand'] as num?)?.toInt();
+          if (productId.isEmpty || version == null || quantity == null) continue;
+          final rows = await txn.query('products', where: 'product_id = ?', whereArgs: [productId], limit: 1);
+          if (rows.isEmpty) continue;
+          final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
+          final currentVersion = (json['stock_version'] as num?)?.toInt() ?? 0;
+          if (version < currentVersion) continue;
+          json['quantity_on_hand'] = quantity;
+          json['stock_version'] = version;
+          await txn.update(
+            'products',
+            {'json': jsonEncode(json)},
+            where: 'product_id = ?',
+            whereArgs: [productId],
+          );
+        }
+      });
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> stockSnapshot() async {
+    final db = await _db;
+    final rows = await db.query('products');
+    final lines = <Map<String, dynamic>>[];
+    for (final row in rows) {
+      final decoded = jsonDecode(row['json'] as String);
+      if (decoded is! Map) continue;
+      final quantity = decoded['quantity_on_hand'];
+      if (quantity is! num) continue;
+      lines.add({
+        'product_id': row['product_id'],
+        'quantity_on_hand': quantity.toInt(),
+        'stock_version': (decoded['stock_version'] as num?)?.toInt() ?? 0,
+      });
+    }
+    return lines;
+  }
+
+  Future<Map<String, String>> _bindLane(Transaction txn, Map<String, dynamic> payload) async {
+    final config = TerminalConfigRepository.instance.config;
+    var deviceId = payload['device_id']?.toString() ?? '';
+    if (deviceId.isEmpty) deviceId = config.deviceId;
+    if (deviceId.isEmpty) deviceId = config.deviceIdentifier;
+    if (deviceId.isEmpty) deviceId = 'lane-${const Uuid().v4()}';
+    var registerId = payload['cash_register_id']?.toString() ?? '';
+    var sessionId = payload['cash_session_id']?.toString() ?? '';
+    var userId = payload['user_id']?.toString() ?? '';
+    final rows = await txn.query('lane_sessions', where: 'device_id = ?', whereArgs: [deviceId], limit: 1);
+    if (rows.isNotEmpty) {
+      if (registerId.isEmpty) registerId = rows.first['cash_register_id']?.toString() ?? '';
+      if (sessionId.isEmpty) sessionId = rows.first['cash_session_id']?.toString() ?? '';
+      if (userId.isEmpty) userId = rows.first['user_id']?.toString() ?? '';
+    }
+    if (registerId.isEmpty) registerId = 'reg-$deviceId';
+    if (sessionId.isEmpty) sessionId = 'ses-$deviceId';
+    await txn.insert(
+      'lane_sessions',
+      {
+        'device_id': deviceId,
+        'cash_register_id': registerId,
+        'cash_session_id': sessionId,
+        'user_id': userId.isEmpty ? null : userId,
+        'opened_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    payload['device_id'] = deviceId;
+    payload['cash_register_id'] = registerId;
+    payload['cash_session_id'] = sessionId;
+    if (userId.isNotEmpty) payload['user_id'] = userId;
+    return {
+      'device_id': deviceId,
+      'cash_register_id': registerId,
+      'cash_session_id': sessionId,
+      if (userId.isNotEmpty) 'user_id': userId,
+    };
+  }
+
+  Future<Map<String, dynamic>> _applyStockDelta(
+    Transaction txn,
+    String productId,
+    int quantity, {
+    required bool authoritative,
+  }) async {
+    final rows = await txn.query('products', where: 'product_id = ?', whereArgs: [productId], limit: 1);
+    if (rows.isEmpty) return {};
+    final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
+    final current = (json['quantity_on_hand'] as num?)?.toInt();
+    if (current == null) return {};
+    if (authoritative && current < quantity) {
+      final name = json['name']?.toString() ?? 'Article';
+      throw StockConflict('Stock insuffisant pour $name');
+    }
+    final next = current - quantity;
+    final version = ((json['stock_version'] as num?)?.toInt() ?? 0) + (authoritative ? 1 : 0);
+    json['quantity_on_hand'] = next;
+    json['stock_version'] = version;
+    await txn.update(
+      'products',
+      {'json': jsonEncode(json)},
+      where: 'product_id = ?',
+      whereArgs: [productId],
+    );
+    return {
+      'product_id': productId,
+      'quantity_on_hand': next,
+      'stock_version': version,
+    };
   }
 
   Map<String, dynamic> _productToJson(PosProduct product) {
@@ -654,6 +1351,16 @@ class OfflineStore {
       'tax_inclusive': product.taxInclusive,
       'primary_image_cdn_url': product.primaryImageUrl,
       'is_available': product.isAvailable,
+      if (product.quantityOnHand != null) 'quantity_on_hand': product.quantityOnHand,
+      if (product.stockVersion > 0) 'stock_version': product.stockVersion,
+      if (product.stockDisplay != null) 'stock_display': product.stockDisplay,
+      if (product.bundleItems.isNotEmpty)
+        'bundle_items': product.bundleItems.map((item) => item.toJson()).toList(),
+      if (product.categoryName != null) 'category_name': product.categoryName,
+      if (product.lowStockThreshold != null) 'low_stock_threshold': product.lowStockThreshold,
+      if (product.costPrice > 0) 'cost_price': product.costPrice,
+      if (product.trackExpiration) 'track_expiration': true,
+      if (product.expiresAt != null) 'expires_at': product.expiresAt,
       'unit': product.unit,
       'product_type': product.productType,
       'variants': product.variants.map((variant) => variant.toJson()).toList(),

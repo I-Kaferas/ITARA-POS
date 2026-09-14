@@ -11,6 +11,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../../sync/local_master_discovery.dart';
 import '../../settings/data/device_api_service.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -150,19 +151,28 @@ class _SetupScreenState extends State<SetupScreen> {
       final repo = TerminalConfigRepository.instance;
       final config = repo.config;
 
-      final device = await DeviceApiService().register(
-        name: _nameCtrl.text.trim(),
-        identifier: config.deviceIdentifier,
-        posRole: _role.name,
-        masterDeviceId: _masterDeviceId,
-        masterHost: _masterHostCtrl.text.trim().isEmpty ? null : _masterHostCtrl.text.trim(),
-        platform: Platform.operatingSystem,
-        appVersion: AppConfig.appVersion,
-      );
+      var deviceId = config.deviceIdentifier;
+      var deviceName = _nameCtrl.text.trim();
+      try {
+        final device = await DeviceApiService().register(
+          name: deviceName,
+          identifier: config.deviceIdentifier,
+          posRole: _role.name,
+          masterDeviceId: _masterDeviceId,
+          masterHost: _masterHostCtrl.text.trim().isEmpty ? null : _masterHostCtrl.text.trim(),
+          platform: Platform.operatingSystem,
+          appVersion: AppConfig.appVersion,
+        );
+        if (device.id.isNotEmpty) deviceId = device.id;
+        if (device.name.isNotEmpty) deviceName = device.name;
+      } catch (error) {
+        final host = _masterHostCtrl.text.trim();
+        if (host.isEmpty || config.storeId.isEmpty) rethrow;
+      }
 
       await repo.save(config.copyWith(
-        deviceId: device.id,
-        deviceName: device.name,
+        deviceId: deviceId,
+        deviceName: deviceName,
         isConfigured: true,
       ));
 
@@ -702,7 +712,55 @@ class _SlaveStep extends StatelessWidget {
           textInputAction: TextInputAction.done,
           autocorrect: false,
         ),
+        const SizedBox(height: 8),
+        _LanMasters(controller: masterHostCtrl),
+        const SizedBox(height: 8),
+        Text(
+          'Sans Internet, choisissez le maître trouvé sur le réseau, ou saisissez son IP. L’API locale écoute sur le port 8001.',
+          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+        ),
       ],
+    );
+  }
+}
+
+class _LanMasters extends StatelessWidget {
+  const _LanMasters({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: LocalMasterDiscovery.instance,
+      builder: (context, _) {
+        final found = LocalMasterDiscovery.instance.visible;
+        if (found.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Recherche d’un maître Android ou Windows sur le réseau…',
+              style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+            ),
+          );
+        }
+        return Column(
+          children: found
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: OutlinedButton(
+                    onPressed: () => controller.text = item.host,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('${item.name} · ${item.host}'),
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
     );
   }
 }

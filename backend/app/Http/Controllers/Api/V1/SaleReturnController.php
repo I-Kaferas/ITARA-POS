@@ -55,6 +55,10 @@ class SaleReturnController extends Controller
 
     public function store(Request $request, Sale $sale): JsonResponse
     {
+        $request->merge([
+            'refund_method' => $this->normalizeRefundMethod($sale, $request->input('refund_method')),
+        ]);
+
         $data = $this->validatePayload($request);
 
         $data['idempotency_key'] = $data['idempotency_key']
@@ -80,6 +84,33 @@ class SaleReturnController extends Controller
                 'approved_by' => $saleReturn->approvedBy?->only(['id', 'name']),
             ],
         ]);
+    }
+
+    private function normalizeRefundMethod(Sale $sale, mixed $method): string
+    {
+        $method = is_string($method) && $method !== '' ? $method : 'cash';
+
+        if ($method === 'store_credit') {
+            return SaleReturnRefundMethod::Credit->value;
+        }
+
+        if ($method !== 'original') {
+            return $method;
+        }
+
+        $sale->loadMissing('payments');
+        $payment = $sale->payments->first(fn ($row) => ! in_array($row->payment_method, ['credit', 'wallet'], true))
+            ?? $sale->payments->first();
+        $code = (string) ($payment?->payment_method ?? 'cash');
+
+        return match ($code) {
+            'card' => SaleReturnRefundMethod::Card->value,
+            'mobile_money' => SaleReturnRefundMethod::MobileMoney->value,
+            'wallet' => SaleReturnRefundMethod::Wallet->value,
+            'bank_transfer' => SaleReturnRefundMethod::BankTransfer->value,
+            'credit' => SaleReturnRefundMethod::Credit->value,
+            default => SaleReturnRefundMethod::Cash->value,
+        };
     }
 
     /** @return array<string, mixed> */

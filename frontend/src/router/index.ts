@@ -389,6 +389,36 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/admin/hospitality',
+      name: 'hospitality',
+      component: () => import('../views/admin/HospitalityView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/production',
+      name: 'production',
+      component: () => import('../views/admin/ProductionView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/barcodes',
+      name: 'barcodes',
+      component: () => import('../views/admin/BarcodesView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/sync',
+      name: 'sync',
+      component: () => import('../views/admin/SyncView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/services',
+      name: 'services',
+      component: () => import('../views/admin/ServicesView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin/promotions',
       name: 'promotions',
       component: () => import('../views/admin/PromotionsView.vue'),
@@ -477,6 +507,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/admin/platform',
+      name: 'platform',
+      component: () => import('../views/admin/platform/PlatformView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin/settings',
       name: 'settings',
       component: () => import('../views/admin/account/SettingsView.vue'),
@@ -513,7 +549,10 @@ router.beforeEach(async (to) => {
     if (!auth.user) {
       await auth.fetchMe()
     }
-    if (!context.stores.length) {
+    if (auth.user?.is_super_admin && !auth.user.tenant_id && to.name !== 'platform') {
+      return { name: 'platform' }
+    }
+    if (auth.user?.tenant_id && !context.stores.length) {
       await context.loadStores()
     }
   }

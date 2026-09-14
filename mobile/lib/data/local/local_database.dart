@@ -14,9 +14,27 @@ class LocalDatabase {
 
   Future<Database> get database async {
     final existing = _db;
-    if (existing != null) return existing;
+    if (existing != null && existing.isOpen) return existing;
     _db = await _open();
     return _db!;
+  }
+
+  Future<String> sqlitePath() async {
+    final dir = await getApplicationSupportDirectory();
+    return p.join(dir.path, 'pos_offline.sqlite');
+  }
+
+  Future<void> checkpoint() async {
+    final db = await database;
+    await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+  }
+
+  Future<void> close() async {
+    final existing = _db;
+    _db = null;
+    if (existing != null && existing.isOpen) {
+      await existing.close();
+    }
   }
 
   static Future<void> ensureInitialized() async {
@@ -35,7 +53,7 @@ class LocalDatabase {
     final path = p.join(dir.path, 'pos_offline.sqlite');
     return openDatabase(
       path,
-      version: 2,
+      version: 5,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -116,11 +134,23 @@ class LocalDatabase {
         await db.execute('CREATE INDEX idx_sync_queue_status ON sync_queue(status, priority, created_at)');
         await _createCustomers(db);
         await _createPaymentMethods(db);
+        await _createSaleLedger(db);
+        await _createLanes(db);
+        await _createHospitality(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await _createCustomers(db);
           await _createPaymentMethods(db);
+        }
+        if (oldVersion < 3) {
+          await _createSaleLedger(db);
+        }
+        if (oldVersion < 4) {
+          await _createLanes(db);
+        }
+        if (oldVersion < 5) {
+          await _createHospitality(db);
         }
       },
     );
@@ -141,6 +171,73 @@ class LocalDatabase {
       )
     ''');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)');
+  }
+
+  static Future<void> _createSaleLedger(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS payments (
+        id TEXT PRIMARY KEY,
+        sale_id TEXT NOT NULL,
+        method TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'BIF',
+        reference TEXT,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS payments_sale ON payments(sale_id)');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_events (
+        id TEXT PRIMARY KEY,
+        store_id TEXT,
+        device_id TEXT,
+        sequence INTEGER NOT NULL,
+        event_type TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        sync_status TEXT NOT NULL DEFAULT 'pending'
+      )
+    ''');
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS sync_events_sequence ON sync_events(sequence)');
+    await db.execute('CREATE INDEX IF NOT EXISTS sync_events_entity ON sync_events(entity_type, entity_id)');
+  }
+
+  static Future<void> _createHospitality(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS hospitality_docs (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        parent_id TEXT,
+        status TEXT,
+        json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS hospitality_kind ON hospitality_docs(kind, status)');
+  }
+
+  static Future<void> _createLanes(Database db) async {
+    await _addColumn(db, 'sales', 'device_id', 'TEXT');
+    await _addColumn(db, 'sales', 'cash_register_id', 'TEXT');
+    await _addColumn(db, 'sales', 'cash_session_id', 'TEXT');
+    await _addColumn(db, 'sales', 'user_id', 'TEXT');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS lane_sessions (
+        device_id TEXT PRIMARY KEY,
+        cash_register_id TEXT NOT NULL,
+        cash_session_id TEXT NOT NULL,
+        user_id TEXT,
+        opened_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  static Future<void> _addColumn(Database db, String table, String column, String type) async {
+    final info = await db.rawQuery('PRAGMA table_info($table)');
+    if (info.any((row) => row['name'] == column)) return;
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $type');
   }
 
   static Future<void> _createPaymentMethods(Database db) async {

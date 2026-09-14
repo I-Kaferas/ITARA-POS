@@ -4,9 +4,13 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Branch } from '../../../types'
+import { formatMoney } from '../../../utils/format'
+import { parseMoneyInput } from '../../../utils/money'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -70,7 +74,7 @@ async function addExpense() {
   if (!selected.value || !expenseDescription.value.trim()) return
   await store.addBranchExpense(selected.value.id, {
     description: expenseDescription.value.trim(),
-    amount: Math.round(Number(expenseAmount.value) || 0),
+    amount: parseMoneyInput(expenseAmount.value),
   })
   expenseDescription.value = ''
   expenseAmount.value = ''
@@ -147,7 +151,7 @@ async function remove(branch: Branch) {
         <div>
           <p class="mb-2 text-sm font-medium">{{ t('org.branchExpenses') }}</p>
           <ul class="mb-3 space-y-1 text-sm text-slate-600">
-            <li v-for="expense in selected.expenses ?? []" :key="expense.id">{{ expense.description }} — {{ expense.amount }}</li>
+            <li v-for="expense in selected.expenses ?? []" :key="expense.id">{{ expense.description }} — {{ formatMoney(expense.amount) }}</li>
             <li v-if="!(selected.expenses ?? []).length">{{ t('org.empty') }}</li>
           </ul>
           <form class="flex flex-wrap gap-2" @submit.prevent="addExpense">
@@ -167,10 +171,10 @@ async function remove(branch: Branch) {
       @close="showModal = false"
     >
       <form class="space-y-3" @submit.prevent="save">
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="form.name" required class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.code') }}</label><input v-model="form.code" required class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.branchSettings') }}</label><input v-model="form.receipt_footer" class="field" :placeholder="t('org.receiptFooter')" /></div>
-        <label class="flex items-center gap-2 text-sm"><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
+        <div><FieldLabel icon="account">{{ t('org.name') }}</FieldLabel><input v-model="form.name" required class="field" /></div>
+        <div><FieldLabel icon="tag">{{ t('org.code') }}</FieldLabel><input v-model="form.code" required class="field" /></div>
+        <div><FieldLabel icon="receipt">{{ t('org.branchSettings') }}</FieldLabel><input v-model="form.receipt_footer" class="field" :placeholder="t('org.receiptFooter')" /></div>
+        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>

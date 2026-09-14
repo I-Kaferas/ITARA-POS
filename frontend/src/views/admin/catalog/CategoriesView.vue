@@ -4,7 +4,9 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Category } from '../../../types'
 
@@ -142,15 +144,15 @@ async function remove(category: Category) {
     >
       <form class="space-y-3" @submit.prevent="save">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label>
+          <FieldLabel icon="account">{{ t('org.name') }}</FieldLabel>
           <input v-model="form.name" required class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">Slug</label>
+          <FieldLabel icon="tag">Slug</FieldLabel>
           <input v-model="form.slug" class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('catalog.parent') }}</label>
+          <FieldLabel icon="layers">{{ t('catalog.parent') }}</FieldLabel>
           <select v-model="form.parent_id" class="field">
             <option :value="null">—</option>
             <option v-for="cat in flatCategories.filter(c => c.id !== editing?.id)" :key="cat.id" :value="cat.id">
@@ -159,6 +161,7 @@ async function remove(category: Category) {
           </select>
         </div>
         <label class="flex items-center gap-2 text-sm">
+          <span class="field-icon"><AppIcon name="check" :size="14" /></span>
           <input v-model="form.is_active" type="checkbox" class="rounded" />
           {{ t('products.active') }}
         </label>

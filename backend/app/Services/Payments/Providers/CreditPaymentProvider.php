@@ -34,15 +34,9 @@ class CreditPaymentProvider extends AbstractPaymentProvider
 
         $available = $this->ledger->availableCredit($context->customer);
 
-        if ($available === null) {
+        if ($available !== null && $line->amount > $available) {
             throw ValidationException::withMessages([
-                'customer_id' => ['Customer has no credit limit configured.'],
-            ]);
-        }
-
-        if ($line->amount > $available) {
-            throw ValidationException::withMessages([
-                'payments' => ["Insufficient available credit. Available: {$available}."],
+                'payments' => ["Crédit insuffisant. Disponible : {$available}."],
             ]);
         }
     }
@@ -62,7 +56,7 @@ class CreditPaymentProvider extends AbstractPaymentProvider
             'sale_id' => $context->sale?->id,
             'due_date' => $context->dueDate,
             'recorded_by' => $context->processedBy?->id,
-            'earn_loyalty' => $context->sale !== null,
+            'earn_loyalty' => false,
         ]);
 
         return $this->complete(

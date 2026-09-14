@@ -63,20 +63,23 @@ class CashRegisterSessionService
         User $user,
         int $actualCash,
         ?string $notes = null,
+        ?string $varianceReason = null,
     ): CashRegisterSession {
         $session = $this->requireOpenSession($register);
 
-        return DB::transaction(function () use ($session, $register, $user, $actualCash, $notes) {
+        return DB::transaction(function () use ($session, $user, $actualCash, $notes, $varianceReason) {
             $this->refreshTotals($session);
 
             $expected = $session->expected_cash;
             $variance = $actualCash - $expected;
+            $this->assertVarianceJustified($variance, $varianceReason);
 
             $session->update([
                 'status' => CashRegisterSessionStatus::Closed,
                 'closed_by' => $user->id,
                 'actual_cash' => $actualCash,
                 'variance' => $variance,
+                'variance_reason' => $variance !== 0 ? trim((string) $varianceReason) : null,
                 'closing_notes' => $notes,
                 'closed_at' => now(),
             ]);
@@ -182,6 +185,7 @@ class CashRegisterSessionService
             'expected_cash' => $session->expected_cash,
             'actual_cash' => $session->actual_cash,
             'variance' => $session->variance,
+            'variance_reason' => $session->variance_reason,
             'opened_at' => $session->opened_at,
             'closed_at' => $session->closed_at,
             'invoices_count' => $report['invoices_count'],
@@ -224,6 +228,15 @@ class CashRegisterSessionService
             'expenses_total' => $expenses,
             'expected_cash' => max(0, $expected),
         ]);
+    }
+
+    private function assertVarianceJustified(int $variance, ?string $reason): void
+    {
+        if ($variance !== 0 && trim((string) $reason) === '') {
+            throw ValidationException::withMessages([
+                'variance_reason' => ['Une différence de caisse doit être justifiée.'],
+            ]);
+        }
     }
 
     private function requireOpenSession(CashRegister $register): CashRegisterSession

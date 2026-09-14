@@ -6,6 +6,7 @@ use App\Models\Catalog;
 use App\Models\Product;
 use App\Models\ProductBundleItem;
 use App\Models\ProductVariant;
+use App\Services\Audit\AuditLogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -14,6 +15,7 @@ class ProductCatalogService
     public function __construct(
         private BarcodeService $barcodes,
         private PriceService $prices,
+        private AuditLogService $audit,
     ) {}
 
     /** @param  array<string, mixed>  $data */
@@ -32,7 +34,11 @@ class ProductCatalogService
     public function update(Product $product, array $data): Product
     {
         return DB::transaction(function () use ($product, $data) {
+            $previousPrice = (int) $product->base_price;
             $product->update($this->productAttributes($data, $product->catalog, $product));
+            if (! isset($data['prices']) && array_key_exists('base_price', $data)) {
+                $this->audit->priceChanged($product, $previousPrice, (int) $product->base_price);
+            }
 
             $this->syncRelations($product, $data);
 
@@ -128,6 +134,8 @@ class ProductCatalogService
                 ? ProductVariant::query()->where('product_id', $product->id)->findOrFail($variantData['id'])
                 : new ProductVariant(['product_id' => $product->id, 'tenant_id' => $product->tenant_id]);
 
+            $existed = $variant->exists;
+            $previousPrice = (int) $variant->base_price;
             $variant->fill([
                 'sku' => $variantData['sku'],
                 'name' => $variantData['name'] ?? null,
@@ -141,6 +149,9 @@ class ProductCatalogService
                 'attributes' => $variantData['attributes'] ?? null,
             ]);
             $variant->save();
+            if ($existed && $previousPrice !== (int) $variant->base_price) {
+                $this->audit->priceChanged($variant, $previousPrice, (int) $variant->base_price);
+            }
             $keptIds[] = $variant->id;
 
             if (isset($variantData['barcodes'])) {

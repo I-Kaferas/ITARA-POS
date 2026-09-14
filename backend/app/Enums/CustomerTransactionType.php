@@ -10,7 +10,9 @@ enum CustomerTransactionType: string
     case CreditNote = 'CREDIT_NOTE';
     case OpeningBalance = 'OPENING_BALANCE';
     case Adjustment = 'ADJUSTMENT';
+    case LoyaltyEarn = 'LOYALTY_EARN';
     case LoyaltyRedeem = 'LOYALTY_REDEEM';
+    case LoyaltyReversal = 'LOYALTY_REVERSAL';
 
     /** @return list<string> */
     public static function values(): array

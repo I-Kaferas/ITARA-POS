@@ -322,6 +322,22 @@ defineProps<{
       <path d="M13.7 21a2 2 0 0 1-3.4 0" />
     </template>
 
+    <template v-else-if="name === 'mail'">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <polyline points="3 7 12 13 21 7" />
+    </template>
+
+    <template v-else-if="name === 'phone'">
+      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" />
+    </template>
+
+    <template v-else-if="name === 'calendar'">
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </template>
+
     <template v-else-if="name === 'filter'">
       <polygon points="22 3 2 3 10 12.5 10 19 14 21 14 12.5 22 3" />
     </template>

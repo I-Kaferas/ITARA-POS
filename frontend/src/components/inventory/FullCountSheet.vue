@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppIcon from '../ui/AppIcon.vue'
 import AppModal from '../ui/AppModal.vue'
+import FieldLabel from '../ui/FieldLabel.vue'
 import WarehouseOptions from './WarehouseOptions.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
@@ -424,37 +426,38 @@ function statusLabel(value: string) {
       <p class="text-sm text-slate-600">{{ t('inventory.fullCountHint') }}</p>
       <div class="grid gap-3 sm:grid-cols-2">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
+          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
           <WarehouseOptions v-model="setup.warehouse_id" :warehouses="warehouses" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.countDate') }}</label>
+          <FieldLabel icon="calendar">{{ t('inventory.countDate') }}</FieldLabel>
           <input v-model="setup.counted_at" type="date" required class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.category') }}</label>
+          <FieldLabel icon="layers">{{ t('inventory.category') }}</FieldLabel>
           <select v-model="setup.category_id" class="field">
             <option value="">{{ t('inventory.allCategories') }}</option>
             <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.zone') }}</label>
+          <FieldLabel icon="pin">{{ t('inventory.zone') }}</FieldLabel>
           <input v-model="setup.zone" class="field" :placeholder="t('inventory.zoneHint')" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.responsible') }}</label>
+          <FieldLabel icon="account">{{ t('inventory.responsible') }}</FieldLabel>
           <select v-model="setup.responsible_id" class="field">
             <option value="">{{ t('inventory.currentUser') }}</option>
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.name }}</option>
           </select>
         </div>
         <div class="sm:col-span-2">
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.notes') }}</label>
+          <FieldLabel icon="note">{{ t('inventory.notes') }}</FieldLabel>
           <textarea v-model="setup.notes" rows="2" class="field" />
         </div>
       </div>
       <label class="flex items-center gap-2 text-sm">
+        <span class="field-icon"><AppIcon name="check" :size="14" /></span>
         <input v-model="setup.lock_movements" type="checkbox" />
         {{ t('inventory.lockMovements') }}
       </label>
@@ -589,7 +592,7 @@ function statusLabel(value: string) {
 
       <div v-if="cancelling" class="flex flex-wrap items-end gap-2">
         <div class="min-w-56 flex-1">
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.reason') }}</label>
+          <FieldLabel icon="note">{{ t('inventory.reason') }}</FieldLabel>
           <input v-model="cancelReason" class="field" />
         </div>
         <button type="button" class="btn-secondary" @click="cancelling = false">{{ t('common.cancel') }}</button>

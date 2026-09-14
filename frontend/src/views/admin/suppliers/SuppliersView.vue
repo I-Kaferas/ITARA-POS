@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -153,23 +154,53 @@ async function remove(item: Supplier) {
       :title="editing ? t('suppliers.edit') : t('suppliers.add')"
       icon="suppliers"
       tone="brand"
+      size="xl"
       @close="showModal = false"
     >
-      <form class="space-y-3" @submit.prevent="save">
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="form.name" required class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.code') }}</label><input v-model="form.code" required class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.contactPerson') }}</label><input v-model="form.contact_person" class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('auth.email') }}</label><input v-model="form.email" type="email" class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('common.phone') }}</label><input v-model="form.phone" class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.street') }}</label><input v-model="form.address_line" class="field" /></div>
-        <div class="grid gap-2 sm:grid-cols-2">
-          <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.city') }}</label><input v-model="form.city" class="field" /></div>
-          <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.country') }}</label><input v-model="form.country" class="field" /></div>
+      <form class="supplier-form" @submit.prevent="save">
+        <div>
+          <label class="field-label"><span class="field-icon"><AppIcon name="suppliers" :size="14" /></span>{{ t('org.name') }}</label>
+          <input v-model="form.name" required class="field" />
         </div>
-        <label class="flex items-center gap-2 text-sm"><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
-        <div class="app-modal__actions">
+        <div>
+          <label class="field-label"><span class="field-icon"><AppIcon name="tag" :size="14" /></span>{{ t('org.code') }}</label>
+          <input v-model="form.code" required class="field" />
+        </div>
+        <div>
+          <label class="field-label"><span class="field-icon"><AppIcon name="account" :size="14" /></span>{{ t('suppliers.contactPerson') }}</label>
+          <input v-model="form.contact_person" class="field" />
+        </div>
+        <div>
+          <label class="field-label"><span class="field-icon"><AppIcon name="phone" :size="14" /></span>{{ t('common.phone') }}</label>
+          <input v-model="form.phone" class="field" />
+        </div>
+        <div class="supplier-form__wide">
+          <label class="field-label"><span class="field-icon"><AppIcon name="mail" :size="14" /></span>{{ t('auth.email') }}</label>
+          <input v-model="form.email" type="email" class="field" />
+        </div>
+        <div class="supplier-form__wide">
+          <label class="field-label"><span class="field-icon"><AppIcon name="pin" :size="14" /></span>{{ t('suppliers.street') }}</label>
+          <input v-model="form.address_line" class="field" />
+        </div>
+        <div>
+          <label class="field-label"><span class="field-icon"><AppIcon name="building" :size="14" /></span>{{ t('suppliers.city') }}</label>
+          <input v-model="form.city" class="field" />
+        </div>
+        <div>
+          <label class="field-label"><span class="field-icon"><AppIcon name="store-pin" :size="14" /></span>{{ t('suppliers.country') }}</label>
+          <input v-model="form.country" class="field" />
+        </div>
+        <label class="supplier-form__wide flex items-center gap-2 text-sm">
+          <span class="field-icon"><AppIcon name="check" :size="14" /></span>
+          <input v-model="form.is_active" type="checkbox" class="rounded" />
+          {{ t('products.active') }}
+        </label>
+        <div class="app-modal__actions supplier-form__wide">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :disabled="saving">
+            <AppIcon name="check" :size="15" />
+            {{ t('common.save') }}
+          </button>
         </div>
       </form>
     </AppModal>
@@ -178,7 +209,24 @@ async function remove(item: Supplier) {
 
 <style scoped>
 .field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+.field-label { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem; font-size: 0.875rem; font-weight: 500; }
+.field-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  flex-shrink: 0;
+  border-radius: 0.4rem;
+  background: #eef2ff;
+  color: var(--color-brand-600);
+}
+.supplier-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem 1rem; }
+.supplier-form__wide { grid-column: 1 / -1; }
+@media (max-width: 640px) {
+  .supplier-form { grid-template-columns: 1fr; }
+}
+.btn-primary { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }
 </style>

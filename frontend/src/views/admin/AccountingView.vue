@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
 import AppModal from '../../components/ui/AppModal.vue'
+import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { api } from '../../api/client'
 import type { AccountingSummary } from '../../types'
@@ -78,11 +79,11 @@ onMounted(load)
     <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div class="flex flex-wrap items-end gap-3">
         <div>
-          <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('reports.from') }}</label>
+          <FieldLabel icon="calendar">{{ t('reports.from') }}</FieldLabel>
           <input v-model="from" type="date" class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('reports.to') }}</label>
+          <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
           <input v-model="to" type="date" class="field" />
         </div>
         <button class="btn-secondary" @click="load">{{ t('common.search') }}</button>
@@ -99,6 +100,13 @@ onMounted(load)
     </div>
     <div v-if="accounts.length" class="mb-4 flex flex-wrap gap-2">
       <span v-for="account in accounts" :key="account.id" class="rounded-full bg-white px-3 py-1 text-xs ring-1 ring-slate-200">{{ account.code }} {{ account.name }}</span>
+    </div>
+
+    <div v-if="summary?.books?.length" class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div v-for="book in summary.books" :key="book.code" class="stat">
+        <p class="label">{{ t(`accounting.books.${book.code}`) }}</p>
+        <p class="value">{{ formatMoney(book.balance) }}</p>
+      </div>
     </div>
 
     <div v-if="summary" class="mb-6 grid gap-4 sm:grid-cols-3">
@@ -144,7 +152,7 @@ onMounted(load)
     >
       <form class="space-y-3" @submit.prevent="save">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('accounting.type') }}</label>
+          <FieldLabel icon="layers">{{ t('accounting.type') }}</FieldLabel>
           <select v-model="form.entry_type" class="field w-full">
             <option value="sale_revenue">sale_revenue</option>
             <option value="sale_cash">sale_cash</option>
@@ -154,12 +162,12 @@ onMounted(load)
             <option value="purchase_receipt_payable">purchase_receipt_payable</option>
           </select>
         </div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('accounting.account') }}</label><input v-model="form.account_code" class="field w-full" /></div>
+        <div><FieldLabel icon="tag">{{ t('accounting.account') }}</FieldLabel><input v-model="form.account_code" class="field w-full" /></div>
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="mb-1 block text-sm font-medium">{{ t('payables.debit') }}</label><input v-model.number="form.debit" type="number" min="0" class="field w-full" /></div>
-          <div><label class="mb-1 block text-sm font-medium">{{ t('payables.creditCol') }}</label><input v-model.number="form.credit" type="number" min="0" class="field w-full" /></div>
+          <div><FieldLabel icon="coins">{{ t('payables.debit') }}</FieldLabel><input v-model.number="form.debit" type="number" min="0" class="field w-full" /></div>
+          <div><FieldLabel icon="coins">{{ t('payables.creditCol') }}</FieldLabel><input v-model.number="form.credit" type="number" min="0" class="field w-full" /></div>
         </div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('common.description') }}</label><input v-model="form.description" class="field w-full" /></div>
+        <div><FieldLabel icon="note">{{ t('common.description') }}</FieldLabel><input v-model="form.description" class="field w-full" /></div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>

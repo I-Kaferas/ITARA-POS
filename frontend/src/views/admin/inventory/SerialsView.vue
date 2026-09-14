@@ -5,6 +5,7 @@ import { useConfirm } from '../../../composables/useConfirm'
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
@@ -121,17 +122,17 @@ onMounted(load)
     >
       <form class="space-y-3" @submit.prevent="save">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('products.name') }}</label>
+          <FieldLabel icon="products">{{ t('products.name') }}</FieldLabel>
           <select v-model="form.product_id" required class="field w-full">
             <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.serial') }}</label>
+          <FieldLabel icon="tag">{{ t('inventory.serial') }}</FieldLabel>
           <input v-model="form.serial_number" required class="field w-full" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
+          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
           <select v-model="form.warehouse_id" class="field w-full">
             <option value="">—</option>
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\CashRegister;
 use App\Models\Store;
 use App\Services\Catalog\PosCatalogSyncService;
 use App\Services\Pos\PosOverviewService;
@@ -30,11 +31,17 @@ class PosController extends Controller
 
     public function catalog(Store $store): JsonResponse
     {
+        CashRegister::ensureForStore($store);
+
         return response()->json([
             'data' => [
                 'store_id' => $store->id,
                 'products' => $this->catalogSync->productsForStore($store),
                 'categories' => $this->catalogSync->categoriesForStore($store),
+                'registers' => $store->cashRegisters()
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code']),
             ],
         ]);
     }

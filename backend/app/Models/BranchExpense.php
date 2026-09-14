@@ -15,6 +15,10 @@ class BranchExpense extends Model
         'tenant_id',
         'branch_id',
         'store_id',
+        'expense_category_id',
+        'cash_register_session_id',
+        'user_id',
+        'recorded_by',
         'category',
         'description',
         'amount',
@@ -39,5 +43,25 @@ class BranchExpense extends Model
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
+    }
+
+    public function expenseCategory(): BelongsTo
+    {
+        return $this->belongsTo(ExpenseCategory::class);
+    }
+
+    public function cashRegisterSession(): BelongsTo
+    {
+        return $this->belongsTo(CashRegisterSession::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function recordedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recorded_by');
     }
 }

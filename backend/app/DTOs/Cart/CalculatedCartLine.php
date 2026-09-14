@@ -23,7 +23,18 @@ final readonly class CalculatedCartLine
         public ?string $sku = null,
         public ?string $name = null,
         public ?string $priceType = null,
+        public ?string $saleUnitId = null,
+        public ?int $volumeMl = null,
     ) {}
+
+    public function stockQuantity(): int
+    {
+        if ($this->volumeMl !== null && $this->volumeMl > 0) {
+            return $this->quantity * $this->volumeMl;
+        }
+
+        return $this->quantity;
+    }
 
     /** @return array<string, mixed> */
     public function toArray(): array

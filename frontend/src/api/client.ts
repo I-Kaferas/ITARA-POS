@@ -77,7 +77,7 @@ export function clearAuth() {
 }
 
 export function isAuthenticated(): boolean {
-  return Boolean(getToken() && getTenantId())
+  return Boolean(getToken())
 }
 
 let refreshPromise: Promise<string | null> | null = null

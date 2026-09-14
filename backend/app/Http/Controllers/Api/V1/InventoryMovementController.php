@@ -47,19 +47,17 @@ class InventoryMovementController extends Controller
         [$from, $to] = $this->dateRange($request);
 
         if ($request->filled('product_id')) {
+            $opening = $this->openingBalance($query, $from);
+            $this->applyDateRange($query, $from, $to);
+
             return response()->json([
                 'data' => [
-                    'data' => $this->ledgerWithBalance($query, $from, $to),
+                    'data' => $this->ledgerWithBalance($query, $opening),
                 ],
             ]);
         }
 
-        if ($from) {
-            $query->where('occurred_at', '>=', $from);
-        }
-        if ($to) {
-            $query->where('occurred_at', '<=', $to);
-        }
+        $this->applyDateRange($query, $from, $to);
 
         return response()->json([
             'data' => $query->paginate($request->integer('per_page', 25)),
@@ -101,28 +99,45 @@ class InventoryMovementController extends Controller
     }
 
     /**
+     * Stock already on hand before the filtered period, so balance_after stays correct
+     * after the date range is applied to the query.
+     */
+    private function openingBalance($query, ?\Illuminate\Support\Carbon $from): int
+    {
+        if ($from === null) {
+            return 0;
+        }
+
+        return (int) (clone $query)
+            ->reorder()
+            ->where('occurred_at', '<', $from)
+            ->sum('quantity');
+    }
+
+    private function applyDateRange($query, ?\Illuminate\Support\Carbon $from, ?\Illuminate\Support\Carbon $to): void
+    {
+        if ($from) {
+            $query->where('occurred_at', '>=', $from);
+        }
+        if ($to) {
+            $query->where('occurred_at', '<=', $to);
+        }
+    }
+
+    /**
      * Chronological ledger: each line keeps its signed quantity and the stock after it.
      * Example: +100 OPENING (100), -3 SALE (97).
      *
-     * Date filters hide lines outside the period but keep the stock that existed before it.
-     *
      * @return list<InventoryMovement>
      */
-    private function ledgerWithBalance($query, ?\Illuminate\Support\Carbon $from = null, ?\Illuminate\Support\Carbon $to = null): array
+    private function ledgerWithBalance($query, int $opening = 0): array
     {
-        $running = 0;
+        $running = $opening;
         $rows = [];
 
         foreach ($query->reorder()->orderBy('occurred_at')->orderBy('id')->get() as $movement) {
             $running += (int) $movement->quantity;
             $movement->setAttribute('balance_after', $running);
-            $at = $movement->occurred_at ?? $movement->created_at;
-            if ($from && (! $at || $at->lt($from))) {
-                continue;
-            }
-            if ($to && (! $at || $at->gt($to))) {
-                continue;
-            }
             $rows[] = $movement;
         }
 

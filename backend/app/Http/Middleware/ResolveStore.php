@@ -13,7 +13,7 @@ class ResolveStore
     {
         $storeId = $request->header('X-Store-ID');
 
-        if ($storeId) {
+        if ($storeId && app()->bound('tenant.id')) {
             $store = Store::query()->find($storeId);
 
             if ($store === null) {

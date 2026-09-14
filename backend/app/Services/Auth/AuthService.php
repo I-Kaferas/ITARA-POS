@@ -203,6 +203,8 @@ class AuthService
     public function userPayload(User $user): array
     {
         $authorization = app(AuthorizationService::class);
+        $catalog = app(\App\Services\Platform\SaasCatalog::class);
+        $superAdmin = $authorization->isSuperAdmin($user);
 
         return [
             'id' => $user->id,
@@ -210,6 +212,8 @@ class AuthService
             'email' => $user->email,
             'phone' => $user->phone,
             'tenant_id' => $user->tenant_id,
+            'is_super_admin' => $superAdmin,
+            'modules' => $superAdmin ? \App\Services\Platform\SaasCatalog::MODULES : $catalog->modules($user->tenant_id ? $user->tenant : null),
             'email_verified' => $user->hasVerifiedEmail(),
             'phone_verified' => $user->phone_verified_at !== null,
             'two_factor_enabled' => $user->hasTwoFactorEnabled(),

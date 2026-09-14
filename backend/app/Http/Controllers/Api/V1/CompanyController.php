@@ -206,7 +206,9 @@ class CompanyController extends Controller
      */
     private function withLocaleTimezone(array $data, ?Company $company = null): array
     {
-        $settings = array_merge($company->settings ?? [], is_array($data['settings'] ?? null) ? $data['settings'] : []);
+        $existing = is_array($company?->settings) ? $company->settings : [];
+        $incoming = is_array($data['settings'] ?? null) ? $data['settings'] : [];
+        $settings = array_merge($existing, $incoming);
         $locale = $data['locale'] ?? $settings['locale'] ?? $company?->locale ?? 'fr';
         $timezone = $data['timezone'] ?? $settings['timezone'] ?? $company?->timezone ?? 'Africa/Bujumbura';
         $settings['locale'] = $locale;

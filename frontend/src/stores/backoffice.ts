@@ -373,13 +373,14 @@ export const useBackofficeStore = defineStore('backoffice', () => {
 
   async function closeCashierShift(
     registerId: string,
-    payload: { actual_cash: number; closing_notes?: string; closed_at?: string },
+    payload: { actual_cash: number; closing_notes?: string; variance_reason?: string; closed_at?: string },
   ) {
     const res = await api.post<{ data: CashierShift; summary: ShiftSummary }>(
       `/cash-registers/${registerId}/cashier-shifts/close`,
       {
         actual_cash: Math.round(payload.actual_cash * 100),
         closing_notes: payload.closing_notes,
+        variance_reason: payload.variance_reason,
         closed_at: payload.closed_at,
       },
     )
@@ -404,7 +405,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
 
   async function closeRegisterSession(
     registerId: string,
-    payload: { actual_cash: number; closing_notes?: string },
+    payload: { actual_cash: number; closing_notes?: string; variance_reason?: string },
   ) {
     const res = await api.post<{ data: CashRegisterSession; summary: RegisterSummary; z_report?: RegisterSummary }>(
       `/cash-registers/${registerId}/sessions/close`,
@@ -1589,9 +1590,11 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return api.get<{ data: SalesReport; meta: { by_store: { store_id: string; store_name: string; sales_count: number; revenue: number }[]; from?: string; to?: string } }>(`/reports/sales${suffix}`)
   }
 
-  async function loadInventoryReport(warehouseId?: string) {
-    const q = warehouseId ? `?warehouse_id=${warehouseId}` : ''
-    return (await api.get<ApiItemResponse<InventoryReport>>(`/reports/inventory${q}`)).data
+  async function loadInventoryReport(params: { warehouse_id?: string; from?: string; to?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    return (await api.get<ApiItemResponse<InventoryReport>>(`/reports/inventory${suffix}`)).data
   }
 
   async function loadFinancialReport(from?: string, to?: string) {

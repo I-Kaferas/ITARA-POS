@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import LanguageSwitcher from '../../../components/ui/LanguageSwitcher.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useAuthStore } from '../../../stores/auth'
 
 const { t } = useI18n()
@@ -33,7 +34,7 @@ async function submit() {
 
       <form v-if="!sent" class="space-y-4" @submit.prevent="submit">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('auth.email') }}</label>
+          <FieldLabel icon="mail">{{ t('auth.email') }}</FieldLabel>
           <input v-model="email" type="email" required class="field" />
         </div>
         <button type="submit" class="btn-primary w-full" :disabled="auth.loading">

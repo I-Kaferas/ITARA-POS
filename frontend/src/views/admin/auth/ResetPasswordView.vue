@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import LanguageSwitcher from '../../../components/ui/LanguageSwitcher.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useAuthStore } from '../../../stores/auth'
 
 const { t } = useI18n()
@@ -36,15 +37,15 @@ async function submit() {
 
       <form v-if="!success" class="space-y-4" @submit.prevent="submit">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('auth.email') }}</label>
+          <FieldLabel icon="mail">{{ t('auth.email') }}</FieldLabel>
           <input v-model="email" type="email" required class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('auth.newPassword') }}</label>
+          <FieldLabel icon="lock">{{ t('auth.newPassword') }}</FieldLabel>
           <input v-model="password" type="password" required minlength="8" class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('auth.confirmPassword') }}</label>
+          <FieldLabel icon="lock">{{ t('auth.confirmPassword') }}</FieldLabel>
           <input v-model="passwordConfirmation" type="password" required class="field" />
         </div>
         <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>

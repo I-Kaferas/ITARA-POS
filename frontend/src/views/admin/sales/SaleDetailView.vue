@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -201,7 +202,7 @@ function openReturnModal() {
     items: sale.value.items.map(item => ({
       sale_item_id: item.id,
       quantity: 0,
-      max: item.quantity,
+      max: item.quantity_returnable ?? item.quantity,
       label: itemName(item),
     })),
   }
@@ -662,27 +663,30 @@ async function printInvoice() {
       :title="t('sales.createReturn')"
       icon="receipt"
       tone="warning"
-      size="md"
+      size="xl"
       @close="showReturnModal = false"
     >
       <form class="space-y-3 no-print" @submit.prevent="submitReturn">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.reason') }}</label>
+          <FieldLabel icon="note">{{ t('inventory.reason') }}</FieldLabel>
           <select v-model="returnForm.reason" required class="field">
             <option v-for="r in returnReasons" :key="r.value" :value="r.value">{{ r.label }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('sales.refundMethod') }}</label>
+          <FieldLabel icon="card">{{ t('sales.refundMethod') }}</FieldLabel>
           <select v-model="returnForm.refund_method" class="field">
             <option value="cash">{{ t('sales.methodCash') }}</option>
             <option value="card">{{ t('sales.methodCard') }}</option>
-            <option value="store_credit">{{ t('sales.refundStoreCredit') }}</option>
+            <option value="mobile_money">Mobile Money</option>
+            <option value="bank_transfer">{{ t('sales.methodBankTransfer') }}</option>
+            <option value="credit">{{ t('sales.refundStoreCredit') }}</option>
             <option value="original">{{ t('sales.refundOriginal') }}</option>
           </select>
         </div>
         <div class="space-y-2">
           <p class="text-sm font-medium">{{ t('sales.items') }}</p>
+          <p class="text-xs text-slate-500">{{ t('pos.stockCorrected') }} · {{ t('pos.partialHint') }}</p>
           <div v-for="item in returnForm.items" :key="item.sale_item_id" class="flex items-center gap-3">
             <span class="flex-1 truncate text-sm">{{ item.label }}</span>
             <input

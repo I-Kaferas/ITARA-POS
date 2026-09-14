@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CashierShift;
 use App\Models\CashRegister;
 use App\Models\Store;
+use App\Models\User;
 use App\Services\Shifts\CashierShiftService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -99,6 +100,7 @@ class CashierShiftController extends Controller
         $data = $request->validate([
             'actual_cash' => ['required', 'integer', 'min:0'],
             'closing_notes' => ['nullable', 'string'],
+            'variance_reason' => ['nullable', 'string', 'max:500'],
             'closed_at' => ['nullable', 'date'],
         ]);
 
@@ -108,6 +110,61 @@ class CashierShiftController extends Controller
             (int) $data['actual_cash'],
             $data['closing_notes'] ?? null,
             isset($data['closed_at']) ? \Carbon\Carbon::parse($data['closed_at']) : null,
+            $data['variance_reason'] ?? null,
+        );
+
+        return response()->json([
+            'data' => $shift,
+            'summary' => $this->shiftService->summary($shift),
+        ]);
+    }
+
+    public function openWithPin(Request $request, CashRegister $cashRegister): JsonResponse
+    {
+        $data = $request->validate([
+            'pin' => ['required', 'regex:/^\d{4,6}$/'],
+            'opening_balance' => ['nullable', 'integer', 'min:0'],
+            'opening_notes' => ['nullable', 'string'],
+        ]);
+
+        $cashier = $this->userByPin($request, $data['pin']);
+        $shift = $this->shiftService->open(
+            $cashRegister,
+            $cashier,
+            (int) ($data['opening_balance'] ?? 0),
+            $data['opening_notes'] ?? null,
+        );
+
+        return response()->json([
+            'data' => $shift,
+            'summary' => $this->shiftService->summary($shift),
+        ], 201);
+    }
+
+    public function closeWithPin(Request $request, CashRegister $cashRegister): JsonResponse
+    {
+        $data = $request->validate([
+            'pin' => ['required', 'regex:/^\d{4,6}$/'],
+            'actual_cash' => ['required', 'integer', 'min:0'],
+            'closing_notes' => ['nullable', 'string'],
+            'variance_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->userByPin($request, $data['pin']);
+        $open = $this->shiftService->currentShiftOnRegister($cashRegister)?->loadMissing('cashier');
+        if ($open?->cashier === null) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'cash_register' => ['No open cashier shift on this terminal.'],
+            ]);
+        }
+
+        $shift = $this->shiftService->close(
+            $cashRegister,
+            $open->cashier,
+            (int) $data['actual_cash'],
+            $data['closing_notes'] ?? null,
+            null,
+            $data['variance_reason'] ?? null,
         );
 
         return response()->json([
@@ -178,5 +235,18 @@ class CashierShiftController extends Controller
             'data' => $movement,
             'summary' => $this->shiftService->summary($cashierShift),
         ], 201);
+    }
+
+    private function userByPin(Request $request, string $pin): User
+    {
+        $user = User::query()->where('pin', $pin)->where('is_active', true)->first();
+
+        if ($user === null) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'pin' => ['PIN invalide.'],
+            ]);
+        }
+
+        return $user;
     }
 }

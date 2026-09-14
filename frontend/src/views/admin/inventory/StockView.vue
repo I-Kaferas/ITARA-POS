@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { api } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { InventoryMovement, Product, StockBalance, Warehouse } from '../../../types'
@@ -188,9 +189,9 @@ function clearHistoryDates() {
 <template>
   <InventoryLayout>
     <div class="space-y-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap items-center gap-3">
-          <label class="text-sm font-medium text-slate-600">{{ t('inventory.warehouse') }}</label>
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
           <select v-model="warehouseId" class="field max-w-xs">
             <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.name }} ({{ wh.code }})</option>
           </select>
@@ -249,9 +250,29 @@ function clearHistoryDates() {
         <p class="text-sm text-slate-500">
           {{ historyRow?.product?.sku }} · {{ t('inventory.onHand') }} {{ historyRow ? stockQty(historyRow) : '—' }}
         </p>
+        <div class="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <div>
+            <FieldLabel icon="calendar">{{ t('reports.from') }}</FieldLabel>
+            <input v-model="historyFrom" type="date" class="field w-full" @change="loadHistory" />
+          </div>
+          <div>
+            <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
+            <input v-model="historyTo" type="date" class="field w-full" @change="loadHistory" />
+          </div>
+          <button
+            v-if="historyFrom || historyTo"
+            type="button"
+            class="btn-secondary"
+            @click="clearHistoryDates"
+          >
+            {{ t('common.reset') }}
+          </button>
+        </div>
         <p v-if="historyLoading" class="text-sm text-slate-500">{{ t('common.loading') }}</p>
-        <div v-else class="overflow-hidden rounded-xl ring-1 ring-slate-200">
-          <p v-if="!history.length" class="px-3 py-6 text-center text-sm text-slate-500">{{ t('inventory.historyEmpty') }}</p>
+        <div v-else class="max-h-80 overflow-auto rounded-xl ring-1 ring-slate-200">
+          <p v-if="!history.length" class="px-3 py-6 text-center text-sm text-slate-500">
+            {{ historyFrom || historyTo ? t('inventory.historyEmptyPeriod') : t('inventory.historyEmpty') }}
+          </p>
           <table v-else class="min-w-full text-sm">
             <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
@@ -285,23 +306,23 @@ function clearHistoryDates() {
     <AppModal :open="showModal" :title="t('inventory.newMovement')" icon="inventory" tone="info" @close="showModal = false">
       <form class="space-y-3" @submit.prevent="save">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('products.name') }}</label>
+          <FieldLabel icon="products">{{ t('products.name') }}</FieldLabel>
           <select v-model="form.product_id" required class="field w-full">
             <option v-for="p in products" :key="p.id" :value="p.id">{{ p.sku }} — {{ p.name }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.movementType') }}</label>
+          <FieldLabel icon="transfer">{{ t('inventory.movementType') }}</FieldLabel>
           <select v-model="form.movement_type" class="field w-full">
             <option v-for="type in movementTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('sales.qty') }}</label>
+          <FieldLabel icon="package">{{ t('sales.qty') }}</FieldLabel>
           <input v-model.number="form.quantity" type="number" min="1" required class="field w-full" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.reason') }}</label>
+          <FieldLabel icon="note">{{ t('inventory.reason') }}</FieldLabel>
           <textarea v-model="form.notes" rows="2" class="field w-full" />
         </div>
         <div class="app-modal__actions">

@@ -40,6 +40,7 @@ final readonly class SaleReturnResult
                 ])->values()->all(),
                 'customer' => $return->customer?->only(['id', 'name']),
                 'refunds' => $return->refunds->map(fn ($refund) => $refund->toSummaryArray())->values()->all(),
+                'stock_corrected' => true,
             ],
         ];
     }

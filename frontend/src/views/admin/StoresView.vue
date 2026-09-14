@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
+import FieldLabel from '../../components/ui/FieldLabel.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useContextStore } from '../../stores/context'
@@ -144,6 +145,7 @@ function formatPrice(cents: number) {
     >
       <form class="space-y-3" @submit.prevent="savePriceOverride">
         <p class="text-sm text-slate-600">{{ editingItem?.product.name }}</p>
+        <FieldLabel icon="coins">{{ t('products.price') }}</FieldLabel>
         <input v-model.number="priceOverride" type="number" step="0.01" min="0" class="field" :placeholder="t('stores.leaveEmptyForDefault')" />
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="editingItem = null">{{ t('common.cancel') }}</button>

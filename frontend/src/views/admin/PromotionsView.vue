@@ -3,9 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../composables/useConfirm'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
+import AppIcon from '../../components/ui/AppIcon.vue'
 import AppModal from '../../components/ui/AppModal.vue'
+import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 import type { Promotion, PromotionType } from '../../types'
+import { parseMoneyInput } from '../../utils/money'
 
 const { t, locale } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -28,13 +31,13 @@ const defaultForm = () => ({
   max_uses: null as number | null,
   priority: 0,
   discount_percent: null as number | null,
-  discount_amount: null as number | null,
+  discount_amount: '',
   buy_quantity: 2,
   get_quantity: 1,
-  bundle_price: null as number | null,
+  bundle_price: '',
   schedule_days: [] as number[],
-  schedule_time_start: '09:00',
-  schedule_time_end: '18:00',
+  schedule_time_start: '18:00',
+  schedule_time_end: '20:00',
   customer_ids: [] as string[],
   product_id: '',
   is_active: true,
@@ -81,7 +84,7 @@ function typeLabel(type: string) {
 }
 
 const needsPercent = computed(() =>
-  ['percentage_discount', 'quantity_discount', 'category_discount', 'customer_discount', 'buy_x_get_y', 'time_based'].includes(form.value.type),
+  ['percentage_discount', 'quantity_discount', 'category_discount', 'customer_discount', 'buy_x_get_y'].includes(form.value.type),
 )
 const needsAmount = computed(() => ['fixed_discount', 'time_based'].includes(form.value.type))
 const needsCategory = computed(() => form.value.type === 'category_discount')
@@ -90,7 +93,7 @@ const needsBundle = computed(() => form.value.type === 'bundle')
 const needsCustomers = computed(() => form.value.type === 'customer_discount')
 const needsSchedule = computed(() => form.value.type === 'time_based')
 const needsProduct = computed(() =>
-  ['percentage_discount', 'fixed_discount', 'buy_x_get_y', 'bundle', 'quantity_discount'].includes(form.value.type),
+  ['percentage_discount', 'fixed_discount', 'buy_x_get_y', 'bundle', 'quantity_discount', 'time_based'].includes(form.value.type),
 )
 
 function openCreate() {
@@ -115,18 +118,29 @@ function openEdit(promotion: Promotion) {
     max_uses: promotion.max_uses ?? null,
     priority: promotion.priority,
     discount_percent: promotion.discount_percent != null ? Number(promotion.discount_percent) : null,
-    discount_amount: promotion.discount_amount ?? null,
+    discount_amount: majorMoney(promotion.discount_amount),
     buy_quantity: promotion.buy_quantity ?? 2,
     get_quantity: promotion.get_quantity ?? 1,
-    bundle_price: promotion.bundle_price ?? null,
+    bundle_price: majorMoney(promotion.bundle_price),
     schedule_days: promotion.schedule?.days_of_week ?? [],
-    schedule_time_start: promotion.schedule?.time_start ?? '09:00',
-    schedule_time_end: promotion.schedule?.time_end ?? '18:00',
+    schedule_time_start: promotion.schedule?.time_start ?? '18:00',
+    schedule_time_end: promotion.schedule?.time_end ?? '20:00',
     customer_ids: promotion.customers?.map(c => c.customer_id) ?? [],
     product_id: promotion.items?.[0]?.product_id ?? '',
     is_active: promotion.is_active,
   }
   showModal.value = true
+}
+
+function majorMoney(amount?: number | null) {
+  if (amount == null) return ''
+  return String(amount / 100)
+}
+
+function moneyOrNull(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  return parseMoneyInput(trimmed)
 }
 
 function buildPayload() {
@@ -142,11 +156,11 @@ function buildPayload() {
     min_quantity: form.value.min_quantity,
     max_uses: form.value.max_uses,
     priority: form.value.priority,
-    discount_percent: form.value.discount_percent,
-    discount_amount: form.value.discount_amount,
+    discount_percent: form.value.type === 'time_based' ? null : form.value.discount_percent,
+    discount_amount: moneyOrNull(form.value.discount_amount),
     buy_quantity: form.value.buy_quantity,
     get_quantity: form.value.get_quantity,
-    bundle_price: form.value.bundle_price,
+    bundle_price: moneyOrNull(form.value.bundle_price),
     is_active: form.value.is_active,
     customer_ids: form.value.customer_ids,
   }
@@ -154,8 +168,8 @@ function buildPayload() {
   if (needsSchedule.value) {
     payload.schedule = {
       days_of_week: form.value.schedule_days,
-      time_start: form.value.schedule_time_start,
-      time_end: form.value.schedule_time_end,
+      time_start: form.value.schedule_time_start.slice(0, 5),
+      time_end: form.value.schedule_time_end.slice(0, 5),
     }
   }
 
@@ -257,12 +271,12 @@ function formatDate(value?: string | null) {
     >
       <form class="space-y-3" @submit.prevent="save">
         <div class="grid gap-3 sm:grid-cols-2">
-          <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="form.name" required class="field" /></div>
-          <div><label class="mb-1 block text-sm font-medium">{{ t('org.code') }}</label><input v-model="form.code" class="field" /></div>
+          <div><FieldLabel icon="account">{{ t('org.name') }}</FieldLabel><input v-model="form.name" required class="field" /></div>
+          <div><FieldLabel icon="tag">{{ t('org.code') }}</FieldLabel><input v-model="form.code" class="field" /></div>
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('promotions.type') }}</label>
+          <FieldLabel icon="layers">{{ t('promotions.type') }}</FieldLabel>
           <select v-model="form.type" class="field">
             <option v-for="type in store.promotionTypes" :key="type.value" :value="type.value">
               {{ locale === 'fr' ? type.label_fr : type.label }}
@@ -272,62 +286,63 @@ function formatDate(value?: string | null) {
 
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('promotions.startDate') }}</label>
+            <FieldLabel icon="calendar">{{ t('promotions.startDate') }}</FieldLabel>
             <input v-model="form.starts_at" type="datetime-local" class="field" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('promotions.endDate') }}</label>
+            <FieldLabel icon="calendar">{{ t('promotions.endDate') }}</FieldLabel>
             <input v-model="form.ends_at" type="datetime-local" class="field" />
           </div>
         </div>
 
         <div class="grid gap-3 sm:grid-cols-3">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('promotions.minQty') }}</label>
+            <FieldLabel icon="package">{{ t('promotions.minQty') }}</FieldLabel>
             <input v-model.number="form.min_quantity" type="number" min="1" class="field" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('promotions.maxUses') }}</label>
+            <FieldLabel icon="calculator">{{ t('promotions.maxUses') }}</FieldLabel>
             <input v-model.number="form.max_uses" type="number" min="1" class="field" placeholder="∞" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('promotions.priority') }}</label>
+            <FieldLabel icon="layers">{{ t('promotions.priority') }}</FieldLabel>
             <input v-model.number="form.priority" type="number" class="field" />
           </div>
         </div>
 
         <div v-if="needsPercent" class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('promotions.discountPercent') }}</label>
-            <input v-model.number="form.discount_percent" type="number" step="0.01" min="0" max="100" class="field" />
+            <FieldLabel icon="percent">{{ t('promotions.discountPercent') }}</FieldLabel>
+            <input v-model.number="form.discount_percent" type="number" step="0.01" min="0" max="100" class="field" :placeholder="form.type === 'buy_x_get_y' ? t('promotions.freePercentHint') : '10'" />
           </div>
         </div>
 
         <div v-if="needsAmount" class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('promotions.discountAmount') }}</label>
-            <input v-model.number="form.discount_amount" type="number" min="0" class="field" />
+            <FieldLabel icon="coins">{{ form.type === 'time_based' ? t('promotions.specialPrice') : t('promotions.discountAmount') }}</FieldLabel>
+            <input v-model="form.discount_amount" type="text" inputmode="decimal" class="field" />
+            <p v-if="form.type === 'time_based'" class="mt-1 text-xs text-slate-500">{{ t('promotions.specialPriceHint') }}</p>
           </div>
         </div>
 
         <div v-if="needsBuyGet" class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('promotions.buyQty') }}</label>
+            <FieldLabel icon="package">{{ t('promotions.buyQty') }}</FieldLabel>
             <input v-model.number="form.buy_quantity" type="number" min="1" class="field" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('promotions.getQty') }}</label>
+            <FieldLabel icon="package">{{ t('promotions.getQty') }}</FieldLabel>
             <input v-model.number="form.get_quantity" type="number" min="1" class="field" />
           </div>
         </div>
 
         <div v-if="needsBundle">
-          <label class="mb-1 block text-sm font-medium">{{ t('promotions.bundlePrice') }}</label>
-          <input v-model.number="form.bundle_price" type="number" min="0" class="field" />
+          <FieldLabel icon="coins">{{ t('promotions.bundlePrice') }}</FieldLabel>
+          <input v-model="form.bundle_price" type="text" inputmode="decimal" class="field" />
         </div>
 
         <div v-if="needsCategory">
-          <label class="mb-1 block text-sm font-medium">{{ t('catalog.tabs.categories') }}</label>
+          <FieldLabel icon="catalog">{{ t('catalog.tabs.categories') }}</FieldLabel>
           <select v-model="form.category_id" class="field">
             <option value="">—</option>
             <option v-for="cat in store.categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
@@ -335,7 +350,7 @@ function formatDate(value?: string | null) {
         </div>
 
         <div v-if="needsProduct">
-          <label class="mb-1 block text-sm font-medium">{{ t('nav.products') }}</label>
+          <FieldLabel icon="products">{{ t('nav.products') }}</FieldLabel>
           <select v-model="form.product_id" class="field">
             <option value="">—</option>
             <option v-for="product in store.products" :key="product.id" :value="product.id">{{ product.name }}</option>
@@ -343,7 +358,7 @@ function formatDate(value?: string | null) {
         </div>
 
         <div v-if="needsCustomers">
-          <label class="mb-1 block text-sm font-medium">{{ t('promotions.eligibleCustomers') }}</label>
+          <FieldLabel icon="customers">{{ t('promotions.eligibleCustomers') }}</FieldLabel>
           <select v-model="form.customer_ids" multiple class="field min-h-28">
             <option v-for="customer in store.customers" :key="customer.id" :value="customer.id">{{ customer.name }}</option>
           </select>
@@ -351,6 +366,7 @@ function formatDate(value?: string | null) {
 
         <div v-if="needsSchedule" class="space-y-3 rounded-lg border border-slate-200 p-3">
           <p class="text-sm font-medium">{{ t('promotions.schedule') }}</p>
+          <p class="text-xs text-slate-500">{{ t('promotions.specialPriceHint') }}</p>
           <div class="flex flex-wrap gap-2">
             <label v-for="day in weekDays" :key="day.value" class="flex items-center gap-1 text-sm">
               <input v-model="form.schedule_days" type="checkbox" :value="day.value" class="rounded" />
@@ -359,18 +375,18 @@ function formatDate(value?: string | null) {
           </div>
           <div class="grid gap-3 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm">{{ t('promotions.timeStart') }}</label>
+              <FieldLabel icon="calendar">{{ t('promotions.timeStart') }}</FieldLabel>
               <input v-model="form.schedule_time_start" type="time" class="field" />
             </div>
             <div>
-              <label class="mb-1 block text-sm">{{ t('promotions.timeEnd') }}</label>
+              <FieldLabel icon="calendar">{{ t('promotions.timeEnd') }}</FieldLabel>
               <input v-model="form.schedule_time_end" type="time" class="field" />
             </div>
           </div>
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('nav.stores') }}</label>
+          <FieldLabel icon="stores">{{ t('nav.stores') }}</FieldLabel>
           <select v-model="form.store_id" class="field">
             <option value="">{{ t('promotions.allStores') }}</option>
             <option v-for="s in store.stores" :key="s.id" :value="s.id">{{ s.name }}</option>
@@ -378,6 +394,7 @@ function formatDate(value?: string | null) {
         </div>
 
         <label class="flex items-center gap-2 text-sm">
+          <span class="field-icon"><AppIcon name="check" :size="14" /></span>
           <input v-model="form.is_active" type="checkbox" class="rounded" />
           {{ t('products.active') }}
         </label>

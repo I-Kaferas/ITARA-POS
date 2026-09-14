@@ -3,7 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { extractApiErrorMessage } from '../../../api/client'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Tax, TaxClass, TaxGroup, TaxRegisterRow, TaxReportRow, TaxRule } from '../../../types'
@@ -354,14 +356,14 @@ function toggleCalcTax(id: string, checked: boolean) {
       <section v-if="tab === 'report'" class="space-y-4">
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div class="flex flex-wrap gap-3">
-            <label class="text-sm">
-              <span class="mb-1 block font-medium">{{ t('catalog.tax.from') }}</span>
+            <div>
+              <FieldLabel icon="calendar">{{ t('catalog.tax.from') }}</FieldLabel>
               <input v-model="period.from" type="date" class="field" />
-            </label>
-            <label class="text-sm">
-              <span class="mb-1 block font-medium">{{ t('catalog.tax.to') }}</span>
+            </div>
+            <div>
+              <FieldLabel icon="calendar">{{ t('catalog.tax.to') }}</FieldLabel>
               <input v-model="period.to" type="date" class="field" />
-            </label>
+            </div>
           </div>
           <button type="button" class="btn-primary" @click="refreshFiscal">{{ t('catalog.tax.refresh') }}</button>
         </div>
@@ -564,19 +566,20 @@ function toggleCalcTax(id: string, checked: boolean) {
       <section v-else class="panel p-4 space-y-4">
         <p class="text-sm text-slate-600">{{ t('catalog.tax.calculatorHint') }}</p>
         <div class="grid gap-3 sm:grid-cols-2">
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.amount') }}</span>
+          <div>
+            <FieldLabel icon="coins">{{ t('catalog.tax.amount') }}</FieldLabel>
             <input v-model="calc.amount" class="field" placeholder="0.00" />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.group') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="percent">{{ t('catalog.tax.group') }}</FieldLabel>
             <select v-model="calc.tax_group_id" class="field">
               <option value="">—</option>
               <option v-for="group in groups.filter(item => item.is_active)" :key="group.id" :value="group.id">{{ group.name }}</option>
             </select>
-          </label>
+          </div>
         </div>
         <label class="flex items-center gap-2 text-sm">
+          <span class="field-icon"><AppIcon name="check" :size="14" /></span>
           <input v-model="calc.amount_is_inclusive" type="checkbox" />
           {{ t('catalog.tax.amountInclusive') }}
         </label>
@@ -616,46 +619,47 @@ function toggleCalcTax(id: string, checked: boolean) {
     <AppModal :open="showTax" :title="editingTax ? t('catalog.editTax') : t('catalog.addTax')" icon="percent" tone="warning" size="lg" @close="showTax = false">
       <form class="space-y-3" @submit.prevent="saveTax">
         <div class="grid gap-3 sm:grid-cols-2">
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.name') }} *</span>
+          <div>
+            <FieldLabel icon="account">{{ t('catalog.tax.name') }} *</FieldLabel>
             <input v-model="taxForm.name" required class="field" :placeholder="t('catalog.tax.nameHint')" />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.code') }} *</span>
+          </div>
+          <div>
+            <FieldLabel icon="tag">{{ t('catalog.tax.code') }} *</FieldLabel>
             <input v-model="taxForm.code" required class="field" :placeholder="t('catalog.tax.codeHint')" />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.rate') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="percent">{{ t('catalog.tax.rate') }}</FieldLabel>
             <span class="rate-field">
               <input v-model.number="taxForm.rate" type="number" min="0" max="100" step="0.01" required class="field" />
               <span>%</span>
             </span>
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.type') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="catalog">{{ t('catalog.tax.type') }}</FieldLabel>
             <select v-model="taxForm.type" class="field">
               <option value="percentage">{{ t('catalog.tax.percentage') }}</option>
             </select>
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.priority') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="layers">{{ t('catalog.tax.priority') }}</FieldLabel>
             <input v-model.number="taxForm.priority" type="number" min="1" class="field" />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.country') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="store-pin">{{ t('catalog.tax.country') }}</FieldLabel>
             <select v-model="taxForm.country" class="field">
               <option v-for="country in COUNTRIES" :key="country.code || 'all'" :value="country.code">{{ countryLabel(country.code) }}</option>
             </select>
-          </label>
-          <label class="text-sm sm:col-span-2">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.region') }}</span>
+          </div>
+          <div class="sm:col-span-2">
+            <FieldLabel icon="pin">{{ t('catalog.tax.region') }}</FieldLabel>
             <input v-model="taxForm.region" class="field" :placeholder="t('catalog.tax.regionHint')" />
-          </label>
+          </div>
         </div>
 
         <fieldset class="behavior">
           <legend>{{ t('catalog.tax.behavior') }}</legend>
           <label class="flex items-start gap-2 text-sm">
+            <span class="field-icon"><AppIcon name="check" :size="14" /></span>
             <input v-model="taxForm.is_inclusive" type="checkbox" class="mt-1" />
             <span>
               <span class="block font-medium">{{ t('catalog.tax.inclusive') }}</span>
@@ -663,6 +667,7 @@ function toggleCalcTax(id: string, checked: boolean) {
             </span>
           </label>
           <label class="flex items-start gap-2 text-sm">
+            <span class="field-icon"><AppIcon name="check" :size="14" /></span>
             <input v-model="taxForm.is_compound" type="checkbox" class="mt-1" />
             <span>
               <span class="block font-medium">{{ t('catalog.tax.compound') }}</span>
@@ -672,6 +677,7 @@ function toggleCalcTax(id: string, checked: boolean) {
         </fieldset>
 
         <label class="flex items-start gap-2 text-sm">
+          <span class="field-icon"><AppIcon name="check" :size="14" /></span>
           <input v-model="taxForm.is_active" type="checkbox" class="mt-1" />
           <span>
             <span class="block font-medium">{{ t('products.active') }}</span>
@@ -679,10 +685,10 @@ function toggleCalcTax(id: string, checked: boolean) {
           </span>
         </label>
 
-        <label class="text-sm">
-          <span class="mb-1 block font-medium">{{ t('catalog.tax.description') }}</span>
+        <div>
+          <FieldLabel icon="note">{{ t('catalog.tax.description') }}</FieldLabel>
           <textarea v-model="taxForm.description" rows="3" class="field" />
-        </label>
+        </div>
 
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showTax = false">{{ t('common.cancel') }}</button>
@@ -694,10 +700,10 @@ function toggleCalcTax(id: string, checked: boolean) {
     <AppModal :open="showGroup" :title="editingGroup ? t('catalog.tax.editGroup') : t('catalog.tax.addGroup')" icon="percent" tone="warning" size="lg" @close="showGroup = false">
       <form class="space-y-3" @submit.prevent="saveGroup">
         <div class="grid gap-3 sm:grid-cols-2">
-          <label class="text-sm"><span class="mb-1 block font-medium">{{ t('catalog.tax.name') }} *</span><input v-model="groupForm.name" required class="field" /></label>
-          <label class="text-sm"><span class="mb-1 block font-medium">{{ t('catalog.tax.code') }} *</span><input v-model="groupForm.code" required class="field" /></label>
+          <div><FieldLabel icon="account">{{ t('catalog.tax.name') }} *</FieldLabel><input v-model="groupForm.name" required class="field" /></div>
+          <div><FieldLabel icon="tag">{{ t('catalog.tax.code') }} *</FieldLabel><input v-model="groupForm.code" required class="field" /></div>
         </div>
-        <label class="text-sm"><span class="mb-1 block font-medium">{{ t('catalog.tax.description') }}</span><textarea v-model="groupForm.description" rows="2" class="field" /></label>
+        <div><FieldLabel icon="note">{{ t('catalog.tax.description') }}</FieldLabel><textarea v-model="groupForm.description" rows="2" class="field" /></div>
         <div class="space-y-1">
           <p class="text-sm font-medium">{{ t('catalog.tax.members') }}</p>
           <label v-for="tax in store.taxes" :key="tax.id" class="flex items-center gap-2 text-sm">
@@ -705,7 +711,7 @@ function toggleCalcTax(id: string, checked: boolean) {
             {{ tax.name }} ({{ tax.code }})
           </label>
         </div>
-        <label class="flex items-center gap-2 text-sm"><input v-model="groupForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
+        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="groupForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showGroup = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
@@ -715,10 +721,10 @@ function toggleCalcTax(id: string, checked: boolean) {
 
     <AppModal :open="showClass" :title="editingClass ? t('catalog.tax.editClass') : t('catalog.tax.addClass')" icon="percent" tone="warning" @close="showClass = false">
       <form class="space-y-3" @submit.prevent="saveClass">
-        <label class="text-sm"><span class="mb-1 block font-medium">{{ t('catalog.tax.name') }} *</span><input v-model="classForm.name" required class="field" /></label>
-        <label class="text-sm"><span class="mb-1 block font-medium">{{ t('catalog.tax.code') }} *</span><input v-model="classForm.code" required class="field" /></label>
-        <label class="text-sm"><span class="mb-1 block font-medium">{{ t('catalog.tax.description') }}</span><textarea v-model="classForm.description" rows="2" class="field" /></label>
-        <label class="flex items-center gap-2 text-sm"><input v-model="classForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
+        <div><FieldLabel icon="account">{{ t('catalog.tax.name') }} *</FieldLabel><input v-model="classForm.name" required class="field" /></div>
+        <div><FieldLabel icon="tag">{{ t('catalog.tax.code') }} *</FieldLabel><input v-model="classForm.code" required class="field" /></div>
+        <div><FieldLabel icon="note">{{ t('catalog.tax.description') }}</FieldLabel><textarea v-model="classForm.description" rows="2" class="field" /></div>
+        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="classForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showClass = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
@@ -728,46 +734,46 @@ function toggleCalcTax(id: string, checked: boolean) {
 
     <AppModal :open="showRule" :title="editingRule ? t('catalog.tax.editRule') : t('catalog.tax.addRule')" icon="percent" tone="warning" size="lg" @close="showRule = false">
       <form class="space-y-3" @submit.prevent="saveRule">
-        <label class="text-sm"><span class="mb-1 block font-medium">{{ t('catalog.tax.name') }} *</span><input v-model="ruleForm.name" required class="field" /></label>
+        <div><FieldLabel icon="account">{{ t('catalog.tax.name') }} *</FieldLabel><input v-model="ruleForm.name" required class="field" /></div>
         <div class="grid gap-3 sm:grid-cols-2">
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.class') }}</span>
+          <div>
+            <FieldLabel icon="layers">{{ t('catalog.tax.class') }}</FieldLabel>
             <select v-model="ruleForm.tax_class_id" class="field">
               <option value="">—</option>
               <option v-for="row in classes" :key="row.id" :value="row.id">{{ row.name }}</option>
             </select>
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.priority') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="layers">{{ t('catalog.tax.priority') }}</FieldLabel>
             <input v-model.number="ruleForm.priority" type="number" min="1" class="field" />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tabs.taxes') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="percent">{{ t('catalog.tabs.taxes') }}</FieldLabel>
             <select v-model="ruleForm.tax_id" class="field">
               <option value="">—</option>
               <option v-for="tax in store.taxes" :key="tax.id" :value="tax.id">{{ tax.name }}</option>
             </select>
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.group') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="percent">{{ t('catalog.tax.group') }}</FieldLabel>
             <select v-model="ruleForm.tax_group_id" class="field">
               <option value="">—</option>
               <option v-for="group in groups" :key="group.id" :value="group.id">{{ group.name }}</option>
             </select>
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.country') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="store-pin">{{ t('catalog.tax.country') }}</FieldLabel>
             <select v-model="ruleForm.country" class="field">
               <option v-for="country in COUNTRIES" :key="country.code || 'all'" :value="country.code">{{ countryLabel(country.code) }}</option>
             </select>
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('catalog.tax.region') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="pin">{{ t('catalog.tax.region') }}</FieldLabel>
             <input v-model="ruleForm.region" class="field" :placeholder="t('catalog.tax.regionHint')" />
-          </label>
+          </div>
         </div>
-        <label class="text-sm"><span class="mb-1 block font-medium">{{ t('catalog.tax.description') }}</span><textarea v-model="ruleForm.description" rows="2" class="field" /></label>
-        <label class="flex items-center gap-2 text-sm"><input v-model="ruleForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
+        <div><FieldLabel icon="note">{{ t('catalog.tax.description') }}</FieldLabel><textarea v-model="ruleForm.description" rows="2" class="field" /></div>
+        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="ruleForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showRule = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>

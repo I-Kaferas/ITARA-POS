@@ -212,11 +212,16 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
 
     try {
       final balance = _parseMoney(balanceCtrl.text);
-      await _api.openSession(
+      final opened = await _api.openSession(
         registerId: register.id,
         openingBalance: balance,
         notes: notesCtrl.text.trim(),
       );
+      final repo = TerminalConfigRepository.instance;
+      await repo.save(repo.config.copyWith(
+        cashRegisterId: register.id,
+        cashSessionId: opened.session?.id ?? repo.config.cashSessionId,
+      ));
       _showMessage('Shift ouvert');
       await _load();
     } catch (e) {
@@ -321,6 +326,10 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
         actualCash: _parseMoney(actualCtrl.text),
         notes: notesCtrl.text.trim(),
       );
+      final repo = TerminalConfigRepository.instance;
+      if (repo.config.cashRegisterId == register.id) {
+        await repo.save(repo.config.copyWith(cashSessionId: ''));
+      }
       _showMessage('Shift fermé');
       await _load();
 

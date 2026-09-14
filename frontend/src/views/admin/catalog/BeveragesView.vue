@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { api } from '../../../api/client'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -231,7 +232,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
     <AppModal :open="showModal" :title="t('beverages.configure')" icon="products" tone="info" size="lg" @close="showModal = false">
       <form class="space-y-4" @submit.prevent="save">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('beverages.product') }}</label>
+          <FieldLabel icon="products">{{ t('beverages.product') }}</FieldLabel>
           <select v-model="productId" required class="w-full rounded-lg border border-slate-300 px-3 py-2" @change="onProductChange">
             <option value="">—</option>
             <option v-for="product in products" :key="product.id" :value="product.id">{{ product.sku }} — {{ product.name }}</option>
@@ -239,15 +240,15 @@ async function removeBeverage(row: Dashboard['products'][number]) {
         </div>
         <div class="grid gap-3 sm:grid-cols-3">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('beverages.bottleVolume') }}</label>
+            <FieldLabel icon="package">{{ t('beverages.bottleVolume') }}</FieldLabel>
             <input v-model.number="bottleVolume" type="number" min="1" class="w-full rounded-lg border border-slate-300 px-3 py-2" @change="syncBottleVolume" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('beverages.cost') }}</label>
+            <FieldLabel icon="coins">{{ t('beverages.cost') }}</FieldLabel>
             <input v-model.number="costPrice" type="number" min="0" step="0.01" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('beverages.stockBottles') }}</label>
+            <FieldLabel icon="package">{{ t('beverages.stockBottles') }}</FieldLabel>
             <input v-model.number="stockBottles" type="number" min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
           </div>
         </div>

@@ -17,6 +17,7 @@ use App\Models\Store;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountingEntryService;
+use App\Services\Customer\CustomerLoyaltyService;
 use App\Services\Audit\AuditLogService;
 use App\Services\Inventory\InventoryMovementService;
 use App\Services\Payments\RefundEngine;
@@ -31,6 +32,7 @@ class SaleReturnEngine
         private readonly RefundEngine $refundEngine,
         private readonly AccountingEntryService $accountingService,
         private readonly AuditLogService $auditLogService,
+        private readonly CustomerLoyaltyService $loyalty,
     ) {}
 
     /**
@@ -135,6 +137,9 @@ class SaleReturnEngine
                 ],
             );
             $this->accountingService->recordSaleReturn($saleReturn, $user->id);
+            if ($sale->customer !== null) {
+                $this->loyalty->reverseForReturn($sale->customer, $sale, (int) $saleReturn->total, $user->id);
+            }
 
             $this->auditLogService->log(
                 action: 'sale_return.completed',
@@ -395,7 +400,7 @@ class SaleReturnEngine
                 'unit_cost' => $product->cost_price,
                 'reference' => $saleReturn,
                 'performed_by' => $user->id,
-                'notes' => "Return {$saleReturn->return_number}",
+                'notes' => "Retour {$saleReturn->return_number} · +{$returnItem->quantity_returned}",
             ]);
         }
     }

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
+import FieldLabel from '../ui/FieldLabel.vue'
 import WarehouseOptions from './WarehouseOptions.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
@@ -217,22 +218,22 @@ async function generate() {
 
       <div class="grid gap-3 sm:grid-cols-2">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
+          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
           <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.plannedDate') }}</label>
+          <FieldLabel icon="calendar">{{ t('inventory.plannedDate') }}</FieldLabel>
           <input v-model="form.counted_at" type="date" required class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.category') }}</label>
+          <FieldLabel icon="layers">{{ t('inventory.category') }}</FieldLabel>
           <select v-model="form.category_id" class="field">
             <option value="">{{ t('inventory.allCategories') }}</option>
             <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.abcClass') }}</label>
+          <FieldLabel icon="catalog">{{ t('inventory.abcClass') }}</FieldLabel>
           <select v-model="form.inventory_class" class="field">
             <option value="">{{ t('inventory.allClasses') }}</option>
             <option value="A">A · {{ t('inventory.classA') }}</option>
@@ -241,18 +242,18 @@ async function generate() {
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.zone') }}</label>
+          <FieldLabel icon="pin">{{ t('inventory.zone') }}</FieldLabel>
           <input v-model="form.zone" class="field" :placeholder="t('inventory.zoneHint')" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.responsible') }}</label>
+          <FieldLabel icon="account">{{ t('inventory.responsible') }}</FieldLabel>
           <select v-model="form.responsible_id" class="field">
             <option value="">{{ t('inventory.currentUser') }}</option>
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.name }}</option>
           </select>
         </div>
         <div class="sm:col-span-2">
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.notes') }}</label>
+          <FieldLabel icon="note">{{ t('inventory.notes') }}</FieldLabel>
           <textarea v-model="form.notes" rows="2" class="field" />
         </div>
       </div>

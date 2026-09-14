@@ -8,6 +8,15 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../sync/offline_store.dart';
 import '../../../sync/sync_engine.dart';
+import '../../accounting/presentation/accounting_screen.dart';
+import '../../customers/presentation/customer_account_screen.dart';
+import '../../expenses/presentation/expenses_screen.dart';
+import '../../hospitality/presentation/hospitality_screen.dart';
+import '../../notifications/presentation/notification_badge.dart';
+import '../../notifications/presentation/notifications_screen.dart';
+import '../../production/presentation/production_screen.dart';
+import '../../reports/presentation/reports_screen.dart';
+import '../../services/presentation/services_screen.dart';
 import '../../barcode/presentation/widgets/hid_scanner_field.dart';
 import '../../barcode/services/hid_scanner_controller.dart';
 import '../data/pos_api_service.dart';
@@ -483,6 +492,80 @@ class _PosScreenState extends State<PosScreen> {
       appBar: AppBar(
         title: const Text('Caisse POS'),
         actions: [
+          IconButton(
+            tooltip: 'Restaurant et hôtel',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const HospitalityScreen()),
+              );
+            },
+            icon: const Icon(Icons.table_restaurant),
+          ),
+          IconButton(
+            tooltip: 'Services',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ServicesScreen()),
+              );
+            },
+            icon: const Icon(Icons.handyman_outlined),
+          ),
+          IconButton(
+            tooltip: 'Production',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ProductionScreen()),
+              );
+            },
+            icon: const Icon(Icons.restaurant),
+          ),
+          IconButton(
+            tooltip: 'Comptabilité',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AccountingScreen()),
+              );
+            },
+            icon: const Icon(Icons.account_balance_outlined),
+          ),
+          IconButton(
+            tooltip: 'Rapports',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ReportsScreen()),
+              );
+            },
+            icon: const Icon(Icons.bar_chart),
+          ),
+          NotificationBadge(
+            child: IconButton(
+              tooltip: 'Notifications',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+                );
+              },
+              icon: const Icon(Icons.notifications_outlined),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Fidélité et crédit',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const CustomerAccountScreen()),
+              );
+            },
+            icon: const Icon(Icons.card_membership_outlined),
+          ),
+          IconButton(
+            tooltip: 'Dépenses',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ExpensesScreen()),
+              );
+            },
+            icon: const Icon(Icons.receipt_long_outlined),
+          ),
           IconButton(
             tooltip: 'Actualiser catalogue',
             onPressed: _loading ? null : _loadCatalog,

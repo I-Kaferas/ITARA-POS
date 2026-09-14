@@ -4,32 +4,50 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppIcon from '../ui/AppIcon.vue'
 import { api } from '../../api/client'
-import type { InventoryAlert } from '../../types'
+
+type WatchItem = { kind: string; title: string; detail: string }
 
 const { t } = useI18n()
 const router = useRouter()
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
-const alerts = ref<InventoryAlert[]>([])
+const alerts = ref<WatchItem[]>([])
+let timer: ReturnType<typeof setInterval> | undefined
 
-const visible = computed(() =>
-  alerts.value.filter(alert => alert.status !== 'resolved').slice(0, 8),
-)
+const visible = computed(() => alerts.value.slice(0, 12))
+
+const targets: Record<string, string> = {
+  low_stock: '/admin/inventory/alerts',
+  expired: '/admin/inventory/alerts',
+  sync_failed: '/admin/organization/devices',
+  cash_open: '/admin/pos/shifts',
+  credit_overdue: '/admin/customers',
+  order_pending: '/admin/pos/orders',
+}
 
 async function load() {
   try {
-    const res = await api.get<{ data: { data?: InventoryAlert[] } | InventoryAlert[] }>('/inventory/alerts?per_page=8')
-    const payload = res.data
-    alerts.value = Array.isArray(payload) ? payload : payload.data ?? []
+    alerts.value = (await api.get<{ data: WatchItem[] }>('/notifications')).data ?? []
   } catch {
     alerts.value = []
   }
 }
 
-function typeLabel(type: string): string {
-  if (type === 'LOW_STOCK') return t('stockAlerts.lowStock')
-  if (type === 'OUT_OF_STOCK') return t('stockAlerts.outOfStock')
-  return type.replaceAll('_', ' ').toLowerCase()
+function typeLabel(kind: string): string {
+  const labels: Record<string, string> = {
+    low_stock: t('stockAlerts.lowStock'),
+    expired: t('stockAlerts.expired'),
+    sync_failed: t('stockAlerts.syncFailed'),
+    cash_open: t('stockAlerts.cashOpen'),
+    credit_overdue: t('stockAlerts.creditOverdue'),
+    order_pending: t('stockAlerts.orderPending'),
+  }
+  return labels[kind] ?? kind
+}
+
+function openItem(item: WatchItem) {
+  open.value = false
+  void router.push(targets[item.kind] ?? '/admin/inventory/alerts')
 }
 
 function onDocumentClick(event: MouseEvent) {
@@ -43,10 +61,14 @@ function seeAll() {
 
 onMounted(() => {
   void load()
+  timer = setInterval(() => void load(), 60_000)
   document.addEventListener('click', onDocumentClick)
 })
 
-onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
+onBeforeUnmount(() => {
+  if (timer) clearInterval(timer)
+  document.removeEventListener('click', onDocumentClick)
+})
 </script>
 
 <template>
@@ -58,13 +80,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
       </div>
 
       <ul v-if="visible.length" class="stock-bell__list">
-        <li v-for="alert in visible" :key="alert.id">
-          <button type="button" class="stock-bell__item" @click="seeAll">
-            <span class="stock-bell__name">{{ alert.product?.name || '—' }}</span>
-            <span class="stock-bell__meta">
-              {{ typeLabel(alert.alert_type) }}
-              <template v-if="alert.warehouse?.name"> · {{ alert.warehouse.name }}</template>
-            </span>
+        <li v-for="(alert, index) in visible" :key="`${alert.kind}-${index}`">
+          <button type="button" class="stock-bell__item" @click="openItem(alert)">
+            <span class="stock-bell__name">{{ alert.title }}</span>
+            <span class="stock-bell__meta">{{ typeLabel(alert.kind) }} · {{ alert.detail }}</span>
           </button>
         </li>
       </ul>

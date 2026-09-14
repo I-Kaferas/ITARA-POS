@@ -1,8 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'features/home/presentation/home_screen.dart';
 
-void main() {
+import 'core/config/terminal_config_repository.dart';
+import 'data/local/local_database.dart';
+import 'features/home/presentation/home_screen.dart';
+import 'sync/local_master_discovery.dart';
+import 'sync/local_master_server.dart';
+import 'sync/sync_engine.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LocalDatabase.ensureInitialized();
+  await TerminalConfigRepository.instance.ensureLoaded();
+  SyncEngine.instance.start();
+  await LocalMasterServer.instance.startIfMaster();
+  await LocalMasterDiscovery.instance.start();
+  TerminalConfigRepository.instance.addListener(() {
+    LocalMasterServer.instance.startIfMaster();
+  });
   runApp(const PosApp());
 }
 

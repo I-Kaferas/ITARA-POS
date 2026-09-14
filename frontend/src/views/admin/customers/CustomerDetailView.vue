@@ -6,6 +6,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { extractApiErrorMessage } from '../../../api/client'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type {
   Customer,
@@ -16,6 +18,7 @@ import type {
   Sale,
 } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
+import { parseMoneyInput } from '../../../utils/money'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -38,7 +41,7 @@ const redeemError = ref('')
 const editingAddress = ref<CustomerAddress | null>(null)
 
 const paymentForm = ref({
-  amount: 0,
+  amount: '',
   payment_method: 'cash',
   reference: '',
   notes: '',
@@ -58,6 +61,20 @@ const addressForm = ref({
 })
 
 const customerId = computed(() => route.params.id as string)
+const ledgerLines = computed<CustomerStatementLine[]>(() => [
+  {
+    id: 'opening',
+    occurred_at: customer.value?.created_at ?? '',
+    transaction_type: 'OPENING_BALANCE',
+    reference: null,
+    description: null,
+    debit: 0,
+    credit: 0,
+    balance: 0,
+    outstanding: 0,
+  },
+  ...statement.value.filter(line => line.debit > 0 || line.credit > 0),
+])
 const primaryAddress = computed(() => addresses.value.find(item => item.is_primary) ?? addresses.value[0] ?? null)
 
 onMounted(() => loadAll())
@@ -74,8 +91,9 @@ async function loadAll() {
 }
 
 function openPaymentModal() {
+  const due = summary.value?.receivable ?? 0
   paymentForm.value = {
-    amount: summary.value?.receivable ?? 0,
+    amount: due > 0 ? String(due / 100) : '',
     payment_method: 'cash',
     reference: '',
     notes: '',
@@ -86,8 +104,10 @@ function openPaymentModal() {
 async function submitPayment() {
   saving.value = true
   try {
+    const amount = parseMoneyInput(paymentForm.value.amount)
+    if (amount < 1) return
     await store.recordCustomerPayment(customerId.value, {
-      amount: paymentForm.value.amount,
+      amount,
       payment_method: paymentForm.value.payment_method,
       reference: paymentForm.value.reference || undefined,
       notes: paymentForm.value.notes || undefined,
@@ -148,13 +168,12 @@ async function redeemLoyalty() {
 
 function transactionTypeLabel(type: string): string {
   const map: Record<string, string> = {
-    SALE: 'Vente',
-    PAYMENT: 'Paiement',
-    CREDIT_NOTE: 'Avoir',
-    DEBIT_NOTE: 'Note de débit',
-    RETURN: 'Retour',
-    OPENING_BALANCE: 'Solde initial',
-    ADJUSTMENT: 'Ajustement',
+    SALE: t('customers.creditSale'),
+    PAYMENT: t('customers.payment'),
+    CREDIT_NOTE: t('customers.creditNote'),
+    SALE_RETURN: t('customers.saleReturn'),
+    OPENING_BALANCE: t('customers.openingBalance'),
+    ADJUSTMENT: t('customers.adjustment'),
   }
   return map[type] ?? type
 }
@@ -187,8 +206,9 @@ function transactionTypeLabel(type: string): string {
 
       <div v-if="summary" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="stat-card">
-          <p class="stat-label">{{ t('customers.receivable') }}</p>
-          <p class="stat-value">{{ formatMoney(summary.receivable) }}</p>
+          <p class="stat-label">{{ t('customers.balance') }}</p>
+          <p class="stat-value">{{ formatMoney(summary.balance) }}</p>
+          <p class="m-0 mt-1 text-xs text-slate-400">{{ t('customers.ledgerHint') }}</p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('customers.creditLimit') }}</p>
@@ -231,7 +251,7 @@ function transactionTypeLabel(type: string): string {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="line in statement" :key="line.id">
+            <tr v-for="line in ledgerLines" :key="line.id">
               <td class="px-4 py-3 text-slate-500">{{ formatDate(line.occurred_at) }}</td>
               <td class="px-4 py-3">{{ transactionTypeLabel(line.transaction_type) }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ line.reference ?? '—' }}</td>
@@ -241,7 +261,7 @@ function transactionTypeLabel(type: string): string {
             </tr>
           </tbody>
         </table>
-        <p v-if="!statement.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="statement.length === 0" class="px-4 py-3 text-center text-sm text-slate-500">{{ t('customers.ledgerEmpty') }}</p>
       </div>
 
       <div v-else-if="activeTab === 'payments'" class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -293,10 +313,15 @@ function transactionTypeLabel(type: string): string {
 
       <div v-else-if="activeTab === 'loyalty'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-3">
         <p class="m-0 text-sm text-slate-500">{{ t('customers.loyaltyHint') }}</p>
+        <p class="m-0 text-sm font-medium">{{ t('customers.loyaltyRule') }}</p>
+        <p class="m-0 text-sm text-slate-500">{{ t('customers.loyaltyReward') }}</p>
         <p class="m-0 text-sm">{{ summary?.loyalty_points ?? 0 }} {{ t('customers.loyaltyPoints') }} · {{ summary?.loyalty_tier || 'standard' }}</p>
         <form class="flex flex-wrap items-end gap-3" @submit.prevent="redeemLoyalty">
           <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('customers.redeemPoints') }}</span>
+            <span class="mb-1 flex items-center gap-2 font-medium">
+              <span class="field-icon"><AppIcon name="coins" :size="14" /></span>
+              {{ t('customers.redeemPoints') }}
+            </span>
             <input v-model.number="redeemPoints" type="number" min="1" class="field w-32" />
           </label>
           <button type="submit" class="btn-primary" :disabled="saving">{{ t('customers.redeem') }}</button>
@@ -343,11 +368,12 @@ function transactionTypeLabel(type: string): string {
     >
       <form class="space-y-3" @submit.prevent="submitPayment">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('products.price') }}</label>
-          <input v-model.number="paymentForm.amount" type="number" min="1" required class="field" />
+          <FieldLabel icon="coins">{{ t('products.price') }}</FieldLabel>
+          <input v-model="paymentForm.amount" type="text" inputmode="decimal" required class="field" placeholder="50000" />
+          <p class="mt-1 text-xs text-slate-500">{{ t('customers.paymentHint') }}</p>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('payables.method') }}</label>
+          <FieldLabel icon="card">{{ t('payables.method') }}</FieldLabel>
           <select v-model="paymentForm.payment_method" class="field">
             <option value="cash">Espèces</option>
             <option value="card">Carte</option>
@@ -357,7 +383,10 @@ function transactionTypeLabel(type: string): string {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showPaymentModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary gap-1.5" :disabled="saving">
+            <AppIcon name="check" :size="15" />
+            {{ t('common.save') }}
+          </button>
         </div>
       </form>
     </AppModal>
@@ -370,14 +399,17 @@ function transactionTypeLabel(type: string): string {
       @close="showAddressModal = false"
     >
       <form class="space-y-3" @submit.prevent="saveAddress">
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="addressForm.label" class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.street') }}</label><input v-model="addressForm.line1" required class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.city') }}</label><input v-model="addressForm.city" class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.country') }}</label><input v-model="addressForm.country_code" maxlength="2" class="field" /></div>
-        <label class="flex items-center gap-2 text-sm"><input v-model="addressForm.is_primary" type="checkbox" class="rounded" />{{ t('org.default') }}</label>
+        <div><FieldLabel icon="tag">{{ t('org.name') }}</FieldLabel><input v-model="addressForm.label" class="field" /></div>
+        <div><FieldLabel icon="pin">{{ t('org.street') }}</FieldLabel><input v-model="addressForm.line1" required class="field" /></div>
+        <div><FieldLabel icon="building">{{ t('org.city') }}</FieldLabel><input v-model="addressForm.city" class="field" /></div>
+        <div><FieldLabel icon="store-pin">{{ t('org.country') }}</FieldLabel><input v-model="addressForm.country_code" maxlength="2" class="field" /></div>
+        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="addressForm.is_primary" type="checkbox" class="rounded" />{{ t('org.default') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showAddressModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary gap-1.5" :disabled="saving">
+            <AppIcon name="check" :size="15" />
+            {{ t('common.save') }}
+          </button>
         </div>
       </form>
     </AppModal>

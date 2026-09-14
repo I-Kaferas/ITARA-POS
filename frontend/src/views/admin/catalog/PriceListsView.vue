@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Catalog, Company, Currency } from '../../../types'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
@@ -88,18 +89,18 @@ function money(amount: number, currency?: string) {
       <div class="flex flex-wrap items-end justify-between gap-3">
         <p class="m-0 max-w-3xl text-sm text-slate-500">{{ t('catalog.priceList.hint') }}</p>
         <div class="flex flex-wrap gap-3">
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('org.company') }}</span>
+          <div>
+            <FieldLabel icon="organization">{{ t('org.company') }}</FieldLabel>
             <select class="field" :value="company?.id" @change="selectCompany(($event.target as HTMLSelectElement).value)">
               <option v-for="item in store.companies" :key="item.id" :value="item.id">{{ item.name }}</option>
             </select>
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">{{ t('nav.catalogs') }}</span>
+          </div>
+          <div>
+            <FieldLabel icon="catalog">{{ t('nav.catalogs') }}</FieldLabel>
             <select class="field" :value="catalog?.id" @change="catalog = catalogs.find(item => item.id === ($event.target as HTMLSelectElement).value) ?? null; load()">
               <option v-for="item in catalogs" :key="item.id" :value="item.id">{{ item.name }}</option>
             </select>
-          </label>
+          </div>
         </div>
       </div>
 

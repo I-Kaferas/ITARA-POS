@@ -61,4 +61,33 @@ class CashRegister extends Model
     {
         return $this->hasOne(CashierShift::class)->where('status', 'open')->latest('opened_at');
     }
+
+    public static function ensureForStore(Store $store): self
+    {
+        $existing = static::query()
+            ->where('store_id', $store->id)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $base = 'C-'.strtoupper((string) ($store->code ?: 'POS'));
+        $code = $base;
+        $suffix = 2;
+        while (static::withTrashed()->where('code', $code)->exists()) {
+            $code = $base.'-'.$suffix;
+            $suffix++;
+        }
+
+        return static::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $store->id,
+            'name' => 'Caisse '.$store->name,
+            'code' => $code,
+            'is_active' => true,
+        ]);
+    }
 }

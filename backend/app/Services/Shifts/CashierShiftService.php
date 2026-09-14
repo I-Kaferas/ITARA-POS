@@ -92,6 +92,7 @@ class CashierShiftService
         int $actualCash,
         ?string $notes = null,
         ?Carbon $closedAt = null,
+        ?string $varianceReason = null,
     ): CashierShift {
         $shift = $this->requireOpenShiftForCashier($register, $cashier);
         $closedAt = $this->exactMoment($closedAt, 'closed_at');
@@ -102,17 +103,23 @@ class CashierShiftService
             ]);
         }
 
-        return DB::transaction(function () use ($shift, $register, $cashier, $actualCash, $notes, $closedAt) {
+        return DB::transaction(function () use ($shift, $actualCash, $notes, $closedAt, $varianceReason) {
             $this->refreshTotals($shift);
             $shift->refresh();
 
             $expected = $shift->expected_cash;
             $variance = $actualCash - $expected;
+            if ($variance !== 0 && trim((string) $varianceReason) === '') {
+                throw ValidationException::withMessages([
+                    'variance_reason' => ['Une différence de caisse doit être justifiée.'],
+                ]);
+            }
 
             $shift->update([
                 'status' => CashierShiftStatus::Closed,
                 'actual_cash' => $actualCash,
                 'variance' => $variance,
+                'variance_reason' => $variance !== 0 ? trim((string) $varianceReason) : null,
                 'closing_notes' => $notes,
                 'closed_at' => $closedAt,
             ]);
@@ -258,6 +265,7 @@ class CashierShiftService
             'expected_cash' => $shift->expected_cash,
             'actual_cash' => $shift->actual_cash,
             'variance' => $shift->variance,
+            'variance_reason' => $shift->variance_reason,
             'opened_at' => $shift->opened_at,
             'closed_at' => $shift->closed_at,
             'invoices_count' => $report['invoices_count'],

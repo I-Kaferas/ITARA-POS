@@ -12,6 +12,8 @@ class SaleItem extends Model
 {
     use BelongsToTenant, HasUuids;
 
+    protected $appends = ['quantity_returned', 'quantity_returnable'];
+
     protected $fillable = [
         'tenant_id',
         'sale_id',
@@ -20,6 +22,9 @@ class SaleItem extends Model
         'product_name',
         'product_sku',
         'quantity',
+        'sale_unit_id',
+        'sale_unit_name',
+        'volume_ml',
         'unit_price',
         'price_type',
         'catalog_price',
@@ -74,5 +79,15 @@ class SaleItem extends Model
     public function quantityReturnable(): int
     {
         return max(0, $this->quantity - $this->quantityAlreadyReturned());
+    }
+
+    public function getQuantityReturnedAttribute(): int
+    {
+        return $this->quantityAlreadyReturned();
+    }
+
+    public function getQuantityReturnableAttribute(): int
+    {
+        return $this->quantityReturnable();
     }
 }

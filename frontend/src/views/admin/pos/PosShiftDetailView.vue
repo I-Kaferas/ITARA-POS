@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -26,6 +27,7 @@ const error = ref('')
 const showClose = ref(false)
 const actualCash = ref('')
 const closingNotes = ref('')
+const varianceReason = ref('')
 const saving = ref(false)
 
 const isMineOpen = computed(() =>
@@ -72,6 +74,7 @@ function openCloseModal() {
       ? String((shift.value.expected_cash ?? 0) / 100)
       : ''
   closingNotes.value = ''
+  varianceReason.value = ''
   showClose.value = true
 }
 
@@ -81,9 +84,17 @@ async function confirmClose() {
   saving.value = true
   error.value = ''
   try {
+    const expected = summary.value?.expected_cash ?? shift.value?.expected_cash ?? 0
+    const actual = Math.round((Number(actualCash.value.replace(',', '.')) || 0) * 100)
+    if (actual !== expected && !varianceReason.value.trim()) {
+      error.value = t('pos.varianceReasonRequired')
+      saving.value = false
+      return
+    }
     await store.closeCashierShift(registerId, {
       actual_cash: Number(actualCash.value.replace(',', '.')) || 0,
       closing_notes: closingNotes.value || undefined,
+      variance_reason: varianceReason.value.trim() || undefined,
     })
     showClose.value = false
     await load()
@@ -192,11 +203,15 @@ watch([storeId, shiftId], load)
     <AppModal :open="showClose" :title="t('pointOfSale.shifts.closeAction')" @close="showClose = false">
       <div class="space-y-3">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.shifts.actualCash') }}</label>
+          <FieldLabel icon="coins">{{ t('pointOfSale.shifts.actualCash') }}</FieldLabel>
           <input v-model="actualCash" type="text" class="ui-input w-full" required />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.shifts.notes') }}</label>
+          <FieldLabel icon="note">{{ t('pos.varianceReason') }}</FieldLabel>
+          <textarea v-model="varianceReason" rows="2" class="ui-input w-full" />
+        </div>
+        <div>
+          <FieldLabel icon="note">{{ t('pointOfSale.shifts.notes') }}</FieldLabel>
           <textarea v-model="closingNotes" rows="2" class="ui-input w-full" />
         </div>
         <div class="flex justify-end gap-2 pt-2">

@@ -9,25 +9,33 @@ use App\DTOs\Sales\SaleResult;
 use App\Enums\InventoryMovementType;
 use App\Enums\SaleDiscountSource;
 use App\Enums\SaleDiscountType;
+use App\Enums\SaleDocumentFormat;
 use App\Enums\SalePaymentMethod;
 use App\Enums\SalePaymentStatus;
 use App\Enums\SaleStatus;
 use App\Events\SaleCompleted;
+use App\Models\Customer;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleDiscount;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
+use App\Models\SaleReceipt;
 use App\Models\SaleTax;
+use App\Models\SyncEvent;
 use App\Models\Store;
 use App\Models\StoreProduct;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountingEntryService;
+use App\Services\Customer\CustomerLoyaltyService;
 use App\Services\Audit\AuditLogService;
 use App\Services\Inventory\InventoryMovementService;
 use App\Services\Inventory\StockBalanceService;
 use App\Services\Payments\PaymentEngine;
+use App\Services\Promotions\PromotionEngine;
+use App\Services\Receipts\ReceiptPayloadService;
+use App\Services\Receipts\SaleReceiptService;
 use App\Services\Shifts\CashierShiftService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +52,10 @@ class SaleEngine
         private readonly AuditLogService $auditLogService,
         private readonly SaleCreditService $creditService,
         private readonly CashierShiftService $cashierShiftService,
+        private readonly SaleReceiptService $receipts,
+        private readonly ReceiptPayloadService $receiptPayloads,
+        private readonly PromotionEngine $promotionEngine,
+        private readonly CustomerLoyaltyService $loyalty,
     ) {}
 
     /** @param  array<string, mixed>  $payload */
@@ -107,6 +119,7 @@ class SaleEngine
             $saleItems = $this->createSaleItems($sale, $cart);
             $this->createSaleTaxes($sale, $saleItems, $cart);
             $this->createSaleDiscounts($sale, $saleItems, $cart);
+            $this->promotionEngine->recordUsage($cart->promotions);
 
             $paymentResult = $this->paymentEngine->processForSale($store, $payload, $user, $sale);
 
@@ -140,6 +153,9 @@ class SaleEngine
             $this->decreaseInventory($sale, $warehouse, $cart, $user);
             $this->accountingService->recordSale($sale, $user->id);
             $this->cashierShiftService->recordCompletedSale($sale, $user);
+            $loyalty = $this->applyCustomerLoyalty($sale, $payload, $user);
+
+            $sealed = $this->sealCompletedSale($sale, $user, $payload['device_id'] ?? null);
 
             $this->auditLogService->log(
                 action: 'sale.completed',
@@ -150,14 +166,14 @@ class SaleEngine
                     'total' => $sale->total,
                     'payment_transaction_number' => $paymentResult->transactionNumber,
                     'item_count' => count($cart->lines),
+                    'receipt_number' => $sealed['receipt']->receipt_number,
+                    'sync_event_id' => $sealed['sync_event']->id,
                 ],
             );
 
-            $sale = $sale->fresh(['items', 'payments', 'taxes', 'discounts', 'installments']);
+            $sale = $sale->fresh(['items', 'payments', 'taxes', 'discounts', 'installments', 'receipts']);
 
-            SaleCompleted::dispatch($sale);
-
-            return new SaleResult($sale, $cart, $paymentResult);
+            return new SaleResult($sale, $cart, $paymentResult, $sealed['payload'], $sealed['sync_event']->toSummaryArray(), $loyalty);
         });
     }
 
@@ -276,6 +292,7 @@ class SaleEngine
             $saleItems = $this->createSaleItems($sale, $cart);
             $this->createSaleTaxes($sale, $saleItems, $cart);
             $this->createSaleDiscounts($sale, $saleItems, $cart);
+            $this->promotionEngine->recordUsage($cart->promotions);
 
             $paymentResult = $this->paymentEngine->processForSale($store, $payload, $user, $sale);
             $sale->update(['payment_transaction_number' => $paymentResult->transactionNumber]);
@@ -305,6 +322,9 @@ class SaleEngine
             $this->decreaseInventory($sale, $warehouse, $cart, $user);
             $this->accountingService->recordSale($sale, $user->id);
             $this->cashierShiftService->recordCompletedSale($sale, $user);
+            $loyalty = $this->applyCustomerLoyalty($sale, $payload, $user);
+
+            $sealed = $this->sealCompletedSale($sale, $user, $payload['device_id'] ?? $sale->device_id);
 
             $this->auditLogService->log(
                 action: 'sale.completed',
@@ -314,13 +334,14 @@ class SaleEngine
                     'reference' => $sale->reference,
                     'total' => $sale->total,
                     'from_pending' => true,
+                    'receipt_number' => $sealed['receipt']->receipt_number,
+                    'sync_event_id' => $sealed['sync_event']->id,
                 ],
             );
 
-            $sale = $sale->fresh(['items', 'payments', 'taxes', 'discounts', 'installments']);
-            SaleCompleted::dispatch($sale);
+            $sale = $sale->fresh(['items', 'payments', 'taxes', 'discounts', 'installments', 'receipts']);
 
-            return new SaleResult($sale, $cart, $paymentResult);
+            return new SaleResult($sale, $cart, $paymentResult, $sealed['payload'], $sealed['sync_event']->toSummaryArray(), $loyalty);
         });
     }
 
@@ -474,7 +495,17 @@ class SaleEngine
             currency: $sale->currency,
         );
 
-        return new SaleResult($sale, $cart, $paymentResult);
+        $sale->loadMissing(['receipts']);
+        $receipt = $sale->receipts->first();
+        $event = $sale->syncEvents()->first();
+
+        return new SaleResult(
+            $sale,
+            $cart,
+            $paymentResult,
+            $receipt ? $this->receiptPayloads->build($sale, $receipt->format, $receipt) : null,
+            $event?->toSummaryArray(),
+        );
     }
 
     /** @param  array<string, mixed>  $payload */
@@ -663,13 +694,18 @@ class SaleEngine
             }
 
             if ($line->promotionDiscount > 0) {
+                $applied = collect($cart->promotions)->first(
+                    fn (array $row) => ($row['line_id'] ?? null) === $line->lineId && (int) ($row['amount'] ?? 0) > 0,
+                );
+
                 SaleDiscount::query()->create([
                     'tenant_id' => $sale->tenant_id,
                     'sale_id' => $sale->id,
                     'sale_item_id' => $saleItems[$line->lineId]->id ?? null,
+                    'promotion_id' => $applied['promotion_id'] ?? null,
                     'discount_type' => SaleDiscountType::Promotion,
                     'source' => SaleDiscountSource::Promotion,
-                    'label' => 'Promotion discount',
+                    'label' => $applied['name'] ?? 'Promotion discount',
                     'amount' => $line->promotionDiscount,
                     'sort_order' => $sortOrder++,
                 ]);
@@ -704,6 +740,81 @@ class SaleEngine
                 'sort_order' => $index,
             ]);
         }
+    }
+
+    /**
+     * Receipt then SyncEvent, still inside the sale transaction.
+     * The domain event fires only after commit so a listener cannot undo the sale.
+     *
+     * @return array{receipt: SaleReceipt, sync_event: SyncEvent, payload: array<string, mixed>}
+     */
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{earned: int, redeemed: int, points: int, reward_per_point: int, spend_per_point: int}
+     */
+    private function applyCustomerLoyalty(Sale $sale, array $payload, User $user): array
+    {
+        $empty = [
+            'earned' => 0,
+            'redeemed' => 0,
+            'points' => 0,
+            'reward_per_point' => $this->loyalty->rewardAmount(1),
+            'spend_per_point' => max(1, (int) config('customers.loyalty_points_per_amount', 100000)),
+        ];
+
+        if ($sale->customer_id === null) {
+            return $empty;
+        }
+
+        $customer = Customer::query()->whereKey($sale->customer_id)->lockForUpdate()->first();
+        if ($customer === null) {
+            return $empty;
+        }
+
+        $redeemed = $this->loyalty->redeemOnSale(
+            $customer,
+            $sale,
+            (int) ($payload['loyalty_points'] ?? 0),
+            $payload['global_discount'] ?? null,
+            $user->id,
+        );
+        $earned = $this->loyalty->earnOnSale($customer, $sale, $user->id);
+        $customer->refresh();
+
+        return [
+            'earned' => $earned,
+            'redeemed' => $redeemed,
+            'points' => (int) $customer->loyalty_points,
+            'reward_per_point' => $this->loyalty->rewardAmount(1),
+            'spend_per_point' => max(1, (int) config('customers.loyalty_points_per_amount', 100000)),
+        ];
+    }
+
+    private function sealCompletedSale(Sale $sale, User $user, ?string $deviceId): array
+    {
+        $format = SaleDocumentFormat::Thermal80;
+        $receipt = $this->receipts->issue(
+            sale: $sale,
+            format: $format,
+            printedBy: $user,
+            deviceId: $deviceId,
+        );
+        $event = SyncEvent::recordCompletedSale($sale, $receipt);
+        $payload = $this->receiptPayloads->build($sale, $format, $receipt);
+
+        $saleId = $sale->id;
+        DB::afterCommit(function () use ($saleId): void {
+            $fresh = Sale::query()->find($saleId);
+            if ($fresh !== null) {
+                SaleCompleted::dispatch($fresh);
+            }
+        });
+
+        return [
+            'receipt' => $receipt,
+            'sync_event' => $event,
+            'payload' => $payload,
+        ];
     }
 
     private function decreaseInventory(

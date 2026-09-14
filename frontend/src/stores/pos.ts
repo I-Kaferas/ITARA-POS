@@ -11,9 +11,10 @@ import type {
   PosPaymentMethod,
   PosProduct,
 } from '../types/pos'
-import type { CashRegister } from '../types'
+import type { CashierShift, CashRegister, ShiftSummary } from '../types'
 import { getAppCurrency } from '../utils/currency'
 import { needsSaleQuantity } from '../utils/product'
+import type { SaleDocPayload } from '../utils/printSaleDocument'
 
 function emptyTotals(currency = getAppCurrency()): CartCalculation {
   return {
@@ -41,6 +42,7 @@ export const usePosStore = defineStore('pos', () => {
   const customer = ref<PosCustomerOption | null>(null)
   const note = ref<string | null>(null)
   const globalDiscount = ref<CartDiscountPayload | null>(null)
+  const loyaltyPoints = ref(0)
   const fees = ref<{ label: string; amount: number; code?: string }[]>([])
 
   const loading = ref(false)
@@ -53,6 +55,12 @@ export const usePosStore = defineStore('pos', () => {
   const currentStoreId = ref<string | null>(null)
   const activeRegisterId = ref<string | null>(null)
   const paymentMethods = ref<PosPaymentMethod[]>([])
+  const shift = ref<CashierShift | null>(null)
+  const shiftSummary = ref<ShiftSummary | null>(null)
+  const registers = ref<Array<{ id: string; name: string; code?: string }>>([])
+  const priceMode = ref('retail')
+  const currencyCode = ref(getAppCurrency())
+  const currencies = computed(() => [{ code: currencyCode.value }])
 
   let calculateTimer: ReturnType<typeof setTimeout> | null = null
   let calculateRequestId = 0
@@ -100,6 +108,8 @@ export const usePosStore = defineStore('pos', () => {
         { value: 'cash', label: 'Cash', label_fr: 'Espèces', requires_customer: false, supports_change: true },
         { value: 'mobile_money', label: 'Mobile Money', label_fr: 'Mobile Money', requires_customer: false, supports_change: false },
         { value: 'card', label: 'Card', label_fr: 'Carte', requires_customer: false, supports_change: false },
+        { value: 'bank_transfer', label: 'Bank transfer', label_fr: 'Virement', requires_customer: false, supports_change: false },
+        { value: 'credit', label: 'Credit', label_fr: 'Crédit', requires_customer: true, supports_change: false },
       ]
     }
   }
@@ -109,12 +119,24 @@ export const usePosStore = defineStore('pos', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await api.get<ApiItemResponse<{ products: PosProduct[]; categories: PosCategory[] }>>(
+      const res = await api.get<ApiItemResponse<{
+        products: PosProduct[]
+        categories: PosCategory[]
+        registers?: Array<{ id: string; name: string; code?: string }>
+      }>>(
         `/stores/${storeId}/pos/catalog`,
       )
       products.value = res.data.products ?? []
       categories.value = res.data.categories ?? []
-      await Promise.all([loadActiveRegister(storeId), loadPaymentMethods(storeId)])
+      const catalogRegisters = res.data.registers
+      if (Array.isArray(catalogRegisters) && catalogRegisters.length) {
+        registers.value = catalogRegisters.map(item => ({
+          id: item.id,
+          name: item.name,
+          code: item.code,
+        }))
+      }
+      await Promise.all([loadActiveRegister(storeId), loadPaymentMethods(storeId), loadSession(storeId)])
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur catalogue'
       throw e
@@ -222,7 +244,9 @@ export const usePosStore = defineStore('pos', () => {
   }
 
   function setCustomer(value: PosCustomerOption | null) {
+    if (loyaltyPoints.value > 0) globalDiscount.value = null
     customer.value = value
+    loyaltyPoints.value = 0
     scheduleCalculate()
   }
 
@@ -232,11 +256,19 @@ export const usePosStore = defineStore('pos', () => {
 
   function setGlobalDiscount(value: CartDiscountPayload | null) {
     globalDiscount.value = value
+    loyaltyPoints.value = 0
+    scheduleCalculate()
+  }
+
+  function applyLoyaltyReward(points: number, amount: number) {
+    loyaltyPoints.value = points
+    globalDiscount.value = points > 0 ? { type: 'fixed', value: amount } : null
     scheduleCalculate()
   }
 
   function clearDiscount() {
     globalDiscount.value = null
+    loyaltyPoints.value = 0
     scheduleCalculate()
   }
 
@@ -437,10 +469,78 @@ export const usePosStore = defineStore('pos', () => {
     setStatus('Vente annulée')
   }
 
+  async function loadSession(storeId: string) {
+    try {
+      const registerRes = await api.get<ApiListResponse<CashRegister>>(`/stores/${storeId}/cash-registers`)
+      const list = Array.isArray(registerRes.data) ? registerRes.data : []
+      if (list.length) {
+        registers.value = list
+          .filter(item => item.is_active !== false)
+          .map(item => ({ id: item.id, name: item.name, code: item.code }))
+      }
+    } catch {
+      // Keep registers already loaded with the POS catalog.
+    }
+
+    try {
+      const shiftRes = await api.get<{ data: CashierShift | null; summary?: ShiftSummary }>(`/me/cashier-shifts/current`)
+      shift.value = shiftRes.data
+      shiftSummary.value = shiftRes.summary ?? null
+      activeRegisterId.value = shiftRes.data?.cash_register_id ?? activeRegisterId.value
+    } catch {
+      shift.value = null
+      shiftSummary.value = null
+    }
+  }
+
+  async function openShiftWithPin(storeId: string, pin: string, registerId: string, opening: number) {
+    const res = await api.post<{ data: CashierShift; summary: ShiftSummary }>(
+      `/cash-registers/${registerId}/cashier-shifts/open-with-pin`,
+      { pin, opening_balance: opening },
+    )
+    shift.value = res.data
+    shiftSummary.value = res.summary
+    activeRegisterId.value = registerId
+    await loadSession(storeId)
+  }
+
+  async function closeShiftWithPin(storeId: string, pin: string, counted: number, notes: string, varianceReason = '') {
+    const registerId = shift.value?.cash_register_id
+    if (!registerId) throw new Error('Aucune caisse ouverte')
+    const res = await api.post<{ data: CashierShift; summary: ShiftSummary }>(
+      `/cash-registers/${registerId}/cashier-shifts/close-with-pin`,
+      {
+        pin,
+        actual_cash: counted,
+        closing_notes: notes || undefined,
+        variance_reason: varianceReason || undefined,
+      },
+    )
+    const summary = res.summary
+    shift.value = null
+    shiftSummary.value = null
+    activeRegisterId.value = null
+    await loadSession(storeId)
+    return summary
+  }
+
+  async function recordDrawerMovement(type: 'cash_in' | 'cash_out', amount: number, description?: string) {
+    const registerId = shift.value?.cash_register_id
+    const shiftId = shift.value?.id
+    const storeId = currentStoreId.value
+    if (!registerId || !shiftId || !storeId) return
+    const res = await api.post<{ summary: ShiftSummary }>(
+      `/cash-registers/${registerId}/cashier-shifts/${shiftId}/movements`,
+      { movement_type: type, amount, description },
+    )
+    shiftSummary.value = res.summary
+    await loadSession(storeId)
+  }
+
   async function pay(
     methodOrPayments: string | { method: string; amount: number; tendered?: number }[],
     amountTendered = 0,
-  ): Promise<{ success: boolean; message: string; change: number }> {
+  ): Promise<{ success: boolean; message: string; change: number; saleId?: string; receipt?: SaleDocPayload | null; loyalty?: { earned: number; points: number } | null }> {
     if (lines.value.length === 0) {
       return { success: false, message: 'Le panier est vide', change: 0 }
     }
@@ -491,10 +591,17 @@ export const usePosStore = defineStore('pos', () => {
       }
     }
 
+    let saleId: string | undefined
+    let receipt: SaleDocPayload | null = null
     try {
-      await api.post(`/stores/${storeId}/sales`, {
+      const created = await api.post<ApiItemResponse<{
+        sale: { id: string }
+        receipt?: SaleDocPayload | null
+        loyalty?: { earned: number; redeemed: number; points: number } | null
+      }>>(`/stores/${storeId}/sales`, {
         customer_id: customer.value?.id ?? undefined,
-        cash_register_id: activeRegisterId.value ?? undefined,
+        cash_register_id: activeRegisterId.value ?? shift.value?.cash_register_id ?? undefined,
+        cashier_shift_id: shift.value?.id ?? undefined,
         notes: note.value ?? undefined,
         apply_promotions: true,
         items: lines.value.map(line => ({
@@ -508,6 +615,7 @@ export const usePosStore = defineStore('pos', () => {
             : undefined,
         })),
         global_discount: globalDiscount.value ?? undefined,
+        loyalty_points: loyaltyPoints.value > 0 ? loyaltyPoints.value : undefined,
         fees: fees.value,
         sale_id: pendingSaleId.value ?? undefined,
         payments: paymentLines.map((line) => {
@@ -523,6 +631,9 @@ export const usePosStore = defineStore('pos', () => {
         }),
         idempotency_key: crypto.randomUUID(),
       })
+      saleId = created.data.sale.id
+      receipt = created.data.receipt ?? null
+      const loyalty = created.data.loyalty ?? null
     } catch (e) {
       return { success: false, message: extractApiErrorMessage(e, 'Paiement refusé'), change: 0 }
     }
@@ -530,7 +641,7 @@ export const usePosStore = defineStore('pos', () => {
     pendingSaleId.value = null
     clearCurrentSale()
     if (currentStoreId.value) void refreshHeldSales(currentStoreId.value)
-    return { success: true, message: 'Paiement accepté', change }
+    return { success: true, message: 'Paiement accepté', change, saleId, receipt, loyalty }
   }
 
   function clearCurrentSale(notify = true) {
@@ -538,6 +649,7 @@ export const usePosStore = defineStore('pos', () => {
     customer.value = null
     note.value = null
     globalDiscount.value = null
+    loyaltyPoints.value = 0
     fees.value = []
     totals.value = emptyTotals(totals.value.currency)
     if (notify) scheduleCalculate()
@@ -581,6 +693,16 @@ export const usePosStore = defineStore('pos', () => {
     itemCount,
     paymentMethods,
     availablePaymentMethods,
+    shift,
+    shiftSummary,
+    registers,
+    priceMode,
+    currencyCode,
+    currencies,
+    loadSession,
+    openShiftWithPin,
+    closeShiftWithPin,
+    recordDrawerMovement,
     loadCatalog,
     loadPaymentMethods,
     searchCustomers,
@@ -595,6 +717,7 @@ export const usePosStore = defineStore('pos', () => {
     setCustomer,
     setNote,
     setGlobalDiscount,
+    applyLoyaltyReward,
     clearDiscount,
     recalculate,
     pendingSaleId,

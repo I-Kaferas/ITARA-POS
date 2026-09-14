@@ -24,6 +24,31 @@ const products = computed(() => props.sections.flatMap(section => section.produc
 function initial(name: string) {
   return name.trim().charAt(0).toUpperCase() || '?'
 }
+
+function hasOptions(product: PosProduct) {
+  return (product.variants?.length ?? 0) > 0 || (product.option_groups?.length ?? 0) > 0 || (product.sale_units?.length ?? 0) > 1
+}
+
+function quantityLabel(product: PosProduct) {
+  if (product.stock_display) return product.stock_display
+  if (typeof product.quantity_on_hand === 'number') return String(product.quantity_on_hand)
+  if (product.requires_stock === false || product.product_type === 'service' || product.product_type === 'digital') {
+    return '—'
+  }
+  return '0'
+}
+
+function imageSrc(product: PosProduct) {
+  const raw = product.primary_image_cdn_url?.trim()
+  if (!raw) return ''
+  try {
+    const url = new URL(raw, window.location.origin)
+    if (url.pathname.startsWith('/storage/')) return `${url.pathname}${url.search}`
+  } catch {
+    return raw
+  }
+  return raw
+}
 </script>
 
 <template>
@@ -41,17 +66,25 @@ function initial(name: string) {
         :disabled="product.is_available === false"
         @click="emit('select', product)"
       >
-        <div class="pos-products__image">
-          <img v-if="product.primary_image_cdn_url" :src="product.primary_image_cdn_url" :alt="product.name" />
-          <span v-else class="pos-products__placeholder">{{ initial(product.name) }}</span>
-          <span class="pos-products__price">{{ formatMoney(product.price, currency) }}</span>
+        <div class="pos-products__photo">
+          <img v-if="imageSrc(product)" :src="imageSrc(product)" :alt="product.name" />
+          <span v-else class="pos-products__nophoto">
+            <AppIcon name="products" :size="28" />
+            <span>{{ initial(product.name) }}</span>
+          </span>
+          <span v-if="product.is_available === false" class="pos-products__off">{{ t('pos.outOfStock') }}</span>
         </div>
-        <div class="pos-products__info">
+        <div class="pos-products__body">
           <p class="pos-products__name">{{ product.name }}</p>
-          <p class="pos-products__sku">
-            {{ product.sku }}<span v-if="product.unit"> · {{ product.unit }}</span>
-            <span v-if="product.requires_stock === false || product.product_type === 'service' || product.product_type === 'digital'"> · {{ t('products.natures.service.label') }}</span>
+          <p class="pos-products__metric">
+            <span>{{ t('products.price') }}</span>
+            <strong>{{ formatMoney(product.price || 0, currency) }}</strong>
           </p>
+          <p class="pos-products__metric">
+            <span>{{ t('pos.stockQty') }}</span>
+            <strong>{{ quantityLabel(product) }}</strong>
+          </p>
+          <p v-if="hasOptions(product)" class="pos-products__sku">{{ t('pos.chooseOption') }}</p>
         </div>
       </button>
     </div>
@@ -130,9 +163,9 @@ function initial(name: string) {
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.7rem;
   width: 100%;
-  padding: 0.7rem 0.85rem 1rem;
+  padding: 0.55rem 0.75rem 1rem;
   align-content: start;
 }
 
@@ -141,22 +174,21 @@ function initial(name: string) {
   flex-direction: column;
   width: 100%;
   min-width: 0;
-  max-width: none;
-  border: 1px solid #e6edf3;
-  border-radius: 1rem;
+  border: 1px solid #d7e2ea;
+  border-radius: 0.85rem;
   overflow: hidden;
   background: #fff;
   cursor: pointer;
   text-align: left;
   padding: 0;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .pos-products__card:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--color-brand-500, #5c7f96) 45%, white);
-  box-shadow: 0 12px 24px rgba(74, 109, 134, 0.14);
+  transform: translateY(-1px);
+  border-color: var(--color-brand-400, #7d9aaf);
+  box-shadow: 0 8px 18px rgba(61, 92, 115, 0.12);
 }
 
 .pos-products__card:active:not(:disabled) {
@@ -164,67 +196,100 @@ function initial(name: string) {
 }
 
 .pos-products__card--off {
-  opacity: 0.55;
   cursor: not-allowed;
 }
 
-.pos-products__image {
+.pos-products__card--off .pos-products__photo img {
+  filter: grayscale(0.7);
+  opacity: 0.55;
+}
+
+.pos-products__photo {
   position: relative;
-  height: 7.25rem;
-  background: #e4edf2;
+  height: 7.5rem;
+  background: #e8eef3;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
 
-.pos-products__image img {
+.pos-products__photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-.pos-products__placeholder {
-  font-size: 1.85rem;
+.pos-products__nophoto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  color: #7d93a3;
+  font-size: 0.85rem;
   font-weight: 750;
-  color: var(--color-brand-600, #4a6d86);
 }
 
-.pos-products__price {
+.pos-products__off {
   position: absolute;
-  right: 0.5rem;
-  bottom: 0.5rem;
-  margin: 0;
-  padding: 0.2rem 0.5rem;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.12rem 0.4rem;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.82);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 750;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.65rem;
+  font-weight: 700;
 }
 
-.pos-products__info {
-  padding: 0.65rem 0.75rem 0.75rem;
+.pos-products__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.65rem 0.7rem;
 }
 
 .pos-products__name {
   margin: 0;
   font-size: 0.84rem;
   font-weight: 700;
-  color: #0f172a;
-  line-height: 1.3;
+  color: #1c2830;
+  line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.15em;
+  min-height: 2.1em;
+}
+
+.pos-products__metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.pos-products__metric span {
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: #7b8d9a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pos-products__metric strong {
+  font-size: 0.92rem;
+  font-weight: 750;
+  color: #1c2830;
 }
 
 .pos-products__sku {
-  margin: 0.3rem 0 0;
-  font-size: 0.7rem;
-  color: #94a3b8;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--color-brand-700, #3d5c73);
+  font-weight: 650;
 }
 
 .pos-products__empty {

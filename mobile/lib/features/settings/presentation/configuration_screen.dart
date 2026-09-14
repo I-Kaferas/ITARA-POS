@@ -16,9 +16,12 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../auth/data/pin_auth_service.dart';
+import '../../backup/presentation/backup_screen.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../receipt/domain/printer_models.dart';
 import '../../settings/data/device_api_service.dart';
+import '../../../sync/local_master_discovery.dart';
+import '../../../sync/local_master_server.dart';
 
 class ConfigurationScreen extends StatefulWidget {
   const ConfigurationScreen({super.key});
@@ -28,6 +31,11 @@ class ConfigurationScreen extends StatefulWidget {
 }
 
 class _ConfigurationScreenState extends State<ConfigurationScreen> {
+  void applyMasterHost(String host) {
+    _masterHostCtrl.text = host;
+    setState(() {});
+  }
+
   late final TerminalConfigRepository _repo;
   late TextEditingController _apiUrlCtrl;
   late TextEditingController _internalUrlCtrl;
@@ -58,6 +66,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     _Section(icon: Icons.storefront_outlined, label: 'Magasin', caption: 'Identifiants'),
     _Section(icon: Icons.lan_outlined, label: 'Connexion', caption: 'Serveurs, token, impression'),
     _Section(icon: Icons.print_outlined, label: 'Impression', caption: 'Ticket réseau'),
+    _Section(icon: Icons.tune_outlined, label: 'Paramètres', caption: 'Configurations'),
   ];
 
   @override
@@ -310,7 +319,8 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
             0 => _terminalSection(config),
             1 => _storeSection(),
             2 => _connectionSection(),
-            _ => _printSection(),
+            3 => _printSection(),
+            _ => _settingsHub(),
           },
         ],
       ),
@@ -392,6 +402,44 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     );
   }
 
+  Widget _settingsHub() {
+    final items = <(String, String, VoidCallback)>[
+      ('Entreprise', 'Identité du magasin', () => setState(() => _section = 1)),
+      ('Magasin', 'Identifiants', () => setState(() => _section = 1)),
+      ('POS', 'Mode du terminal', () => setState(() => _section = 0)),
+      ('Taxes', 'Appliquées par le catalogue', () => setState(() => _section = 1)),
+      ('Devise', configCurrency(), () => setState(() => _section = 1)),
+      ('Impression', 'Ticket', () => setState(() => _section = 3)),
+      ('Stock', 'Mouvements du terminal', () => context.go(AppRoutes.reports)),
+      ('Sync', 'File et maître local', () => context.go(AppRoutes.sync)),
+      ('Sauvegardes', 'SQLite, sync, configuration, cloud', () {
+        Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen()));
+      }),
+      ('Restaurant', 'Tables et cuisine', () => context.go(AppRoutes.hospitality)),
+      ('Hôtel', 'Chambres et folios', () => context.go(AppRoutes.hospitality)),
+    ];
+    return Column(
+      children: [
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
+              ),
+              title: Text(item.$1),
+              subtitle: Text(item.$2),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: item.$3,
+            ),
+          ),
+      ],
+    );
+  }
+
+  String configCurrency() => _currencyCtrl.text.trim().isEmpty ? 'FBU' : _currencyCtrl.text.trim();
+
   Widget _storeSection() {
     return Column(
       children: [
@@ -419,6 +467,8 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   Widget _connectionSection() {
     return Column(
       children: [
+        if (_role == PosRole.master) const _LocalMasterStatus(),
+        if (_role == PosRole.master) const SizedBox(height: 12),
         _field(
           _internalUrlCtrl,
           'Serveur interne (LAN)',
@@ -446,6 +496,8 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         if (_role == PosRole.slave) ...[
           const SizedBox(height: 12),
           _field(_masterHostCtrl, 'Adresse du master', icon: Icons.hub_outlined, hint: '192.168.1.10'),
+          const SizedBox(height: 8),
+          const _DiscoveredMasters(),
         ],
         const SizedBox(height: 22),
         Text('Réglage impression', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
@@ -1227,6 +1279,97 @@ class _Footer extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _LocalMasterStatus extends StatelessWidget {
+  const _LocalMasterStatus();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: LocalMasterServer.instance,
+      builder: (context, _) {
+        final server = LocalMasterServer.instance;
+        final url = server.advertiseUrl;
+        final ready = server.listening && url != null;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: ready ? const Color(0xFFECFDF3) : const Color(0xFFFFF7ED),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: ready ? const Color(0xFF86EFAC) : const Color(0xFFFDBA74)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                ready ? 'Serveur maître local actif' : 'Serveur maître local arrêté',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                ready
+                    ? '$url — les autres caisses (Android ou Windows) se connectent ici, même sans Internet. Sous Windows, autorisez le port ${LocalMasterServer.port} (API) et ${LocalMasterDiscovery.beaconPort} (découverte) si le pare-feu le demande.'
+                    : server.listening
+                        ? 'Écoute sur le port ${LocalMasterServer.port}, mais l’adresse IP locale est introuvable.'
+                        : server.lastError ?? 'Le terminal maître n’écoute pas encore sur le réseau local.',
+                style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              if (ready) ...[
+                const SizedBox(height: 8),
+                Text(
+                  server.clients.isEmpty
+                      ? 'Aucune autre caisse connectée pour le moment. Elles apparaissent dès qu’elles joignent cette adresse, sans Internet.'
+                      : 'Caisses connectées : ${server.clients.values.map((item) => item.name).join(', ')}',
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DiscoveredMasters extends StatelessWidget {
+  const _DiscoveredMasters();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: LocalMasterDiscovery.instance,
+      builder: (context, _) {
+        final found = LocalMasterDiscovery.instance.visible;
+        if (found.isEmpty) {
+          return Text(
+            'Recherche du maître sur le réseau local…',
+            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Maîtres trouvés sur le réseau', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            ...found.map((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: OutlinedButton(
+                    onPressed: () {
+                      context.findAncestorStateOfType<_ConfigurationScreenState>()?.applyMasterHost(item.host);
+                    },
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('${item.name} · ${item.host}'),
+                    ),
+                  ),
+                )),
+          ],
+        );
+      },
     );
   }
 }

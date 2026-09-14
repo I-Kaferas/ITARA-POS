@@ -55,6 +55,13 @@ class PosProduct {
     this.variants = const [],
     this.quantityOnHand,
     this.stockDisplay,
+    this.stockVersion = 0,
+    this.bundleItems = const [],
+    this.categoryName,
+    this.lowStockThreshold,
+    this.costPrice = 0,
+    this.trackExpiration = false,
+    this.expiresAt,
   });
 
   final String storeProductId;
@@ -74,6 +81,13 @@ class PosProduct {
   final List<PosVariant> variants;
   final int? quantityOnHand;
   final String? stockDisplay;
+  final int stockVersion;
+  final List<PosBundleItem> bundleItems;
+  final String? categoryName;
+  final int? lowStockThreshold;
+  final int costPrice;
+  final bool trackExpiration;
+  final String? expiresAt;
 
   bool get hasOptions => variants.isNotEmpty || productType == 'variant';
 
@@ -106,6 +120,17 @@ class PosProduct {
           .toList(),
       quantityOnHand: (json['quantity_on_hand'] as num?)?.toInt(),
       stockDisplay: _textOrNull(json['stock_display']),
+      stockVersion: (json['stock_version'] as num?)?.toInt() ?? 0,
+      bundleItems: (json['bundle_items'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map((item) => PosBundleItem.fromJson(Map<String, dynamic>.from(item)))
+          .where((item) => item.componentProductId.isNotEmpty && item.quantity > 0)
+          .toList(),
+      categoryName: _textOrNull(json['category_name']),
+      lowStockThreshold: (json['low_stock_threshold'] as num?)?.toInt(),
+      costPrice: (json['cost_price'] as num?)?.toInt() ?? 0,
+      trackExpiration: json['track_expiration'] as bool? ?? false,
+      expiresAt: _textOrNull(json['expires_at']),
     );
   }
 
@@ -320,6 +345,28 @@ class PosPaymentMethod {
     PosPaymentMethod(value: 'mobile_money', label: 'Mobile Money', labelFr: 'Mobile Money'),
     PosPaymentMethod(value: 'credit', label: 'Credit', labelFr: 'Crédit client', requiresCustomer: true),
   ];
+}
+
+class PosBundleItem {
+  const PosBundleItem({
+    required this.componentProductId,
+    required this.quantity,
+  });
+
+  final String componentProductId;
+  final num quantity;
+
+  factory PosBundleItem.fromJson(Map<String, dynamic> json) {
+    return PosBundleItem(
+      componentProductId: PosProduct._text(json['component_product_id']),
+      quantity: json['quantity'] as num? ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'component_product_id': componentProductId,
+        'quantity': quantity,
+      };
 }
 
 class PosCatalog {
@@ -600,6 +647,8 @@ class PosSaleResult {
     required this.outstandingAmount,
     required this.paymentStatus,
     this.dueDate,
+    this.storedLocally = false,
+    this.pendingSync = false,
   });
 
   final String saleId;
@@ -609,6 +658,8 @@ class PosSaleResult {
   final int outstandingAmount;
   final String paymentStatus;
   final String? dueDate;
+  final bool storedLocally;
+  final bool pendingSync;
 
   factory PosSaleResult.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;

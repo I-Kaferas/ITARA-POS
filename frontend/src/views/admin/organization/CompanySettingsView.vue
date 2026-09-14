@@ -7,6 +7,8 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import { LOCALE_META, SUPPORTED_LOCALES, isAppLocale } from '../../../i18n/locales'
+import AppIcon from '../../../components/ui/AppIcon.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import LanguageFlag from '../../../components/ui/LanguageFlag.vue'
 import { setAppCurrency } from '../../../utils/currency'
 import { countryCode, countryOptions, timezones } from '../../../utils/geo'
@@ -247,9 +249,9 @@ async function save() {
 
 <template>
   <OrganizationLayout>
-    <div class="mx-auto max-w-4xl space-y-5">
+    <div class="mx-auto max-w-6xl space-y-5">
       <div v-if="store.companies.length > 1" class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <label class="mb-1 block text-sm font-medium">{{ t('org.company') }}</label>
+        <FieldLabel icon="building">{{ t('org.company') }}</FieldLabel>
         <select v-model="companyId" class="field max-w-md">
           <option v-for="c in store.companies" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
@@ -310,16 +312,16 @@ async function save() {
             </div>
             <div class="grid gap-4 sm:grid-cols-2">
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium">{{ t('org.name') }} *</label>
+                <FieldLabel icon="account">{{ t('org.name') }} *</FieldLabel>
                 <input v-model="form.name" required class="field" />
                 <p class="mt-1 mb-0 text-xs text-slate-500">{{ t('org.nameInvoiceHint') }}</p>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.taxId') }}</label>
+                <FieldLabel icon="percent">{{ t('org.taxId') }}</FieldLabel>
                 <input v-model="form.tax_id" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.companyType') }} *</label>
+                <FieldLabel icon="building">{{ t('org.companyType') }} *</FieldLabel>
                 <select v-model="form.settings.company_type" required class="field">
                   <option value="">—</option>
                   <option value="personne_morale">{{ t('org.companyTypes.personne_morale') }}</option>
@@ -327,15 +329,15 @@ async function save() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.moralPerson') }}</label>
+                <FieldLabel icon="organization">{{ t('org.moralPerson') }}</FieldLabel>
                 <input v-model="form.settings.moral_person" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.registrationNumber') }}</label>
+                <FieldLabel icon="tag">{{ t('org.registrationNumber') }}</FieldLabel>
                 <input v-model="form.registration_number" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.vatRegistered') }} *</label>
+                <FieldLabel icon="percent">{{ t('org.vatRegistered') }} *</FieldLabel>
                 <select v-model="form.settings.vat_registered" required class="field">
                   <option value="">—</option>
                   <option value="yes">{{ t('org.yes') }}</option>
@@ -343,7 +345,7 @@ async function save() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.subjectToTc') }} *</label>
+                <FieldLabel icon="percent">{{ t('org.subjectToTc') }} *</FieldLabel>
                 <select v-model="form.settings.subject_to_tc" required class="field">
                   <option value="">—</option>
                   <option value="yes">{{ t('org.yes') }}</option>
@@ -351,7 +353,7 @@ async function save() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.subjectToPf') }} *</label>
+                <FieldLabel icon="percent">{{ t('org.subjectToPf') }} *</FieldLabel>
                 <select v-model="form.settings.subject_to_pf" required class="field">
                   <option value="">—</option>
                   <option value="yes">{{ t('org.yes') }}</option>
@@ -359,23 +361,23 @@ async function save() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.fiscalCenter') }} *</label>
+                <FieldLabel icon="building">{{ t('org.fiscalCenter') }} *</FieldLabel>
                 <input v-model="form.settings.fiscal_center" required class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.dpmc') }}</label>
+                <FieldLabel icon="tag">{{ t('org.dpmc') }}</FieldLabel>
                 <input v-model="form.settings.dpmc" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.activitySector') }}</label>
+                <FieldLabel icon="layers">{{ t('org.activitySector') }}</FieldLabel>
                 <input v-model="form.settings.activity_sector" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.legalForm') }}</label>
+                <FieldLabel icon="organization">{{ t('org.legalForm') }}</FieldLabel>
                 <input v-model="form.legal_form" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.vatStatus') }}</label>
+                <FieldLabel icon="percent">{{ t('org.vatStatus') }}</FieldLabel>
                 <select v-model="form.settings.vat_status" class="field">
                   <option value="">—</option>
                   <option value="active">{{ t('org.vatStatuses.active') }}</option>
@@ -384,15 +386,15 @@ async function save() {
                 </select>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.tradeName') }}</label>
+                <FieldLabel icon="account">{{ t('org.tradeName') }}</FieldLabel>
                 <input v-model="form.trade_name" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.legalName') }}</label>
+                <FieldLabel icon="account">{{ t('org.legalName') }}</FieldLabel>
                 <input v-model="form.legal_name" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.currency') }}</label>
+                <FieldLabel icon="coins">{{ t('org.currency') }}</FieldLabel>
                 <select v-model="form.currency_code" required class="field">
                   <option v-for="c in store.currencies" :key="c.id" :value="c.code">
                     {{ c.code }} — {{ c.name }}{{ c.is_default ? ` (${t('org.default')})` : '' }}
@@ -405,15 +407,15 @@ async function save() {
           <div v-show="activeTab === 'contact'" class="space-y-4" role="tabpanel">
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.phone') }}</label>
+                <FieldLabel icon="phone">{{ t('org.phone') }}</FieldLabel>
                 <input v-model="form.phone" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.email') }}</label>
+                <FieldLabel icon="mail">{{ t('org.email') }}</FieldLabel>
                 <input v-model="form.email" type="email" class="field" />
               </div>
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium">{{ t('org.website') }}</label>
+                <FieldLabel icon="conn-network">{{ t('org.website') }}</FieldLabel>
                 <input v-model="form.website" class="field" />
               </div>
             </div>
@@ -422,35 +424,35 @@ async function save() {
           <div v-show="activeTab === 'address'" class="space-y-4" role="tabpanel">
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.postalCode') }}</label>
+                <FieldLabel icon="pin">{{ t('org.postalCode') }}</FieldLabel>
                 <input v-model="form.address.postal_code" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.province') }}</label>
+                <FieldLabel icon="store-pin">{{ t('org.province') }}</FieldLabel>
                 <input v-model="form.address.province" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.commune') }}</label>
+                <FieldLabel icon="building">{{ t('org.commune') }}</FieldLabel>
                 <input v-model="form.address.commune" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.avenue') }}</label>
+                <FieldLabel icon="pin">{{ t('org.avenue') }}</FieldLabel>
                 <input v-model="form.address.avenue" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.quarter') }}</label>
+                <FieldLabel icon="pin">{{ t('org.quarter') }}</FieldLabel>
                 <input v-model="form.address.quarter" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.street') }}</label>
+                <FieldLabel icon="pin">{{ t('org.street') }}</FieldLabel>
                 <input v-model="form.address.street" class="field" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.number') }}</label>
+                <FieldLabel icon="pin">{{ t('org.number') }}</FieldLabel>
                 <input v-model="form.address.number" class="field" />
               </div>
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium">{{ t('org.country') }}</label>
+                <FieldLabel icon="store-pin">{{ t('org.country') }}</FieldLabel>
                 <select v-model="form.address.country" class="field">
                   <option v-for="country in countries" :key="country.code" :value="country.code">{{ country.name }}</option>
                 </select>
@@ -491,13 +493,13 @@ async function save() {
           <div v-show="activeTab === 'invoices'" class="space-y-4" role="tabpanel">
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.timezone') }}</label>
+                <FieldLabel icon="store-pin">{{ t('org.timezone') }}</FieldLabel>
                 <select v-model="form.settings.timezone" class="field">
                   <option v-for="zone in timezoneOptions" :key="zone.id" :value="zone.id">{{ zone.label }}</option>
                 </select>
               </div>
               <div class="sm:col-span-2">
-                <p class="mb-2 text-sm font-medium">{{ t('org.locale') }}</p>
+                <FieldLabel icon="info">{{ t('org.locale') }}</FieldLabel>
                 <div class="locale-picker" role="radiogroup" :aria-label="t('org.locale')">
                   <button
                     v-for="code in SUPPORTED_LOCALES"
@@ -520,11 +522,11 @@ async function save() {
                 </div>
               </div>
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium">{{ t('org.receiptFooter') }}</label>
+                <FieldLabel icon="receipt">{{ t('org.receiptFooter') }}</FieldLabel>
                 <textarea v-model="form.settings.receipt_footer" rows="3" class="field" />
               </div>
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-sm font-medium">{{ t('org.legalMentions') }}</label>
+                <FieldLabel icon="note">{{ t('org.legalMentions') }}</FieldLabel>
                 <textarea v-model="form.settings.legal_mentions" rows="3" class="field" />
               </div>
             </div>
@@ -533,6 +535,7 @@ async function save() {
 
         <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-4">
           <label class="flex items-center gap-2 text-sm">
+            <span class="field-icon"><AppIcon name="check" :size="14" /></span>
             <input v-model="form.is_active" type="checkbox" class="rounded" />
             {{ t('products.active') }}
             <StatusBadge :active="form.is_active" />

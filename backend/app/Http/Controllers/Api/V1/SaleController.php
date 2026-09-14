@@ -198,6 +198,7 @@ class SaleController extends Controller
             'global_discount' => ['nullable', 'array'],
             'fees' => ['nullable', 'array'],
             'apply_promotions' => ['nullable', 'boolean'],
+            'loyalty_points' => ['nullable', 'integer', 'min:0'],
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.method' => ['required', 'string', 'max:30'],
             'payments.*.amount' => ['required', 'integer', 'min:1'],

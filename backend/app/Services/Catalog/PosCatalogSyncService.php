@@ -52,6 +52,7 @@ class PosCatalogSyncService
                 'saleUnits',
                 'bundleItems',
                 'barcodes',
+                'batches:id,product_id,expires_at',
             ])
             ->orderBy('name')
             ->get()
@@ -63,6 +64,13 @@ class PosCatalogSyncService
 
                 $payload['category_id'] = $product->category_id;
                 $payload['category_name'] = $product->category?->name;
+                $payload['low_stock_threshold'] = $product->effectiveLowStockThreshold();
+                $payload['cost_price'] = (int) ($product->cost_price ?? 0);
+                $payload['track_expiration'] = $product->tracksExpiration();
+                $earliestExpiry = $product->batches->pluck('expires_at')->filter()->sort()->values()->first();
+                $payload['expires_at'] = $earliestExpiry instanceof \DateTimeInterface
+                    ? $earliestExpiry->format('Y-m-d')
+                    : null;
                 $payload['is_available'] = $storeProduct ? (bool) $storeProduct->is_available : true;
                 $activeVariants = $product->variants->where('is_active', true)->values();
                 $payload['variants'] = $activeVariants->isNotEmpty()
@@ -76,8 +84,11 @@ class PosCatalogSyncService
                     ->values()
                     ->all();
                 $baseUnit = $product->saleUnits->firstWhere('is_base', true);
-                if ($baseUnit) {
-                    $payload['price'] = $baseUnit->price;
+                if ($baseUnit && (int) $baseUnit->price > 0) {
+                    $payload['price'] = (int) $baseUnit->price;
+                }
+                if ((int) ($payload['price'] ?? 0) <= 0) {
+                    $payload['price'] = (int) ($product->base_price ?? 0);
                 }
                 $payload['wholesale_price'] = $product->effectivePrice('wholesale', $store) ?: $payload['price'];
 

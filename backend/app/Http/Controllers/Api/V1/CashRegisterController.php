@@ -133,6 +133,7 @@ class CashRegisterController extends Controller
         $data = $request->validate([
             'actual_cash' => ['required', 'integer', 'min:0'],
             'closing_notes' => ['nullable', 'string'],
+            'variance_reason' => ['nullable', 'string', 'max:500'],
         ]);
 
         $session = $this->sessionService->close(
@@ -140,6 +141,7 @@ class CashRegisterController extends Controller
             $request->user(),
             (int) $data['actual_cash'],
             $data['closing_notes'] ?? null,
+            $data['variance_reason'] ?? null,
         );
 
         $summary = $this->sessionService->summary($session);

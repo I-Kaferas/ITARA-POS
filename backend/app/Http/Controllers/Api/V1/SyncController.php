@@ -7,6 +7,8 @@ use App\Models\Customer;
 use App\Models\Device;
 use App\Models\Sale;
 use App\Models\Store;
+use App\Models\SyncEvent;
+use App\Models\SyncFailure;
 use App\Services\Catalog\PosCatalogSyncService;
 use App\Services\Sales\SaleEngine;
 use Illuminate\Http\JsonResponse;
@@ -34,7 +36,9 @@ class SyncController extends Controller
 
         $results = [];
         foreach ($data['operations'] as $operation) {
-            $results[] = $this->applyOperation($store, $operation, $request);
+            $result = $this->applyOperation($store, $operation, $request);
+            $this->rememberSyncResult($store, $operation, $result);
+            $results[] = $result;
         }
 
         return response()->json([
@@ -57,6 +61,14 @@ class SyncController extends Controller
                 'since' => $since,
                 'products' => $this->catalog->productsForStore($store),
                 'categories' => $this->catalog->categoriesForStore($store),
+                'sync_events' => SyncEvent::query()
+                    ->where('store_id', $store->id)
+                    ->when($since > 0, fn ($query) => $query->where('sequence', '>', $since))
+                    ->orderBy('sequence')
+                    ->limit(200)
+                    ->get()
+                    ->map(fn (SyncEvent $event) => $event->toSummaryArray())
+                    ->values(),
             ],
         ]);
     }
@@ -68,23 +80,69 @@ class SyncController extends Controller
         return response()->json([
             'data' => [
                 'store_id' => $store->id,
-                'server_sequence' => now()->timestamp,
+                'server_sequence' => (int) SyncEvent::query()->where('store_id', $store->id)->max('sequence'),
                 'sales' => Sale::query()->where('store_id', $store->id)->count(),
                 'server_time' => now()->toIso8601String(),
+                'devices' => Device::query()
+                    ->where('store_id', $store->id)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code', 'platform', 'device_type', 'status', 'last_sync_at', 'is_active'])
+                    ->map(fn (Device $device) => [
+                        'id' => $device->id,
+                        'name' => $device->name,
+                        'code' => $device->code,
+                        'platform' => $device->platform,
+                        'device_type' => $device->device_type,
+                        'status' => $device->status,
+                        'is_active' => $device->is_active,
+                        'last_sync_at' => $device->last_sync_at?->toIso8601String(),
+                    ])
+                    ->values(),
+                'events' => SyncEvent::query()
+                    ->where('store_id', $store->id)
+                    ->latest('occurred_at')
+                    ->limit(20)
+                    ->get()
+                    ->map(fn (SyncEvent $event) => [
+                        'id' => $event->id,
+                        'event_type' => $event->event_type,
+                        'entity_type' => $event->entity_type,
+                        'entity_id' => $event->entity_id,
+                        'occurred_at' => $event->occurred_at?->toIso8601String(),
+                    ])
+                    ->values(),
             ],
         ]);
     }
 
     public function ack(Request $request): JsonResponse
     {
+        $store = $this->store();
         $data = $request->validate([
-            'checkpoint' => ['required', 'string', 'max:80'],
+            'checkpoint' => ['nullable', 'string', 'max:80'],
+            'operations' => ['required_without:checkpoint', 'array', 'max:50'],
+            'operations.*.id' => ['required', 'string', 'max:80'],
+            'operations.*.entity_type' => ['required', 'string', 'max:40'],
+            'operations.*.entity_id' => ['required', 'string', 'max:80'],
+            'operations.*.server_id' => ['nullable', 'string', 'max:80'],
         ]);
+
+        $acknowledged = [];
+        $missing = [];
+        foreach ($data['operations'] ?? [] as $operation) {
+            if ($this->operationIsStored($store, $operation)) {
+                $acknowledged[] = $operation['id'];
+            } else {
+                $missing[] = $operation['id'];
+            }
+        }
 
         return response()->json([
             'data' => [
-                'acknowledged' => true,
-                'checkpoint' => $data['checkpoint'],
+                'acknowledged' => $missing === [],
+                'acknowledged_ids' => $acknowledged,
+                'missing_ids' => $missing,
+                'checkpoint' => $data['checkpoint'] ?? null,
             ],
         ]);
     }
@@ -127,6 +185,34 @@ class SyncController extends Controller
                 'pending' => $data['pending'] ?? 0,
             ],
         ]);
+    }
+
+    /** @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $result
+     */
+    private function rememberSyncResult(Store $store, array $operation, array $result): void
+    {
+        $entityType = (string) ($operation['entity_type'] ?? 'sale');
+        $entityId = (string) ($operation['entity_id'] ?? '');
+        if ($entityId === '') {
+            return;
+        }
+
+        if (($result['status'] ?? '') === 'synced') {
+            SyncFailure::resolve($store->tenant_id, $entityType, $entityId);
+
+            return;
+        }
+
+        if (in_array($result['status'] ?? '', ['failed', 'conflict'], true)) {
+            SyncFailure::record(
+                $store->tenant_id,
+                $store->id,
+                $entityType,
+                $entityId,
+                (string) ($result['error'] ?? 'Sync échouée'),
+            );
+        }
     }
 
     /** @param  array<string, mixed>  $operation */
@@ -243,6 +329,36 @@ class SyncController extends Controller
             'status' => 'synced',
             'server_id' => $customer->id,
         ];
+    }
+
+    /** @param  array<string, mixed>  $operation */
+    private function operationIsStored(Store $store, array $operation): bool
+    {
+        $entityId = (string) $operation['entity_id'];
+        $serverId = isset($operation['server_id']) ? (string) $operation['server_id'] : '';
+
+        if (($operation['entity_type'] ?? '') === 'customer') {
+            return Customer::query()
+                ->where('tenant_id', $store->tenant_id)
+                ->where(function ($query) use ($entityId, $serverId): void {
+                    $query->where('metadata->client_id', $entityId);
+                    if ($serverId !== '') {
+                        $query->orWhere('id', $serverId);
+                    }
+                })
+                ->exists();
+        }
+
+        return Sale::query()
+            ->where('tenant_id', $store->tenant_id)
+            ->where('store_id', $store->id)
+            ->where(function ($query) use ($entityId, $serverId): void {
+                $query->where('idempotency_key', $entityId);
+                if ($serverId !== '') {
+                    $query->orWhere('id', $serverId);
+                }
+            })
+            ->exists();
     }
 
     private function store(): Store

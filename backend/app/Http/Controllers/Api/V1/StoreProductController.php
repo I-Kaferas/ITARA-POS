@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\StoreProduct;
+use App\Services\Audit\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -59,7 +60,16 @@ class StoreProductController extends Controller
             ->where('product_id', $product->id)
             ->firstOrFail();
 
+        $previous = $storeProduct->price_override;
         $storeProduct->update($data);
+        if (array_key_exists('price_override', $data) && (int) $previous !== (int) ($data['price_override'] ?? 0)) {
+            app(AuditLogService::class)->priceChanged(
+                $product,
+                (int) ($previous ?? $product->base_price),
+                (int) ($data['price_override'] ?? $product->base_price),
+                $request,
+            );
+        }
 
         return response()->json(['data' => $storeProduct->fresh()->load('product')]);
     }

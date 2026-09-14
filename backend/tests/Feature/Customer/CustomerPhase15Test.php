@@ -66,19 +66,19 @@ class CustomerPhase15Test extends TestCase
 
         $this->postJson("/api/v1/customers/{$customer->id}/transactions", [
             'transaction_type' => 'SALE',
-            'amount' => 10000,
+            'amount' => 100000,
             'reference' => 'INV-001',
             'due_date' => now()->addDays(15)->toDateString(),
         ], $headers)->assertCreated();
 
         $this->getJson("/api/v1/customers/{$customer->id}/summary", $headers)
             ->assertOk()
-            ->assertJsonPath('data.receivable', 10000)
-            ->assertJsonPath('data.loyalty_points', 100);
+            ->assertJsonPath('data.receivable', 100000)
+            ->assertJsonPath('data.loyalty_points', 1);
 
         $this->getJson("/api/v1/customers/{$customer->id}/balance", $headers)
             ->assertOk()
-            ->assertJsonPath('data.balance', 10000);
+            ->assertJsonPath('data.balance', 100000);
     }
 
     public function test_payment_reduces_balance(): void
@@ -164,10 +164,10 @@ class CustomerPhase15Test extends TestCase
         $this->postJson("/api/v1/customers/{$customer->id}/loyalty/redeem", [
             'points' => 100,
         ], $headers)->assertOk()
-            ->assertJsonPath('data.points', 550);
+            ->assertJsonPath('data.points', 500);
 
         $customer->refresh();
-        $this->assertSame(550, $customer->loyalty_points);
+        $this->assertSame(500, $customer->loyalty_points);
     }
 
     public function test_sale_history_links_to_customer(): void

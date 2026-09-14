@@ -59,7 +59,7 @@ class ProductController extends Controller
         $data = $this->validateProduct($request);
 
         $product = $this->catalog->create($catalog, $data);
-        $this->withStock(collect([$product]));
+        $product = $this->withStock(collect([$product]))->first() ?? $product;
 
         return response()->json(['data' => $product], 201);
     }
@@ -67,7 +67,7 @@ class ProductController extends Controller
     public function show(Product $product): JsonResponse
     {
         $product->load($this->catalog->defaultRelations());
-        $this->withStock(collect([$product]));
+        $product = $this->withStock(collect([$product]))->first() ?? $product;
 
         return response()->json(['data' => $product]);
     }
@@ -77,7 +77,7 @@ class ProductController extends Controller
         $data = $this->validateProduct($request, partial: true);
 
         $product = $this->catalog->update($product, $data);
-        $this->withStock(collect([$product]));
+        $product = $this->withStock(collect([$product]))->first() ?? $product;
 
         return response()->json(['data' => $product]);
     }

@@ -79,7 +79,7 @@ class UserController extends Controller
             'is_active' => ['boolean'],
             'role_id' => ['nullable', 'uuid', 'exists:roles,id'],
             'store_id' => ['nullable', 'uuid', 'exists:stores,id'],
-        ]);
+        ], $this->pinMessages());
 
         $user = User::query()->create([
             'tenant_id' => $tenant->id,
@@ -110,7 +110,7 @@ class UserController extends Controller
             'pin' => ['sometimes', 'nullable', 'regex:/^\d{4,6}$/', Rule::unique('users', 'pin')->ignore($user->id)->where(fn ($query) => $query->where('tenant_id', $user->tenant_id))],
             'password' => ['sometimes', 'nullable', 'string', Password::min(8)],
             'is_active' => ['boolean'],
-        ]);
+        ], $this->pinMessages());
 
         if (array_key_exists('password', $data) && ($data['password'] === null || $data['password'] === '')) {
             unset($data['password']);
@@ -272,6 +272,15 @@ class UserController extends Controller
         if ($user->tenant_id !== $tenant->id) {
             abort(404);
         }
+    }
+
+    /** @return array<string, string> */
+    private function pinMessages(): array
+    {
+        return [
+            'pin.unique' => 'Ce PIN est déjà utilisé par un autre utilisateur.',
+            'pin.regex' => 'Le PIN doit contenir 4 à 6 chiffres.',
+        ];
     }
 
     private function normalizePin(mixed $pin): ?string

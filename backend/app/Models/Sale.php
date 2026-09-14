@@ -132,6 +132,13 @@ class Sale extends Model
         return $this->hasMany(SaleReceipt::class)->orderByDesc('printed_at');
     }
 
+    public function syncEvents(): HasMany
+    {
+        return $this->hasMany(SyncEvent::class, 'entity_id')
+            ->where('entity_type', 'sale')
+            ->orderBy('sequence');
+    }
+
     public function invoices(): HasMany
     {
         return $this->hasMany(SaleInvoice::class)->orderByDesc('issued_at');

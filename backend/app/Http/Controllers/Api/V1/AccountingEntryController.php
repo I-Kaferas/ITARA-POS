@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\AccountingEntryType;
 use App\Http\Controllers\Controller;
 use App\Models\AccountingEntry;
+use App\Services\Accounting\AccountingBooksService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -60,7 +61,7 @@ class AccountingEntryController extends Controller
         ]);
     }
 
-    public function summary(Request $request): JsonResponse
+    public function summary(Request $request, AccountingBooksService $books): JsonResponse
     {
         $query = AccountingEntry::query();
 
@@ -90,10 +91,17 @@ class AccountingEntryController extends Controller
             'entries_count' => (clone $query)->count(),
         ];
 
+        $tenantId = (string) $request->user()?->tenant_id;
+
         return response()->json([
             'data' => [
                 'totals' => $totals,
                 'by_account' => $byAccount,
+                'books' => $tenantId === '' ? [] : $books->books(
+                    $tenantId,
+                    $request->filled('from') ? $request->string('from')->toString() : null,
+                    $request->filled('to') ? $request->string('to')->toString() : null,
+                ),
             ],
         ]);
     }

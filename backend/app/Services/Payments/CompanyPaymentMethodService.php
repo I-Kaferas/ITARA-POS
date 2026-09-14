@@ -22,7 +22,7 @@ class CompanyPaymentMethodService
     ];
 
     /** Methods shown on the POS cash register by default. */
-    private const DEFAULT_POS = ['cash', 'card', 'mobile_money'];
+    private const DEFAULT_POS = ['cash', 'mobile_money', 'card', 'bank_transfer', 'credit'];
 
     public function ensureDefaults(Company $company): Collection
     {
@@ -32,6 +32,8 @@ class CompanyPaymentMethodService
             ->keyBy('code');
 
         if ($existing->isNotEmpty()) {
+            $this->ensureMissingMethods($company, $existing);
+
             return $existing->values()->sortBy('sort_order')->values();
         }
 
@@ -59,6 +61,34 @@ class CompanyPaymentMethodService
         }
 
         return $existing->values()->sortBy('sort_order')->values();
+    }
+
+    /** @param  Collection<string, CompanyPaymentMethod>  $existing */
+    private function ensureMissingMethods(Company $company, Collection $existing): void
+    {
+        $sort = (int) $existing->max('sort_order');
+
+        foreach (SalePaymentMethod::cases() as $method) {
+            if ($existing->has($method->value)) {
+                continue;
+            }
+
+            $code = $method->value;
+            $cfg = config("payments.methods.{$code}", []);
+            $row = CompanyPaymentMethod::query()->create([
+                'tenant_id' => $company->tenant_id,
+                'company_id' => $company->id,
+                'code' => $code,
+                'label' => $cfg['label'] ?? $method->label(),
+                'label_fr' => $cfg['label_fr'] ?? ($cfg['label'] ?? $code),
+                'is_enabled' => in_array($code, self::DEFAULT_ENABLED, true),
+                'available_on_pos' => in_array($code, self::DEFAULT_POS, true),
+                'sort_order' => $sort + 10,
+                'config' => null,
+            ]);
+            $existing->put($code, $row);
+            $sort += 10;
+        }
     }
 
     public function forCompany(Company $company, bool $enabledOnly = false, bool $posOnly = false): Collection

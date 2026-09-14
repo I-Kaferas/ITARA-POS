@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import { LOCALE_META, SUPPORTED_LOCALES, persistLocale, type AppLocale } from '../../../i18n/locales'
 import LanguageFlag from '../../../components/ui/LanguageFlag.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import { useContextStore } from '../../../stores/context'
 
 const { t, locale } = useI18n()
@@ -14,6 +15,18 @@ const language = ref<AppLocale>('fr')
 const storeId = ref('')
 const sidebarOpen = ref(true)
 const message = ref('')
+const hub = computed(() => [
+  { to: '/admin/organization/company', label: t('settings.domains.company'), hint: t('settings.companyHint') },
+  { to: '/admin/organization/stores', label: t('settings.domains.store'), hint: t('settings.storeHint') },
+  { to: '/admin/organization/terminals', label: t('settings.domains.pos'), hint: t('settings.domains.posHint') },
+  { to: '/admin/catalog/taxes', label: t('settings.domains.taxes'), hint: t('settings.domains.taxesHint') },
+  { to: '/admin/organization/currencies', label: t('settings.domains.currency'), hint: t('settings.domains.currencyHint') },
+  { to: '/admin/organization/company', label: t('settings.domains.print'), hint: t('settings.domains.printHint') },
+  { to: '/admin/inventory/stock', label: t('settings.domains.stock'), hint: t('settings.domains.stockHint') },
+  { to: '/admin/sync', label: t('settings.domains.sync'), hint: t('settings.domains.syncHint') },
+  { to: '/admin/hospitality?section=restaurant', label: t('settings.domains.restaurant'), hint: t('settings.domains.restaurantHint') },
+  { to: '/admin/hospitality?section=hotel', label: t('settings.domains.hotel'), hint: t('settings.domains.hotelHint') },
+])
 
 onMounted(async () => {
   language.value = (locale.value as AppLocale) in LOCALE_META ? locale.value as AppLocale : 'fr'
@@ -75,29 +88,25 @@ function save() {
         <section class="card">
           <h3>{{ t('settings.interface') }}</h3>
           <label class="check">
+            <span class="field-icon"><AppIcon name="check" :size="14" /></span>
             <input v-model="sidebarOpen" type="checkbox" />
             <span>{{ t('settings.sidebarOpen') }}</span>
           </label>
         </section>
 
-        <section class="card">
-          <h3>{{ t('settings.shortcuts') }}</h3>
-          <RouterLink to="/admin/organization/company" class="shortcut">
-            <strong>{{ t('settings.company') }}</strong>
-            <span>{{ t('settings.companyHint') }}</span>
-          </RouterLink>
-          <RouterLink to="/admin/account" class="shortcut">
-            <strong>{{ t('settings.security') }}</strong>
-            <span>{{ t('settings.securityHint') }}</span>
-          </RouterLink>
-          <RouterLink to="/admin/profile" class="shortcut">
-            <strong>{{ t('auth.profile') }}</strong>
-            <span>{{ t('settings.profileHint') }}</span>
+        <section class="card hub">
+          <h3>{{ t('settings.hub') }}</h3>
+          <RouterLink v-for="item in hub" :key="item.to" :to="item.to" class="shortcut">
+            <strong>{{ item.label }}</strong>
+            <span>{{ item.hint }}</span>
           </RouterLink>
         </section>
 
         <div class="settings-actions">
-          <button type="submit" class="btn-primary">{{ t('profile.save') }}</button>
+          <button type="submit" class="btn-primary gap-1.5">
+            <AppIcon name="check" :size="15" />
+            {{ t('profile.save') }}
+          </button>
         </div>
       </form>
     </div>
@@ -159,6 +168,7 @@ function save() {
 }
 .shortcut:hover { border-color: #4a6d86; background: #f3f6f8; }
 .shortcut span { color: #64748b; font-size: 0.75rem; }
+.hub { display: flex; flex-direction: column; gap: 0.5rem; grid-column: 1 / -1; }
 .settings-actions { display: flex; justify-content: flex-end; }
 @media (min-width: 860px) {
   .settings-grid { grid-template-columns: 1fr 1fr; }

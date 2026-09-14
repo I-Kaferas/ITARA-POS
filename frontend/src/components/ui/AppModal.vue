@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from './AppIcon.vue'
 
@@ -11,7 +11,7 @@ const props = withDefaults(defineProps<{
   icon?: string
   tone?: 'brand' | 'danger' | 'warning' | 'success' | 'accent' | 'info'
 }>(), {
-  size: 'sm',
+  size: 'lg',
   closeOnBackdrop: true,
   icon: 'sparkles',
   tone: 'brand',
@@ -22,8 +22,25 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const panel = ref<HTMLElement | null>(null)
+const sheet = ref(false)
 
 const toneClass = computed(() => `app-modal--${props.tone}`)
+
+watch(
+  () => [props.open, props.size] as const,
+  async ([open]) => {
+    sheet.value = props.size === 'xl'
+    if (!open) return
+    await nextTick()
+    const form = panel.value?.querySelector('form')
+    if (!form) return
+    const fields = form.querySelectorAll('input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]), select, textarea')
+    const dense = Boolean(form.querySelector('.line-row, table, .choice-grid, .choice-row, .device-panel'))
+    if (fields.length >= 4 || dense) sheet.value = true
+  },
+  { immediate: true },
+)
 
 function close() {
   emit('close')
@@ -38,8 +55,9 @@ function close() {
       @mousedown.self="closeOnBackdrop && close()"
     >
       <div
+        ref="panel"
         class="app-modal"
-        :class="[`app-modal--${size}`, toneClass]"
+        :class="[`app-modal--${size}`, toneClass, { 'app-modal--sheet': sheet }]"
         role="dialog"
         aria-modal="true"
         @mousedown.stop

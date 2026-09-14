@@ -5,6 +5,7 @@ import { useConfirm } from '../../../composables/useConfirm'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Customer } from '../../../types'
@@ -232,12 +233,12 @@ async function remove(item: Customer) {
 
         <div v-show="activeTab === 'general'" class="customer-pane">
           <div>
-            <label class="label">{{ t('customers.name') }} *</label>
+            <FieldLabel icon="customers">{{ t('customers.name') }} *</FieldLabel>
             <input v-model="form.name" class="field" :placeholder="t('customers.namePlaceholder')" />
           </div>
 
           <div>
-            <label class="label">{{ t('customers.type') }} *</label>
+            <FieldLabel icon="customers">{{ t('customers.type') }} *</FieldLabel>
             <div class="choice-row">
               <button
                 type="button"
@@ -261,12 +262,12 @@ async function remove(item: Customer) {
           </div>
 
           <div v-if="form.customer_type === 'company'">
-            <label class="label">{{ t('customers.nif') }} *</label>
+            <FieldLabel icon="tag">{{ t('customers.nif') }} *</FieldLabel>
             <input v-model="form.tax_id" class="field" :placeholder="t('customers.nifPlaceholder')" />
           </div>
 
           <div>
-            <label class="label">{{ t('customers.origin') }}</label>
+            <FieldLabel icon="store-pin">{{ t('customers.origin') }}</FieldLabel>
             <div class="choice-row">
               <button
                 type="button"
@@ -290,36 +291,36 @@ async function remove(item: Customer) {
           </div>
 
           <div>
-            <label class="label">{{ t('customers.contactPerson') }}</label>
+            <FieldLabel icon="account">{{ t('customers.contactPerson') }}</FieldLabel>
             <input v-model="form.contact_person" class="field" :placeholder="t('customers.contactPlaceholder')" />
           </div>
 
           <div class="grid gap-3 sm:grid-cols-2">
             <div>
-              <label class="label">{{ t('customers.email') }}</label>
+              <FieldLabel icon="mail">{{ t('customers.email') }}</FieldLabel>
               <input v-model="form.email" type="email" class="field" :placeholder="t('customers.emailPlaceholder')" />
             </div>
             <div>
-              <label class="label">{{ t('customers.phone') }}</label>
+              <FieldLabel icon="phone">{{ t('customers.phone') }}</FieldLabel>
               <input v-model="form.phone" class="field" :placeholder="t('customers.phonePlaceholder')" />
             </div>
             <div>
-              <label class="label">{{ t('customers.mobile') }}</label>
+              <FieldLabel icon="phone">{{ t('customers.mobile') }}</FieldLabel>
               <input v-model="form.mobile" class="field" :placeholder="t('customers.mobilePlaceholder')" />
             </div>
           </div>
 
           <div>
-            <label class="label">{{ t('customers.address') }}</label>
+            <FieldLabel icon="pin">{{ t('customers.address') }}</FieldLabel>
             <input v-model="form.street" class="field" :placeholder="t('customers.addressPlaceholder')" />
           </div>
           <div class="grid gap-3 sm:grid-cols-2">
             <div>
-              <label class="label">{{ t('customers.city') }}</label>
+              <FieldLabel icon="building">{{ t('customers.city') }}</FieldLabel>
               <input v-model="form.city" class="field" :placeholder="t('customers.cityPlaceholder')" />
             </div>
             <div>
-              <label class="label">{{ t('customers.country') }}</label>
+              <FieldLabel icon="store-pin">{{ t('customers.country') }}</FieldLabel>
               <input v-model="form.country" class="field" :placeholder="t('customers.countryPlaceholder')" />
             </div>
           </div>
@@ -328,18 +329,18 @@ async function remove(item: Customer) {
         <div v-show="activeTab === 'financial'" class="customer-pane">
           <div class="grid gap-3 sm:grid-cols-2">
             <div>
-              <label class="label">{{ t('customers.creditLimit') }}</label>
+              <FieldLabel icon="coins">{{ t('customers.creditLimit') }}</FieldLabel>
               <input v-model.number="form.credit_limit" type="number" min="0" step="0.01" class="field" />
               <p class="hint">{{ t('customers.creditLimitHint') }}</p>
             </div>
             <div>
-              <label class="label">{{ t('customers.discount') }}</label>
+              <FieldLabel icon="coins">{{ t('customers.discount') }}</FieldLabel>
               <input v-model.number="form.discount_percent" type="number" min="0" max="100" step="0.01" class="field" />
               <p class="hint">{{ t('customers.discountHint') }}</p>
             </div>
           </div>
           <div>
-            <label class="label">{{ t('customers.paymentTerms') }}</label>
+            <FieldLabel icon="coins">{{ t('customers.paymentTerms') }}</FieldLabel>
             <select v-model.number="form.payment_terms_days" class="field">
               <option v-for="days in PAYMENT_TERMS" :key="days" :value="days">{{ t(`customers.terms.${days}`) }}</option>
             </select>
@@ -348,7 +349,7 @@ async function remove(item: Customer) {
 
         <div v-show="activeTab === 'notes'" class="customer-pane">
           <div>
-            <label class="label">{{ t('customers.internalNotes') }}</label>
+            <FieldLabel icon="note">{{ t('customers.internalNotes') }}</FieldLabel>
             <textarea v-model="form.notes" rows="6" class="field" :placeholder="t('customers.notesPlaceholder')" />
           </div>
         </div>
@@ -365,7 +366,6 @@ async function remove(item: Customer) {
 
 <style scoped>
 .field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.label { display: block; margin-bottom: 0.3rem; font-size: 0.8125rem; font-weight: 600; color: #334155; }
 .hint { margin: 0.3rem 0 0; font-size: 0.75rem; color: #94a3b8; }
 .customer-form { display: flex; flex-direction: column; gap: 1rem; }
 .customer-tabs { display: flex; gap: 0.4rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.35rem; }

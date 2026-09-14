@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AccountingEntryController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BarcodeController;
+use App\Http\Controllers\Api\V1\TerminalBackupController;
 use App\Http\Controllers\Api\V1\BeverageController;
 use App\Http\Controllers\Api\V1\BatchController;
 use App\Http\Controllers\Api\V1\BranchController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\V1\CatalogAttributeController;
 use App\Http\Controllers\Api\V1\CatalogController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\PlatformAdminController;
 use App\Http\Controllers\Api\V1\PlatformTenantController;
 use App\Http\Controllers\Api\V1\CompanyPaymentMethodController;
 use App\Http\Controllers\Api\V1\CurrencyController;
@@ -23,6 +25,7 @@ use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\CustomerPaymentController;
 use App\Http\Controllers\Api\V1\CustomerTransactionController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\DeskController;
 use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\EmailVerificationController;
 use App\Http\Controllers\Api\V1\HealthController;
@@ -34,6 +37,7 @@ use App\Http\Controllers\Api\V1\InventoryMovementController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhoneVerificationController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PayableController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PosController;
@@ -53,6 +57,7 @@ use App\Http\Controllers\Api\V1\ProductVariantController;
 use App\Http\Controllers\Api\V1\PromotionController;
 use App\Http\Controllers\Api\V1\PurchaseInvoiceController;
 use App\Http\Controllers\Api\V1\ExpenseController;
+use App\Http\Controllers\Api\V1\ServiceAppointmentController;
 use App\Http\Controllers\Api\V1\PurchaseCycleController;
 use App\Http\Controllers\Api\V1\PurchaseOrderController;
 use App\Http\Controllers\Api\V1\PurchasePaymentController;
@@ -112,6 +117,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
         Route::get('/auth/me', [AuthController::class, 'me']);
+        Route::get('notifications', [NotificationController::class, 'index']);
+        Route::get('terminal-backups', [TerminalBackupController::class, 'index']);
+        Route::post('terminal-backups', [TerminalBackupController::class, 'store']);
+        Route::get('terminal-backups/{backup}/file/{name}', [TerminalBackupController::class, 'download'])
+            ->where('name', 'database|configuration|sync-events|logs|manifest');
         Route::patch('/auth/profile', [AuthController::class, 'updateProfile']);
         Route::patch('/auth/password', [AuthController::class, 'changePassword'])
             ->middleware('throttle:auth-password');
@@ -237,6 +247,14 @@ Route::prefix('v1')->group(function () {
         Route::get('tenant/profile', [CompanyController::class, 'current'])
             ->middleware('permission:dashboard.view');
         Route::post('platform/tenants', [PlatformTenantController::class, 'store']);
+        Route::get('platform/overview', [PlatformAdminController::class, 'overview']);
+        Route::get('platform/companies', [PlatformAdminController::class, 'companies']);
+        Route::patch('platform/companies/{tenant}', [PlatformAdminController::class, 'updateCompany']);
+        Route::get('platform/devices', [PlatformAdminController::class, 'devices']);
+        Route::get('platform/users', [PlatformAdminController::class, 'users']);
+        Route::get('platform/support', [PlatformAdminController::class, 'support']);
+        Route::post('platform/support', [PlatformAdminController::class, 'storeSupport']);
+        Route::post('platform/support/{ticket}/close', [PlatformAdminController::class, 'closeSupport']);
 
         Route::get('companies', [CompanyController::class, 'index'])
             ->middleware('permission:organization.companies.view');
@@ -572,7 +590,11 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:shifts.view,shifts.open');
         Route::post('cash-registers/{cashRegister}/cashier-shifts/open', [CashierShiftController::class, 'open'])
             ->middleware('permission:shifts.open');
+        Route::post('cash-registers/{cashRegister}/cashier-shifts/open-with-pin', [CashierShiftController::class, 'openWithPin'])
+            ->middleware('permission:shifts.open');
         Route::post('cash-registers/{cashRegister}/cashier-shifts/close', [CashierShiftController::class, 'close'])
+            ->middleware('permission:shifts.close');
+        Route::post('cash-registers/{cashRegister}/cashier-shifts/close-with-pin', [CashierShiftController::class, 'closeWithPin'])
             ->middleware('permission:shifts.close');
         Route::get('cash-registers/{cashRegister}/cashier-shifts', [CashierShiftController::class, 'index'])
             ->middleware('permission:shifts.view');
@@ -813,6 +835,19 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:expenses.view,purchases.view');
         Route::post('expenses/budgets', [ExpenseController::class, 'storeBudget'])
             ->middleware('permission:expenses.manage,purchases.manage');
+        Route::get('service-offerings', [ServiceAppointmentController::class, 'offerings'])
+            ->middleware('permission:sales.view,sales.create');
+        Route::get('service-appointments', [ServiceAppointmentController::class, 'index'])
+            ->middleware('permission:sales.view,sales.create');
+        Route::post('service-appointments', [ServiceAppointmentController::class, 'store'])
+            ->middleware('permission:sales.create');
+        Route::post('service-appointments/{serviceAppointment}/assign', [ServiceAppointmentController::class, 'assign'])
+            ->middleware('permission:sales.create');
+        Route::post('service-appointments/{serviceAppointment}/complete', [ServiceAppointmentController::class, 'complete'])
+            ->middleware('permission:sales.create');
+        Route::post('service-appointments/{serviceAppointment}/pay', [ServiceAppointmentController::class, 'pay'])
+            ->middleware('permission:sales.create');
+
         Route::get('expenses', [ExpenseController::class, 'index'])
             ->middleware('permission:expenses.view,purchases.view');
         Route::post('expenses', [ExpenseController::class, 'store'])
@@ -984,6 +1019,14 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:sales.view');
         Route::get('sync/status', [SyncController::class, 'status'])
             ->middleware('permission:sales.view');
+        Route::get('hospitality', [DeskController::class, 'hospitality'])
+            ->middleware('permission:sales.view,sales.create');
+        Route::post('hospitality/actions', [DeskController::class, 'hospitalityAction'])
+            ->middleware('permission:sales.create,sales.view');
+        Route::get('production', [DeskController::class, 'production'])
+            ->middleware('permission:inventory.view,inventory.manage');
+        Route::post('production/actions', [DeskController::class, 'productionAction'])
+            ->middleware('permission:inventory.manage,inventory.adjust');
         Route::post('sync/ack', [SyncController::class, 'ack'])
             ->middleware('permission:sales.create');
         Route::post('sync/heartbeat', [SyncController::class, 'heartbeat'])

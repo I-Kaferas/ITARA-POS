@@ -27,6 +27,7 @@ class CashRegisterSession extends Model
         'expected_cash',
         'actual_cash',
         'variance',
+        'variance_reason',
         'opening_notes',
         'closing_notes',
         'opened_at',

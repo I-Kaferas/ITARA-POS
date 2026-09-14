@@ -2,8 +2,9 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
+import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
-import { formatDate } from '../../utils/format'
+import { formatDate, formatMoney } from '../../utils/format'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -19,6 +20,10 @@ async function load() {
   await store.loadAuditLogs(params)
 }
 
+function moneyField(value: unknown) {
+  return typeof value === 'number' ? formatMoney(value) : '—'
+}
+
 onMounted(load)
 </script>
 
@@ -29,15 +34,15 @@ onMounted(load)
 
     <div class="mb-4 flex flex-wrap items-end gap-3">
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">Action</label>
+        <FieldLabel icon="filter">Action</FieldLabel>
         <input v-model="action" class="field" placeholder="sale.completed" />
       </div>
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('reports.from') }}</label>
+        <FieldLabel icon="calendar">{{ t('reports.from') }}</FieldLabel>
         <input v-model="from" type="date" class="field" />
       </div>
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('reports.to') }}</label>
+        <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
         <input v-model="to" type="date" class="field" />
       </div>
       <button class="btn-secondary" @click="load">{{ t('common.search') }}</button>
@@ -47,23 +52,24 @@ onMounted(load)
       <table class="min-w-full divide-y text-sm">
         <thead class="bg-slate-50">
           <tr>
-            <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
-            <th class="px-4 py-3 text-left font-medium">Action</th>
-            <th class="px-4 py-3 text-left font-medium">{{ t('audit.entity') }}</th>
-            <th class="px-4 py-3 text-left font-medium">{{ t('org.tabs.users') }}</th>
-            <th class="px-4 py-3 text-left font-medium">IP</th>
+            <th class="px-4 py-3 text-left font-medium">{{ t('audit.user') }}</th>
+            <th class="px-4 py-3 text-left font-medium">{{ t('audit.action') }}</th>
+            <th class="px-4 py-3 text-left font-medium">{{ t('audit.product') }}</th>
+            <th class="px-4 py-3 text-right font-medium">{{ t('audit.old') }}</th>
+            <th class="px-4 py-3 text-right font-medium">{{ t('audit.new') }}</th>
+            <th class="px-4 py-3 text-left font-medium">{{ t('audit.device') }}</th>
+            <th class="px-4 py-3 text-left font-medium">{{ t('audit.time') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y">
           <tr v-for="row in store.auditLogs" :key="row.id" class="hover:bg-slate-50">
-            <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
+            <td class="px-4 py-3">{{ row.user?.name ?? row.payload?.user ?? '—' }}</td>
             <td class="px-4 py-3 font-mono text-xs">{{ row.action }}</td>
-            <td class="px-4 py-3">
-              <span class="font-mono text-xs text-slate-500">{{ row.entity_type }}</span>
-              <div class="font-mono text-[11px] text-slate-400">{{ row.entity_id }}</div>
-            </td>
-            <td class="px-4 py-3">{{ row.user?.name ?? '—' }}</td>
-            <td class="px-4 py-3 text-slate-500">{{ row.ip_address ?? '—' }}</td>
+            <td class="px-4 py-3">{{ row.payload?.product ?? row.entity_type }}</td>
+            <td class="px-4 py-3 text-right">{{ moneyField(row.payload?.old) }}</td>
+            <td class="px-4 py-3 text-right">{{ moneyField(row.payload?.new) }}</td>
+            <td class="px-4 py-3">{{ row.payload?.device ?? '—' }}</td>
+            <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
           </tr>
         </tbody>
       </table>

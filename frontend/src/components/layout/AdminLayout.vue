@@ -53,14 +53,18 @@ const navSections = computed(() => [
           { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview') },
           { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal') },
           { name: 'pos-orders', to: '/admin/pos/orders', label: t('nav.posOrders') },
+          { name: 'pos-returns', to: '/admin/sales/returns', label: t('sales.tabs.returns') },
           { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts') },
           { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations') },
         ],
       },
+      { name: 'hospitality', to: '/admin/hospitality', label: t('nav.hospitality'), icon: 'store-pin' },
+      { name: 'stores', to: '/admin/stores', label: t('nav.stores'), icon: 'stores' },
+      { name: 'customers', to: '/admin/customers', label: t('nav.customers'), icon: 'customers' },
     ] as NavItem[],
   },
   {
-    label: t('nav.section.commerce'),
+    label: t('nav.section.catalog'),
     items: [
       {
         name: 'catalog',
@@ -69,38 +73,148 @@ const navSections = computed(() => [
         icon: 'catalog',
         children: [
           { name: 'product-catalog', to: '/admin/products', label: t('nav.productCatalog') },
-          { name: 'product-options', to: '/admin/catalog/options', label: t('nav.productOptions') },
-          { name: 'beverages', to: '/admin/catalog/beverages', label: t('nav.beverages') },
-          { name: 'catalog-gallery', to: '/admin/catalog/gallery', label: t('nav.catalogGallery') },
-          { name: 'price-lists', to: '/admin/catalog/prices', label: t('nav.priceLists') },
+          { name: 'catalogs', to: '/admin/catalog/catalogs', label: t('catalog.tabs.catalogs') },
           { name: 'catalog-categories', to: '/admin/catalog/categories', label: t('catalog.tabs.categories') },
           { name: 'catalog-brands', to: '/admin/catalog/brands', label: t('nav.brands') },
           { name: 'catalog-units', to: '/admin/catalog/units', label: t('nav.units') },
           { name: 'catalog-attributes', to: '/admin/catalog/attributes', label: t('nav.attributes') },
-          { name: 'customers', to: '/admin/customers', label: t('nav.customers') },
+          { name: 'product-options', to: '/admin/catalog/options', label: t('nav.productOptions') },
+          { name: 'beverages', to: '/admin/catalog/beverages', label: t('nav.beverages') },
+          { name: 'price-lists', to: '/admin/catalog/prices', label: t('nav.priceLists') },
+          { name: 'catalog-taxes', to: '/admin/catalog/taxes', label: t('catalog.tabs.taxes') },
+          { name: 'catalog-gallery', to: '/admin/catalog/gallery', label: t('nav.catalogGallery') },
         ],
       },
-      { name: 'stores', to: '/admin/stores', label: t('nav.stores'), icon: 'stores' },
-      { name: 'inventory', to: '/admin/inventory/stock', label: t('nav.inventory'), icon: 'inventory' },
-      { name: 'suppliers', to: '/admin/suppliers', label: t('nav.suppliers'), icon: 'suppliers' },
-      { name: 'purchases', to: '/admin/purchases/overview', label: t('nav.purchases'), icon: 'purchases' },
-      { name: 'expenses', to: '/admin/expenses/dashboard', label: t('nav.expenses'), icon: 'purchases' },
-      { name: 'payables', to: '/admin/payables', label: t('nav.payables'), icon: 'purchases' },
+      { name: 'barcodes', to: '/admin/barcodes', label: t('nav.barcodes'), icon: 'tag' },
       { name: 'promotions', to: '/admin/promotions', label: t('nav.promotions'), icon: 'products' },
-      { name: 'reports', to: '/admin/reports/sales', label: t('nav.reports'), icon: 'dashboard' },
+      { name: 'services', to: '/admin/services', label: t('nav.services'), icon: 'customers' },
+    ] as NavItem[],
+  },
+  {
+    label: t('nav.section.stock'),
+    items: [
+      {
+        name: 'inventory',
+        to: '/admin/inventory/stock',
+        label: t('nav.inventory'),
+        icon: 'inventory',
+        children: [
+          { name: 'inventory-stock', to: '/admin/inventory/stock', label: t('inventory.tabs.stock') },
+          { name: 'inventory-supplies', to: '/admin/inventory/supplies', label: t('inventory.tabs.supplies') },
+          { name: 'inventory-transfers', to: '/admin/inventory/transfers', label: t('inventory.tabs.transfers') },
+          { name: 'inventory-adjustments', to: '/admin/inventory/adjustments', label: t('inventory.tabs.adjustments') },
+          { name: 'inventory-issues', to: '/admin/inventory/issues', label: t('inventory.tabs.issues') },
+          { name: 'inventory-counts', to: '/admin/inventory/counts', label: t('inventory.tabs.inventories') },
+          { name: 'inventory-verifications', to: '/admin/inventory/verifications', label: t('inventory.tabs.verifications') },
+          { name: 'inventory-batches', to: '/admin/inventory/batches', label: t('inventory.tabs.batches') },
+          { name: 'inventory-serials', to: '/admin/inventory/serials', label: t('inventory.tabs.serials') },
+          { name: 'inventory-alerts', to: '/admin/inventory/alerts', label: t('inventory.tabs.alerts') },
+        ],
+      },
+      { name: 'production', to: '/admin/production', label: t('nav.production'), icon: 'inventory' },
+    ] as NavItem[],
+  },
+  {
+    label: t('nav.section.purchasing'),
+    items: [
+      { name: 'suppliers', to: '/admin/suppliers', label: t('nav.suppliers'), icon: 'suppliers' },
+      {
+        name: 'purchases',
+        to: '/admin/purchases/overview',
+        label: t('nav.purchases'),
+        icon: 'purchases',
+        children: [
+          { name: 'purchase-overview', to: '/admin/purchases/overview', label: t('purchases.hub.overview') },
+          { name: 'purchase-requisitions', to: '/admin/purchases/requisitions', label: t('purchases.hub.requisitions') },
+          { name: 'purchase-proformas', to: '/admin/purchases/proformas', label: t('purchases.hub.proformas') },
+          { name: 'purchase-orders', to: '/admin/purchases/orders', label: t('purchases.hub.orders') },
+          { name: 'purchase-invoices', to: '/admin/purchases/invoices', label: t('purchases.hub.invoices') },
+          { name: 'purchase-payments', to: '/admin/purchases/payments', label: t('purchases.hub.payments') },
+          { name: 'purchase-returns', to: '/admin/purchases/returns', label: t('purchases.hub.returns') },
+        ],
+      },
+      { name: 'payables', to: '/admin/payables', label: t('nav.payables'), icon: 'purchases' },
+    ] as NavItem[],
+  },
+  {
+    label: t('nav.section.finance'),
+    items: [
+      {
+        name: 'expenses',
+        to: '/admin/expenses/dashboard',
+        label: t('nav.expenses'),
+        icon: 'purchases',
+        children: [
+          { name: 'expenses-dashboard', to: '/admin/expenses/dashboard', label: t('expenses.tabs.dashboard') },
+          { name: 'expenses-list', to: '/admin/expenses', label: t('expenses.tabs.list') },
+          { name: 'expenses-categories', to: '/admin/expenses/categories', label: t('expenses.tabs.categories') },
+          { name: 'expenses-recurring', to: '/admin/expenses/recurring', label: t('expenses.tabs.recurring') },
+          { name: 'expenses-reports', to: '/admin/expenses/reports', label: t('expenses.tabs.reports') },
+        ],
+      },
       { name: 'accounting', to: '/admin/accounting', label: t('nav.accounting'), icon: 'sales' },
-      { name: 'import-export', to: '/admin/import-export', label: t('nav.importExport'), icon: 'import' },
+      {
+        name: 'reports',
+        to: '/admin/reports/sales',
+        label: t('nav.reports'),
+        icon: 'dashboard',
+        children: [
+          { name: 'reports-sales', to: '/admin/reports/sales', label: t('reports.tabs.sales') },
+          { name: 'reports-inventory', to: '/admin/reports/inventory', label: t('reports.tabs.inventory') },
+          { name: 'reports-financial', to: '/admin/reports/financial', label: t('reports.tabs.financial') },
+        ],
+      },
     ] as NavItem[],
   },
   {
     label: t('nav.section.system'),
     items: [
-      { name: 'organization', to: '/admin/organization/company', label: t('nav.organization'), icon: 'organization' },
+      {
+        name: 'organization',
+        to: '/admin/organization/company',
+        label: t('nav.organization'),
+        icon: 'organization',
+        children: [
+          { name: 'org-company', to: '/admin/organization/company', label: t('org.tabs.company') },
+          { name: 'org-branding', to: '/admin/organization/branding', label: t('org.tabs.branding') },
+          { name: 'org-currencies', to: '/admin/organization/currencies', label: t('org.tabs.currencies') },
+          { name: 'org-payments', to: '/admin/organization/payment-methods', label: t('org.tabs.paymentMethods') },
+          { name: 'org-branches', to: '/admin/organization/branches', label: t('org.tabs.branches') },
+          { name: 'org-stores', to: '/admin/organization/stores', label: t('org.tabs.stores') },
+          { name: 'org-warehouses', to: '/admin/organization/warehouses', label: t('org.tabs.warehouses') },
+          { name: 'org-terminals', to: '/admin/organization/terminals', label: t('org.tabs.terminals') },
+          { name: 'org-devices', to: '/admin/organization/devices', label: t('org.tabs.devices') },
+          { name: 'org-registers', to: '/admin/organization/registers', label: t('org.tabs.registers') },
+          { name: 'org-users', to: '/admin/organization/users', label: t('org.tabs.users') },
+          { name: 'org-roles', to: '/admin/organization/roles', label: t('org.tabs.roles') },
+          { name: 'org-permissions', to: '/admin/organization/permissions', label: t('org.tabs.permissions') },
+        ],
+      },
+      { name: 'import-export', to: '/admin/import-export', label: t('nav.importExport'), icon: 'import' },
+      { name: 'sync', to: '/admin/sync', label: t('nav.sync'), icon: 'import' },
       { name: 'audit', to: '/admin/audit', label: t('nav.audit'), icon: 'layers' },
+      { name: 'platform', to: '/admin/platform', label: t('nav.platform'), icon: 'organization' },
       { name: 'account', to: '/admin/account', label: t('nav.account'), icon: 'account' },
     ] as NavItem[],
   },
 ])
+
+function hasModule(code: string) {
+  const modules = auth.user?.modules
+  if (!modules?.length) return true
+  return modules.includes(code)
+}
+
+const visibleNav = computed(() => navSections.value.map(section => ({
+  ...section,
+  items: section.items.filter(item => {
+    if (item.name === 'platform') return auth.user?.is_super_admin === true
+    if (item.name === 'pos') return hasModule('pos')
+    if (item.name === 'inventory' || item.name === 'production') return hasModule('stock')
+    if (item.name === 'hospitality') return hasModule('restaurant') || hasModule('hotel')
+    return true
+  }),
+})).filter(section => section.items.length > 0))
 
 const userInitials = computed(() => {
   const name = auth.user?.name ?? '?'
@@ -144,19 +258,28 @@ function isActive(path: string) {
   return route.path === path || route.path.startsWith(path + '/')
 }
 
-function isChildActive(child: NavChild) {
+function matchesChild(child: NavChild) {
   if (child.to === '/admin/products') return route.path.startsWith('/admin/products')
   if (child.to === '/admin/customers') return route.path.startsWith('/admin/customers')
   if (child.to === '/admin/pos/orders') {
-    return route.path.startsWith('/admin/pos/orders') || route.path.startsWith('/admin/sales')
+    return route.path.startsWith('/admin/pos/orders')
+      || (route.path.startsWith('/admin/sales') && !route.path.startsWith('/admin/sales/returns'))
   }
-  if (child.to === '/admin/pos/shifts') {
-    return route.path.startsWith('/admin/pos/shifts')
-  }
+  if (child.to === '/admin/sales/returns') return route.path.startsWith('/admin/sales/returns')
+  if (child.to === '/admin/pos/shifts') return route.path.startsWith('/admin/pos/shifts')
   if (child.to === '/admin/pos/terminal') {
     return route.path === '/admin/pos/terminal' || route.path === '/admin/pos'
   }
-  return isActive(child.to)
+  if (child.to === '/admin/expenses') {
+    return route.path === '/admin/expenses'
+  }
+  return route.path === child.to || route.path.startsWith(child.to + '/')
+}
+
+function isChildActive(child: NavChild) {
+  if (!matchesChild(child)) return false
+  const children = navSections.value.flatMap(section => section.items.flatMap(item => item.children ?? []))
+  return !children.some(other => other.to !== child.to && other.to.length > child.to.length && matchesChild(other))
 }
 
 function isGroupActive(item: NavItem) {
@@ -301,7 +424,7 @@ watch(userMenuOpen, async (open) => {
       </button>
 
       <nav class="app-sidebar__nav">
-        <div v-for="section in navSections" :key="section.label">
+        <div v-for="section in visibleNav" :key="section.label">
           <p class="app-sidebar__section-label">{{ section.label }}</p>
           <template v-for="item in section.items" :key="item.name">
             <template v-if="item.children?.length">

@@ -6,6 +6,8 @@ export interface User {
   country?: string | null
   pin?: string | null
   tenant_id: string | null
+  is_super_admin?: boolean
+  modules?: string[]
   is_active?: boolean
   email_verified?: boolean
   two_factor_enabled?: boolean
@@ -236,6 +238,7 @@ export interface CashRegisterSession {
   expected_cash: number
   actual_cash?: number | null
   variance?: number | null
+  variance_reason?: string | null
   opening_notes?: string | null
   closing_notes?: string | null
   opened_at: string
@@ -254,6 +257,7 @@ export interface RegisterSummary {
   expected_cash: number
   actual_cash?: number | null
   variance?: number | null
+  variance_reason?: string | null
   opened_at: string
   closed_at?: string | null
   invoices_count?: number
@@ -302,6 +306,7 @@ export interface CashierShift {
   expected_cash: number
   actual_cash?: number | null
   variance?: number | null
+  variance_reason?: string | null
   opening_notes?: string | null
   closing_notes?: string | null
   opened_at: string
@@ -327,6 +332,7 @@ export interface ShiftSummary {
   expected_cash: number
   actual_cash?: number | null
   variance?: number | null
+  variance_reason?: string | null
   opened_at: string
   closed_at?: string | null
   invoices_count?: number
@@ -774,6 +780,7 @@ export interface Customer {
   metadata?: Record<string, unknown> | null
   addresses?: CustomerAddress[]
   is_active: boolean
+  created_at?: string
 }
 
 export interface CustomerAddress {
@@ -1086,6 +1093,8 @@ export interface SaleItem {
   product_name?: string | null
   product_sku?: string | null
   quantity: number
+  quantity_returnable?: number
+  quantity_returned?: number
   unit_price: number
   line_subtotal?: number
   line_tax?: number
@@ -1301,6 +1310,7 @@ export interface AccountingEntry {
 export interface AccountingSummary {
   totals: { total_debit: number; total_credit: number; entries_count: number }
   by_account: { account_code: string | null; total_debit: number; total_credit: number; balance: number }[]
+  books?: { code: string; balance: number }[]
 }
 
 export interface SalesReport {
@@ -1314,6 +1324,12 @@ export interface SalesReport {
   returns_count: number
   returns_total: number
   by_day: { day: string; sales_count: number; revenue: number; tax_total: number; discount_total: number }[]
+  by_week?: { label: string; sales_count: number; revenue: number }[]
+  by_month?: { label: string; sales_count: number; revenue: number }[]
+  by_year?: { label: string; sales_count: number; revenue: number }[]
+  by_product?: { label: string; sku?: string | null; quantity: number; revenue: number }[]
+  by_category?: { label: string | null; quantity: number; revenue: number }[]
+  by_cashier?: { label: string | null; sales_count: number; revenue: number }[]
 }
 
 export interface InventoryReport {
@@ -1330,6 +1346,12 @@ export interface InventoryReport {
     quantity_on_hand: number
     quantity_available: number
   }[]
+  low_stock_count?: number
+  low_stock?: { product_id: string; sku?: string | null; name?: string | null; warehouse?: string | null; quantity_on_hand: number; threshold: number }[]
+  movements?: { occurred_at?: string | null; type: string; sku?: string | null; name?: string | null; warehouse?: string | null; quantity: number; amount: number }[]
+  losses?: { occurred_at?: string | null; type: string; sku?: string | null; name?: string | null; warehouse?: string | null; quantity: number; amount: number }[]
+  losses_value?: number
+  expiration?: { sku?: string | null; name?: string | null; warehouse?: string | null; batch?: string | null; expires_at?: string | null; quantity_on_hand: number; expired: boolean }[]
 }
 
 export interface FinancialReport {
@@ -1338,6 +1360,10 @@ export interface FinancialReport {
   revenue: number
   cogs: number
   gross_margin: number
+  expenses?: number
+  profit?: number
+  credit?: number
+  debts?: number
   tax_liability: number
   by_account: { account_code: string | null; total_debit: number; total_credit: number; net: number }[]
 }

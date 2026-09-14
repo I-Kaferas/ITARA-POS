@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../core/config/terminal_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../sync/local_master_server.dart';
 
 class PinAuthService {
   PinAuthService({http.Client? client}) : _client = client ?? http.Client();
@@ -12,6 +13,15 @@ class PinAuthService {
   final http.Client _client;
 
   static Future<bool>? _refreshing;
+
+  static List<String> _apiBases(TerminalConfig config) {
+    final local = LocalMasterServer.clientBaseUrl();
+    final cloud = config.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
+    return [
+      if (local != null && local.isNotEmpty) local,
+      if (local != cloud) cloud,
+    ];
+  }
 
   static String pinVerifier(String userId, String pin) {
     return sha256.convert(utf8.encode('itara-pos|$userId|$pin')).toString();
@@ -31,11 +41,7 @@ class PinAuthService {
       throw Exception('Tenant ID manquant. Configurez le terminal.');
     }
 
-    final bases = [
-      if (config.internalApiBaseUrl.trim().isNotEmpty)
-        config.internalApiBaseUrl.trim().replaceAll(RegExp(r'/$'), ''),
-      config.apiBaseUrl.replaceAll(RegExp(r'/$'), ''),
-    ];
+    final bases = _apiBases(config);
 
     http.Response? response;
     Object? lastError;
@@ -129,11 +135,7 @@ class PinAuthService {
 
   Future<void> _heartbeat(String token, TerminalConfig config) async {
     if (config.deviceId.isEmpty || token.isEmpty) return;
-    final bases = [
-      if (config.internalApiBaseUrl.trim().isNotEmpty)
-        config.internalApiBaseUrl.trim().replaceAll(RegExp(r'/$'), ''),
-      config.apiBaseUrl.replaceAll(RegExp(r'/$'), ''),
-    ];
+    final bases = _apiBases(config);
     for (final base in bases) {
       try {
         final response = await _client
@@ -161,11 +163,7 @@ class PinAuthService {
     required String tenantId,
   }) async {
     final config = TerminalConfigRepository.instance.config;
-    final bases = [
-      if (config.internalApiBaseUrl.trim().isNotEmpty)
-        config.internalApiBaseUrl.trim().replaceAll(RegExp(r'/$'), ''),
-      config.apiBaseUrl.replaceAll(RegExp(r'/$'), ''),
-    ];
+    final bases = _apiBases(config);
 
     for (final base in bases) {
       try {
@@ -214,11 +212,7 @@ class PinAuthService {
     final stillValid = expiresAt != null && expiresAt.isAfter(DateTime.now().add(const Duration(seconds: 90)));
     if (!force && stillValid && config.authToken.trim().isNotEmpty) return true;
 
-    final bases = [
-      if (config.internalApiBaseUrl.trim().isNotEmpty)
-        config.internalApiBaseUrl.trim().replaceAll(RegExp(r'/$'), ''),
-      config.apiBaseUrl.replaceAll(RegExp(r'/$'), ''),
-    ];
+    final bases = _apiBases(config);
 
     for (final base in bases.toSet()) {
       try {

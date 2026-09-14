@@ -5,8 +5,10 @@ import 'package:http/http.dart' as http;
 
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../sync/local_master_server.dart';
 import '../../../sync/offline_store.dart';
 import '../../../sync/sync_engine.dart';
+import '../../customers/data/customer_account_store.dart';
 import '../../barcode/data/barcode_api_service.dart';
 import '../../barcode/domain/barcode_models.dart';
 import '../domain/pos_models.dart';
@@ -65,25 +67,34 @@ class PosApiService {
 
   String get storeId => _storeId;
 
+  List<String> get _bases {
+    final cloud = _apiBaseUrl.replaceAll(RegExp(r'/$'), '');
+    final local = LocalMasterServer.clientBaseUrl();
+    if (local == null || local.isEmpty || local == cloud) return [cloud];
+    return [local, cloud];
+  }
+
   Future<PosCatalog> fetchCatalog() async {
     if (_storeId.isEmpty) {
       throw Exception('STORE_ID is required for POS catalog');
     }
 
-    final uri = Uri.parse(
-      '$_apiBaseUrl/stores/$_storeId/pos/catalog',
-    );
-    final response = await _client
-        .get(uri, headers: _headers)
-        .timeout(const Duration(seconds: 15));
-
-    if (response.statusCode != 200) {
-      throw Exception('Catalog fetch failed: HTTP ${response.statusCode}');
+    Object? lastError;
+    for (final base in _bases) {
+      try {
+        final response = await _client
+            .get(Uri.parse('$base/stores/$_storeId/pos/catalog'), headers: _headers)
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 200) {
+          lastError = Exception('Catalog fetch failed: HTTP ${response.statusCode}');
+          continue;
+        }
+        return PosCatalog.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      } catch (error) {
+        lastError = error;
+      }
     }
-
-    return PosCatalog.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
+    throw lastError ?? Exception('Catalog fetch failed');
   }
 
   Future<List<PosCustomer>> searchCustomers(String query) async {
@@ -114,16 +125,30 @@ class PosApiService {
   }
 
   Future<List<PosCustomer>> _searchCustomersRemote(String query) async {
-    final uri = Uri.parse('$_apiBaseUrl/customers').replace(
-      queryParameters: {
-        if (query.trim().isNotEmpty) 'search': query.trim(),
-        'active_only': '1',
-        'per_page': '20',
-      },
-    );
-    final response = await _client
-        .get(uri, headers: _headers)
-        .timeout(const Duration(seconds: 10));
+    http.Response? response;
+    Object? lastError;
+    for (final base in _bases) {
+      try {
+        final uri = Uri.parse('$base/customers').replace(
+          queryParameters: {
+            if (query.trim().isNotEmpty) 'search': query.trim(),
+            'active_only': '1',
+            'per_page': '20',
+          },
+        );
+        final attempt = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+        if (attempt.statusCode == 200) {
+          response = attempt;
+          break;
+        }
+        lastError = Exception('Customer search failed: HTTP ${attempt.statusCode}');
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (response == null) {
+      throw lastError ?? Exception('Customer search failed');
+    }
 
     if (response.statusCode != 200) {
       throw Exception('Customer search failed: HTTP ${response.statusCode}');
@@ -166,15 +191,23 @@ class PosApiService {
   Future<List<PosPaymentMethod>> fetchPaymentMethods() async {
     final cached = await OfflineStore.instance.loadPaymentMethods();
     try {
-      final uri = Uri.parse('$_apiBaseUrl/payments/methods').replace(
-        queryParameters: {
-          if (_storeId.isNotEmpty) 'store_id': _storeId,
-          'pos_only': '1',
-        },
-      );
-      final response = await _client
-          .get(uri, headers: _headers)
-          .timeout(const Duration(seconds: 10));
+      http.Response? response;
+      for (final base in _bases) {
+        try {
+          final uri = Uri.parse('$base/payments/methods').replace(
+            queryParameters: {
+              if (_storeId.isNotEmpty) 'store_id': _storeId,
+              'pos_only': '1',
+            },
+          );
+          final attempt = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+          if (attempt.statusCode == 200) {
+            response = attempt;
+            break;
+          }
+        } catch (_) {}
+      }
+      if (response == null) return cached;
 
       if (response.statusCode != 200) {
         throw Exception('Payment methods fetch failed: HTTP ${response.statusCode}');
@@ -298,6 +331,57 @@ class PosApiService {
       saleId: saleId,
     );
 
+    if (customerId != null && customerId.isNotEmpty) {
+      unawaited(_postCustomerAccount(
+        customerId: customerId,
+        saleId: result.saleId,
+        reference: result.reference,
+        total: total,
+        outstanding: total > paidAmount ? total - paidAmount : 0,
+        payments: payments,
+      ));
+    }
+    unawaited(SyncEngine.instance.runCycle());
     return result;
+  }
+
+  Future<void> _postCustomerAccount({
+    required String customerId,
+    required String saleId,
+    required String reference,
+    required int total,
+    required int outstanding,
+    required List<Map<String, dynamic>> payments,
+  }) async {
+    final action = {
+      'action': 'post_sale',
+      'customer_id': customerId,
+      'sale_id': saleId,
+      'reference': reference,
+      'total': total,
+      'outstanding': outstanding,
+      'payments': payments,
+    };
+    final remote = LocalMasterServer.clientBaseUrl();
+    if (remote != null) {
+      try {
+        final response = await _client
+            .post(
+              Uri.parse('$remote/customer-accounts/actions'),
+              headers: _headers,
+              body: jsonEncode(action),
+            )
+            .timeout(const Duration(seconds: 8));
+        if (response.statusCode == 200) return;
+      } catch (_) {}
+    }
+    await CustomerAccountStore.instance.postSale(
+      customerId: customerId,
+      saleId: saleId,
+      total: total,
+      outstanding: outstanding,
+      payments: payments,
+      reference: reference,
+    );
   }
 }

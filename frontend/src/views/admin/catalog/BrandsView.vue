@@ -4,7 +4,9 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Brand } from '../../../types'
 
@@ -88,10 +90,10 @@ async function remove(brand: Brand) {
       @close="showModal = false"
     >
       <form class="space-y-3" @submit.prevent="save">
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="form.name" required class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">Slug</label><input v-model="form.slug" class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('products.description') }}</label><textarea v-model="form.description" rows="2" class="field" /></div>
-        <label class="flex items-center gap-2 text-sm"><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
+        <div><FieldLabel icon="account">{{ t('org.name') }}</FieldLabel><input v-model="form.name" required class="field" /></div>
+        <div><FieldLabel icon="tag">Slug</FieldLabel><input v-model="form.slug" class="field" /></div>
+        <div><FieldLabel icon="note">{{ t('products.description') }}</FieldLabel><textarea v-model="form.description" rows="2" class="field" /></div>
+        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>

@@ -5,6 +5,7 @@ import OrganizationLayout from '../../../components/organization/OrganizationLay
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -225,7 +226,7 @@ async function revoke(device: Device) {
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('stores.select') }}</label>
+          <FieldLabel icon="stores">{{ t('stores.select') }}</FieldLabel>
           <select v-model="storeId" class="field w-auto min-w-[240px]">
             <option v-for="s in context.activeStores" :key="s.id" :value="s.id">
               {{ context.storeLabel(s) }}
@@ -308,7 +309,7 @@ async function revoke(device: Device) {
     >
       <form class="space-y-4" @submit.prevent="save">
         <div>
-          <label class="mb-2 block text-sm font-medium">{{ t('org.deviceCategory') }}</label>
+          <FieldLabel icon="device-pos">{{ t('org.deviceCategory') }}</FieldLabel>
           <div class="choice-grid">
             <button
               v-for="category in categories"
@@ -326,7 +327,7 @@ async function revoke(device: Device) {
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('org.deviceName') }} *</label>
+          <FieldLabel icon="device-pos">{{ t('org.deviceName') }} *</FieldLabel>
           <input v-model="form.name" required class="field w-full" :placeholder="t('org.deviceNamePlaceholder')" />
         </div>
 
@@ -334,7 +335,7 @@ async function revoke(device: Device) {
           <legend>{{ t('org.connectionConfig') }}</legend>
           <div class="grid gap-3 sm:grid-cols-2">
             <div class="sm:col-span-2">
-              <label class="mb-2 block text-sm font-medium">{{ t('org.connectionType') }}</label>
+              <FieldLabel icon="conn-network">{{ t('org.connectionType') }}</FieldLabel>
               <div class="choice-grid choice-grid--connections">
                 <button
                   v-for="connection in connections"
@@ -351,11 +352,11 @@ async function revoke(device: Device) {
             </div>
             <template v-if="form.connection_type === 'network'">
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.ipAddress') }}</label>
+                <FieldLabel icon="conn-network">{{ t('org.ipAddress') }}</FieldLabel>
                 <input v-model="form.ip_address" class="field w-full" placeholder="192.168.1.100" />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium">{{ t('org.port') }}</label>
+                <FieldLabel icon="conn-network">{{ t('org.port') }}</FieldLabel>
                 <input v-model.number="form.port" type="number" min="1" max="65535" class="field w-full" />
               </div>
             </template>
@@ -363,7 +364,7 @@ async function revoke(device: Device) {
         </fieldset>
 
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('org.assignWarehouses') }}</label>
+          <FieldLabel icon="inventory">{{ t('org.assignWarehouses') }}</FieldLabel>
           <div class="warehouse-box">
             <label v-for="warehouse in store.warehouses" :key="warehouse.id" class="warehouse-option">
               <input
@@ -380,23 +381,23 @@ async function revoke(device: Device) {
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('org.descriptionOptional') }}</label>
+          <FieldLabel icon="note">{{ t('org.descriptionOptional') }}</FieldLabel>
           <textarea v-model="form.description" rows="2" class="field w-full" :placeholder="t('org.descriptionPlaceholder')" />
         </div>
 
         <div class="grid gap-3 sm:grid-cols-3">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('org.deviceRole') }}</label>
+            <FieldLabel icon="organization">{{ t('org.deviceRole') }}</FieldLabel>
             <select v-model="form.pos_role" class="field w-full">
               <option v-for="role in roles" :key="role" :value="role">{{ t(`org.roles.${role}`) }}</option>
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('org.registration') }}</label>
+            <FieldLabel icon="tag">{{ t('org.registration') }}</FieldLabel>
             <input class="field w-full" :value="registrationLabel(form.registration_status)" disabled />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('org.deviceCategory') }}</label>
+            <FieldLabel icon="device-pos">{{ t('org.deviceCategory') }}</FieldLabel>
             <input class="field w-full" :value="form.category" disabled />
           </div>
         </div>
@@ -422,6 +423,7 @@ async function revoke(device: Device) {
         <p v-else class="text-xs text-slate-500">{{ t('org.syncTokenCreatedHint') }}</p>
 
         <label class="flex items-center gap-2 text-sm">
+          <span class="field-icon"><AppIcon name="check" :size="14" /></span>
           <input v-model="form.is_active" type="checkbox" class="rounded" />
           {{ t('products.active') }}
         </label>

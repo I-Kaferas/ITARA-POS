@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { PurchaseOrderDetail, PurchaseOrderInvoice } from '../../../types'
@@ -318,11 +319,11 @@ function onHand(productId?: string) {
       <form class="space-y-3" @submit.prevent="submitPay">
         <p class="text-sm text-slate-600">{{ paying?.invoice_number }}</p>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('products.price') }}</label>
+          <FieldLabel icon="coins">{{ t('products.price') }}</FieldLabel>
           <input v-model="payAmount" required class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('payables.method') }}</label>
+          <FieldLabel icon="card">{{ t('payables.method') }}</FieldLabel>
           <select v-model="payMethod" class="field">
             <option value="bank_transfer">Virement</option>
             <option value="cash">Espèces</option>
@@ -331,7 +332,7 @@ function onHand(productId?: string) {
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('payables.reference') }}</label>
+          <FieldLabel icon="tag">{{ t('payables.reference') }}</FieldLabel>
           <input v-model="payReference" class="field" />
         </div>
         <div class="app-modal__actions">

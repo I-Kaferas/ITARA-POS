@@ -7,6 +7,7 @@ import PosCartPanel from '../../../components/pos/PosCartPanel.vue'
 import PosCategorySidebar from '../../../components/pos/PosCategorySidebar.vue'
 import PosFooterPanel from '../../../components/pos/PosFooterPanel.vue'
 import PosProductGrid from '../../../components/pos/PosProductGrid.vue'
+import PosReturnSheet from '../../../components/pos/PosReturnSheet.vue'
 import PosSearchBar from '../../../components/pos/PosSearchBar.vue'
 import PosSessionGate from '../../../components/pos/PosSessionGate.vue'
 import { openPrintWindow, printSaleDocument } from '../../../utils/printSaleDocument'
@@ -14,6 +15,7 @@ import { printZReport, type ZReportPayload } from '../../../utils/printZReport'
 import { useContextStore } from '../../../stores/context'
 import { usePosStore } from '../../../stores/pos'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { formatMoney } from '../../../utils/money'
 import { api } from '../../../api/client'
 import type { PosProduct } from '../../../types/pos'
@@ -25,6 +27,8 @@ const context = useContextStore()
 const pos = usePosStore()
 
 const showClose = ref(false)
+const showReturn = ref(false)
+const drawerAmount = ref('')
 const searchQuery = ref('')
 const selectedCategoryId = ref<string | null>(null)
 const footerRef = ref<{ openPaymentModal: () => void } | null>(null)
@@ -321,21 +325,16 @@ async function onRetrieve(id: string, options?: { openPayment?: boolean }) {
 }
 
 function onPay(payments: { method: string; amount: number; tendered?: number }[]) {
-  const popup = openPrintWindow()
   void pos.pay(payments).then(async result => {
     const changeMsg = result.change > 0 ? ` — ${t('pos.change')}: ${formatChange(result.change)}` : ''
-    pos.setStatus(`${result.message}${changeMsg}`, !result.success)
-    if (result.success && result.saleId) {
-      if (context.currentStoreId) await pos.loadSession(context.currentStoreId)
-      kickDrawer()
-      try {
-        const issued = await api.post<{ data: Parameters<typeof printSaleDocument>[0] }>(`/sales/${result.saleId}/receipt`)
-        printSaleDocument(issued.data, t('pointOfSale.orders.receipt'), popup)
-      } catch {
-        popup?.close()
-      }
-    } else {
-      popup?.close()
+    const earned = result.loyalty?.earned ?? 0
+    const pointsMsg = earned > 0 ? ` — ${t('pos.loyaltyEarned', { points: earned })}` : ''
+    pos.setStatus(`${result.message}${changeMsg}${pointsMsg}`, !result.success)
+    if (!result.success) return
+    if (context.currentStoreId) await pos.loadSession(context.currentStoreId)
+    kickDrawer()
+    if (result.receipt) {
+      printSaleDocument(result.receipt, t('pointOfSale.orders.receipt'))
     }
   })
 }
@@ -392,10 +391,22 @@ async function openShift(payload: { pin: string; registerId: string; opening: nu
   }
 }
 
-async function closeShift(payload: { pin: string; counted: number; notes: string }) {
+async function moveCash(type: 'cash_in' | 'cash_out') {
+  const amount = Math.round((Number(drawerAmount.value) || 0) * 100)
+  if (amount < 1) return
+  try {
+    await pos.recordDrawerMovement(type, amount)
+    drawerAmount.value = ''
+    pos.setStatus(type === 'cash_in' ? t('pos.cashIn') : t('pos.cashOut'))
+  } catch (e) {
+    pos.setStatus(e instanceof Error ? e.message : 'Mouvement refusé', true)
+  }
+}
+
+async function closeShift(payload: { pin: string; counted: number; notes: string; reason: string }) {
   if (!context.currentStoreId) return
   try {
-    const report = await pos.closeShiftWithPin(context.currentStoreId, payload.pin, payload.counted, payload.notes)
+    const report = await pos.closeShiftWithPin(context.currentStoreId, payload.pin, payload.counted, payload.notes, payload.reason)
     const popup = openPrintWindow()
     printZReport({
       ...(report as ZReportPayload),
@@ -410,32 +421,22 @@ async function closeShift(payload: { pin: string; counted: number; notes: string
 
 async function redeemLoyalty() {
   if (!pos.customer) return
-  const res = await api.get<{ data: { loyalty_points?: number } }>(`/customers/${pos.customer.id}`)
-  const points = res.data.loyalty_points ?? 0
-  if (points < 1) {
-    pos.setStatus(t('pos.saleNotFound'), true)
+  const res = await api.get<{ data: { points: number; reward_per_point: number } }>(`/customers/${pos.customer.id}/loyalty`)
+  const available = res.data.points ?? 0
+  const perPoint = res.data.reward_per_point || 100
+  const usable = Math.min(available, Math.floor(pos.totals.grand_total / perPoint))
+  if (usable < 1) {
+    pos.setStatus(available < 1 ? t('pos.loyaltyNone') : t('pos.loyaltyTooSmall'), true)
     return
   }
-  pos.setGlobalDiscount({ type: 'fixed', value: points * 100 })
-  pos.setStatus(`${points} pts`)
+  pos.applyLoyaltyReward(usable, usable * perPoint)
+  pos.setStatus(t('pos.loyaltyApplied', { points: usable, value: formatMoney(usable * perPoint) }))
 }
 
-async function refundLast() {
-  if (!context.currentStoreId) return
-  const reference = window.prompt(t('pos.refundSale'))
-  if (!reference) return
-  try {
-    const list = await api.get<{ data: { id: string; reference: string; status: string }[] }>(`/stores/${context.currentStoreId}/sales?q=${encodeURIComponent(reference)}&status=completed`)
-    const sale = list.data.find(item => item.reference === reference) ?? list.data[0]
-    if (!sale) {
-      pos.setStatus(t('pos.saleNotFound'), true)
-      return
-    }
-    await pos.refundSale(context.currentStoreId, sale.id)
-    pos.setStatus(t('pos.refundDone'))
-  } catch (e) {
-    pos.setStatus(e instanceof Error ? e.message : 'Remboursement refusé', true)
-  }
+function onReturnDone(message: string) {
+  showReturn.value = false
+  pos.setStatus(message)
+  if (context.currentStoreId) void pos.loadSession(context.currentStoreId)
 }
 
 function formatChange(amount: number) {
@@ -463,7 +464,11 @@ onUnmounted(() => {
             {{ pos.shift.cashier?.name }}
             · {{ t('pos.shiftSales') }}: {{ Number(pos.shiftSummary?.sales_count ?? 0) }}
             · {{ formatMoney(Number(pos.shiftSummary?.sales_total ?? 0)) }}
+            · {{ t('pos.theoreticalCash') }}: {{ formatMoney(Number(pos.shiftSummary?.expected_cash ?? 0)) }}
           </span>
+          <input v-model="drawerAmount" class="pos-desk__amount" type="number" min="0" step="0.01" :placeholder="t('pos.amount')" />
+          <button type="button" :disabled="!pos.shift" @click="moveCash('cash_in')">{{ t('pos.cashIn') }}</button>
+          <button type="button" :disabled="!pos.shift" @click="moveCash('cash_out')">{{ t('pos.cashOut') }}</button>
           <select v-model="pos.priceMode">
             <option value="retail">{{ t('pos.retail') }}</option>
             <option value="wholesale">{{ t('pos.wholesale') }}</option>
@@ -473,7 +478,7 @@ onUnmounted(() => {
           </select>
           <button type="button" @click="kickDrawer">{{ t('pos.drawer') }}</button>
           <button type="button" :disabled="!pos.customer" @click="redeemLoyalty">{{ t('pos.loyalty') }}</button>
-          <button type="button" :disabled="!pos.shift" @click="refundLast">{{ t('pos.refund') }}</button>
+          <button type="button" :disabled="!pos.shift" @click="showReturn = !showReturn">{{ t('pos.refund') }}</button>
           <button type="button" :disabled="!pos.shift" @click="showClose = !showClose">{{ t('pos.closeShift') }}</button>
         </div>
         <PosSessionGate
@@ -484,6 +489,14 @@ onUnmounted(() => {
           :expected-cash="Number(pos.shiftSummary?.expected_cash ?? 0)"
           @close-shift="closeShift"
         />
+        <PosReturnSheet
+          v-if="showReturn && context.currentStoreId"
+          :store-id="context.currentStoreId"
+          :cash-register-id="pos.shift?.cash_register_id"
+          @close="showReturn = false"
+          @done="onReturnDone"
+        />
+
         <PosSearchBar
           ref="searchRef"
           v-model="searchQuery"
@@ -532,12 +545,13 @@ onUnmounted(() => {
           :title="qtyProduct?.name ?? t('pos.quantityTitle')"
           icon="products"
           tone="info"
+          size="sm"
           @close="qtyProduct = null"
         >
           <form class="space-y-3" @submit.prevent="confirmQtySale">
             <p class="text-sm text-slate-500">{{ t('pos.quantityHint') }}</p>
             <div>
-              <label class="mb-1 block text-sm font-medium">{{ t('beverages.quantity') }}</label>
+              <FieldLabel icon="package">{{ t('beverages.quantity') }}</FieldLabel>
               <input v-model.number="saleQty" type="number" min="1" required class="w-full rounded-lg border border-slate-300 px-3 py-2" />
             </div>
             <div class="flex justify-end gap-2">
@@ -592,6 +606,7 @@ onUnmounted(() => {
           :title="unitProduct?.name ?? t('beverages.sell')"
           icon="products"
           tone="info"
+          size="md"
           @close="unitProduct = null"
         >
           <form class="space-y-3" @submit.prevent="confirmUnitSale">
@@ -614,7 +629,7 @@ onUnmounted(() => {
               </label>
             </div>
             <div v-if="unitProduct && needsSaleQuantity(unitProduct)">
-              <label class="mb-1 block text-sm font-medium">{{ t('beverages.quantity') }}</label>
+              <FieldLabel icon="package">{{ t('beverages.quantity') }}</FieldLabel>
               <input v-model.number="unitQty" type="number" min="1" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
             </div>
             <p v-else class="text-sm text-slate-500">{{ t('pos.noQuantity') }}</p>
@@ -674,6 +689,7 @@ onUnmounted(() => {
   background: #eef2f6;
 }
 .pos-desk { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; padding: 0.45rem 0.85rem 0; }
+.pos-desk__amount { width: 6.5rem; border: 1px solid #cbd5e1; border-radius: 0.45rem; padding: 0.3rem 0.45rem; }
 .pos-desk select, .pos-desk button { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.35rem 0.65rem; background: white; font-size: 0.8rem; }
 .pos-body {
   position: relative;

@@ -16,6 +16,8 @@ final readonly class CartItemInput
         public ?string $sku = null,
         public ?string $name = null,
         public ?string $priceType = null,
+        public ?string $saleUnitId = null,
+        public ?int $volumeMl = null,
     ) {}
 
     /** @param  array<string, mixed>  $payload */
@@ -33,6 +35,8 @@ final readonly class CartItemInput
             sku: isset($payload['sku']) ? (string) $payload['sku'] : null,
             name: isset($payload['name']) ? (string) $payload['name'] : null,
             priceType: isset($payload['price_type']) ? (string) $payload['price_type'] : null,
+            saleUnitId: isset($payload['sale_unit_id']) ? (string) $payload['sale_unit_id'] : null,
+            volumeMl: isset($payload['volume_ml']) ? (int) $payload['volume_ml'] : null,
         );
     }
 }

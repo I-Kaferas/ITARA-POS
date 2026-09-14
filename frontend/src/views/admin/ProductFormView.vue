@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
+import AppIcon from '../../components/ui/AppIcon.vue'
+import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
 import type { Barcode, BarcodeType, Brand, Category, Price, Product, ProductBundleItem, ProductImage, ProductType, ProductVariant, Tax, Unit } from '../../types'
@@ -350,12 +352,12 @@ async function makePrimary(id: string) {
       <!-- General -->
       <div v-show="activeTab === 'general'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-4">
         <div class="grid gap-4 sm:grid-cols-2">
-          <div><label class="label">SKU</label><input v-model="form.sku" required class="field" /></div>
-          <div><label class="label">{{ t('products.name') }}</label><input v-model="form.name" required class="field" /></div>
+          <div><FieldLabel icon="tag">SKU</FieldLabel><input v-model="form.sku" required class="field" /></div>
+          <div><FieldLabel icon="products">{{ t('products.name') }}</FieldLabel><input v-model="form.name" required class="field" /></div>
         </div>
-        <div><label class="label">{{ t('products.description') }}</label><textarea v-model="form.description" rows="3" class="field" /></div>
+        <div><FieldLabel icon="note">{{ t('products.description') }}</FieldLabel><textarea v-model="form.description" rows="3" class="field" /></div>
         <div>
-          <label class="label">{{ t('products.nature') }}</label>
+          <FieldLabel icon="products">{{ t('products.nature') }}</FieldLabel>
           <div class="product-type-grid">
             <label class="product-type-card product-type-card--stock" :class="{ 'product-type-card--active': isQuantifiable }">
               <input type="radio" class="sr-only" :checked="isQuantifiable" @change="setNature('quantifiable')" />
@@ -369,7 +371,7 @@ async function makePrimary(id: string) {
           <p class="mt-2 text-xs text-slate-500">{{ isQuantifiable ? t('products.quantifiableHint') : t('products.serviceHint') }}</p>
         </div>
         <div v-if="isQuantifiable">
-          <label class="label">{{ t('products.structure') }}</label>
+          <FieldLabel icon="layers">{{ t('products.structure') }}</FieldLabel>
           <div class="product-type-grid">
             <label
               v-for="pt in STOCKABLE_TYPES"
@@ -385,7 +387,7 @@ async function makePrimary(id: string) {
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
             <div class="mb-1 flex items-center justify-between gap-2">
-              <label class="label !mb-0">{{ t('catalog.tabs.categories') }}</label>
+              <FieldLabel icon="layers" class="!mb-0">{{ t('catalog.tabs.categories') }}</FieldLabel>
               <button type="button" class="text-xs font-medium text-brand-600" @click="router.push({ name: 'catalog-categories' })">
                 {{ t('catalog.manageCategories') }}
               </button>
@@ -402,7 +404,7 @@ async function makePrimary(id: string) {
           </div>
           <div>
             <div class="mb-1 flex items-center justify-between gap-2">
-              <label class="label !mb-0">{{ t('catalog.tabs.brands') }}</label>
+              <FieldLabel icon="catalog" class="!mb-0">{{ t('catalog.tabs.brands') }}</FieldLabel>
               <button type="button" class="text-xs font-medium text-brand-600" @click="router.push({ name: 'catalog-brands' })">
                 {{ t('catalog.manageBrands') }}
               </button>
@@ -417,7 +419,7 @@ async function makePrimary(id: string) {
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
             <div class="mb-1 flex items-center justify-between gap-2">
-              <label class="label !mb-0">{{ t('nav.units') }}</label>
+              <FieldLabel icon="package" class="!mb-0">{{ t('nav.units') }}</FieldLabel>
               <button type="button" class="text-xs font-medium text-brand-600" @click="router.push({ name: 'catalog-units' })">
                 {{ t('catalog.manageUnits') }}
               </button>
@@ -430,7 +432,7 @@ async function makePrimary(id: string) {
           </div>
           <div>
             <div class="mb-1 flex items-center justify-between gap-2">
-              <label class="label !mb-0">{{ t('catalog.tabs.taxes') }}</label>
+              <FieldLabel icon="percent" class="!mb-0">{{ t('catalog.tabs.taxes') }}</FieldLabel>
               <button type="button" class="text-xs font-medium text-brand-600" @click="router.push({ name: 'catalog-taxes' })">
                 {{ t('catalog.manageTaxes') }}
               </button>
@@ -443,15 +445,15 @@ async function makePrimary(id: string) {
           </div>
         </div>
         <div v-if="isQuantifiable" class="grid gap-4 sm:grid-cols-3">
-          <label class="flex items-center gap-2 text-sm"><input v-model="form.is_serialized" type="checkbox" class="rounded" />{{ t('products.serialized') }}</label>
-          <label class="flex items-center gap-2 text-sm"><input v-model="form.track_batch" type="checkbox" class="rounded" />{{ t('products.batch') }}</label>
-          <label class="flex items-center gap-2 text-sm"><input v-model="form.track_expiration" type="checkbox" class="rounded" />{{ t('products.expiration') }}</label>
+          <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="tag" :size="14" /></span><input v-model="form.is_serialized" type="checkbox" class="rounded" />{{ t('products.serialized') }}</label>
+          <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="inventory" :size="14" /></span><input v-model="form.track_batch" type="checkbox" class="rounded" />{{ t('products.batch') }}</label>
+          <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="calendar" :size="14" /></span><input v-model="form.track_expiration" type="checkbox" class="rounded" />{{ t('products.expiration') }}</label>
         </div>
         <div v-if="form.track_expiration">
-          <label class="label">{{ t('products.expirationDays') }}</label>
+          <FieldLabel icon="calendar">{{ t('products.expirationDays') }}</FieldLabel>
           <input v-model.number="form.expiration_days" type="number" min="1" class="field max-w-xs" />
         </div>
-        <label class="flex items-center gap-2 text-sm"><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
+        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <p v-if="product && isQuantifiable" class="text-sm text-slate-600">
           {{ t('products.stock') }} : <span class="font-medium">{{ product.stock ?? 0 }}</span>
         </p>
@@ -461,8 +463,8 @@ async function makePrimary(id: string) {
       <div v-show="activeTab === 'pricing'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-4">
         <p class="text-sm text-slate-500">{{ t('products.priceHint') }}</p>
         <div class="grid gap-4 sm:grid-cols-2">
-          <div><label class="label">{{ t('products.price') }}</label><input v-model.number="form.base_price" type="number" step="0.01" min="0" class="field" /></div>
-          <div><label class="label">{{ t('products.cost') }}</label><input v-model.number="form.cost_price" type="number" step="0.01" min="0" class="field" /></div>
+          <div><FieldLabel icon="coins">{{ t('products.price') }}</FieldLabel><input v-model.number="form.base_price" type="number" step="0.01" min="0" class="field" /></div>
+          <div><FieldLabel icon="coins">{{ t('products.cost') }}</FieldLabel><input v-model.number="form.cost_price" type="number" step="0.01" min="0" class="field" /></div>
         </div>
         <p class="m-0 text-sm text-slate-600">
           HT {{ formatQuote(sellingQuote.ht) }}
@@ -506,7 +508,7 @@ async function makePrimary(id: string) {
           </select>
           <button type="button" class="btn-secondary text-sm" @click="generateBarcodeForRow(i)">{{ t('products.generateBarcode') }}</button>
           <div class="flex items-center gap-2">
-            <label class="flex items-center gap-1 text-sm"><input v-model="bc.is_primary" type="checkbox" class="rounded" />★</label>
+            <label class="flex items-center gap-1 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="bc.is_primary" type="checkbox" class="rounded" />★</label>
             <button v-if="bc.id" type="button" class="text-sm text-brand-600" @click="printBarcodeRow(bc)">{{ t('products.printBarcode') }}</button>
             <button type="button" class="row-remove" @click="barcodes.splice(i, 1)">✕</button>
           </div>
@@ -584,7 +586,10 @@ async function makePrimary(id: string) {
       <p v-if="saveError" class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{{ saveError }}</p>
       <p v-if="saveNotice" class="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ saveNotice }}</p>
       <div class="flex gap-3">
-        <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? t('common.loading') : t('common.save') }}</button>
+        <button type="submit" class="btn-primary gap-1.5" :disabled="saving">
+          <AppIcon name="check" :size="15" />
+          {{ saving ? t('common.loading') : t('common.save') }}
+        </button>
         <button type="button" class="btn-secondary" @click="router.push({ name: 'products' })">{{ t('common.cancel') }}</button>
       </div>
     </form>
@@ -592,7 +597,6 @@ async function makePrimary(id: string) {
 </template>
 
 <style scoped>
-.label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; font-weight: 500; }
 .field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
 .btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
 .btn-primary:disabled { opacity: 0.5; }

@@ -1,5 +1,5 @@
-/// Placeholder for Drift local database (Phase 36).
-/// Schema and DAOs will be implemented in the offline POS phase.
+/// Local SQLite lives in `local_database.dart` (`pos_offline.sqlite`).
+/// Android and Windows share that file and the same sale transaction.
 class LocalDatabasePlaceholder {
   const LocalDatabasePlaceholder();
 }

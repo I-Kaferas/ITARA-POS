@@ -42,6 +42,8 @@ class ApiClient {
       if (tenantId.isNotEmpty) 'X-Tenant-ID': tenantId,
       if (storeId.isNotEmpty) 'X-Store-ID': storeId,
       if (deviceId.isNotEmpty) 'X-Device-ID': deviceId,
+      if (config.deviceName.isNotEmpty) 'X-Device-Name': config.deviceName
+      else if (config.deviceIdentifier.isNotEmpty) 'X-Device-Name': config.deviceIdentifier,
     };
   }
 

@@ -6,6 +6,7 @@ import InventoryActionDetails from '../../../components/inventory/InventoryActio
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, PurchaseOrderDetail, Warehouse } from '../../../types'
@@ -213,18 +214,18 @@ async function confirm(id: string, status: string) {
       :title="t('inventory.newSupply')"
       icon="purchases"
       tone="info"
-      size="md"
+      size="xl"
       @close="showModal = false"
     >
       <form class="space-y-3" @submit.prevent="save">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
+          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
           <select v-model="form.warehouse_id" required class="field">
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.supplier') }}</label>
+          <FieldLabel icon="suppliers">{{ t('inventory.supplier') }}</FieldLabel>
           <select v-model="form.supplier_id" class="field">
             <option value="">—</option>
             <option v-for="s in store.suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
@@ -277,8 +278,8 @@ async function confirm(id: string, status: string) {
 <style scoped>
 .field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
 .line-row { display: flex; align-items: center; gap: 0.5rem; }
-.line-row > .field { flex: 1; min-width: 0; }
-.line-row > .qty { flex: 0 0 4.5rem; width: 4.5rem; padding-left: 0.4rem; padding-right: 0.35rem; text-align: center; }
+.line-row > .field { flex: 1 1 14rem; min-width: 0; }
+.line-row > .qty { flex: 0 0 6.5rem; width: 6.5rem; padding-left: 0.4rem; padding-right: 0.35rem; text-align: center; }
 .btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }

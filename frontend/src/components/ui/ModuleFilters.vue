@@ -55,7 +55,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const open = ref(false)
+const open = ref(true)
 
 function patch(partial: Partial<ListFilters>, reload = true) {
   emit('update:modelValue', { ...props.modelValue, ...partial })
@@ -136,22 +136,35 @@ function reset() {
 </template>
 
 <style scoped>
-.filters-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 0.55rem; width: 100%; }
+.filters-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e4e8ec;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 1px 2px rgba(18, 24, 30, 0.04);
+}
 .toggle {
   display: inline-flex;
   align-items: center;
+  align-self: flex-start;
   gap: 0.4rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.5rem;
-  padding: 0.4rem 0.8rem;
-  background: white;
-  color: #334155;
-  font-size: 0.82rem;
-  font-weight: 600;
+  border: 1px solid #e4e8ec;
+  border-radius: 999px;
+  padding: 0.38rem 0.8rem;
+  background: #f7f4ef;
+  color: #3d5c73;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 .filters { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; width: 100%; }
-.field { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.45rem 0.7rem; background: white; min-width: 9.5rem; }
-.grow { flex: 1; min-width: 12rem; }
-.btn { border-radius: 0.5rem; padding: 0.45rem 0.85rem; color: white; background: #4a6d86; }
-.btn.ghost { background: white; color: #334155; border: 1px solid #cbd5e1; }
+.field { border: 1px solid #d7dbe6; border-radius: 0.75rem; padding: 0.5rem 0.75rem; background: white; min-width: 9.5rem; }
+.grow { flex: 1; min-width: 14rem; }
+.btn { border-radius: 0.75rem; padding: 0.5rem 0.9rem; color: white; background: #4a6d86; font-weight: 650; }
+.btn.ghost { background: white; color: #334155; border: 1px solid #d7dbe6; }
 </style>

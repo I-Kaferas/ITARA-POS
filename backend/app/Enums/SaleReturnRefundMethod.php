@@ -16,6 +16,8 @@ enum SaleReturnRefundMethod: string
 
     case MobileMoney = 'mobile_money';
 
+    case BankTransfer = 'bank_transfer';
+
     case Wallet = 'wallet';
 
     case Credit = 'credit';
@@ -101,6 +103,8 @@ enum SaleReturnRefundMethod: string
             self::Card => SalePaymentMethod::Card,
 
             self::MobileMoney => SalePaymentMethod::MobileMoney,
+
+            self::BankTransfer => SalePaymentMethod::BankTransfer,
 
             self::Wallet => SalePaymentMethod::Wallet,
 

@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum SalePaymentStatus: string
 {
+    case Unpaid = 'unpaid';
     case Paid = 'paid';
     case Partial = 'partial';
     case OnCredit = 'on_credit';

@@ -62,6 +62,8 @@ class TerminalConfig {
     this.isSignedIn = false,
     this.cashierId = '',
     this.cashierName = '',
+    this.cashRegisterId = '',
+    this.cashSessionId = '',
     this.permissions = const [],
     this.roles = const [],
     this.pinVerifier = '',
@@ -102,6 +104,8 @@ class TerminalConfig {
       isSignedIn: json['is_signed_in'] as bool? ?? false,
       cashierId: json['cashier_id'] as String? ?? '',
       cashierName: json['cashier_name'] as String? ?? '',
+      cashRegisterId: json['cash_register_id'] as String? ?? '',
+      cashSessionId: json['cash_session_id'] as String? ?? '',
       permissions: (json['permissions'] as List?)?.map((item) => item.toString()).toList() ?? const [],
       roles: (json['roles'] as List?)?.map((item) => item.toString()).toList() ?? const [],
       pinVerifier: json['pin_verifier'] as String? ?? '',
@@ -141,6 +145,8 @@ class TerminalConfig {
   final bool isSignedIn;
   final String cashierId;
   final String cashierName;
+  final String cashRegisterId;
+  final String cashSessionId;
   final List<String> permissions;
   final List<String> roles;
   final String pinVerifier;
@@ -186,6 +192,8 @@ class TerminalConfig {
         'is_signed_in': isSignedIn,
         'cashier_id': cashierId,
         'cashier_name': cashierName,
+        'cash_register_id': cashRegisterId,
+        'cash_session_id': cashSessionId,
         'permissions': permissions,
         'roles': roles,
         'pin_verifier': pinVerifier,
@@ -225,6 +233,8 @@ class TerminalConfig {
     bool? isSignedIn,
     String? cashierId,
     String? cashierName,
+    String? cashRegisterId,
+    String? cashSessionId,
     List<String>? permissions,
     List<String>? roles,
     String? pinVerifier,
@@ -263,6 +273,8 @@ class TerminalConfig {
       isSignedIn: isSignedIn ?? this.isSignedIn,
       cashierId: cashierId ?? this.cashierId,
       cashierName: cashierName ?? this.cashierName,
+      cashRegisterId: cashRegisterId ?? this.cashRegisterId,
+      cashSessionId: cashSessionId ?? this.cashSessionId,
       permissions: permissions ?? this.permissions,
       roles: roles ?? this.roles,
       pinVerifier: pinVerifier ?? this.pinVerifier,

@@ -2,6 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
+import AppIcon from '../../components/ui/AppIcon.vue'
+import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 import type { Catalog, ImportResult } from '../../types'
 
@@ -51,7 +53,7 @@ async function importFile() {
         <h3 class="mb-4 text-base font-semibold">{{ t('importExport.exportTitle') }}</h3>
         <p class="mb-4 text-sm text-slate-600">{{ t('importExport.exportHint') }}</p>
         <div class="mb-4">
-          <label class="mb-1 block text-sm font-medium">{{ t('nav.catalogs') }}</label>
+          <FieldLabel icon="catalog">{{ t('nav.catalogs') }}</FieldLabel>
           <select v-model="catalogId" class="field w-full">
             <option value="">{{ t('org.allStores') }}</option>
             <option v-for="c in catalogs" :key="c.id" :value="c.id">{{ c.name }}</option>
@@ -68,16 +70,17 @@ async function importFile() {
         <p class="mb-4 text-sm text-slate-600">{{ t('importExport.importHint') }}</p>
         <div class="mb-4 space-y-3">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('nav.catalogs') }}</label>
+            <FieldLabel icon="catalog">{{ t('nav.catalogs') }}</FieldLabel>
             <select v-model="catalogId" required class="field w-full">
               <option v-for="c in catalogs" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">CSV</label>
+            <FieldLabel icon="products">CSV</FieldLabel>
             <input type="file" accept=".csv,text/csv" class="field w-full" @change="onFileChange" />
           </div>
           <label class="flex items-center gap-2 text-sm">
+            <span class="field-icon"><AppIcon name="check" :size="14" /></span>
             <input v-model="updateExisting" type="checkbox" class="rounded" />
             {{ t('importExport.updateExisting') }}
           </label>

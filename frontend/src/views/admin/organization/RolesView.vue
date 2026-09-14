@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Role } from '../../../types'
 
@@ -118,11 +119,11 @@ async function remove(role: Role) {
     >
       <form class="space-y-3" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="form.name" required class="field" /></div>
-          <div><label class="mb-1 block text-sm font-medium">Slug</label><input v-model="form.slug" required pattern="[a-z0-9_]+" class="field" :disabled="!!editing?.is_system" /></div>
+          <div><FieldLabel icon="account">{{ t('org.name') }}</FieldLabel><input v-model="form.name" required class="field" /></div>
+          <div><FieldLabel icon="tag">Slug</FieldLabel><input v-model="form.slug" required pattern="[a-z0-9_]+" class="field" :disabled="!!editing?.is_system" /></div>
         </div>
         <div>
-          <p class="mb-2 text-sm font-medium">{{ t('rbac.permissions') }}</p>
+          <FieldLabel icon="lock">{{ t('rbac.permissions') }}</FieldLabel>
           <div v-for="(perms, group) in groupedPermissions" :key="group" class="mb-4">
             <p class="mb-1 text-xs font-semibold uppercase text-slate-500">{{ group }}</p>
             <div class="grid grid-cols-2 gap-1">

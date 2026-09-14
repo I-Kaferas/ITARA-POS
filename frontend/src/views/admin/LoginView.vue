@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import LanguageSwitcher from '../../components/ui/LanguageSwitcher.vue'
+import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useBrandingStore } from '../../stores/branding'
 import { useContextStore } from '../../stores/context'
@@ -150,7 +151,7 @@ async function submit() {
         </p>
 
         <div v-if="showTwoFactor" class="ui-field">
-          <label class="ui-label" for="otp">{{ t('auth.twoFactorCode') }}</label>
+          <FieldLabel icon="lock" for="otp">{{ t('auth.twoFactorCode') }}</FieldLabel>
           <input
             id="otp"
             v-model="twoFactorCode"
@@ -165,7 +166,7 @@ async function submit() {
 
         <template v-else>
           <div class="ui-field">
-            <label class="ui-label" for="email">{{ t('auth.email') }}</label>
+            <FieldLabel icon="mail" for="email">{{ t('auth.email') }}</FieldLabel>
             <input
               id="email"
               v-model="email"
@@ -178,7 +179,7 @@ async function submit() {
 
           <div class="ui-field">
             <div class="login__label-row">
-              <label class="ui-label" for="password">{{ t('auth.password') }}</label>
+              <FieldLabel icon="lock" for="password">{{ t('auth.password') }}</FieldLabel>
               <RouterLink to="/forgot-password">{{ t('auth.forgotPassword') }}</RouterLink>
             </div>
             <div class="login__secret">
@@ -421,7 +422,8 @@ async function submit() {
   gap: 0.75rem;
 }
 
-.login__label-row .ui-label {
+.login__label-row .ui-label,
+.login__label-row .field-label {
   margin-bottom: 0.375rem;
 }
 

@@ -871,7 +871,9 @@ class PosFooterPanel extends StatelessWidget {
         outstandingAmount: saleResult.outstandingAmount,
         saleId: saleResult.saleId,
         saleReference: saleResult.reference,
-        message: 'Vente ${saleResult.reference} acceptée',
+        message: saleResult.pendingSync
+            ? 'Vente ${saleResult.reference} enregistrée sur cet appareil. Paiement, stock et sync en file — internet non requis.'
+            : 'Vente ${saleResult.reference} acceptée',
       ));
     } catch (error) {
       onPayment(PosPaymentResult(

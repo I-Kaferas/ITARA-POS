@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import SubNav from '../../../components/ui/SubNav.vue'
 import { extractApiErrorMessage } from '../../../api/client'
@@ -174,7 +175,7 @@ watch(storeId, load)
       <div class="mb-4 rounded-xl border border-slate-200 bg-white p-4">
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <div class="xl:col-span-2">
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('common.search') }}</label>
+            <FieldLabel icon="search">{{ t('common.search') }}</FieldLabel>
             <div class="relative">
               <AppIcon name="search" :size="15" class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -187,27 +188,27 @@ watch(storeId, load)
             </div>
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('pointOfSale.orders.filters.from') }}</label>
+            <FieldLabel icon="calendar">{{ t('pointOfSale.orders.filters.from') }}</FieldLabel>
             <input v-model="filters.from" type="date" class="ui-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('pointOfSale.orders.filters.to') }}</label>
+            <FieldLabel icon="calendar">{{ t('pointOfSale.orders.filters.to') }}</FieldLabel>
             <input v-model="filters.to" type="date" class="ui-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('products.status') }}</label>
+            <FieldLabel icon="filter">{{ t('products.status') }}</FieldLabel>
             <select v-model="filters.status" class="ui-select w-full">
               <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('sales.paymentStatus') }}</label>
+            <FieldLabel icon="card">{{ t('sales.paymentStatus') }}</FieldLabel>
             <select v-model="filters.payment_status" class="ui-select w-full">
               <option v-for="opt in paymentOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
           </div>
           <div class="xl:col-span-2">
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('nav.customers') }}</label>
+            <FieldLabel icon="customers">{{ t('nav.customers') }}</FieldLabel>
             <select v-model="filters.customer_id" class="ui-select w-full">
               <option value="">{{ t('pointOfSale.orders.filters.allCustomers') }}</option>
               <option v-for="customer in store.customers" :key="customer.id" :value="customer.id">

@@ -3,7 +3,10 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import { extractApiErrorMessage } from '../../../api/client'
 import { useAuthStore } from '../../../stores/auth'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -28,7 +31,9 @@ const editingUser = ref<TenantUser | null>(null)
 const selectedUser = ref<TenantUser | null>(null)
 const sessions = ref<UserSession[]>([])
 
-const userForm = ref({ name: '', email: '', phone: '', password: '', is_active: true, role_id: '', store_id: '' })
+const userForm = ref({ name: '', email: '', phone: '', pin: '', password: '', is_active: true, role_id: '', store_id: '' })
+const showPin = ref(false)
+const revealedPins = ref<Record<string, boolean>>({})
 const roleForm = ref({ role_id: '', store_id: '' })
 const passwordForm = ref('')
 
@@ -57,18 +62,60 @@ function storeName(id?: string | null) {
     : id
 }
 
+function usedPins(exceptId?: string) {
+  return new Set(
+    store.users
+      .filter(user => user.id !== exceptId && user.pin)
+      .map(user => user.pin as string),
+  )
+}
+
+function nextUniquePin(exceptId?: string) {
+  const used = usedPins(exceptId)
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const pin = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+    if (!used.has(pin)) return pin
+  }
+  return String(Math.floor(Math.random() * 1000000)).padStart(6, '0')
+}
+
+const pinError = computed(() => {
+  const pin = userForm.value.pin.trim()
+  if (!pin) return t('org.pinInvalid')
+  if (!/^\d{4,6}$/.test(pin)) return t('org.pinInvalid')
+  if (usedPins(editingUser.value?.id).has(pin)) return t('org.pinTaken')
+  return ''
+})
+
+function maskPin(pin?: string | null) {
+  if (!pin) return '—'
+  return '•'.repeat(pin.length)
+}
+
 function openCreateUser() {
   editingUser.value = null
-  userForm.value = { name: '', email: '', phone: '', password: '', is_active: true, role_id: '', store_id: context.currentStoreId ?? '' }
+  showPin.value = true
+  userForm.value = {
+    name: '',
+    email: '',
+    phone: '',
+    pin: nextUniquePin(),
+    password: '',
+    is_active: true,
+    role_id: '',
+    store_id: context.currentStoreId ?? '',
+  }
   showUserModal.value = true
 }
 
 function openEditUser(user: TenantUser) {
   editingUser.value = user
+  showPin.value = false
   userForm.value = {
     name: user.name,
     email: user.email,
     phone: user.phone ?? '',
+    pin: user.pin ?? nextUniquePin(user.id),
     password: '',
     is_active: user.is_active !== false,
     role_id: '',
@@ -77,7 +124,16 @@ function openEditUser(user: TenantUser) {
   showUserModal.value = true
 }
 
+function generatePin() {
+  userForm.value.pin = nextUniquePin(editingUser.value?.id)
+  showPin.value = true
+}
+
 async function saveUser() {
+  if (pinError.value) {
+    message.value = pinError.value
+    return
+  }
   saving.value = true
   message.value = ''
   try {
@@ -85,6 +141,7 @@ async function saveUser() {
       name: userForm.value.name,
       email: userForm.value.email,
       phone: userForm.value.phone || null,
+      pin: userForm.value.pin.trim(),
       is_active: userForm.value.is_active,
     }
     if (userForm.value.password) payload.password = userForm.value.password
@@ -93,10 +150,14 @@ async function saveUser() {
       if (userForm.value.role_id) payload.role_id = userForm.value.role_id
       if (userForm.value.store_id) payload.store_id = userForm.value.store_id
     }
-    await store.saveUser(payload as never, editingUser.value?.id)
+    const saved = await store.saveUser(payload as never, editingUser.value?.id)
     await reload()
     showUserModal.value = false
-    message.value = editingUser.value ? t('org.userSaved') : t('org.userCreated')
+    const pin = saved.pin ?? userForm.value.pin
+    message.value = `${editingUser.value ? t('org.userSaved') : t('org.userCreated')} · PIN ${pin}`
+    if (selectedUser.value?.id === saved.id) selectedUser.value = saved
+  } catch (error) {
+    message.value = extractApiErrorMessage(error, t('org.pinTaken'))
   } finally {
     saving.value = false
   }
@@ -224,6 +285,7 @@ function openAssign(user: TenantUser) {
             <thead>
               <tr>
                 <th>{{ t('org.name') }}</th>
+                <th>{{ t('org.pin') }}</th>
                 <th>{{ t('products.status') }}</th>
                 <th>{{ t('rbac.roles') }}</th>
                 <th>{{ t('org.lastSeen') }}</th>
@@ -239,6 +301,11 @@ function openAssign(user: TenantUser) {
                 <td>
                   <p class="users__name">{{ user.name }}</p>
                   <p class="users__email">{{ user.email }}</p>
+                </td>
+                <td>
+                  <button type="button" class="users__pin" @click.stop="revealedPins[user.id] = !revealedPins[user.id]">
+                    {{ revealedPins[user.id] ? (user.pin || '—') : maskPin(user.pin) }}
+                  </button>
                 </td>
                 <td><StatusBadge :active="user.is_active !== false" /></td>
                 <td>
@@ -263,6 +330,14 @@ function openAssign(user: TenantUser) {
 
           <dl class="users__meta">
             <div><dt>{{ t('common.phone') }}</dt><dd>{{ selectedUser.phone || '—' }}</dd></div>
+            <div>
+              <dt>{{ t('org.pin') }}</dt>
+              <dd>
+                <button type="button" class="users__pin" @click="revealedPins[selectedUser.id] = !revealedPins[selectedUser.id]">
+                  {{ revealedPins[selectedUser.id] ? (selectedUser.pin || '—') : maskPin(selectedUser.pin) }}
+                </button>
+              </dd>
+            </div>
             <div><dt>{{ t('org.lastSeen') }}</dt><dd>{{ selectedUser.last_seen_at ? formatDate(selectedUser.last_seen_at) : t('org.neverSeen') }}</dd></div>
             <div><dt>{{ t('org.sessionsCount') }}</dt><dd>{{ selectedUser.active_sessions_count ?? sessions.length }}</dd></div>
             <div><dt>{{ t('org.twoFactor') }}</dt><dd>{{ selectedUser.two_factor_enabled ? t('account.twoFactorOn') : t('account.twoFactorOff') }}</dd></div>
@@ -305,32 +380,52 @@ function openAssign(user: TenantUser) {
       </div>
     </div>
 
-    <AppModal :open="showUserModal" :title="editingUser ? t('org.editUser') : t('org.addUser')" size="md" @close="showUserModal = false">
+    <AppModal :open="showUserModal" :title="editingUser ? t('org.editUser') : t('org.addUser')" size="xl" @close="showUserModal = false">
       <form class="space-y-3" @submit.prevent="saveUser">
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="userForm.name" required class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('auth.email') }}</label><input v-model="userForm.email" type="email" required class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('common.phone') }}</label><input v-model="userForm.phone" class="field" /></div>
+        <div><FieldLabel icon="account">{{ t('org.name') }}</FieldLabel><input v-model="userForm.name" required class="field" /></div>
+        <div><FieldLabel icon="mail">{{ t('auth.email') }}</FieldLabel><input v-model="userForm.email" type="email" required class="field" /></div>
+        <div><FieldLabel icon="phone">{{ t('common.phone') }}</FieldLabel><input v-model="userForm.phone" class="field" /></div>
+        <div class="pin-field">
+          <FieldLabel icon="lock">{{ t('org.pin') }}</FieldLabel>
+          <div class="pin-field__row">
+            <input
+              v-model="userForm.pin"
+              :type="showPin ? 'text' : 'password'"
+              inputmode="numeric"
+              maxlength="6"
+              autocomplete="off"
+              required
+              class="field"
+              :class="{ 'field--invalid': pinError }"
+            />
+            <button type="button" class="btn-secondary" @click="showPin = !showPin">
+              {{ showPin ? t('org.hidePin') : t('org.showPin') }}
+            </button>
+            <button type="button" class="btn-secondary" @click="generatePin">{{ t('org.generatePin') }}</button>
+          </div>
+          <p class="pin-field__hint" :class="{ 'pin-field__hint--error': pinError }">{{ pinError || t('org.pinHint') }}</p>
+        </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('auth.password') }} <span v-if="editingUser" class="text-slate-400">({{ t('common.optional') }})</span></label>
+          <FieldLabel icon="lock">{{ t('auth.password') }} <span v-if="editingUser" class="text-slate-400">({{ t('common.optional') }})</span></FieldLabel>
           <input v-model="userForm.password" type="password" :required="!editingUser" minlength="8" class="field" />
         </div>
         <template v-if="!editingUser">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('rbac.roles') }}</label>
+            <FieldLabel icon="organization">{{ t('rbac.roles') }}</FieldLabel>
             <select v-model="userForm.role_id" class="field">
               <option value="">{{ t('org.selectRole') }}</option>
               <option v-for="role in store.roles" :key="role.id" :value="role.id">{{ role.name }}</option>
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('org.roleScope') }}</label>
+            <FieldLabel icon="stores">{{ t('org.roleScope') }}</FieldLabel>
             <select v-model="userForm.store_id" class="field">
               <option value="">{{ t('org.allStores') }}</option>
               <option v-for="item in context.activeStores" :key="item.id" :value="item.id">{{ context.storeLabel(item) }}</option>
             </select>
           </div>
         </template>
-        <label class="flex items-center gap-2 text-sm"><input v-model="userForm.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
+        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="userForm.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showUserModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
@@ -341,14 +436,14 @@ function openAssign(user: TenantUser) {
     <AppModal :open="showRoleModal" :title="t('org.assignRole')" @close="showRoleModal = false">
       <form class="space-y-3" @submit.prevent="assign">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('rbac.roles') }}</label>
+          <FieldLabel icon="organization">{{ t('rbac.roles') }}</FieldLabel>
           <select v-model="roleForm.role_id" required class="field">
             <option value="">{{ t('org.selectRole') }}</option>
             <option v-for="role in store.roles" :key="role.id" :value="role.id">{{ role.name }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('org.roleScope') }}</label>
+          <FieldLabel icon="stores">{{ t('org.roleScope') }}</FieldLabel>
           <select v-model="roleForm.store_id" class="field">
             <option value="">{{ t('org.allStores') }}</option>
             <option v-for="item in context.activeStores" :key="item.id" :value="item.id">{{ context.storeLabel(item) }}</option>
@@ -364,7 +459,7 @@ function openAssign(user: TenantUser) {
     <AppModal :open="showPasswordModal" :title="t('org.resetPassword')" @close="showPasswordModal = false">
       <form class="space-y-3" @submit.prevent="resetPassword">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('org.newPassword') }}</label>
+          <FieldLabel icon="lock">{{ t('org.newPassword') }}</FieldLabel>
           <input v-model="passwordForm" type="password" required minlength="8" class="field" />
         </div>
         <div class="app-modal__actions">
@@ -395,6 +490,23 @@ function openAssign(user: TenantUser) {
 .users__table tr { cursor: pointer; }
 .users__table tr.is-selected { background: #f5f6ff; }
 .users__name { margin: 0; font-weight: 600; }
+.users__pin {
+  border: 0;
+  background: #f6f3ee;
+  color: #1a2833;
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  font-weight: 650;
+  cursor: pointer;
+}
+.pin-field { grid-column: 1 / -1; }
+.pin-field__row { display: flex; gap: 0.5rem; align-items: center; }
+.pin-field__row .field { flex: 1; letter-spacing: 0.18em; font-family: var(--font-mono); }
+.pin-field__hint { margin: 0.35rem 0 0; color: #64748b; font-size: 0.75rem; }
+.pin-field__hint--error, .field--invalid { color: #b91c1c; }
+.field--invalid { border-color: #fca5a5; }
 .users__empty { padding: 2rem; text-align: center; color: #94a3b8; }
 .users__detail { padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
 .users__detail h3, .users__detail h4 { margin: 0; }

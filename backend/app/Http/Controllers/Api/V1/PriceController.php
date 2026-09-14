@@ -66,13 +66,10 @@ class PriceController extends Controller
 
         $type = $data['price_type'] ?? 'retail';
         $quantity = (int) ($data['quantity'] ?? 1);
+        $currency = isset($data['currency']) ? strtoupper($data['currency']) : null;
         $resolved = $storeProduct
-            ? $this->prices->resolveForStoreProduct($storeProduct, $type, $quantity)
-            : $this->prices->resolve($product, $store, $type, $quantity, currency: $data['currency'] ?? null);
-
-        if (! empty($data['currency']) && $resolved->currencyCode) {
-            $resolved = $this->prices->resolve($product, $store, $resolved->priceType, $quantity, currency: $data['currency']);
-        }
+            ? $this->prices->resolveForStoreProduct($storeProduct, $type, $quantity, currency: $currency)
+            : $this->prices->resolve($product, $store, $type, $quantity, currency: $currency);
 
         $product->loadMissing('tax');
 

@@ -5,6 +5,8 @@ import { useConfirm } from '../../../composables/useConfirm'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { DueDateItem, Product, Supplier, SupplierContact, SupplierStatementLine, SupplierSummary } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
@@ -441,11 +443,11 @@ function transactionTypeLabel(type: string): string {
     >
       <form class="space-y-3" @submit.prevent="submitPayment">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('products.price') }}</label>
+          <FieldLabel icon="coins">{{ t('products.price') }}</FieldLabel>
           <input v-model="paymentForm.amount" required class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('payables.method') }}</label>
+          <FieldLabel icon="card">{{ t('payables.method') }}</FieldLabel>
           <select v-model="paymentForm.payment_method" class="field">
             <option value="bank_transfer">Virement</option>
             <option value="cash">Espèces</option>
@@ -455,16 +457,19 @@ function transactionTypeLabel(type: string): string {
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('payables.reference') }}</label>
+          <FieldLabel icon="tag">{{ t('payables.reference') }}</FieldLabel>
           <input v-model="paymentForm.reference" class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.reason') }}</label>
+          <FieldLabel icon="note">{{ t('inventory.reason') }}</FieldLabel>
           <textarea v-model="paymentForm.notes" rows="2" class="field" />
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showPaymentModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary gap-1.5" :disabled="saving">
+            <AppIcon name="check" :size="15" />
+            {{ t('common.save') }}
+          </button>
         </div>
       </form>
     </AppModal>
@@ -478,17 +483,20 @@ function transactionTypeLabel(type: string): string {
     >
       <form class="space-y-3" @submit.prevent="attachProduct">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('products.name') }}</label>
+          <FieldLabel icon="products">{{ t('products.name') }}</FieldLabel>
           <select v-model="productForm.product_id" required class="field">
             <option value="">{{ t('suppliers.selectProduct') }}</option>
             <option v-for="item in catalogProducts" :key="item.id" :value="item.id">{{ item.sku }} — {{ item.name }}</option>
           </select>
         </div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('suppliers.supplierSku') }}</label><input v-model="productForm.supplier_sku" class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('products.cost') }}</label><input v-model.number="productForm.cost_price" type="number" min="0" step="0.01" class="field" /></div>
+        <div><FieldLabel icon="tag">{{ t('suppliers.supplierSku') }}</FieldLabel><input v-model="productForm.supplier_sku" class="field" /></div>
+        <div><FieldLabel icon="coins">{{ t('products.cost') }}</FieldLabel><input v-model.number="productForm.cost_price" type="number" min="0" step="0.01" class="field" /></div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showProductModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary gap-1.5" :disabled="saving">
+            <AppIcon name="check" :size="15" />
+            {{ t('common.save') }}
+          </button>
         </div>
       </form>
     </AppModal>
@@ -501,13 +509,16 @@ function transactionTypeLabel(type: string): string {
       @close="showContactModal = false"
     >
       <form class="space-y-3" @submit.prevent="saveContact">
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label><input v-model="contactForm.name" required class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('auth.email') }}</label><input v-model="contactForm.email" type="email" class="field" /></div>
-        <div><label class="mb-1 block text-sm font-medium">{{ t('org.phone') }}</label><input v-model="contactForm.phone" class="field" /></div>
-        <label class="flex items-center gap-2 text-sm"><input v-model="contactForm.is_primary" type="checkbox" class="rounded" />{{ t('org.default') }}</label>
+        <div><FieldLabel icon="account">{{ t('org.name') }}</FieldLabel><input v-model="contactForm.name" required class="field" /></div>
+        <div><FieldLabel icon="mail">{{ t('auth.email') }}</FieldLabel><input v-model="contactForm.email" type="email" class="field" /></div>
+        <div><FieldLabel icon="phone">{{ t('org.phone') }}</FieldLabel><input v-model="contactForm.phone" class="field" /></div>
+        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="contactForm.is_primary" type="checkbox" class="rounded" />{{ t('org.default') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showContactModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary gap-1.5" :disabled="saving">
+            <AppIcon name="check" :size="15" />
+            {{ t('common.save') }}
+          </button>
         </div>
       </form>
     </AppModal>

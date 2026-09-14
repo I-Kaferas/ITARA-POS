@@ -2,9 +2,10 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { InventoryReport, Warehouse } from '../../../types'
-import { formatMoney } from '../../../utils/format'
+import { formatDate, formatMoney } from '../../../utils/format'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -12,12 +13,18 @@ const store = useBackofficeStore()
 const report = ref<InventoryReport | null>(null)
 const warehouses = ref<Warehouse[]>([])
 const warehouseId = ref('')
+const from = ref('')
+const to = ref('')
 const loading = ref(false)
 
 async function load() {
   loading.value = true
   try {
-    report.value = await store.loadInventoryReport(warehouseId.value || undefined)
+    report.value = await store.loadInventoryReport({
+      warehouse_id: warehouseId.value || undefined,
+      from: from.value || undefined,
+      to: to.value || undefined,
+    })
   } finally {
     loading.value = false
   }
@@ -37,11 +44,19 @@ onMounted(async () => {
   <ReportsLayout>
     <div class="mb-4 flex flex-wrap items-end gap-3">
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('inventory.warehouse') }}</label>
+        <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
         <select v-model="warehouseId" class="field">
           <option value="">{{ t('org.allStores') }}</option>
           <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
         </select>
+      </div>
+      <div>
+        <FieldLabel icon="calendar">{{ t('reports.from') }}</FieldLabel>
+        <input v-model="from" type="date" class="field" />
+      </div>
+      <div>
+        <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
+        <input v-model="to" type="date" class="field" />
       </div>
       <button class="btn-secondary" :disabled="loading" @click="load">{{ t('common.search') }}</button>
       <button class="btn-primary" @click="exportCsv">{{ t('reports.export') }}</button>
@@ -51,7 +66,8 @@ onMounted(async () => {
       <div class="stat"><p class="label">SKU</p><p class="value">{{ report.skus_in_stock }}</p></div>
       <div class="stat"><p class="label">{{ t('inventory.onHand') }}</p><p class="value">{{ report.total_units }}</p></div>
       <div class="stat"><p class="label">{{ t('reports.stockValue') }}</p><p class="value">{{ formatMoney(report.estimated_value) }}</p></div>
-      <div class="stat"><p class="label">{{ t('inventory.tabs.alerts') }}</p><p class="value">{{ report.open_alerts }}</p></div>
+      <div class="stat"><p class="label">{{ t('reports.lowStock') }}</p><p class="value">{{ report.low_stock_count ?? report.open_alerts }}</p></div>
+      <div class="stat"><p class="label">{{ t('reports.losses') }}</p><p class="value">{{ formatMoney(report.losses_value ?? 0) }}</p></div>
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -72,6 +88,57 @@ onMounted(async () => {
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="mt-4 grid gap-4 lg:grid-cols-2">
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.lowStock') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="row in report?.low_stock ?? []" :key="`${row.product_id}-${row.warehouse}`">
+              <td class="px-4 py-2">{{ row.name }}</td>
+              <td class="px-4 py-2 text-right">{{ row.quantity_on_hand }} / {{ row.threshold }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.low_stock?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.movements') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="(row, index) in report?.movements ?? []" :key="`${row.occurred_at}-${index}`">
+              <td class="px-4 py-2">{{ row.name }} · {{ row.type }}</td>
+              <td class="px-4 py-2 text-right">{{ row.quantity }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.movements?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.losses') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="(row, index) in report?.losses ?? []" :key="`loss-${row.occurred_at}-${index}`">
+              <td class="px-4 py-2">{{ row.name }} · {{ row.type }}</td>
+              <td class="px-4 py-2 text-right">{{ formatMoney(row.amount) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.losses?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.expiration') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="(row, index) in report?.expiration ?? []" :key="`${row.batch}-${index}`">
+              <td class="px-4 py-2">{{ row.name }} <span v-if="row.batch" class="text-slate-500">{{ row.batch }}</span></td>
+              <td class="px-4 py-2 text-right" :class="row.expired ? 'text-red-600' : ''">{{ row.expires_at ? formatDate(row.expires_at) : '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.expiration?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
     </div>
   </ReportsLayout>
 </template>

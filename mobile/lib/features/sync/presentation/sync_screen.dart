@@ -15,6 +15,8 @@ class SyncScreen extends StatefulWidget {
 
 class _SyncScreenState extends State<SyncScreen> {
   List<Map<String, dynamic>> _items = [];
+  Map<String, int> _ledger = const {};
+  Map<String, dynamic>? _latestChain;
   bool _busy = false;
 
   @override
@@ -31,9 +33,16 @@ class _SyncScreenState extends State<SyncScreen> {
   }
 
   Future<void> _reload() async {
-    final items = await OfflineStore.instance.queueDetails();
+    final store = OfflineStore.instance;
+    final items = await store.queueDetails();
+    final ledger = await store.localLedgerCounts();
+    final latest = await store.latestSaleChain();
     if (!mounted) return;
-    setState(() => _items = items);
+    setState(() {
+      _items = items;
+      _ledger = ledger;
+      _latestChain = latest;
+    });
   }
 
   Future<void> _syncNow() async {
@@ -68,6 +77,8 @@ class _SyncScreenState extends State<SyncScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          _ChainCard(ledger: _ledger, latest: _latestChain),
+          const SizedBox(height: 16),
           Text(
             snapshot.label,
             style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
@@ -79,6 +90,17 @@ class _SyncScreenState extends State<SyncScreen> {
           ),
           Text(
             'Dernière sync: ${snapshot.lastSyncAt == null ? '—' : DateFormat('dd/MM HH:mm').format(snapshot.lastSyncAt!)}',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'File → API → serveur → ACK → marqué synchronisé',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
+          Text(
+            engine.lastSent == 0 && engine.lastAcknowledged == 0
+                ? 'En attente du retour Internet. Rien n’est supprimé avant l’ACK.'
+                : 'Dernier passage : ${engine.lastSent} envoyés · ${engine.lastAcknowledged} ACK · ${engine.lastKept} conservés · 0 perdu',
             style: TextStyle(color: AppColors.textSecondary),
           ),
           if (snapshot.lastError != null) ...[
@@ -137,6 +159,80 @@ class _SyncScreenState extends State<SyncScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ChainCard extends StatelessWidget {
+  const _ChainCard({required this.ledger, required this.latest});
+
+  final Map<String, int> ledger;
+  final Map<String, dynamic>? latest;
+
+  @override
+  Widget build(BuildContext context) {
+    final chain = latest;
+    final status = chain?['sync_status']?.toString();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Chaîne locale — fonctionne sans internet',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Vente → paiement → mouvement de stock → événement de sync. Enregistré dans SQLite sur Android et Windows.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _Chip('Ventes', ledger['sales'] ?? 0),
+              _Chip('Paiements', ledger['payments'] ?? 0),
+              _Chip('Stock', ledger['stock_movements'] ?? 0),
+              _Chip('Sync', ledger['sync_events'] ?? 0),
+            ],
+          ),
+          if (chain != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              '${chain['reference']} · paiement ${chain['payments']} · stock ${chain['movements']} · sync ${chain['events']}'
+              '${status == null || status.isEmpty ? '' : ' · $status'}',
+              style: GoogleFonts.jetBrainsMono(fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, this.value);
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text('$label $value', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
 }

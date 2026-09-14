@@ -6,6 +6,14 @@ abstract final class AppRoutes {
   static const orders = '/orders';
   static const shifts = '/shifts';
   static const configuration = '/configuration';
+  static const hospitality = '/dashboard/hospitality';
+  static const services = '/dashboard/services';
+  static const production = '/dashboard/production';
+  static const accounting = '/dashboard/accounting';
+  static const reports = '/dashboard/reports';
+  static const notifications = '/dashboard/notifications';
+  static const customerAccount = '/dashboard/customer-account';
+  static const expenses = '/dashboard/expenses';
   static const barcode = '/dashboard/barcode';
   static const sync = '/dashboard/sync';
 }

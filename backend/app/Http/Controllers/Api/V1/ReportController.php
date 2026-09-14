@@ -37,9 +37,13 @@ class ReportController extends Controller
 
     public function inventory(Request $request): JsonResponse
     {
+        [$from, $to] = $this->dateRange($request);
+
         return response()->json([
             'data' => $this->reports->inventorySummary(
                 $request->string('warehouse_id')->toString() ?: null,
+                $from,
+                $to,
             ),
         ]);
     }

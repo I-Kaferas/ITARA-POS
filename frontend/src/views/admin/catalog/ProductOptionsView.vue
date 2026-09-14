@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product } from '../../../types'
 
@@ -181,7 +182,7 @@ function optionLabel(product: Product) {
     >
       <form class="space-y-4" @submit.prevent="apply">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('catalog.options.product') }}</label>
+          <FieldLabel icon="products">{{ t('catalog.options.product') }}</FieldLabel>
           <select v-model="productId" required class="field" :disabled="saving">
             <option value="">{{ t('catalog.options.selectProduct') }}</option>
             <option v-for="product in eligible" :key="product.id" :value="product.id">{{ product.sku }} — {{ product.name }}</option>
@@ -201,7 +202,7 @@ function optionLabel(product: Product) {
           </select>
           <input v-model="group.name" class="field" :placeholder="t('catalog.options.groupName')" />
           <div>
-            <label class="mb-1 block text-xs text-slate-500">{{ t('catalog.options.values') }}</label>
+            <FieldLabel icon="layers">{{ t('catalog.options.values') }}</FieldLabel>
             <div class="flex flex-wrap gap-2">
               <span v-for="(value, valueIndex) in group.values" :key="value" class="option-chip">
                 {{ value }}

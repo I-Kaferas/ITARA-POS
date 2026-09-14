@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { FinancialReport } from '../../../types'
 import { formatMoney } from '../../../utils/format'
@@ -30,11 +31,11 @@ onMounted(load)
   <ReportsLayout>
     <div class="mb-4 flex flex-wrap items-end gap-3">
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('reports.from') }}</label>
+        <FieldLabel icon="calendar">{{ t('reports.from') }}</FieldLabel>
         <input v-model="from" type="date" class="field" />
       </div>
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('reports.to') }}</label>
+        <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
         <input v-model="to" type="date" class="field" />
       </div>
       <button class="btn-secondary" :disabled="loading" @click="load">{{ t('common.search') }}</button>
@@ -43,8 +44,11 @@ onMounted(load)
     <div v-if="report" class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div class="stat"><p class="label">{{ t('reports.revenue') }}</p><p class="value">{{ formatMoney(report.revenue) }}</p></div>
       <div class="stat"><p class="label">{{ t('reports.cogs') }}</p><p class="value">{{ formatMoney(report.cogs) }}</p></div>
+      <div class="stat"><p class="label">{{ t('reports.expenses') }}</p><p class="value">{{ formatMoney(report.expenses ?? 0) }}</p></div>
       <div class="stat"><p class="label">{{ t('reports.margin') }}</p><p class="value">{{ formatMoney(report.gross_margin) }}</p></div>
-      <div class="stat"><p class="label">{{ t('reports.tax') }}</p><p class="value">{{ formatMoney(report.tax_liability) }}</p></div>
+      <div class="stat"><p class="label">{{ t('reports.profit') }}</p><p class="value">{{ formatMoney(report.profit ?? 0) }}</p></div>
+      <div class="stat"><p class="label">{{ t('reports.credit') }}</p><p class="value">{{ formatMoney(report.credit ?? 0) }}</p></div>
+      <div class="stat"><p class="label">{{ t('reports.debts') }}</p><p class="value">{{ formatMoney(report.debts ?? 0) }}</p></div>
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">

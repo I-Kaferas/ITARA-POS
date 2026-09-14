@@ -10,6 +10,7 @@ import CycleCountModal from '../../../components/inventory/CycleCountModal.vue'
 import { useConfirm } from '../../../composables/useConfirm'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Category, InventoryCountDetail, Product, StockBalance, StockLedgerRow, Warehouse } from '../../../types'
 import { formatMoney } from '../../../utils/money'
@@ -472,17 +473,17 @@ async function completeFromPreview() {
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
+            <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
             <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('inventory.countDate') }} *</label>
+            <FieldLabel icon="calendar">{{ t('inventory.countDate') }} *</FieldLabel>
             <input v-model="form.counted_at" type="date" required class="field" />
           </div>
         </div>
 
         <div>
-          <label class="mb-2 block text-sm font-medium">{{ t('inventory.countType') }}</label>
+          <FieldLabel icon="inventory">{{ t('inventory.countType') }}</FieldLabel>
           <div class="count-types">
             <label
               v-for="type in COUNT_TYPES"
@@ -504,7 +505,7 @@ async function completeFromPreview() {
 
         <div v-if="form.count_type === 'full'" class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('catalog.tabs.categories') }}</label>
+            <FieldLabel icon="layers">{{ t('catalog.tabs.categories') }}</FieldLabel>
             <select v-model="categoryId" class="field">
               <option value="">—</option>
               <option v-for="cat in flatCategories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
@@ -515,14 +516,14 @@ async function completeFromPreview() {
         <template v-if="usesProductPicker">
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('catalog.tabs.categories') }}</label>
+            <FieldLabel icon="layers">{{ t('catalog.tabs.categories') }}</FieldLabel>
             <select v-model="categoryId" class="field">
               <option value="">—</option>
               <option v-for="cat in flatCategories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('inventory.searchProduct') }}</label>
+            <FieldLabel icon="search">{{ t('inventory.searchProduct') }}</FieldLabel>
             <input v-model="search" class="field" />
           </div>
         </div>

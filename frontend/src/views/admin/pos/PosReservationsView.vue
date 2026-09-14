@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
@@ -236,7 +237,7 @@ watch(storeId, load)
       <div class="mb-4 rounded-xl border border-slate-200 bg-white p-4">
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div class="xl:col-span-2">
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('common.search') }}</label>
+            <FieldLabel icon="search">{{ t('common.search') }}</FieldLabel>
             <div class="relative">
               <AppIcon name="search" :size="15" class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -249,17 +250,17 @@ watch(storeId, load)
             </div>
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('pointOfSale.reservations.statusLabel') }}</label>
+            <FieldLabel icon="filter">{{ t('pointOfSale.reservations.statusLabel') }}</FieldLabel>
             <select v-model="filters.status" class="ui-select w-full">
               <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('pointOfSale.orders.filters.from') }}</label>
+            <FieldLabel icon="calendar">{{ t('pointOfSale.orders.filters.from') }}</FieldLabel>
             <input v-model="filters.from" type="date" class="ui-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('pointOfSale.orders.filters.to') }}</label>
+            <FieldLabel icon="calendar">{{ t('pointOfSale.orders.filters.to') }}</FieldLabel>
             <input v-model="filters.to" type="date" class="ui-input w-full" />
           </div>
         </div>
@@ -343,7 +344,7 @@ watch(storeId, load)
 
     <AppModal
       :open="showForm"
-      size="md"
+      size="xl"
       icon="note"
       :title="editingId ? t('common.edit') : t('pointOfSale.reservations.add')"
       @close="showForm = false"
@@ -369,7 +370,7 @@ watch(storeId, load)
         </div>
 
         <div v-if="form.mode === 'customer'">
-          <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.reservations.customer') }}</label>
+          <FieldLabel icon="customers">{{ t('pointOfSale.reservations.customer') }}</FieldLabel>
           <select v-model="form.customer_id" class="ui-select w-full">
             <option value="">—</option>
             <option v-for="customer in store.customers" :key="customer.id" :value="customer.id">
@@ -380,27 +381,27 @@ watch(storeId, load)
 
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.reservations.guest') }}</label>
+            <FieldLabel icon="account">{{ t('pointOfSale.reservations.guest') }}</FieldLabel>
             <input v-model="form.guest_name" type="text" class="ui-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.reservations.phone') }}</label>
+            <FieldLabel icon="phone">{{ t('pointOfSale.reservations.phone') }}</FieldLabel>
             <input v-model="form.phone" type="text" class="ui-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.reservations.when') }}</label>
+            <FieldLabel icon="calendar">{{ t('pointOfSale.reservations.when') }}</FieldLabel>
             <input v-model="form.reserved_at" type="datetime-local" class="ui-input w-full" required />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.reservations.party') }}</label>
+            <FieldLabel icon="organization">{{ t('pointOfSale.reservations.party') }}</FieldLabel>
             <input v-model="form.party_size" type="number" min="1" max="200" class="ui-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.reservations.table') }}</label>
+            <FieldLabel icon="pin">{{ t('pointOfSale.reservations.table') }}</FieldLabel>
             <input v-model="form.table_label" type="text" class="ui-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.reservations.statusLabel') }}</label>
+            <FieldLabel icon="filter">{{ t('pointOfSale.reservations.statusLabel') }}</FieldLabel>
             <select v-model="form.status" class="ui-select w-full">
               <option v-for="status in STATUSES" :key="status" :value="status">{{ statusLabel(status) }}</option>
             </select>
@@ -408,7 +409,7 @@ watch(storeId, load)
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.reservations.notes') }}</label>
+          <FieldLabel icon="note">{{ t('pointOfSale.reservations.notes') }}</FieldLabel>
           <textarea v-model="form.notes" rows="2" class="ui-input w-full" />
         </div>
 

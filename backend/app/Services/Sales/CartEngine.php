@@ -301,7 +301,7 @@ class CartEngine
 
 
 
-        $discountTotal = $lineDiscountsTotal + $promotionDiscountsTotal + $globalDiscountTotal;
+        $discountTotal = $manualLineDiscountsTotal + $promotionDiscountsTotal + $globalDiscountTotal;
 
         $grandTotal = max(0, $grandBeforeFees + $feesTotal);
 

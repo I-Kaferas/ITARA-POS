@@ -829,7 +829,6 @@ Android
 SQLite
 Sync Events
 Configuration
-
 Prévoir restauration.
 
 PHASE 38 — Administration SaaS

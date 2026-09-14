@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatMoney } from '../../utils/money'
+import FieldLabel from '../ui/FieldLabel.vue'
 
 const props = defineProps<{
   registers: { id: string; name: string; code?: string }[]
@@ -12,17 +13,28 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   openShift: [payload: { pin: string; registerId: string; opening: number }]
-  closeShift: [payload: { pin: string; counted: number; notes: string }]
+  closeShift: [payload: { pin: string; counted: number; notes: string; reason: string }]
   switch: []
 }>()
 
 const { t } = useI18n()
 const pin = ref('')
-const registerId = ref(props.registers[0]?.id ?? '')
+const registerId = ref('')
 const opening = ref('0')
 const counted = ref('')
 const notes = ref('')
+const reason = ref('')
 const error = ref('')
+
+watch(
+  () => props.registers,
+  (list) => {
+    if (!list.some(item => item.id === registerId.value)) {
+      registerId.value = list[0]?.id ?? ''
+    }
+  },
+  { immediate: true },
+)
 
 const countedMinor = computed(() => Math.round((Number(counted.value) || 0) * 100))
 const variance = computed(() => props.expectedCash == null ? null : countedMinor.value - props.expectedCash)
@@ -46,7 +58,11 @@ function submitClose() {
     error.value = t('pos.pinInvalid')
     return
   }
-  emit('closeShift', { pin: pin.value, counted: countedMinor.value, notes: notes.value })
+  if (variance.value !== 0 && !reason.value.trim()) {
+    error.value = t('pos.varianceReasonRequired')
+    return
+  }
+  emit('closeShift', { pin: pin.value, counted: countedMinor.value, notes: notes.value, reason: reason.value.trim() })
 }
 </script>
 
@@ -55,17 +71,24 @@ function submitClose() {
     <form class="card" @submit.prevent="submitOpen">
       <h2>{{ t('pos.openShift') }}</h2>
       <p>{{ t('pos.openShiftHint') }}</p>
-      <label>{{ t('pos.register') }}
-        <select v-model="registerId" required>
-          <option v-for="item in registers" :key="item.id" :value="item.id">{{ item.name }}</option>
+      <div class="gate-field">
+        <FieldLabel icon="shift">{{ t('pos.register') }}</FieldLabel>
+        <select v-model="registerId" required :disabled="!registers.length">
+          <option v-if="!registers.length" value="">{{ t('pos.noRegister') }}</option>
+          <option v-for="item in registers" :key="item.id" :value="item.id">
+            {{ item.name }}<template v-if="item.code"> ({{ item.code }})</template>
+          </option>
         </select>
-      </label>
-      <label>{{ t('org.pin') }}
+        <p v-if="!registers.length" class="error">{{ t('pos.noRegister') }}</p>
+      </div>
+      <div class="gate-field">
+        <FieldLabel icon="lock">{{ t('org.pin') }}</FieldLabel>
         <input v-model="pin" inputmode="numeric" maxlength="6" autocomplete="off" required />
-      </label>
-      <label>{{ t('pos.openingFloat') }}
+      </div>
+      <div class="gate-field">
+        <FieldLabel icon="coins">{{ t('pos.openingFloat') }}</FieldLabel>
         <input v-model="opening" type="number" min="0" step="0.01" />
-      </label>
+      </div>
       <p v-if="error" class="error">{{ error }}</p>
       <button type="submit">{{ t('pos.openShift') }}</button>
     </form>
@@ -73,12 +96,17 @@ function submitClose() {
   <form v-else class="close" @submit.prevent="submitClose">
     <div>
       <strong>{{ cashierName }}</strong>
-      <span>{{ t('pos.expectedCash') }}: {{ formatMoney(expectedCash ?? 0) }}</span>
+      <span>{{ t('pos.theoreticalCash') }}: {{ formatMoney(expectedCash ?? 0) }}</span>
     </div>
-    <input v-model="counted" type="number" min="0" step="0.01" :placeholder="t('pos.countedCash')" required />
+    <input v-model="counted" type="number" min="0" step="0.01" :placeholder="t('pos.actualCash')" required />
+    <span v-if="variance !== null">{{ t('pos.difference') }}: {{ formatMoney(variance) }}</span>
+    <input
+      v-model="reason"
+      :placeholder="t('pos.varianceReason')"
+      :required="variance !== 0"
+    />
     <input v-model="notes" :placeholder="t('pos.note')" />
     <input v-model="pin" inputmode="numeric" maxlength="6" :placeholder="t('org.pin')" required />
-    <span v-if="variance !== null">{{ t('pos.variance') }}: {{ formatMoney(variance) }}</span>
     <button type="submit">{{ t('pos.closeShift') }}</button>
   </form>
 </template>
@@ -90,7 +118,7 @@ function submitClose() {
 .card h2, .card p { margin: 0; }
 .card p, .error { color: #64748b; font-size: 0.85rem; }
 .error { color: #b91c1c; }
-label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; }
+.gate-field { display: flex; flex-direction: column; gap: 0.3rem; }
 input, select, button { border: 1px solid #cbd5e1; border-radius: 0.55rem; padding: 0.5rem 0.7rem; }
 button { background: #4a6d86; color: white; border: 0; font-weight: 650; cursor: pointer; }
 </style>

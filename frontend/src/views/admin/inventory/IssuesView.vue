@@ -7,6 +7,7 @@ import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import WarehouseOptions from '../../../components/inventory/WarehouseOptions.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, StockAdjustment, StockAdjustmentDetail, StockAdjustmentItem, StockBalance, Warehouse } from '../../../types'
@@ -301,22 +302,22 @@ async function complete(id: string) {
       :title="t('inventory.newIssue')"
       icon="inventory"
       tone="warning"
-      size="md"
+      size="xl"
       @close="showModal = false"
     >
       <form class="space-y-3" @submit.prevent="save">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
+          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
           <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" @update:model-value="loadStock" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.movementType') }}</label>
+          <FieldLabel icon="transfer">{{ t('inventory.movementType') }}</FieldLabel>
           <select v-model="form.movement_type" required class="field">
             <option v-for="mt in movementTypes" :key="mt.value" :value="mt.value">{{ mt.label }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.reason') }}</label>
+          <FieldLabel icon="note">{{ t('inventory.reason') }}</FieldLabel>
           <input v-model="form.reason" class="field" />
         </div>
         <p class="text-xs text-slate-500">{{ t('inventory.issueHint') }}</p>
@@ -377,9 +378,9 @@ async function complete(id: string) {
 <style scoped>
 .field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; background: white; }
 .line-row { display: flex; align-items: center; gap: 0.5rem; }
-.line-row > .name { flex: 1 1 10rem; min-width: 0; }
-.line-row > .qty { flex: 0 0 5.5rem; width: 5.5rem; }
-.line-row > .unit { flex: 0 1 8rem; width: 8rem; }
+.line-row > .name { flex: 1 1 16rem; min-width: 0; }
+.line-row > .qty { flex: 0 0 6.5rem; width: 6.5rem; }
+.line-row > .unit { flex: 0 1 10rem; width: 10rem; }
 .btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }

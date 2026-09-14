@@ -3,7 +3,9 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Currency } from '../../../types'
 
@@ -133,23 +135,23 @@ function closeModal() {
       <form class="space-y-3" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="label">{{ t('org.code') }}</label>
+            <FieldLabel icon="tag">{{ t('org.code') }}</FieldLabel>
             <input v-model="form.code" required maxlength="3" class="field uppercase" />
           </div>
           <div>
-            <label class="label">{{ t('org.symbol') }}</label>
+            <FieldLabel icon="coins">{{ t('org.symbol') }}</FieldLabel>
             <input v-model="form.symbol" class="field" />
           </div>
           <div class="col-span-2">
-            <label class="label">{{ t('org.name') }}</label>
+            <FieldLabel icon="account">{{ t('org.name') }}</FieldLabel>
             <input v-model="form.name" required class="field" />
           </div>
           <div>
-            <label class="label">{{ t('org.decimalPlaces') }}</label>
+            <FieldLabel icon="calculator">{{ t('org.decimalPlaces') }}</FieldLabel>
             <input v-model.number="form.decimal_places" type="number" min="0" max="6" required class="field" />
           </div>
           <div>
-            <label class="label">{{ t('org.exchangeRate') }}</label>
+            <FieldLabel icon="coins">{{ t('org.exchangeRate') }}</FieldLabel>
             <input v-model.number="form.exchange_rate" type="number" min="0" step="0.00000001" required class="field" />
             <p class="mt-1 text-xs text-slate-500">{{ t('org.exchangeRateHint') }}</p>
           </div>
@@ -157,10 +159,12 @@ function closeModal() {
 
         <div class="flex flex-wrap gap-x-5 gap-y-2">
           <label class="flex items-center gap-2 text-sm text-slate-700">
+            <span class="field-icon"><AppIcon name="coins" :size="14" /></span>
             <input v-model="form.is_default" type="checkbox" class="rounded" />
             {{ t('org.defaultCurrency') }}
           </label>
           <label class="flex items-center gap-2 text-sm text-slate-700">
+            <span class="field-icon"><AppIcon name="check" :size="14" /></span>
             <input v-model="form.is_active" type="checkbox" class="rounded" />
             {{ t('products.active') }}
           </label>
@@ -176,14 +180,6 @@ function closeModal() {
 </template>
 
 <style scoped>
-.label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-}
-
 .field {
   width: 100%;
   border-radius: 0.5rem;

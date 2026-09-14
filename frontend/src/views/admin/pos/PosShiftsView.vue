@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -26,6 +27,7 @@ const openingBalance = ref('0')
 const openingNotes = ref('')
 const actualCash = ref('')
 const closingNotes = ref('')
+const varianceReason = ref('')
 const saving = ref(false)
 const statusFilter = ref<'all' | 'open' | 'closed'>('all')
 
@@ -72,6 +74,7 @@ function closeModal() {
   const shift = store.currentCashierShift
   actualCash.value = shift ? String((shift.expected_cash ?? 0) / 100) : ''
   closingNotes.value = ''
+  varianceReason.value = ''
   showClose.value = true
 }
 
@@ -99,9 +102,17 @@ async function confirmClose() {
   saving.value = true
   error.value = ''
   try {
+    const expected = store.currentCashierShift?.expected_cash ?? 0
+    const actual = Math.round((Number(actualCash.value.replace(',', '.')) || 0) * 100)
+    if (actual !== expected && !varianceReason.value.trim()) {
+      error.value = t('pos.varianceReasonRequired')
+      saving.value = false
+      return
+    }
     await store.closeCashierShift(registerId, {
       actual_cash: Number(actualCash.value.replace(',', '.')) || 0,
       closing_notes: closingNotes.value || undefined,
+      variance_reason: varianceReason.value.trim() || undefined,
     })
     showClose.value = false
     await load()
@@ -279,7 +290,7 @@ function goDetail(id: string) {
       <div class="space-y-3">
         <p class="m-0 text-sm text-slate-500">{{ t('pointOfSale.shifts.openHint') }}</p>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.shifts.register') }}</label>
+          <FieldLabel icon="shift">{{ t('pointOfSale.shifts.register') }}</FieldLabel>
           <select v-model="selectedRegisterId" class="ui-select w-full">
             <option v-for="reg in activeRegisters" :key="reg.id" :value="reg.id">
               {{ reg.name }} ({{ reg.code }})
@@ -287,11 +298,11 @@ function goDetail(id: string) {
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.shifts.openingBalance') }}</label>
+          <FieldLabel icon="coins">{{ t('pointOfSale.shifts.openingBalance') }}</FieldLabel>
           <input v-model="openingBalance" type="text" class="ui-input w-full" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.shifts.notes') }}</label>
+          <FieldLabel icon="note">{{ t('pointOfSale.shifts.notes') }}</FieldLabel>
           <textarea v-model="openingNotes" rows="2" class="ui-input w-full" />
         </div>
         <div class="flex justify-end gap-2 pt-2">
@@ -317,11 +328,15 @@ function goDetail(id: string) {
           </div>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.shifts.actualCash') }}</label>
+          <FieldLabel icon="coins">{{ t('pointOfSale.shifts.actualCash') }}</FieldLabel>
           <input v-model="actualCash" type="text" class="ui-input w-full" required />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('pointOfSale.shifts.notes') }}</label>
+          <FieldLabel icon="note">{{ t('pos.varianceReason') }}</FieldLabel>
+          <textarea v-model="varianceReason" rows="2" class="ui-input w-full" />
+        </div>
+        <div>
+          <FieldLabel icon="note">{{ t('pointOfSale.shifts.notes') }}</FieldLabel>
           <textarea v-model="closingNotes" rows="2" class="ui-input w-full" />
         </div>
         <div class="flex justify-end gap-2 pt-2">

@@ -129,6 +129,8 @@ const methods = computed(() => {
     { value: 'cash', label: props.labels.cash, label_fr: props.labels.cash, requires_customer: false, supports_change: true },
     { value: 'mobile_money', label: 'Mobile Money', label_fr: 'Mobile Money', requires_customer: false, supports_change: false },
     { value: 'card', label: props.labels.card, label_fr: props.labels.card, requires_customer: false, supports_change: false },
+    { value: 'bank_transfer', label: 'Virement', label_fr: 'Virement', requires_customer: false, supports_change: false },
+    { value: 'credit', label: 'Crédit', label_fr: 'Crédit', requires_customer: true, supports_change: false },
   ] as PosPaymentMethod[]
 })
 
@@ -403,6 +405,11 @@ function confirmPayment() {
   showPayment.value = false
 }
 
+const promoNames = computed(() => {
+  const names = [...new Set((props.totals.promotions ?? []).map(row => row.name).filter(Boolean))]
+  return names.join(' · ')
+})
+
 const discountLabel = () => {
   if (props.totals.discount_total > 0) return `${props.labels.discount} ${money(props.totals.discount_total)}`
   return props.labels.discount
@@ -429,7 +436,7 @@ const discountLabel = () => {
         <span>{{ labels.lineDiscounts }}</span><span>− {{ money(totals.line_discounts_total) }}</span>
       </div>
       <div v-if="totals.promotion_discounts_total > 0" class="pos-footer__row pos-footer__row--muted">
-        <span>{{ labels.promoDiscounts }}</span><span>− {{ money(totals.promotion_discounts_total) }}</span>
+        <span>{{ promoNames || labels.promoDiscounts }}</span><span>− {{ money(totals.promotion_discounts_total) }}</span>
       </div>
       <div v-if="totals.global_discount_total > 0" class="pos-footer__row pos-footer__row--muted">
         <span>{{ labels.globalDiscount }}</span><span>− {{ money(totals.global_discount_total) }}</span>
@@ -460,7 +467,7 @@ const discountLabel = () => {
     </div>
 
     <!-- Customer modal -->
-    <AppModal :open="showCustomer" :title="labels.customer" icon="customers" tone="brand" size="sm" @close="showCustomer = false">
+    <AppModal :open="showCustomer" :title="labels.customer" icon="customers" tone="brand" size="md" @close="showCustomer = false">
       <div class="pos-modal-content">
         <div class="pos-modal__tabs">
           <button
@@ -571,7 +578,7 @@ const discountLabel = () => {
     </AppModal>
 
     <!-- Held sales modal -->
-    <AppModal :open="showHeld" :title="labels.heldSales" icon="pause" tone="warning" size="md" @close="showHeld = false">
+    <AppModal :open="showHeld" :title="labels.heldSales" icon="pause" tone="warning" size="lg" @close="showHeld = false">
       <div class="pos-modal-content">
         <div v-if="!heldSales.length" class="pos-modal__empty">{{ labels.noHeldSales }}</div>
         <div v-for="sale in heldSales" :key="sale.id" class="pos-held pos-held--detail">
@@ -625,7 +632,7 @@ const discountLabel = () => {
     </AppModal>
 
     <!-- Payment modal -->
-    <AppModal :open="showPayment" :title="labels.payment" icon="card" tone="success" size="md" @close="showPayment = false">
+    <AppModal :open="showPayment" :title="labels.payment" icon="card" tone="success" size="lg" @close="showPayment = false">
       <div class="pos-modal-content">
         <p class="pos-payment-total">{{ money(totals.grand_total) }}</p>
 

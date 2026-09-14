@@ -10,10 +10,13 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Store;
 use App\Models\StoreProduct;
+use App\Services\Audit\AuditLogService;
 use Carbon\Carbon;
 
 class PriceService
 {
+    public function __construct(private readonly AuditLogService $audit) {}
+
     /** @param  list<array<string, mixed>>  $prices */
     public function syncForModel(Product|ProductVariant $model, array $prices): void
     {
@@ -64,7 +67,11 @@ class PriceService
         ];
 
         if ($existing) {
+            $previous = (int) $existing->amount;
             $existing->update($payload);
+            if ($previous !== (int) $payload['amount']) {
+                $this->audit->priceChanged($model, $previous, (int) $payload['amount']);
+            }
 
             return $existing->fresh();
         }
@@ -109,14 +116,15 @@ class PriceService
         string $priceType = 'retail',
         int $quantity = 1,
         ?Carbon $at = null,
+        ?string $currency = null,
     ): ResolvedPrice {
         if ($storeProduct->price_override !== null) {
-            return new ResolvedPrice(
+            return $this->inCurrency(new ResolvedPrice(
                 amount: $storeProduct->price_override,
                 priceType: $priceType,
                 source: 'store_override',
                 currencyCode: $this->resolveCurrencyCode($storeProduct->product),
-            );
+            ), $currency);
         }
 
         $store = $storeProduct->relationLoaded('store')
@@ -127,7 +135,7 @@ class PriceService
             ? $storeProduct->product
             : $storeProduct->product()->first();
 
-        return $this->resolve($product, $store, $priceType, $quantity, $at);
+        return $this->resolve($product, $store, $priceType, $quantity, $at, $currency);
     }
 
     /**

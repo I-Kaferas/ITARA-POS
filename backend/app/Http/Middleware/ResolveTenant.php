@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Authorization\AuthorizationService;
 use App\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -18,6 +19,12 @@ class ResolveTenant
         $tenantId = $request->header('X-Tenant-ID');
 
         if (! $tenantId) {
+            $user = $request->user();
+            $platform = $request->is('api/v1/platform/*') || $request->is('api/v1/auth/me');
+            if ($platform && $user instanceof User && app(AuthorizationService::class)->isSuperAdmin($user)) {
+                return $next($request);
+            }
+
             return response()->json(['message' => 'X-Tenant-ID header is required.'], 400);
         }
 

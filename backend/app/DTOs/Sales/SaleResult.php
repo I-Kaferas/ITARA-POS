@@ -12,6 +12,9 @@ final readonly class SaleResult
         public Sale $sale,
         public CartCalculationResult $cart,
         public PaymentResult $payment,
+        public ?array $receipt = null,
+        public ?array $syncEvent = null,
+        public ?array $loyalty = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -90,6 +93,9 @@ final readonly class SaleResult
                 'is_mixed' => $this->payment->isMixed,
                 'lines' => array_map(fn ($line) => $line->toArray(), $this->payment->lines),
             ],
+            'receipt' => $this->receipt,
+            'sync_event' => $this->syncEvent,
+            'loyalty' => $this->loyalty,
         ];
     }
 }

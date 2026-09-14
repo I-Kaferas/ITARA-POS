@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
+import FieldLabel from '../ui/FieldLabel.vue'
 import WarehouseOptions from './WarehouseOptions.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
@@ -216,17 +217,17 @@ async function submit() {
     <form v-else class="space-y-3" @submit.prevent="submit">
       <div class="grid gap-3 sm:grid-cols-2">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
+          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
           <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.openingDate') }}</label>
+          <FieldLabel icon="calendar">{{ t('inventory.openingDate') }}</FieldLabel>
           <input v-model="form.counted_at" type="date" required class="field" />
         </div>
       </div>
 
       <div>
-        <label class="mb-1 block text-sm font-medium">{{ t('inventory.product') }}</label>
+        <FieldLabel icon="products">{{ t('inventory.product') }}</FieldLabel>
         <input v-model="productQuery" class="field" :placeholder="t('inventory.searchProduct')" />
         <div class="product-list">
           <p v-if="loadingProducts" class="px-3 py-4 text-sm text-slate-500">{{ t('common.loading') }}</p>

@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { SalesReport } from '../../../types'
@@ -41,6 +42,22 @@ async function exportCsv() {
   })
 }
 
+function applyPeriod(period: 'day' | 'week' | 'month' | 'year') {
+  const now = new Date()
+  const start = new Date(now)
+  if (period === 'week') start.setDate(now.getDate() - ((now.getDay() + 6) % 7))
+  if (period === 'month') start.setDate(1)
+  if (period === 'year') start.setMonth(0, 1)
+  const local = (date: Date) => {
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${date.getFullYear()}-${month}-${day}`
+  }
+  from.value = local(start)
+  to.value = local(now)
+  load()
+}
+
 onMounted(load)
 </script>
 
@@ -48,21 +65,25 @@ onMounted(load)
   <ReportsLayout>
     <div class="mb-4 flex flex-wrap items-end gap-3">
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('nav.stores') }}</label>
+        <FieldLabel icon="stores">{{ t('nav.stores') }}</FieldLabel>
         <select v-model="storeId" class="field">
           <option value="">{{ t('org.allStores') }}</option>
           <option v-for="s in context.activeStores" :key="s.id" :value="s.id">{{ s.name }}</option>
         </select>
       </div>
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('reports.from') }}</label>
+        <FieldLabel icon="calendar">{{ t('reports.from') }}</FieldLabel>
         <input v-model="from" type="date" class="field" />
       </div>
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">{{ t('reports.to') }}</label>
+        <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
         <input v-model="to" type="date" class="field" />
       </div>
       <button class="btn-secondary" :disabled="loading" @click="load">{{ t('common.search') }}</button>
+      <button class="btn-secondary" @click="applyPeriod('day')">{{ t('reports.periods.day') }}</button>
+      <button class="btn-secondary" @click="applyPeriod('week')">{{ t('reports.periods.week') }}</button>
+      <button class="btn-secondary" @click="applyPeriod('month')">{{ t('reports.periods.month') }}</button>
+      <button class="btn-secondary" @click="applyPeriod('year')">{{ t('reports.periods.year') }}</button>
       <button class="btn-primary" @click="exportCsv">{{ t('reports.export') }}</button>
     </div>
 
@@ -109,6 +130,90 @@ onMounted(load)
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.byWeek') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="row in report?.by_week ?? []" :key="`w-${row.label}`">
+              <td class="px-4 py-2">{{ row.label }}</td>
+              <td class="px-4 py-2 text-right">{{ row.sales_count }}</td>
+              <td class="px-4 py-2 text-right">{{ formatMoney(row.revenue) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.by_week?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.byMonth') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="row in report?.by_month ?? []" :key="`m-${row.label}`">
+              <td class="px-4 py-2">{{ row.label }}</td>
+              <td class="px-4 py-2 text-right">{{ row.sales_count }}</td>
+              <td class="px-4 py-2 text-right">{{ formatMoney(row.revenue) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.by_month?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.byYear') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="row in report?.by_year ?? []" :key="`y-${row.label}`">
+              <td class="px-4 py-2">{{ row.label }}</td>
+              <td class="px-4 py-2 text-right">{{ row.sales_count }}</td>
+              <td class="px-4 py-2 text-right">{{ formatMoney(row.revenue) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.by_year?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.byProduct') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="row in report?.by_product ?? []" :key="row.sku || row.label">
+              <td class="px-4 py-2">{{ row.label }}</td>
+              <td class="px-4 py-2 text-right">{{ row.quantity }}</td>
+              <td class="px-4 py-2 text-right">{{ formatMoney(row.revenue) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.by_product?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.byCategory') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="(row, index) in report?.by_category ?? []" :key="row.label || index">
+              <td class="px-4 py-2">{{ row.label || t('reports.uncategorized') }}</td>
+              <td class="px-4 py-2 text-right">{{ row.quantity }}</td>
+              <td class="px-4 py-2 text-right">{{ formatMoney(row.revenue) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.by_category?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
+      </div>
+
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="border-b px-4 py-3 text-sm font-semibold">{{ t('reports.byCashier') }}</div>
+        <table class="min-w-full divide-y text-sm">
+          <tbody class="divide-y">
+            <tr v-for="(row, index) in report?.by_cashier ?? []" :key="row.label || index">
+              <td class="px-4 py-2">{{ row.label || t('reports.unknownCashier') }}</td>
+              <td class="px-4 py-2 text-right">{{ row.sales_count }}</td>
+              <td class="px-4 py-2 text-right">{{ formatMoney(row.revenue) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!report?.by_cashier?.length" class="px-4 py-6 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
   </ReportsLayout>

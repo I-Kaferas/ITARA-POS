@@ -4,7 +4,9 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import { intlLocale } from '../../../i18n/locales'
@@ -49,6 +51,7 @@ const movementForm = ref({
 const closeForm = ref({
   actual_cash: '',
   closing_notes: '',
+  variance_reason: '',
 })
 
 const currency = computed(() => {
@@ -188,6 +191,7 @@ function openCloseDialog() {
   closeForm.value = {
     actual_cash: sessionSummary.value ? String(sessionSummary.value.expected_cash / 100) : '',
     closing_notes: '',
+    variance_reason: '',
   }
   showCloseModal.value = true
 }
@@ -199,6 +203,7 @@ async function submitCloseSession() {
     const res = await store.closeRegisterSession(activeRegister.value.id, {
       actual_cash: parseMoneyInput(closeForm.value.actual_cash),
       closing_notes: closeForm.value.closing_notes || undefined,
+      variance_reason: closeForm.value.variance_reason || undefined,
     })
     sessionSummary.value = res.summary
     showCloseModal.value = false
@@ -244,7 +249,7 @@ const varianceClass = computed(() => {
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('stores.select') }}</label>
+          <FieldLabel icon="stores">{{ t('stores.select') }}</FieldLabel>
           <select v-model="storeId" class="field w-auto min-w-[240px]">
             <option v-for="s in context.activeStores" :key="s.id" :value="s.id">
               {{ context.storeLabel(s) }}
@@ -304,15 +309,16 @@ const varianceClass = computed(() => {
       <form class="space-y-3" @submit.prevent="saveRegister">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('org.name') }}</label>
+            <FieldLabel icon="account">{{ t('org.name') }}</FieldLabel>
             <input v-model="registerForm.name" required class="field w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('org.code') }}</label>
+            <FieldLabel icon="tag">{{ t('org.code') }}</FieldLabel>
             <input v-model="registerForm.code" required class="field w-full font-mono" />
           </div>
         </div>
         <label class="flex items-center gap-2 text-sm">
+          <span class="field-icon"><AppIcon name="check" :size="14" /></span>
           <input v-model="registerForm.is_active" type="checkbox" class="rounded" />
           {{ t('products.active') }}
         </label>
@@ -365,11 +371,11 @@ const varianceClass = computed(() => {
             {{ t('registers.openHint') }}
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('registers.openingBalance') }}</label>
+            <FieldLabel icon="coins">{{ t('registers.openingBalance') }}</FieldLabel>
             <input v-model="openForm.opening_balance" type="text" class="field w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium">{{ t('registers.notes') }} ({{ t('common.optional') }})</label>
+            <FieldLabel icon="note">{{ t('registers.notes') }} ({{ t('common.optional') }})</FieldLabel>
             <textarea v-model="openForm.opening_notes" rows="2" class="field w-full" />
           </div>
           <button class="btn-primary w-full" :disabled="sessionBusy" @click="submitOpenSession">
@@ -432,17 +438,17 @@ const varianceClass = computed(() => {
     >
       <form class="space-y-3" @submit.prevent="submitMovement">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('registers.movementType') }}</label>
+          <FieldLabel icon="transfer">{{ t('registers.movementType') }}</FieldLabel>
           <select v-model="movementForm.movement_type" class="field w-full">
             <option v-for="mt in movementTypes" :key="mt.value" :value="mt.value">{{ t(mt.labelKey) }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('pos.amount') }}</label>
+          <FieldLabel icon="coins">{{ t('pos.amount') }}</FieldLabel>
           <input v-model="movementForm.amount" required type="text" class="field w-full" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('registers.description') }}</label>
+          <FieldLabel icon="note">{{ t('registers.description') }}</FieldLabel>
           <input v-model="movementForm.description" class="field w-full" />
         </div>
         <div class="app-modal__actions">
@@ -466,11 +472,15 @@ const varianceClass = computed(() => {
           <p class="text-lg font-bold">{{ format(sessionSummary?.expected_cash ?? 0) }}</p>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('registers.actualCash') }}</label>
+          <FieldLabel icon="coins">{{ t('registers.actualCash') }}</FieldLabel>
           <input v-model="closeForm.actual_cash" required type="text" class="field w-full" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('registers.notes') }}</label>
+          <FieldLabel icon="note">{{ t('pos.varianceReason') }}</FieldLabel>
+          <textarea v-model="closeForm.variance_reason" rows="2" class="field w-full" />
+        </div>
+        <div>
+          <FieldLabel icon="note">{{ t('registers.notes') }}</FieldLabel>
           <textarea v-model="closeForm.closing_notes" rows="2" class="field w-full" />
         </div>
         <div class="app-modal__actions">

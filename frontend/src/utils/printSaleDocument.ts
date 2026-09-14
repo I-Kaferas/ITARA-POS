@@ -45,7 +45,15 @@ function addressText(address: SaleDocPayload['company'] extends infer C
     .join(', ')
 }
 
-export function printSaleDocument(payload: SaleDocPayload, title: string) {
+export function openPrintWindow(): Window | null {
+  return window.open('', '_blank', 'width=800,height=900')
+}
+
+export function printSaleDocument(
+  payload: SaleDocPayload,
+  title: string,
+  existingWindow?: Window | null,
+): boolean {
   const companyName = payload.company?.trade_name || payload.company?.name || 'POS'
   const items = payload.items ?? []
   const payments = payload.payments ?? []
@@ -120,15 +128,21 @@ export function printSaleDocument(payload: SaleDocPayload, title: string) {
   </div>
   ${payments.length ? `<table><thead><tr><th>${escapeHtml(t('print.payment'))}</th><th class="num">${escapeHtml(t('print.amount'))}</th></tr></thead><tbody>${paymentRows}</tbody></table>` : ''}
   <div class="footer">${escapeHtml(payload.footer || payload.company?.receipt_footer || '')}</div>
-  <script>window.onload = () => { window.print(); }</script>
 </body>
 </html>`
 
-  const popup = window.open('', '_blank', 'noopener,noreferrer,width=800,height=900')
-  if (!popup) return
+  const popup = existingWindow && !existingWindow.closed
+    ? existingWindow
+    : openPrintWindow()
+  if (!popup) return false
   popup.document.open()
   popup.document.write(html)
   popup.document.close()
+  popup.focus()
+  window.setTimeout(() => {
+    if (!popup.closed) popup.print()
+  }, 200)
+  return true
 }
 
 function escapeHtml(value: string) {

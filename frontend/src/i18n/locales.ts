@@ -10,10 +10,10 @@ export const LOCALE_LABELS: Record<AppLocale, string> = {
   sw: 'Kiswahili',
 }
 
-export const LOCALE_META: Record<AppLocale, { native: string; code: string; region: string }> = {
-  fr: { native: 'Français', code: 'FR', region: 'France' },
-  en: { native: 'English', code: 'EN', region: 'International' },
-  sw: { native: 'Kiswahili', code: 'SW', region: 'Afrika Mashariki' },
+export const LOCALE_META: Record<AppLocale, { native: string; code: string; region: string; country: string }> = {
+  fr: { native: 'Français', code: 'FR', region: 'France', country: 'FR' },
+  en: { native: 'English', code: 'EN', region: 'United Kingdom', country: 'GB' },
+  sw: { native: 'Kiswahili', code: 'SW', region: 'Tanzania', country: 'TZ' },
 }
 
 export const INTL_LOCALES: Record<AppLocale, string> = {

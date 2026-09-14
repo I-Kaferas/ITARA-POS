@@ -12,6 +12,8 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 
 import AppModal from '../../../components/ui/AppModal.vue'
 
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
+
 import { useBackofficeStore } from '../../../stores/backoffice'
 
 import type { Product, PurchaseInvoice, Supplier, Warehouse } from '../../../types'
@@ -474,13 +476,13 @@ function invoiceStatusActive(status: string): boolean {
     >
       <form class="space-y-3" @submit.prevent="submitCreateOrder">
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('inventory.warehouse') }}</label>
+          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
           <select v-model="poForm.warehouse_id" required class="field">
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('nav.suppliers') }}</label>
+          <FieldLabel icon="suppliers">{{ t('nav.suppliers') }}</FieldLabel>
           <select v-model="poForm.supplier_id" required class="field">
             <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
@@ -516,11 +518,11 @@ function invoiceStatusActive(status: string): boolean {
       <form class="space-y-3" @submit.prevent="submitPayment">
         <p class="text-sm text-slate-600">{{ payingInvoice?.invoice_number }}</p>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('products.price') }}</label>
+          <FieldLabel icon="coins">{{ t('products.price') }}</FieldLabel>
           <input v-model.number="payForm.amount" type="number" min="1" required class="field" />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('payables.method') }}</label>
+          <FieldLabel icon="card">{{ t('payables.method') }}</FieldLabel>
           <select v-model="payForm.payment_method" class="field">
             <option value="bank_transfer">Virement</option>
             <option value="cash">Espèces</option>
@@ -529,7 +531,7 @@ function invoiceStatusActive(status: string): boolean {
           </select>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium">{{ t('payables.reference') }}</label>
+          <FieldLabel icon="tag">{{ t('payables.reference') }}</FieldLabel>
           <input v-model="payForm.reference" class="field" />
         </div>
         <div class="app-modal__actions">
