@@ -11,6 +11,7 @@ import { useContextStore } from '../../../stores/context'
 import type { Company, Sale, SaleReturn, SaleTax } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { printSaleDocument, type SaleDocPayload } from '../../../utils/printSaleDocument'
+import MergeOrdersModal from '../../../components/pos/MergeOrdersModal.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -25,6 +26,7 @@ const loading = ref(true)
 const loadError = ref<string | null>(null)
 const docLoading = ref(false)
 const showReturnModal = ref(false)
+const showMerge = ref(false)
 const saving = ref(false)
 const returnReasons = ref<{ value: string; label: string }[]>([])
 const returnForm = ref({
@@ -283,6 +285,14 @@ async function printInvoice() {
           </button>
           <button
             v-if="sale?.status === 'pending'"
+            class="btn-secondary"
+            type="button"
+            @click="showMerge = true"
+          >
+            {{ t('pointOfSale.merge.action') }}
+          </button>
+          <button
+            v-if="sale?.status === 'pending'"
             class="btn-primary"
             type="button"
             @click="router.push({ name: 'pos', query: { sale: sale.id, pay: '1' } })"
@@ -351,7 +361,7 @@ async function printInvoice() {
                 </div>
               </div>
               <div class="flex flex-wrap gap-2">
-                <Badge :variant="sale.status === 'completed' ? 'success' : 'neutral'">
+                <Badge :variant="sale.status === 'completed' ? 'success' : (sale.status === 'merged' ? 'brand' : 'neutral')">
                   {{ saleStatusLabel(sale.status) }}
                 </Badge>
                 <Badge :variant="paymentStatusVariant(sale.payment_status)">
@@ -359,6 +369,9 @@ async function printInvoice() {
                 </Badge>
               </div>
             </div>
+            <p v-if="sale.status === 'merged' && sale.merged_into" class="mt-3 m-0 text-sm text-white/85">
+              {{ t('pointOfSale.merge.action') }} → {{ sale.merged_into.reference }}
+            </p>
           </div>
 
           <div class="grid gap-0 lg:grid-cols-[1.2fr_0.8fr]">
@@ -705,6 +718,20 @@ async function printInvoice() {
         </div>
       </form>
     </AppModal>
+
+    <MergeOrdersModal
+      :open="showMerge && sale?.status === 'pending'"
+      :sale="sale ? {
+        id: sale.id,
+        reference: sale.reference,
+        total: sale.total,
+        currency: sale.currency,
+        customer: sale.customer ?? null,
+        table: (sale as Sale & { table?: { id: string; name: string } | null }).table ?? null,
+      } : null"
+      @close="showMerge = false"
+      @merged="async () => { showMerge = false; await loadAll() }"
+    />
   </AdminLayout>
 </template>
 

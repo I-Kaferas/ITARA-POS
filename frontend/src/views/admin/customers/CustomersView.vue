@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
@@ -29,6 +30,7 @@ const form = ref(emptyForm())
 
 function emptyForm() {
   return {
+    code: '',
     name: '',
     customer_type: 'individual' as CustomerType,
     origin: 'local' as CustomerOrigin,
@@ -65,6 +67,8 @@ async function applySearch() {
   await store.loadCustomers(search.value)
 }
 
+watchLiveSearch(search, applySearch)
+
 function openCreate() {
   editing.value = null
   saveError.value = ''
@@ -79,6 +83,7 @@ function openEdit(item: Customer) {
   activeTab.value = 'general'
   const address = item.addresses?.find(row => row.is_primary) ?? item.addresses?.[0]
   form.value = {
+    code: item.code ?? '',
     name: item.name,
     customer_type: (metaString(item, 'customer_type') || 'individual') as CustomerType,
     origin: (metaString(item, 'origin') || 'local') as CustomerOrigin,
@@ -117,6 +122,9 @@ async function save() {
   try {
     const saved = await store.saveCustomer({
       name: form.value.name.trim(),
+      code: editing.value
+        ? (form.value.code.trim() || undefined)
+        : undefined,
       tax_id: form.value.customer_type === 'company' ? form.value.tax_id.trim() : null,
       email: form.value.email.trim() || null,
       phone: form.value.phone.trim() || null,
@@ -172,10 +180,7 @@ async function remove(item: Customer) {
 
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <form class="flex gap-2" @submit.prevent="applySearch">
-          <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
-          <button type="submit" class="btn-secondary">{{ t('common.search') }}</button>
-        </form>
+        <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
         <button class="btn-primary" @click="openCreate">+ {{ t('customers.add') }}</button>
       </div>
 
@@ -232,6 +237,17 @@ async function remove(item: Customer) {
         </div>
 
         <div v-show="activeTab === 'general'" class="customer-pane">
+          <div>
+            <FieldLabel icon="tag">{{ t('customers.code') }}</FieldLabel>
+            <input
+              v-if="editing"
+              v-model="form.code"
+              class="field font-mono"
+              :placeholder="t('customers.codePlaceholder')"
+            />
+            <p v-else class="customer-code-hint">{{ t('customers.codeAuto') }}</p>
+          </div>
+
           <div>
             <FieldLabel icon="customers">{{ t('customers.name') }} *</FieldLabel>
             <input v-model="form.name" class="field" :placeholder="t('customers.namePlaceholder')" />
@@ -384,6 +400,16 @@ async function remove(item: Customer) {
   color: var(--color-brand-700, #3d5c73);
 }
 .customer-pane { display: flex; flex-direction: column; gap: 0.85rem; }
+.customer-code-hint {
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.65rem;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
 .choice-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
 .choice {
   display: flex;

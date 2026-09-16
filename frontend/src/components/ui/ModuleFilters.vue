@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from './AppIcon.vue'
+import { debounceFn } from '../../composables/useLiveSearch'
 import { emptyListFilters, type ListFilters } from '../../utils/listFilters'
 
 const props = withDefaults(defineProps<{
@@ -56,10 +57,17 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const open = ref(true)
+const liveApply = debounceFn(() => emit('apply'), 280)
+onBeforeUnmount(() => liveApply.cancel())
 
 function patch(partial: Partial<ListFilters>, reload = true) {
   emit('update:modelValue', { ...props.modelValue, ...partial })
   if (reload) emit('apply')
+}
+
+function patchLive(partial: Partial<ListFilters>) {
+  emit('update:modelValue', { ...props.modelValue, ...partial })
+  liveApply()
 }
 
 function reset() {
@@ -78,10 +86,10 @@ function reset() {
     <input
       v-if="showSearch"
       :value="modelValue.search"
+      type="search"
       class="field grow"
       :placeholder="searchPlaceholder || t('filters.search')"
-      @input="patch({ search: ($event.target as HTMLInputElement).value }, false)"
-      @keyup.enter="emit('apply')"
+      @input="patchLive({ search: ($event.target as HTMLInputElement).value })"
     />
     <select v-if="showPeriod" :value="modelValue.period" class="field" @change="patch({ period: ($event.target as HTMLSelectElement).value })">
       <option value="all">{{ t('filters.allPeriods') }}</option>
@@ -127,8 +135,8 @@ function reset() {
       <option value="1">{{ t('filters.active') }}</option>
       <option value="0">{{ t('filters.inactive') }}</option>
     </select>
-    <input v-if="showDepartment" :value="modelValue.department" class="field" :placeholder="t('expenses.department')" @change="patch({ department: ($event.target as HTMLInputElement).value })" />
-    <input v-if="showCostCenter" :value="modelValue.cost_center" class="field" :placeholder="t('expenses.costCenter')" @change="patch({ cost_center: ($event.target as HTMLInputElement).value })" />
+    <input v-if="showDepartment" :value="modelValue.department" class="field" :placeholder="t('expenses.department')" @input="patchLive({ department: ($event.target as HTMLInputElement).value })" />
+    <input v-if="showCostCenter" :value="modelValue.cost_center" class="field" :placeholder="t('expenses.costCenter')" @input="patchLive({ cost_center: ($event.target as HTMLInputElement).value })" />
     <button type="button" class="btn" @click="emit('apply')">{{ t('filters.apply') }}</button>
     <button type="button" class="btn ghost" @click="reset">{{ t('filters.reset') }}</button>
     </div>
@@ -140,31 +148,32 @@ function reset() {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.65rem;
+  gap: var(--space-3);
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #e4e8ec;
-  border-radius: 1rem;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 1px 2px rgba(18, 24, 30, 0.04);
+  box-shadow: var(--shadow-xs);
 }
 .toggle {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
-  gap: 0.4rem;
-  border: 1px solid #e4e8ec;
-  border-radius: 999px;
-  padding: 0.38rem 0.8rem;
+  gap: var(--space-2);
+  height: var(--control-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-3);
   background: #f7f4ef;
   color: #3d5c73;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: var(--line-sm);
 }
-.filters { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; width: 100%; }
-.field { border: 1px solid #d7dbe6; border-radius: 0.75rem; padding: 0.5rem 0.75rem; background: white; min-width: 9.5rem; }
+.filters { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; width: 100%; }
+.field { border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); height: var(--control-lg); min-height: var(--control-lg); padding: 0 var(--space-3); background: white; min-width: 9.5rem; font-size: var(--text-md); line-height: var(--line-sm); }
 .grow { flex: 1; min-width: 14rem; }
-.btn { border-radius: 0.75rem; padding: 0.5rem 0.9rem; color: white; background: #4a6d86; font-weight: 650; }
-.btn.ghost { background: white; color: #334155; border: 1px solid #d7dbe6; }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: var(--control-lg); min-height: var(--control-lg); border-radius: var(--radius-md); padding: 0 var(--space-4); color: white; background: var(--color-brand-600); font-size: var(--text-md); font-weight: 500; line-height: var(--line-sm); }
+.btn.ghost { background: white; color: #334155; border: 1px solid var(--color-border-strong); }
 </style>

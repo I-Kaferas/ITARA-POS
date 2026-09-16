@@ -242,6 +242,17 @@ async function submit() {
     if (!res.ok) throw new Error(payload?.message || payload?.errors?.guest_signature_data?.[0] || `HTTP ${res.status}`)
     stay.value = { ...stay.value, ...(payload.data as StaySign) }
     done.value = true
+    try {
+      const channel = new BroadcastChannel('itara-stay-sign')
+      channel.postMessage({
+        type: 'stay.signed',
+        id: stay.value?.id,
+        guest_signed_at: stay.value?.guest_signed_at,
+      })
+      channel.close()
+    } catch {
+      // Admin page will still pick this up via polling / realtime.
+    }
   } catch (err) {
     error.value = extractApiErrorMessage(err)
   } finally {

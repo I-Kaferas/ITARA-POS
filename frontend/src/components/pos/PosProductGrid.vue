@@ -72,18 +72,12 @@ function imageSrc(product: PosProduct) {
             <AppIcon name="products" :size="28" />
             <span>{{ initial(product.name) }}</span>
           </span>
+          <span class="pos-products__stock">{{ quantityLabel(product) }}</span>
           <span v-if="product.is_available === false" class="pos-products__off">{{ t('pos.outOfStock') }}</span>
         </div>
         <div class="pos-products__body">
           <p class="pos-products__name">{{ product.name }}</p>
-          <p class="pos-products__metric">
-            <span>{{ t('products.price') }}</span>
-            <strong>{{ formatMoney(product.price || 0, currency) }}</strong>
-          </p>
-          <p class="pos-products__metric">
-            <span>{{ t('pos.stockQty') }}</span>
-            <strong>{{ quantityLabel(product) }}</strong>
-          </p>
+          <p class="pos-products__price">{{ formatMoney(product.price || 0, currency) }}</p>
           <p v-if="hasOptions(product)" class="pos-products__sku">{{ t('pos.chooseOption') }}</p>
         </div>
       </button>
@@ -98,12 +92,14 @@ function imageSrc(product: PosProduct) {
 
 <style scoped>
 .pos-products {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
   background: #f4f7fa;
+  container-type: size;
+  container-name: pos-products;
 }
 
 .pos-products__sections {
@@ -162,7 +158,9 @@ function imageSrc(product: PosProduct) {
   min-height: 0;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+  grid-auto-rows: max-content;
+  align-items: start;
   gap: 0.7rem;
   width: 100%;
   padding: 0.55rem 0.75rem 1rem;
@@ -174,6 +172,7 @@ function imageSrc(product: PosProduct) {
   flex-direction: column;
   width: 100%;
   min-width: 0;
+  height: auto;
   border: 1px solid #d7e2ea;
   border-radius: 0.85rem;
   overflow: hidden;
@@ -183,6 +182,7 @@ function imageSrc(product: PosProduct) {
   padding: 0;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  touch-action: manipulation;
 }
 
 .pos-products__card:hover:not(:disabled) {
@@ -206,7 +206,12 @@ function imageSrc(product: PosProduct) {
 
 .pos-products__photo {
   position: relative;
-  height: 7.5rem;
+  flex: 0 0 auto;
+  aspect-ratio: 5 / 4;
+  width: 100%;
+  height: auto;
+  max-height: 10.5rem;
+  min-height: 5.5rem;
   background: #e8eef3;
   display: flex;
   align-items: center;
@@ -231,6 +236,22 @@ function imageSrc(product: PosProduct) {
   font-weight: 750;
 }
 
+.pos-products__stock {
+  position: absolute;
+  left: 0.4rem;
+  bottom: 0.4rem;
+  max-width: calc(100% - 0.8rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
 .pos-products__off {
   position: absolute;
   top: 0.4rem;
@@ -246,13 +267,15 @@ function imageSrc(product: PosProduct) {
 .pos-products__body {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.6rem 0.65rem 0.7rem;
+  flex: 0 0 auto;
+  gap: 0.25rem;
+  padding: 0.55rem 0.6rem 0.65rem;
+  min-height: 0;
 }
 
 .pos-products__name {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #1c2830;
   line-height: 1.25;
@@ -260,29 +283,15 @@ function imageSrc(product: PosProduct) {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.1em;
+  min-height: 2.05em;
 }
 
-.pos-products__metric {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.4rem;
+.pos-products__price {
   margin: 0;
-}
-
-.pos-products__metric span {
-  font-size: 0.68rem;
-  font-weight: 650;
-  color: #7b8d9a;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.pos-products__metric strong {
   font-size: 0.92rem;
   font-weight: 750;
   color: #1c2830;
+  letter-spacing: -0.02em;
 }
 
 .pos-products__sku {
@@ -307,5 +316,65 @@ function imageSrc(product: PosProduct) {
 .pos-products__empty p {
   margin: 0;
   font-size: 0.9rem;
+}
+
+@container pos-products (max-width: 520px) {
+  .pos-products__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.45rem 0.55rem 0.9rem;
+  }
+
+  .pos-products__photo {
+    aspect-ratio: 1.1 / 1;
+    min-height: 5.5rem;
+    max-height: 8rem;
+  }
+
+  .pos-products__name {
+    font-size: 0.76rem;
+    min-height: 1.9em;
+  }
+
+  .pos-products__price {
+    font-size: 0.84rem;
+  }
+}
+
+@container pos-products (max-height: 28rem) {
+  .pos-products__toolbar {
+    padding: 0.4rem 0.75rem 0.05rem;
+  }
+
+  .pos-products__photo {
+    max-height: 7rem;
+    min-height: 4.75rem;
+    aspect-ratio: 16 / 10;
+  }
+
+  .pos-products__name {
+    min-height: 0;
+    -webkit-line-clamp: 1;
+  }
+}
+
+@container pos-products (max-width: 280px) {
+  .pos-products__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1279px) {
+  .pos-products {
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .pos-products {
+    width: 100%;
+    min-height: 0;
+  }
 }
 </style>

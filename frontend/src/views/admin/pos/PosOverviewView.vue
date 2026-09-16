@@ -6,6 +6,7 @@ import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import { extractApiErrorMessage } from '../../../api/client'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { PosOverview } from '../../../types'
@@ -36,6 +37,13 @@ const cards = computed(() => [
     description: t('pointOfSale.overview.terminalHint'),
     to: '/admin/pos/terminal',
     icon: 'store-pin',
+  },
+  {
+    key: 'tables',
+    title: t('nav.restaurant'),
+    description: t('pointOfSale.overview.tablesHint'),
+    to: '/admin/hospitality',
+    icon: 'tables',
   },
   {
     key: 'orders',
@@ -80,6 +88,7 @@ async function load() {
 
 onMounted(load)
 watch(storeId, load)
+useRealtimeSync(realtimeTopics.posOverview, load)
 </script>
 
 <template>

@@ -26,12 +26,19 @@ class PriceService
 
         foreach ($prices as $item) {
             $existing = null;
+            $wantedType = (string) ($item['price_type'] ?? '');
+
+            // Never reuse a row whose price_type differs: price-list UI can send a
+            // fallback retail id for wholesale/vip/special tiers.
             if (! empty($item['id'])) {
-                $existing = $model->prices()->whereKey($item['id'])->first();
+                $byId = $model->prices()->whereKey($item['id'])->first();
+                if ($byId && ($wantedType === '' || $byId->price_type === $wantedType)) {
+                    $existing = $byId;
+                }
             }
-            if (! $existing && ! empty($item['price_type'])) {
+            if (! $existing && $wantedType !== '') {
                 $existing = $model->prices()
-                    ->where('price_type', $item['price_type'])
+                    ->where('price_type', $wantedType)
                     ->where('store_id', $item['store_id'] ?? null)
                     ->where('currency_code', strtoupper($item['currency_code'] ?? $this->resolveCurrencyCode($model)))
                     ->where('min_quantity', $item['min_quantity'] ?? 1)

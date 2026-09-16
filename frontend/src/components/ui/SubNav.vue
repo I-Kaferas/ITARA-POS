@@ -24,7 +24,7 @@ withDefaults(defineProps<{
       :style="tab.color ? { '--tab-color': tab.color } : undefined"
     >
       <span v-if="tab.icon" class="sub-nav__mark" aria-hidden="true">
-        <AppIcon :name="tab.icon" :size="variant === 'secondary' ? 12 : 14" />
+        <AppIcon :name="tab.icon" :size="variant === 'secondary' ? 16 : 18" />
       </span>
       <span>{{ tab.label }}</span>
     </RouterLink>

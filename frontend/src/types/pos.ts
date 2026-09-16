@@ -36,6 +36,14 @@ export interface PosProduct {
   sale_units?: PosSaleUnit[]
   variants?: PosVariant[]
   option_groups?: { name: string; values: string[] }[]
+  accompaniment_enabled?: boolean
+  accompaniments?: PosAccompaniment[]
+}
+
+export interface PosAccompaniment {
+  product_id: string
+  sku: string
+  name: string
 }
 
 export interface PosVariant {
@@ -66,6 +74,8 @@ export interface PosCartLine {
   saleUnitId?: string
   variantId?: string
   lineDiscountFixed?: number
+  isAccompaniment?: boolean
+  parentLineId?: string
 }
 
 export interface CartDiscountPayload {

@@ -34,9 +34,18 @@ class ProductOptionController extends Controller
             'groups.*.name' => ['required', 'string', 'max:50'],
             'groups.*.values' => ['required', 'array', 'min:1', 'max:20'],
             'groups.*.values.*' => ['required', 'string', 'max:50'],
+            'groups.*.value_prices' => ['nullable', 'array'],
+            'groups.*.value_prices.*' => ['nullable', 'integer', 'min:0'],
+            'prices' => ['nullable', 'array'],
+            'prices.*.options' => ['required', 'array'],
+            'prices.*.price' => ['required', 'integer', 'min:0'],
         ]);
 
-        $transformed = $this->options->transform($product, $data['groups']);
+        $transformed = $this->options->transform(
+            $product,
+            $data['groups'],
+            $data['prices'] ?? [],
+        );
 
         return response()->json([
             'data' => [

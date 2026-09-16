@@ -8,7 +8,6 @@ import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
-import { useBackofficeStore } from '../../../stores/backoffice'
 import type {
   Customer,
   CustomerAddress,

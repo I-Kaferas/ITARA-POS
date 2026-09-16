@@ -152,6 +152,59 @@ class SaleController extends Controller
                 'notes' => $sale->notes,
                 'customer' => $sale->customer?->only(['id', 'name', 'email']),
                 'processed_by' => $sale->processedBy?->only(['id', 'name']),
+                'merged_sales' => $sale->mergedSales->map->toSummaryArray()->values(),
+            ],
+        ]);
+    }
+
+    public function mergeCandidates(Sale $sale): JsonResponse
+    {
+        $candidates = $this->saleEngine->mergeCandidates($sale);
+
+        return response()->json([
+            'data' => $candidates->map(fn (Sale $candidate) => [
+                ...$candidate->toSummaryArray(),
+                'table' => $candidate->diningTable?->only(['id', 'name', 'code']),
+                'item_count' => (int) ($candidate->items_quantity_sum ?? 0),
+            ])->values(),
+        ]);
+    }
+
+    public function mergePreview(Request $request, Sale $sale): JsonResponse
+    {
+        $data = $request->validate([
+            'source_sale_id' => ['required', 'uuid', 'exists:sales,id', Rule::notIn([$sale->id])],
+            'table_id' => ['nullable', 'uuid', 'exists:pos_tables,id'],
+            'customer_id' => ['nullable', 'uuid', 'exists:customers,id'],
+            'confirm_different_customers' => ['sometimes', 'boolean'],
+            'consolidate' => ['sometimes', 'boolean'],
+        ]);
+
+        $source = Sale::query()->findOrFail($data['source_sale_id']);
+        $preview = $this->saleEngine->previewMerge($sale, $source, $data);
+
+        return response()->json(['data' => $preview]);
+    }
+
+    public function merge(Request $request, Sale $sale): JsonResponse
+    {
+        $data = $request->validate([
+            'source_sale_id' => ['required', 'uuid', 'exists:sales,id', Rule::notIn([$sale->id])],
+            'table_id' => ['nullable', 'uuid', 'exists:pos_tables,id'],
+            'customer_id' => ['nullable', 'uuid', 'exists:customers,id'],
+            'confirm_different_customers' => ['sometimes', 'boolean'],
+            'consolidate' => ['sometimes', 'boolean'],
+        ]);
+
+        $source = Sale::query()->findOrFail($data['source_sale_id']);
+        $merged = $this->saleEngine->mergePending($sale, $source, $request->user(), $data);
+
+        return response()->json([
+            'data' => [
+                ...$merged->toSummaryArray(),
+                'items' => $merged->items,
+                'merged_sales' => $merged->mergedSales->map->toSummaryArray()->values(),
+                'table' => $merged->diningTable?->only(['id', 'name', 'code']),
             ],
         ]);
     }
@@ -218,12 +271,13 @@ class SaleController extends Controller
     private function validateHoldPayload(Request $request): array
     {
         return $request->validate([
-            'items' => ['required', 'array', 'min:1'],
+            'items' => ['required', 'array'],
             'customer_id' => ['nullable', 'uuid', 'exists:customers,id'],
             'warehouse_id' => ['nullable', 'uuid', 'exists:warehouses,id'],
             'cash_register_id' => ['nullable', 'uuid', 'exists:cash_registers,id'],
             'cashier_shift_id' => ['nullable', 'uuid', 'exists:cashier_shifts,id'],
             'device_id' => ['nullable', 'uuid', 'exists:devices,id'],
+            'table_id' => ['nullable', 'uuid', 'exists:pos_tables,id'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'items.*.line_id' => ['nullable', 'string', 'max:120'],
             'items.*.product_id' => ['nullable', 'uuid', 'exists:products,id'],
@@ -243,7 +297,7 @@ class SaleController extends Controller
     /** @return array<string, mixed> */
     private function salePayload(Sale $sale): array
     {
-        $sale->loadMissing(['items', 'customer', 'discounts']);
+        $sale->loadMissing(['items', 'customer', 'discounts', 'diningTable']);
 
         return [
             ...$sale->toSummaryArray(),

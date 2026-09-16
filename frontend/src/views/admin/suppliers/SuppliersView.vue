@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useRouter } from 'vue-router'
@@ -42,6 +43,8 @@ onMounted(async () => {
 async function applySearch() {
   await store.loadSuppliers(search.value)
 }
+
+watchLiveSearch(search, applySearch)
 
 function openDetail(item: Supplier) {
   router.push({ name: 'supplier-detail', params: { id: item.id } })
@@ -106,10 +109,7 @@ async function remove(item: Supplier) {
 
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <form class="flex gap-2" @submit.prevent="applySearch">
-          <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
-          <button type="submit" class="btn-secondary">{{ t('common.search') }}</button>
-        </form>
+        <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
         <button class="btn-primary" @click="openCreate">+ {{ t('suppliers.add') }}</button>
       </div>
 

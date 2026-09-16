@@ -15,7 +15,10 @@ backend/storage/framework/cache/data/*
 backend/storage/framework/sessions/*
 backend/storage/framework/views/*
 backend/bootstrap/cache/*
+backend/public/storage
+backend/storage/app/public/*
 !backend/storage/logs/.gitkeep
+!backend/storage/app/public/.gitkeep
 !backend/storage/framework/cache/.gitkeep
 !backend/storage/framework/cache/data/.gitkeep
 !backend/storage/framework/sessions/.gitkeep

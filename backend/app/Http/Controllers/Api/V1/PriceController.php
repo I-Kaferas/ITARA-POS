@@ -149,7 +149,9 @@ class PriceController extends Controller
                 'amount' => $resolved->amount,
                 'currency_code' => $currency,
                 'source' => $resolved->source,
-                'price_id' => $resolved->priceId,
+                // Only expose an editable id when this tier is native (not a retail/base fallback).
+                'price_id' => $resolved->priceType === $type ? $resolved->priceId : null,
+                'resolved_type' => $resolved->priceType,
                 'quote' => $quote,
                 'in_default' => $this->currencies->convert($resolved->amount, $currency, $defaultCurrency),
             ];

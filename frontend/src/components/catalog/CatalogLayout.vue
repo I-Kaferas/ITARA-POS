@@ -16,7 +16,10 @@ const tabs = computed(() => [
   { to: '/admin/catalog/attributes', label: t('catalog.tabs.attributes') },
   { to: '/admin/catalog/taxes', label: t('catalog.tabs.taxes') },
   { to: '/admin/products', label: t('nav.products') },
+  { to: '/admin/accompaniments', label: t('nav.accompaniments') },
   { to: '/admin/catalog/options', label: t('nav.productOptions') },
+  { to: '/admin/catalog/beverages', label: t('nav.beverages') },
+  { to: '/admin/catalog/prices', label: t('nav.priceLists') },
 ])
 
 function isActive(path: string) {
@@ -34,6 +37,9 @@ const pageTitle = computed(() => {
   if (route.path.startsWith('/admin/catalog/catalogs')) return t('catalog.tabs.catalogs')
   if (route.path.startsWith('/admin/catalog/taxes')) return t('catalog.tabs.taxes')
   if (route.path.startsWith('/admin/catalog/options')) return t('nav.productOptions')
+  if (route.path.startsWith('/admin/accompaniments')) return t('nav.accompaniments')
+  if (route.path.startsWith('/admin/catalog/beverages')) return t('nav.beverages')
+  if (route.path.startsWith('/admin/catalog/prices')) return t('nav.priceLists')
   return t('nav.catalog')
 })
 </script>

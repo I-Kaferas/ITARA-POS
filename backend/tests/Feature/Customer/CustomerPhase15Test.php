@@ -192,6 +192,30 @@ class CustomerPhase15Test extends TestCase
             ->assertJsonCount(1, 'data.0.transactions');
     }
 
+    public function test_customer_code_is_auto_generated_and_unique(): void
+    {
+        $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+
+        $first = $this->postJson('/api/v1/customers', [
+            'name' => 'Client Auto A',
+        ], $headers)->assertCreated()->json('data');
+
+        $second = $this->postJson('/api/v1/customers', [
+            'name' => 'Client Auto B',
+        ], $headers)->assertCreated()->json('data');
+
+        $this->assertNotEmpty($first['code']);
+        $this->assertNotEmpty($second['code']);
+        $this->assertNotSame($first['code'], $second['code']);
+        $this->assertMatchesRegularExpression('/^CLI-\d{4}$/', $first['code']);
+        $this->assertMatchesRegularExpression('/^CLI-\d{4}$/', $second['code']);
+
+        $this->postJson('/api/v1/customers', [
+            'name' => 'Duplicate Code',
+            'code' => $first['code'],
+        ], $headers)->assertStatus(422);
+    }
+
     public function test_customer_transactions_are_immutable(): void
     {
         $customer = $this->fixture['customer'];

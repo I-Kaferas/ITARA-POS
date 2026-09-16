@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
@@ -25,6 +26,8 @@ function moneyField(value: unknown) {
 }
 
 onMounted(load)
+watchLiveSearch(action, load)
+watchLiveSearch([from, to], load, 0)
 </script>
 
 <template>
@@ -35,7 +38,7 @@ onMounted(load)
     <div class="mb-4 flex flex-wrap items-end gap-3">
       <div>
         <FieldLabel icon="filter">Action</FieldLabel>
-        <input v-model="action" class="field" placeholder="sale.completed" />
+        <input v-model="action" type="search" class="field" placeholder="sale.completed" />
       </div>
       <div>
         <FieldLabel icon="calendar">{{ t('reports.from') }}</FieldLabel>
@@ -45,7 +48,6 @@ onMounted(load)
         <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
         <input v-model="to" type="date" class="field" />
       </div>
-      <button class="btn-secondary" @click="load">{{ t('common.search') }}</button>
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">

@@ -107,7 +107,6 @@ class PurchaseOrderService
         $purchaseOrder->update([
             'status' => PurchaseOrderStatus::Pending,
             'submitted_at' => now(),
-            'confirmed_by' => $confirmedBy?->id,
         ]);
 
         return $purchaseOrder->fresh();

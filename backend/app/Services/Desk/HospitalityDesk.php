@@ -5,6 +5,7 @@ namespace App\Services\Desk;
 use App\Models\DeskDocument;
 use App\Models\Store;
 use App\Models\Tenant;
+use App\Services\Realtime\RealtimePublisher;
 use App\Support\TenantBranding;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -12,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 class HospitalityDesk
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     /** @return array{docs: list<array<string, mixed>>} */
     public function snapshot(Store $store): array
     {
@@ -30,6 +33,20 @@ class HospitalityDesk
             ->all();
 
         return ['docs' => $docs];
+    }
+
+    /** @return array<string, mixed> */
+    public function document(Store $store, string $code, bool $withMedia = false): array
+    {
+        $row = DeskDocument::query()
+            ->where('store_id', $store->id)
+            ->where('code', $code)
+            ->first();
+        if ($row === null) {
+            throw ValidationException::withMessages(['code' => ['Document introuvable.']]);
+        }
+
+        return $this->present($row, $withMedia);
     }
 
     /** @param  array<string, mixed>  $action
@@ -81,6 +98,10 @@ class HospitalityDesk
                 'upsert_concierge_request' => $this->upsertConciergeRequest($store, $action),
                 'delete_concierge_request' => $this->deleteConciergeRequest($store, $action),
                 'set_concierge_status' => $this->setConciergeStatus($store, $action),
+                'upsert_zone' => $this->upsertDiningZone($store, $action),
+                'delete_zone' => $this->deleteDiningZone($store, $action),
+                'upsert_table' => $this->upsertDiningTable($store, $action),
+                'delete_table' => $this->deleteDiningTable($store, $action),
                 default => throw ValidationException::withMessages(['action' => ['Action inconnue.']]),
             };
         });
@@ -90,7 +111,10 @@ class HospitalityDesk
 
     private function seed(Store $store): void
     {
-        $exists = DeskDocument::query()->where('store_id', $store->id)->where('kind', 'table')->exists();
+        $exists = DeskDocument::query()
+            ->where('store_id', $store->id)
+            ->whereIn('kind', ['table', 'zone', 'room', 'room_type'])
+            ->exists();
         if ($exists) {
             return;
         }
@@ -1589,6 +1613,171 @@ class HospitalityDesk
     }
 
     /** @param  array<string, mixed>  $action */
+    private function upsertDiningZone(Store $store, array $action): void
+    {
+        $name = trim((string) ($action['name'] ?? ''));
+        if ($name === '') {
+            throw ValidationException::withMessages(['name' => ['Le nom de la zone est requis.']]);
+        }
+
+        $id = trim((string) ($action['id'] ?? ''));
+        if ($id === '') {
+            $id = $this->nextDocumentCode($store, 'zone');
+        } else {
+            $existing = DeskDocument::query()
+                ->where('store_id', $store->id)
+                ->where('kind', 'zone')
+                ->where('code', $id)
+                ->first();
+            if ($existing === null) {
+                throw ValidationException::withMessages(['id' => ['Zone introuvable.']]);
+            }
+        }
+
+        $this->save($store, 'zone', $id, [
+            'name' => $name,
+            'display_order' => (int) ($action['display_order'] ?? 0),
+        ]);
+    }
+
+    /** @param  array<string, mixed>  $action */
+    private function deleteDiningZone(Store $store, array $action): void
+    {
+        $id = $this->required($action, 'id');
+        $zone = DeskDocument::query()
+            ->where('store_id', $store->id)
+            ->where('kind', 'zone')
+            ->where('code', $id)
+            ->first();
+        if ($zone === null) {
+            throw ValidationException::withMessages(['id' => ['Zone introuvable.']]);
+        }
+
+        $inUse = DeskDocument::query()
+            ->where('store_id', $store->id)
+            ->where('kind', 'table')
+            ->get()
+            ->contains(fn (DeskDocument $doc) => ($doc->payload['zone_id'] ?? null) === $id);
+
+        if ($inUse) {
+            throw ValidationException::withMessages(['id' => ['Impossible de supprimer une zone encore utilisée par des tables.']]);
+        }
+
+        DeskDocument::query()->where('store_id', $store->id)->where('code', $id)->where('kind', 'zone')->delete();
+    }
+
+    /** @param  array<string, mixed>  $action */
+    private function upsertDiningTable(Store $store, array $action): void
+    {
+        $label = trim((string) ($action['label'] ?? $action['name'] ?? ''));
+        if ($label === '') {
+            throw ValidationException::withMessages(['label' => ['Le nom de la table est requis.']]);
+        }
+
+        $seats = (int) ($action['seats'] ?? $action['capacity'] ?? 4);
+        if ($seats < 1 || $seats > 40) {
+            throw ValidationException::withMessages(['seats' => ['Le nombre de places doit être entre 1 et 40.']]);
+        }
+
+        $shape = (string) ($action['shape'] ?? $this->tableShapeForSeats($seats));
+        if (! in_array($shape, ['round', 'square', 'oval', 'rect'], true)) {
+            $shape = $this->tableShapeForSeats($seats);
+        }
+
+        $zoneId = trim((string) ($action['zone_id'] ?? ''));
+        if ($zoneId !== '') {
+            $zone = DeskDocument::query()
+                ->where('store_id', $store->id)
+                ->where('kind', 'zone')
+                ->where('code', $zoneId)
+                ->first();
+            if ($zone === null) {
+                throw ValidationException::withMessages(['zone_id' => ['Zone introuvable.']]);
+            }
+        } else {
+            $zoneId = null;
+        }
+
+        $id = trim((string) ($action['id'] ?? ''));
+        $existing = null;
+        if ($id !== '') {
+            $existing = DeskDocument::query()
+                ->where('store_id', $store->id)
+                ->where('kind', 'table')
+                ->where('code', $id)
+                ->first();
+            if ($existing === null) {
+                throw ValidationException::withMessages(['id' => ['Table introuvable.']]);
+            }
+        } else {
+            $id = $this->nextDocumentCode($store, 'table');
+        }
+
+        $status = (string) ($existing?->payload['status'] ?? $existing?->status ?? 'free');
+        if (! in_array($status, ['free', 'occupied'], true)) {
+            $status = 'free';
+        }
+
+        $payload = [
+            'label' => $label,
+            'seats' => $seats,
+            'shape' => $shape,
+            'zone_id' => $zoneId,
+            'status' => $status,
+        ];
+        if (! empty($existing?->payload['order_id'])) {
+            $payload['order_id'] = $existing->payload['order_id'];
+        }
+
+        $this->save($store, 'table', $id, $payload, $zoneId, $status);
+    }
+
+    /** @param  array<string, mixed>  $action */
+    private function deleteDiningTable(Store $store, array $action): void
+    {
+        $id = $this->required($action, 'id');
+        $table = DeskDocument::query()
+            ->where('store_id', $store->id)
+            ->where('kind', 'table')
+            ->where('code', $id)
+            ->first();
+        if ($table === null) {
+            throw ValidationException::withMessages(['id' => ['Table introuvable.']]);
+        }
+
+        $status = $table->status ?? ($table->payload['status'] ?? 'free');
+        if ($status === 'occupied' || ! empty($table->payload['order_id'])) {
+            throw ValidationException::withMessages(['id' => ['Impossible de supprimer une table occupée.']]);
+        }
+
+        DeskDocument::query()->where('store_id', $store->id)->where('code', $id)->where('kind', 'table')->delete();
+    }
+
+    private function tableShapeForSeats(int $seats): string
+    {
+        if ($seats <= 2) {
+            return 'square';
+        }
+        if ($seats <= 4) {
+            return 'round';
+        }
+        if ($seats <= 6) {
+            return 'oval';
+        }
+
+        return 'rect';
+    }
+
+    private function nextDocumentCode(Store $store, string $prefix): string
+    {
+        do {
+            $code = $prefix.'-'.Str::lower(Str::random(8));
+        } while (DeskDocument::query()->where('store_id', $store->id)->where('code', $code)->exists());
+
+        return $code;
+    }
+
+    /** @param  array<string, mixed>  $action */
     private function openOrder(Store $store, array $action): void
     {
         $table = $this->doc($store, $this->required($action, 'table_id'));
@@ -2418,6 +2607,7 @@ class HospitalityDesk
         $payload['guest_signed_at'] = now()->toIso8601String();
         $status = (string) ($reservation->status ?? ($payload['status'] ?? 'checked_in'));
         $this->save($store, 'reservation', $id, $payload, $reservation->parent_code, $status);
+        $this->notifyStaySigned($store, $id);
     }
 
     /** @return array<string, mixed> */
@@ -2434,7 +2624,7 @@ class HospitalityDesk
         }
 
         $doc = $this->present($row);
-        $hasSignature = ! empty($doc['guest_signature_data']);
+        $hasSignature = (bool) ($doc['has_signature'] ?? false);
         unset($doc['guest_signature_data'], $doc['id_document_data']);
 
         $branding = [
@@ -2508,8 +2698,21 @@ class HospitalityDesk
         $payload['guest_signature_name'] = 'signature.png';
         $payload['guest_signed_at'] = now()->toIso8601String();
         $this->save($store, 'reservation', (string) $row->code, $payload, $row->parent_code, 'checked_in');
+        $this->notifyStaySigned($store, (string) $row->code);
 
         return $this->stayBySignToken($token);
+    }
+
+    private function notifyStaySigned(Store $store, string $reservationId): void
+    {
+        $this->realtime->notify(
+            'stay.signed',
+            (string) $store->tenant_id,
+            (string) $store->id,
+            'reservation',
+            $reservationId,
+            'signed',
+        );
     }
 
     private function findReservationBySignToken(string $token): ?DeskDocument
@@ -2790,12 +2993,22 @@ class HospitalityDesk
     }
 
     /** @return array<string, mixed> */
-    private function present(DeskDocument $doc): array
+    private function present(DeskDocument $doc, bool $withMedia = false): array
     {
-        return array_merge($doc->payload ?? [], [
+        $payload = $doc->payload ?? [];
+        $hasSignature = ! empty($payload['guest_signature_data']) || ! empty($payload['guest_signed_at']);
+        $hasIdDocument = ! empty($payload['id_document_data']);
+
+        if (! $withMedia) {
+            unset($payload['guest_signature_data'], $payload['id_document_data']);
+        }
+
+        return array_merge($payload, [
             'id' => $doc->code,
             'kind' => $doc->kind,
-            'status' => $doc->status ?? ($doc->payload['status'] ?? null),
+            'status' => $doc->status ?? ($payload['status'] ?? null),
+            'has_signature' => $hasSignature,
+            'has_id_document' => $hasIdDocument,
         ]);
     }
 }

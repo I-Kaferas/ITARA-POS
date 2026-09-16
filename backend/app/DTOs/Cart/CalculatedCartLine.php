@@ -25,6 +25,7 @@ final readonly class CalculatedCartLine
         public ?string $priceType = null,
         public ?string $saleUnitId = null,
         public ?int $volumeMl = null,
+        public bool $isAccompaniment = false,
     ) {}
 
     public function stockQuantity(): int
@@ -58,6 +59,7 @@ final readonly class CalculatedCartLine
             'line_total' => $this->lineTotal,
             'tax_rate' => $this->taxRate,
             'tax_inclusive' => $this->taxInclusive,
+            'is_accompaniment' => $this->isAccompaniment,
         ];
     }
 }

@@ -6,6 +6,7 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useAuthStore } from '../../../stores/auth'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -46,6 +47,7 @@ onMounted(async () => {
 })
 
 watch([status, roleId], () => reload())
+watchLiveSearch(search, reload)
 
 async function reload() {
   await store.loadUsers({
@@ -266,7 +268,7 @@ function openAssign(user: TenantUser) {
       </div>
 
       <div class="users__filters">
-        <input v-model="search" class="field" :placeholder="t('org.searchUsers')" @keyup.enter="reload" />
+        <input v-model="search" type="search" class="field" :placeholder="t('org.searchUsers')" />
         <select v-model="status" class="field">
           <option value="all">{{ t('org.allStatuses') }}</option>
           <option value="active">{{ t('org.activeUsers') }}</option>
@@ -276,7 +278,6 @@ function openAssign(user: TenantUser) {
           <option value="">{{ t('rbac.roles') }}</option>
           <option v-for="role in store.roles" :key="role.id" :value="role.id">{{ role.name }}</option>
         </select>
-        <button class="btn-secondary" @click="reload">{{ t('common.search') }}</button>
       </div>
 
       <div class="users__layout">

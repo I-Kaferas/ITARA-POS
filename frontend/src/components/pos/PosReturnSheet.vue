@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../api/client'
 import { formatMoney } from '../../utils/money'
@@ -104,18 +105,18 @@ async function submit() {
     busy.value = false
   }
 }
+watchLiveSearch(reference, search)
 </script>
 
 <template>
-  <form class="sheet" @submit.prevent="saleId ? submit() : search()">
+  <form class="sheet" @submit.prevent="saleId ? submit() : undefined">
     <div class="sheet__head">
       <strong>{{ t('pos.returnTitle') }}</strong>
       <button type="button" @click="emit('close')">×</button>
     </div>
     <p class="sheet__hint">{{ t('pos.returnHint') }}</p>
     <div class="sheet__search">
-      <input v-model="reference" :placeholder="t('pos.refundSale')" />
-      <button type="button" :disabled="busy" @click="search">OK</button>
+      <input v-model="reference" type="search" :placeholder="t('pos.refundSale')" />
     </div>
     <div v-if="lines.length" class="sheet__lines">
       <div v-for="line in lines" :key="line.id" class="sheet__line">

@@ -21,6 +21,13 @@ class DeskController extends Controller
         return response()->json(['data' => $this->hospitality->snapshot($this->store())]);
     }
 
+    public function hospitalityDocument(string $code): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->hospitality->document($this->store(), $code, true),
+        ]);
+    }
+
     public function hospitalityAction(Request $request): JsonResponse
     {
         $data = $request->validate([

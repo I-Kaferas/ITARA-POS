@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../composables/useConfirm'
 import { useRouter } from 'vue-router'
@@ -43,6 +44,8 @@ async function onSearch() {
   }
 }
 
+watchLiveSearch(search, onSearch)
+
 async function removeProduct(id: string) {
   if (!(await confirmDialog(t('products.confirmDelete')))) return
   await store.deleteProduct(id)
@@ -77,7 +80,7 @@ const productCount = computed(() => store.products.length)
         <select
           class="ui-select"
           :value="selectedCatalog?.id"
-          @change="selectedCatalog = catalogOptions.find(c => c.id === ($event.target as HTMLSelectElement).value) ?? null; selectedCatalog && store.loadProducts(selectedCatalog.id)"
+          @change="selectedCatalog = catalogOptions.find(c => c.id === ($event.target as HTMLSelectElement).value) ?? null; selectedCatalog && store.loadProducts(selectedCatalog.id, search)"
         >
           <option v-for="c in catalogOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
@@ -91,7 +94,6 @@ const productCount = computed(() => store.products.length)
             type="search"
             class="ui-input !pl-8"
             :placeholder="t('products.searchPlaceholder')"
-            @keyup.enter="onSearch"
           />
         </div>
       </div>

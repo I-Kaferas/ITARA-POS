@@ -33,6 +33,7 @@ class SaleItem extends Model
         'line_tax',
         'line_total',
         'sort_order',
+        'is_accompaniment',
     ];
 
     protected function casts(): array
@@ -45,6 +46,7 @@ class SaleItem extends Model
             'line_tax' => 'integer',
             'line_total' => 'integer',
             'sort_order' => 'integer',
+            'is_accompaniment' => 'boolean',
         ];
     }
 

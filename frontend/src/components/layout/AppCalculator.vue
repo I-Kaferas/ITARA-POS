@@ -378,10 +378,11 @@ function toggle() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.15rem;
-  height: 2.15rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.7rem;
+  width: var(--control-md);
+  height: var(--control-md);
+  min-width: var(--control-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   background: #fff;
   color: #3d5c73;
   cursor: pointer;

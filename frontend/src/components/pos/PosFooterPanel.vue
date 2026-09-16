@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
+import { debounceFn } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
 import { usePosStore } from '../../stores/pos'
@@ -194,6 +195,9 @@ async function searchCustomers() {
     customerLoading.value = false
   }
 }
+
+const searchCustomersLive = debounceFn(searchCustomers, 280)
+onBeforeUnmount(() => searchCustomersLive.cancel())
 
 function openCustomerModal() {
   customerMode.value = 'search'
@@ -493,7 +497,7 @@ const discountLabel = () => {
             v-model="customerQuery"
             class="pos-field"
             :placeholder="labels.searchCustomer"
-            @input="searchCustomers"
+            @input="searchCustomersLive"
           />
           <div class="pos-modal__list">
             <button v-if="customer" type="button" class="pos-modal__item pos-modal__item--danger" @click="clearCustomer">
@@ -879,9 +883,67 @@ const discountLabel = () => {
   filter: brightness(1.05);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
   .pos-footer {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.9fr);
+    grid-template-areas:
+      "actions buttons"
+      "summary buttons";
+  }
+  .pos-footer__actions { grid-area: actions; }
+  .pos-footer__summary { grid-area: summary; }
+  .pos-footer__buttons { grid-area: buttons; align-self: stretch; }
+}
+@media (max-width: 900px) {
+  .pos-footer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "actions total"
+      "buttons buttons";
+    gap: 0.4rem;
+    padding: 0.45rem 0.65rem;
+  }
+  .pos-footer__actions {
+    grid-area: actions;
+    flex-direction: row;
+  }
+  .pos-chip {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .pos-footer__summary {
+    grid-area: total;
+    justify-content: center;
+    padding: 0 0.2rem;
+  }
+  .pos-footer__row {
+    display: none;
+  }
+  .pos-footer__total {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    gap: 0.45rem;
+  }
+  .pos-footer__total-amount {
+    font-size: 1.15rem;
+  }
+  .pos-footer__buttons {
+    grid-area: buttons;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .pos-btn {
+    padding: 0.48rem 0.35rem;
+    font-size: 0.74rem;
+  }
+  .pos-btn--pay {
+    grid-column: auto;
+    min-height: 2.45rem;
+    font-size: 0.86rem;
   }
 }
 .pos-modal-content {

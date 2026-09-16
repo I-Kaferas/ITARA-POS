@@ -44,6 +44,7 @@ class Product extends Model
         'last_counted_at',
         'next_count_at',
         'metadata',
+        'accompaniment_enabled',
     ];
 
     protected function casts(): array
@@ -61,6 +62,7 @@ class Product extends Model
             'next_count_at' => 'date',
             'bottle_volume_ml' => 'integer',
             'metadata' => 'array',
+            'accompaniment_enabled' => 'boolean',
         ];
     }
 
@@ -167,6 +169,21 @@ class Product extends Model
     public function inventoryAlerts(): HasMany
     {
         return $this->hasMany(InventoryAlert::class);
+    }
+
+    public function accompanimentLinks(): HasMany
+    {
+        return $this->hasMany(ProductAccompanimentLink::class, 'product_id')->orderBy('sort_order');
+    }
+
+    public function accompanimentProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Product::class,
+            'product_accompaniment_links',
+            'product_id',
+            'accompaniment_product_id',
+        )->withPivot(['id', 'sort_order'])->orderByPivot('sort_order');
     }
 
     public function tracksBatches(): bool

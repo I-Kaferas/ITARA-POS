@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { useConfirm } from '../../../composables/useConfirm'
+import { useRealtimeSync } from '../../../composables/useRealtimeSync'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -52,10 +53,15 @@ const signUrl = ref('')
 const signLinkCopied = ref(false)
 const signSaving = ref(false)
 const signLoading = ref(false)
+const signRemoteDone = ref(false)
 const signCanvas = ref<HTMLCanvasElement | null>(null)
 const signDrawn = ref(false)
 let signCtx: CanvasRenderingContext2D | null = null
 let signPainting = false
+let signPollTimer: ReturnType<typeof setInterval> | null = null
+let signCloseTimer: ReturnType<typeof setTimeout> | null = null
+let signBroadcast: BroadcastChannel | null = null
+const STAY_SIGN_CHANNEL = 'itara-stay-sign'
 const saving = ref(false)
 const loading = ref(false)
 const error = ref('')
@@ -343,6 +349,18 @@ function openDetail(row: Doc) {
   detailStay.value = row
   detailTab.value = 'overview'
   detailOpen.value = true
+  void hydrateStayMedia(row.id)
+}
+
+async function hydrateStayMedia(id: string) {
+  try {
+    const full = (await api.get<{ data: Doc }>(`/hospitality/docs/${encodeURIComponent(id)}`)).data
+    docs.value = docs.value.map(d => (d.id === id ? { ...d, ...full } : d))
+    if (detailStay.value?.id === id) detailStay.value = { ...detailStay.value, ...full }
+    if (signingStay.value?.id === id) signingStay.value = { ...signingStay.value, ...full }
+  } catch {
+    // Detail remains usable without media binaries.
+  }
 }
 
 function closeDetail() {
@@ -496,19 +514,27 @@ function exportStayConsumption(row: Doc) {
     <tbody>${rows}</tbody></table>`)
 }
 
-function exportStayRegistration(row: Doc) {
-  const sig = String(row.guest_signature_data || '')
+async function exportStayRegistration(row: Doc) {
+  let stay = row
+  if (!String(stay.guest_signature_data || '').startsWith('data:image') && isStaySigned(stay)) {
+    try {
+      stay = (await api.get<{ data: Doc }>(`/hospitality/docs/${encodeURIComponent(String(row.id))}`)).data
+    } catch {
+      stay = row
+    }
+  }
+  const sig = String(stay.guest_signature_data || '')
   const sigHtml = sig.startsWith('data:image')
     ? `<p><strong>${escapeHtml(t('hotel.stays.guestSignature'))}</strong><br><img class="sign" src="${sig}" alt=""></p>`
-    : `<p><strong>${escapeHtml(t('hotel.stays.guestSignature'))}:</strong> ${isStaySigned(row) ? escapeHtml(t('hotel.stays.sign.signed')) : '—'}</p>`
+    : `<p><strong>${escapeHtml(t('hotel.stays.guestSignature'))}:</strong> ${isStaySigned(stay) ? escapeHtml(t('hotel.stays.sign.signed')) : '—'}</p>`
   printStayExport(t('hotel.stays.detail.exportRegistration'), `
     <h1>${escapeHtml(t('hotel.stays.detail.exportRegistration'))}</h1>
     <h2>${escapeHtml(t('hotel.stays.detail.client'))}</h2>
-    <p>${escapeHtml(row.guest_name || '—')}<br>${escapeHtml(row.guest_email || '')}<br>${escapeHtml(row.guest_phone || '')}</p>
-    <p class="meta">${escapeHtml(t('hotel.stays.nationality'))}: ${escapeHtml(row.nationality || '—')} · ${escapeHtml(documentTypeShort(row))}</p>
+    <p>${escapeHtml(stay.guest_name || '—')}<br>${escapeHtml(stay.guest_email || '')}<br>${escapeHtml(stay.guest_phone || '')}</p>
+    <p class="meta">${escapeHtml(t('hotel.stays.nationality'))}: ${escapeHtml(stay.nationality || '—')} · ${escapeHtml(documentTypeShort(stay))}</p>
     <h2>${escapeHtml(t('hotel.stays.detail.stayDetails'))}</h2>
-    <p>#${escapeHtml(stayRoomNumber(row))} · ${escapeHtml(stayTypeName(row))}<br>
-    ${escapeHtml(formatDateTime(row.arrive_on))} → ${escapeHtml(formatDateTime(row.depart_on))} · ${stayNights(row)} ${escapeHtml(t('hotel.reservations.nights'))}</p>
+    <p>#${escapeHtml(stayRoomNumber(stay))} · ${escapeHtml(stayTypeName(stay))}<br>
+    ${escapeHtml(formatDateTime(stay.arrive_on))} → ${escapeHtml(formatDateTime(stay.depart_on))} · ${stayNights(stay)} ${escapeHtml(t('hotel.reservations.nights'))}</p>
     ${sigHtml}`)
 }
 
@@ -1266,7 +1292,7 @@ function closeForm() {
 }
 
 function isStaySigned(row: Doc) {
-  return Boolean(row.guest_signed_at || row.guest_signature_data)
+  return Boolean(row.has_signature || row.guest_signed_at || row.guest_signature_data)
 }
 
 function canOpenSign(row: Doc) {
@@ -1286,11 +1312,84 @@ function stayRoomLabel(row: Doc) {
   return parts.join(' · ') || '—'
 }
 
+function stopSignPoll() {
+  if (signPollTimer) {
+    clearInterval(signPollTimer)
+    signPollTimer = null
+  }
+  if (signCloseTimer) {
+    clearTimeout(signCloseTimer)
+    signCloseTimer = null
+  }
+}
+
+function startSignPoll() {
+  stopSignPoll()
+  if (!signOpen.value || signTab.value !== 'scan' || signRemoteDone.value) return
+  signPollTimer = setInterval(() => {
+    void pollRemoteSignature()
+  }, 1000)
+  void pollRemoteSignature()
+}
+
+async function refreshDocsQuiet() {
+  const next = (await api.get<{ data: { docs: Doc[] } }>('/hospitality')).data.docs
+  docs.value = next
+  return next
+}
+
+async function applySignedStay(id: string) {
+  try {
+    const next = await refreshDocsQuiet()
+    const fresh = next.find(d => d.id === id)
+    if (!fresh) return
+    if (detailStay.value?.id === id) detailStay.value = fresh
+    if (signOpen.value && signingStay.value?.id === id && isStaySigned(fresh)) {
+      markSignReceived(fresh)
+    } else if (signingStay.value?.id === id) {
+      signingStay.value = fresh
+    }
+  } catch {
+    // Keep waiting; next poll / realtime event will retry.
+  }
+}
+
+async function pollRemoteSignature() {
+  if (!signOpen.value || !signingStay.value || signRemoteDone.value || signTab.value !== 'scan') return
+  const id = String(signingStay.value.id)
+  try {
+    const next = await refreshDocsQuiet()
+    const fresh = next.find(d => d.id === id)
+    if (!fresh) return
+    signingStay.value = fresh
+    if (detailStay.value?.id === id) detailStay.value = fresh
+    if (isStaySigned(fresh)) {
+      markSignReceived(fresh)
+    }
+  } catch {
+    // Keep waiting silently while the guest signs on another device.
+  }
+}
+
+function markSignReceived(fresh: Doc) {
+  stopSignPoll()
+  signTab.value = 'scan'
+  signRemoteDone.value = true
+  signUrl.value = ''
+  signingStay.value = fresh
+  if (detailStay.value?.id === fresh.id) detailStay.value = fresh
+  signCloseTimer = setTimeout(() => {
+    if (signRemoteDone.value && signOpen.value) closeSign()
+  }, 4500)
+}
+
 async function openSign(row: Doc) {
   error.value = ''
+  stopSignPoll()
   signTab.value = 'scan'
   signDrawn.value = false
   signLinkCopied.value = false
+  signRemoteDone.value = false
   signUrl.value = ''
   signingStay.value = row
   signOpen.value = true
@@ -1303,6 +1402,10 @@ async function openSign(row: Doc) {
     docs.value = payload.data.docs
     const fresh = docs.value.find(d => d.id === row.id) ?? row
     signingStay.value = fresh
+    if (isStaySigned(fresh)) {
+      markSignReceived(fresh)
+      return
+    }
     const token = String(fresh.sign_token || '')
     const lang = String(locale.value || 'fr').slice(0, 2)
     signUrl.value = token
@@ -1310,6 +1413,8 @@ async function openSign(row: Doc) {
       : ''
     if (!token) {
       error.value = t('hotel.stays.sign.invalidLink')
+    } else {
+      startSignPoll()
     }
   } catch (err) {
     error.value = extractApiErrorMessage(err)
@@ -1330,26 +1435,70 @@ async function copySignLink() {
 }
 
 function closeSign() {
+  stopSignPoll()
   signOpen.value = false
   signingStay.value = null
   signUrl.value = ''
   signDrawn.value = false
   signLinkCopied.value = false
   signLoading.value = false
+  signRemoteDone.value = false
   error.value = ''
 }
 
 const qrImageUrl = computed(() =>
-  signUrl.value
+  signUrl.value && !signRemoteDone.value
     ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(signUrl.value)}`
     : '',
 )
 
+const signModalTitle = computed(() =>
+  signRemoteDone.value ? t('hotel.stays.sign.doneTitle') : t('hotel.stays.sign.scanTitle'),
+)
+
 watch(signTab, async (tab) => {
   if (tab === 'draw' && signOpen.value) {
+    stopSignPoll()
     await nextTick()
     setupSignCanvas()
+  } else if (tab === 'scan' && signOpen.value && !signRemoteDone.value && signUrl.value) {
+    startSignPoll()
   }
+})
+
+watch(signOpen, (open) => {
+  if (!open) stopSignPoll()
+})
+
+useRealtimeSync(['stay.signed'], async () => {
+  const id = signingStay.value?.id
+    ? String(signingStay.value.id)
+    : ''
+  if (id && signOpen.value) {
+    await applySignedStay(id)
+    return
+  }
+  try {
+    await refreshDocsQuiet()
+  } catch {
+    // Ignore background refresh errors.
+  }
+})
+
+onMounted(() => {
+  if (typeof BroadcastChannel === 'undefined') return
+  signBroadcast = new BroadcastChannel(STAY_SIGN_CHANNEL)
+  signBroadcast.onmessage = (event: MessageEvent) => {
+    const data = event.data as { type?: string; id?: string } | null
+    if (data?.type !== 'stay.signed' || !data.id) return
+    void applySignedStay(String(data.id))
+  }
+})
+
+onBeforeUnmount(() => {
+  stopSignPoll()
+  signBroadcast?.close()
+  signBroadcast = null
 })
 
 function setupSignCanvas() {
@@ -2177,7 +2326,7 @@ function roomLabel(room: Doc) {
 
     <AppModal
       :open="signOpen"
-      :title="t('hotel.stays.sign.scanTitle')"
+      :title="signModalTitle"
       icon="key"
       size="md"
       @close="closeSign"
@@ -2188,7 +2337,7 @@ function roomLabel(room: Doc) {
           <p>{{ stayRoomLabel(signingStay) }}</p>
         </div>
 
-        <div class="stay-sign__tabs">
+        <div v-if="!signRemoteDone" class="stay-sign__tabs">
           <button
             type="button"
             class="stay-sign__tab"
@@ -2208,23 +2357,36 @@ function roomLabel(room: Doc) {
         </div>
 
         <div v-if="signTab === 'scan'" class="stay-sign__scan">
-          <h5>{{ t('hotel.stays.sign.scanTitle') }}</h5>
-          <p class="stay-sign__hint">{{ t('hotel.stays.sign.scanHint') }}</p>
-          <div v-if="signLoading" class="stay__muted">{{ t('common.loading') }}</div>
-          <template v-else>
-            <img v-if="qrImageUrl" :src="qrImageUrl" :alt="t('hotel.stays.sign.scanTitle')" class="stay-sign__qr">
-            <div v-if="signUrl" class="stay-sign__link-box">
-              <a :href="signUrl" target="_blank" rel="noopener" class="stay-sign__url">{{ signUrl }}</a>
-              <button type="button" class="btn-secondary" @click="copySignLink">
-                {{ signLinkCopied ? t('hotel.stays.sign.copied') : t('hotel.stays.sign.copyLink') }}
-              </button>
+          <template v-if="signRemoteDone">
+            <div class="stay-sign__done" role="status">
+              <AppIcon name="check" :size="28" />
+              <h5>{{ t('hotel.stays.sign.doneTitle') }}</h5>
+              <p>{{ t('hotel.stays.sign.received') }}</p>
+              <span class="stay__ok">{{ t('hotel.stays.sign.signed') }}</span>
             </div>
-            <p v-if="signUrl" class="stay-sign__waiting">{{ t('hotel.stays.sign.waiting') }}</p>
+            <button type="button" class="btn-primary stay-sign__skip" @click="closeSign">
+              {{ t('command.close') }}
+            </button>
           </template>
-          <p v-if="error" class="stay__error">{{ error }}</p>
-          <button type="button" class="btn-secondary stay-sign__skip" @click="closeSign">
-            {{ t('hotel.stays.sign.skip') }}
-          </button>
+          <template v-else>
+            <h5>{{ t('hotel.stays.sign.scanTitle') }}</h5>
+            <p class="stay-sign__hint">{{ t('hotel.stays.sign.scanHint') }}</p>
+            <div v-if="signLoading" class="stay__muted">{{ t('common.loading') }}</div>
+            <template v-else>
+              <img v-if="qrImageUrl" :src="qrImageUrl" :alt="t('hotel.stays.sign.scanTitle')" class="stay-sign__qr">
+              <div v-if="signUrl" class="stay-sign__link-box">
+                <a :href="signUrl" target="_blank" rel="noopener" class="stay-sign__url">{{ signUrl }}</a>
+                <button type="button" class="btn-secondary" @click="copySignLink">
+                  {{ signLinkCopied ? t('hotel.stays.sign.copied') : t('hotel.stays.sign.copyLink') }}
+                </button>
+              </div>
+              <p v-if="signUrl" class="stay-sign__waiting">{{ t('hotel.stays.sign.waiting') }}</p>
+            </template>
+            <p v-if="error" class="stay__error">{{ error }}</p>
+            <button type="button" class="btn-secondary stay-sign__skip" @click="closeSign">
+              {{ t('hotel.stays.sign.skip') }}
+            </button>
+          </template>
         </div>
 
         <div v-else class="stay-sign__draw">
@@ -3752,6 +3914,29 @@ function roomLabel(room: Doc) {
   font-size: 0.84rem;
   color: #64748b;
   font-weight: 600;
+}
+.stay-sign__done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 1.25rem 1rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ecfdf5, #f0fdf4);
+  border: 1px solid #a7f3d0;
+  text-align: center;
+  color: #065f46;
+}
+.stay-sign__done h5 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #064e3b;
+}
+.stay-sign__done p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #047857;
+  max-width: 22rem;
 }
 .stay-sign__skip { width: 100%; }
 .stay-sign__draw { display: flex; flex-direction: column; gap: 0.55rem; }

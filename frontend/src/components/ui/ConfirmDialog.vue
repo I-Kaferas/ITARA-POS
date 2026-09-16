@@ -52,17 +52,18 @@ function cancel() {
 
 <style scoped>
 .confirm-dialog__message {
-  margin: 0 0 0.85rem;
+  margin: 0 0 var(--space-4);
   color: #334155;
-  line-height: 1.5;
+  font-size: var(--text-md);
+  line-height: var(--line-sm);
 }
 
 .confirm-dialog__items {
-  margin: 0 0 1.1rem;
+  margin: 0 0 var(--space-4);
   padding: 0;
   list-style: none;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -70,8 +71,9 @@ function cancel() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.55rem 0.75rem;
+  gap: var(--space-3);
+  min-height: var(--space-9);
+  padding: 0 var(--space-3);
   border-top: 1px solid #f1f5f9;
 }
 
@@ -81,7 +83,9 @@ function cancel() {
 
 .confirm-dialog__items strong {
   display: block;
-  font-size: 0.86rem;
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: var(--line-sm);
   color: #1c2830;
 }
 

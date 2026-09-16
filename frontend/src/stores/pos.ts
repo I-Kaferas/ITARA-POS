@@ -52,6 +52,7 @@ export const usePosStore = defineStore('pos', () => {
   const statusIsError = ref(false)
   const heldCounter = ref(0)
   const pendingSaleId = ref<string | null>(null)
+  const activeTable = ref<{ id: string; name: string; code?: string } | null>(null)
   const currentStoreId = ref<string | null>(null)
   const activeRegisterId = ref<string | null>(null)
   const paymentMethods = ref<PosPaymentMethod[]>([])
@@ -187,36 +188,63 @@ export const usePosStore = defineStore('pos', () => {
     }
   }
 
-  function addProduct(product: PosProduct, quantity = 1, saleUnitId?: string, variantId?: string) {
+  function addProduct(
+    product: PosProduct,
+    quantity = 1,
+    saleUnitId?: string,
+    variantId?: string,
+    options?: { isAccompaniment?: boolean; parentLineId?: string },
+  ) {
     const qty = needsSaleQuantity(product) ? Math.max(1, Math.trunc(quantity) || 1) : 1
     const unit = product.sale_units?.find(item => item.id === saleUnitId)
     const variant = product.variants?.find(item => item.variant_id === variantId)
+    const isAccompaniment = Boolean(options?.isAccompaniment)
     const priced: PosProduct = unit
       ? { ...product, name: `${product.name} · ${unit.name}`, price: unit.price }
       : variant
         ? { ...product, name: `${product.name} · ${variant.label || variant.name}`, price: variant.price, sku: variant.sku }
-        : product
+        : isAccompaniment
+          ? { ...product, price: 0 }
+          : product
     const existing = lines.value.find(line =>
       line.product.product_id === product.product_id
       && line.saleUnitId === saleUnitId
-      && line.variantId === variantId,
+      && line.variantId === variantId
+      && Boolean(line.isAccompaniment) === isAccompaniment
+      && (line.parentLineId ?? '') === (options?.parentLineId ?? ''),
     )
     if (existing) {
       if (needsSaleQuantity(product)) existing.quantity += qty
-    } else {
-      lines.value.push({
-        lineId: `${product.product_id}-${saleUnitId ?? variantId ?? 'base'}-${Date.now()}`,
-        product: priced,
-        quantity: qty,
-        saleUnitId,
-        variantId,
+      scheduleCalculate()
+      return existing
+    }
+    const line: PosCartLine = {
+      lineId: `${product.product_id}-${saleUnitId ?? variantId ?? 'base'}-${Date.now()}`,
+      product: priced,
+      quantity: qty,
+      saleUnitId,
+      variantId,
+      isAccompaniment,
+      parentLineId: options?.parentLineId,
+    }
+    lines.value.push(line)
+    scheduleCalculate()
+    return line
+  }
+
+  function addAccompaniments(parent: PosCartLine, accompanimentIds: string[]) {
+    for (const id of accompanimentIds) {
+      const side = products.value.find(item => item.product_id === id)
+      if (!side) continue
+      addProduct(side, parent.quantity, undefined, undefined, {
+        isAccompaniment: true,
+        parentLineId: parent.lineId,
       })
     }
-    scheduleCalculate()
   }
 
   function removeLine(lineId: string) {
-    lines.value = lines.value.filter(line => line.lineId !== lineId)
+    lines.value = lines.value.filter(line => line.lineId !== lineId && line.parentLineId !== lineId)
     scheduleCalculate()
   }
 
@@ -230,6 +258,9 @@ export const usePosStore = defineStore('pos', () => {
       return
     }
     line.quantity = quantity
+    for (const child of lines.value.filter(item => item.parentLineId === lineId)) {
+      child.quantity = quantity
+    }
     scheduleCalculate()
   }
 
@@ -302,6 +333,7 @@ export const usePosStore = defineStore('pos', () => {
           product_variant_id: line.variantId,
           sale_unit_id: line.saleUnitId,
           quantity: line.quantity,
+          ...(line.isAccompaniment ? { unit_price: 0, is_accompaniment: true } : {}),
           line_discount: line.lineDiscountFixed
             ? { type: 'fixed' as const, value: line.lineDiscountFixed }
             : undefined,
@@ -335,12 +367,14 @@ export const usePosStore = defineStore('pos', () => {
       cash_register_id: activeRegisterId.value ?? undefined,
       notes: note.value ?? undefined,
       apply_promotions: true,
+      table_id: activeTable.value?.id ?? undefined,
       items: lines.value.map(line => ({
         line_id: line.lineId,
         product_id: line.product.product_id,
         product_variant_id: line.variantId,
         sale_unit_id: line.saleUnitId,
         quantity: line.quantity,
+        ...(line.isAccompaniment ? { unit_price: 0, is_accompaniment: true } : {}),
         line_discount: line.lineDiscountFixed
           ? { type: 'fixed' as const, value: line.lineDiscountFixed }
           : undefined,
@@ -378,7 +412,7 @@ export const usePosStore = defineStore('pos', () => {
   }
 
   async function holdSale(): Promise<string> {
-    if (lines.value.length === 0) throw new Error('Panier vide')
+    if (lines.value.length === 0 && !activeTable.value) throw new Error('Panier vide')
 
     const storeId = currentStoreId.value
     if (!storeId) throw new Error('Aucun magasin sélectionné')
@@ -390,6 +424,7 @@ export const usePosStore = defineStore('pos', () => {
 
     const label = saved.reference
     pendingSaleId.value = null
+    activeTable.value = null
     clearCurrentSale(false)
     await refreshHeldSales(storeId)
     setStatus(`Commande mise en attente: ${label}`)
@@ -406,6 +441,8 @@ export const usePosStore = defineStore('pos', () => {
       reference: string
       status: string
       notes?: string | null
+      table_id?: string | null
+      table?: { id: string; name: string; code?: string } | null
       customer?: { id: string; name: string } | null
       items?: {
         id: string
@@ -423,6 +460,9 @@ export const usePosStore = defineStore('pos', () => {
     }
 
     pendingSaleId.value = sale.id
+    activeTable.value = sale.table
+      ? { id: sale.table.id, name: sale.table.name, code: sale.table.code }
+      : (sale.table_id ? { id: sale.table_id, name: sale.reference } : null)
     customer.value = sale.customer
       ? { id: sale.customer.id, name: sale.customer.name }
       : null
@@ -457,14 +497,27 @@ export const usePosStore = defineStore('pos', () => {
     setStatus(`Commande ${sale.reference} reprise`)
   }
 
+  function setActiveTable(table: { id: string; name: string; code?: string } | null) {
+    activeTable.value = table
+  }
+
+  async function persistTableOrder() {
+    if (!pendingSaleId.value || !activeTable.value) return
+    await api.put(`/sales/${pendingSaleId.value}`, cartPayload())
+  }
+
   async function deleteHeldSale(heldSaleId: string) {
     await api.delete(`/sales/${heldSaleId}`)
-    if (pendingSaleId.value === heldSaleId) pendingSaleId.value = null
+    if (pendingSaleId.value === heldSaleId) {
+      pendingSaleId.value = null
+      activeTable.value = null
+    }
     heldSales.value = heldSales.value.filter(sale => sale.id !== heldSaleId)
   }
 
   function cancel() {
     pendingSaleId.value = null
+    activeTable.value = null
     clearCurrentSale()
     setStatus('Vente annulée')
   }
@@ -610,6 +663,7 @@ export const usePosStore = defineStore('pos', () => {
           product_variant_id: line.variantId,
           sale_unit_id: line.saleUnitId,
           quantity: line.quantity,
+          ...(line.isAccompaniment ? { unit_price: 0, is_accompaniment: true } : {}),
           line_discount: line.lineDiscountFixed
             ? { type: 'fixed' as const, value: line.lineDiscountFixed }
             : undefined,
@@ -639,6 +693,7 @@ export const usePosStore = defineStore('pos', () => {
     }
 
     pendingSaleId.value = null
+    activeTable.value = null
     clearCurrentSale()
     if (currentStoreId.value) void refreshHeldSales(currentStoreId.value)
     return { success: true, message: 'Paiement accepté', change, saleId, receipt, loyalty }
@@ -660,6 +715,7 @@ export const usePosStore = defineStore('pos', () => {
     categories.value = []
     heldSales.value = []
     pendingSaleId.value = null
+    activeTable.value = null
     currentStoreId.value = null
     activeRegisterId.value = null
     clearCurrentSale(false)
@@ -710,6 +766,7 @@ export const usePosStore = defineStore('pos', () => {
     lookupBarcode,
     productMatchesBarcode,
     addProduct,
+    addAccompaniments,
     removeLine,
     updateQuantity,
     incrementQuantity,
@@ -721,6 +778,9 @@ export const usePosStore = defineStore('pos', () => {
     clearDiscount,
     recalculate,
     pendingSaleId,
+    activeTable,
+    setActiveTable,
+    persistTableOrder,
     holdSale,
     retrieveSale,
     deleteHeldSale,

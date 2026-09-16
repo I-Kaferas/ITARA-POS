@@ -69,12 +69,6 @@ class GoodsReceiptService
             ]);
         }
 
-        if (! $purchaseOrder->supplier) {
-            throw ValidationException::withMessages([
-                'supplier_id' => ['Purchase order has no supplier.'],
-            ]);
-        }
-
         return DB::transaction(function () use ($purchaseOrder, $items, $receivedBy, $notes): GoodsReceipt {
             $receipt = GoodsReceipt::query()->create([
                 'tenant_id' => $purchaseOrder->tenant_id,
@@ -150,13 +144,15 @@ class GoodsReceiptService
 
             $purchaseOrder->update(['status' => $newStatus]);
 
-            $invoice = $this->createInvoice($purchaseOrder, $receipt, $receiptSubtotal, $receivedBy);
-
-            $this->accountingService->recordPurchaseReceipt(
-                reference: $receipt,
-                amount: $receiptSubtotal,
-                recordedBy: $receivedBy?->id,
-            );
+            $invoice = null;
+            if ($purchaseOrder->supplier && $receiptSubtotal > 0) {
+                $invoice = $this->createInvoice($purchaseOrder, $receipt, $receiptSubtotal, $receivedBy);
+                $this->accountingService->recordPurchaseReceipt(
+                    reference: $receipt,
+                    amount: $receiptSubtotal,
+                    recordedBy: $receivedBy?->id,
+                );
+            }
 
             $this->auditLogService->log(
                 action: 'goods_receipt.completed',
@@ -166,7 +162,7 @@ class GoodsReceiptService
                     'purchase_order_id' => $purchaseOrder->id,
                     'receipt_number' => $receipt->receipt_number,
                     'amount' => $receiptSubtotal,
-                    'invoice_id' => $invoice->id,
+                    'invoice_id' => $invoice?->id,
                 ],
             );
 

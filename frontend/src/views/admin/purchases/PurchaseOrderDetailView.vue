@@ -190,6 +190,12 @@ function onHand(productId?: string) {
         </li>
       </ol>
       <p class="m-0 text-xs text-slate-500">{{ t('purchases.workflowHint') }}</p>
+      <p v-if="order?.requisition || order?.proforma" class="m-0 text-xs text-slate-500">
+        {{ t('purchases.hub.origin') }}:
+        <span v-if="order.requisition">{{ t('purchases.hub.requisitions') }} {{ order.requisition.number }}</span>
+        <span v-if="order.requisition && order.proforma"> · </span>
+        <span v-if="order.proforma">{{ t('purchases.hub.proformas') }} {{ order.proforma.number }}</span>
+      </p>
       <p v-if="error" class="m-0 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
       <p v-if="order && !order.supplier" class="m-0 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ t('purchases.supplierRequired') }}</p>
 

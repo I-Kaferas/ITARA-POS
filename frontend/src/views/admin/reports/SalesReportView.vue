@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -55,10 +56,10 @@ function applyPeriod(period: 'day' | 'week' | 'month' | 'year') {
   }
   from.value = local(start)
   to.value = local(now)
-  load()
 }
 
 onMounted(load)
+watchLiveSearch([storeId, from, to], load, 0)
 </script>
 
 <template>
@@ -79,7 +80,6 @@ onMounted(load)
         <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
         <input v-model="to" type="date" class="field" />
       </div>
-      <button class="btn-secondary" :disabled="loading" @click="load">{{ t('common.search') }}</button>
       <button class="btn-secondary" @click="applyPeriod('day')">{{ t('reports.periods.day') }}</button>
       <button class="btn-secondary" @click="applyPeriod('week')">{{ t('reports.periods.week') }}</button>
       <button class="btn-secondary" @click="applyPeriod('month')">{{ t('reports.periods.month') }}</button>

@@ -7,6 +7,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -215,6 +216,11 @@ async function changeStatus(item: PosReservation, status: ReservationStatus) {
 
 onMounted(load)
 watch(storeId, load)
+watchLiveSearch(() => filters.value.q, load)
+watch(
+  () => [filters.value.status, filters.value.from, filters.value.to],
+  load,
+)
 </script>
 
 <template>
@@ -245,7 +251,6 @@ watch(storeId, load)
                 type="search"
                 class="ui-input !pl-8 w-full"
                 :placeholder="t('pointOfSale.orders.filters.searchPlaceholder')"
-                @keyup.enter="load"
               />
             </div>
           </div>

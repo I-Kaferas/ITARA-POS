@@ -578,6 +578,21 @@ export interface ProductBundleItem {
   sort_order?: number
 }
 
+export interface ProductAccompanimentItem {
+  id: string
+  sku: string
+  name: string
+  base_price?: number
+  is_active?: boolean
+  accompaniment_enabled?: boolean
+}
+
+export interface ProductAccompanimentHost {
+  id: string
+  product: ProductAccompanimentItem
+  accompaniments: ProductAccompanimentItem[]
+}
+
 export interface ProductImage {
   id: string
   product_id: string
@@ -623,7 +638,9 @@ export interface Product {
   prices?: Price[]
   variants?: ProductVariant[]
   bundle_items?: ProductBundleItem[]
-  metadata?: { option_groups?: { name: string; values: string[] }[] } | null
+  metadata?: { option_groups?: { name: string; values: string[]; value_prices?: Record<string, number> }[] } | null
+  accompaniment_enabled?: boolean
+  accompaniment_products?: ProductAccompanimentItem[]
 }
 
 export interface StoreProductItem {
@@ -811,6 +828,59 @@ export interface PurchaseOrder {
   created_at?: string
   supplier?: { id: string; name: string; code: string } | null
   warehouse?: { id: string; name: string; code: string } | null
+  requisition?: { id: string; number: string; status: string } | null
+  proforma?: { id: string; number: string; status: string } | null
+}
+
+export interface PurchaseCycleLine {
+  id?: string
+  product_id: string
+  quantity: number
+  unit_cost: number
+  line_total?: number
+  product?: { id: string; sku: string; name: string; cost_price?: number | null } | null
+}
+
+export interface PurchaseRequisition {
+  id: string
+  number: string
+  status: string
+  priority: string
+  department?: string | null
+  needed_at?: string | null
+  reason?: string | null
+  notes?: string | null
+  rejection_comment?: string | null
+  total: number
+  warehouse_id?: string | null
+  supplier_id?: string | null
+  created_at?: string
+  warehouse?: { id: string; name: string; code: string } | null
+  supplier?: { id: string; name: string; code: string } | null
+  items?: PurchaseCycleLine[]
+  converted_proforma?: { id: string; number: string; status: string } | null
+  converted_purchase_order?: { id: string; order_number: string; status: string } | null
+}
+
+export interface PurchaseProforma {
+  id: string
+  number: string
+  status: string
+  payment_terms?: string | null
+  delivery_terms?: string | null
+  expires_at?: string | null
+  notes?: string | null
+  rejection_comment?: string | null
+  total: number
+  warehouse_id?: string | null
+  supplier_id: string
+  purchase_requisition_id?: string | null
+  created_at?: string
+  warehouse?: { id: string; name: string; code: string } | null
+  supplier?: { id: string; name: string; code: string } | null
+  requisition?: { id: string; number: string; status: string } | null
+  items?: PurchaseCycleLine[]
+  converted_purchase_order?: { id: string; order_number: string; status: string } | null
 }
 
 export interface PurchaseInvoice {
@@ -1077,6 +1147,10 @@ export interface Sale {
   completed_at?: string | null
   created_at?: string
   notes?: string | null
+  table_id?: string | null
+  table?: { id: string; name: string; code?: string } | null
+  merged_into_id?: string | null
+  merged_into?: { id: string; reference: string } | null
   customer?: { id: string; name: string; email?: string } | null
   processed_by?: { id: string; name: string } | null
   items?: SaleItem[]

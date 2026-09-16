@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -25,6 +26,7 @@ async function load() {
 }
 
 onMounted(load)
+watchLiveSearch([from, to], load, 0)
 </script>
 
 <template>
@@ -38,7 +40,6 @@ onMounted(load)
         <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
         <input v-model="to" type="date" class="field" />
       </div>
-      <button class="btn-secondary" :disabled="loading" @click="load">{{ t('common.search') }}</button>
     </div>
 
     <div v-if="report" class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -17,6 +17,7 @@ const emit = defineEmits<{
   decrement: [lineId: string]
   quantity: [lineId: string, quantity: number]
   remove: [lineId: string]
+  close: []
 }>()
 
 const { t } = useI18n()
@@ -31,7 +32,10 @@ const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.qu
         <h2 class="pos-cart__title">{{ t('pos.cart') }}</h2>
         <p class="pos-cart__meta">{{ itemCount }} {{ t('pos.articles') }}</p>
       </div>
-      <span class="pos-cart__count">{{ lines.length }}</span>
+      <div class="pos-cart__header-actions">
+        <span class="pos-cart__count">{{ lines.length }}</span>
+        <button class="pos-cart__close" type="button" :title="t('pos.cart')" @click="emit('close')">×</button>
+      </div>
     </div>
 
     <div class="pos-cart__lines">
@@ -43,7 +47,11 @@ const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.qu
         <div class="pos-cart__body">
           <div class="pos-cart__line-top">
             <div class="min-w-0">
-              <p class="pos-cart__name">{{ line.product.name }} <span class="pos-cart__times">x{{ line.quantity }}</span></p>
+              <p class="pos-cart__name">
+                {{ line.product.name }}
+                <span class="pos-cart__times">x{{ line.quantity }}</span>
+                <span v-if="line.isAccompaniment" class="pos-cart__free">{{ t('accompaniments.priceFree') }}</span>
+              </p>
               <p class="pos-cart__sku">
                 <span v-if="line.product.category_name">{{ line.product.category_name }} · </span>{{ line.product.sku }}
               </p>
@@ -52,7 +60,7 @@ const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.qu
           </div>
               <p class="pos-cart__unit">{{ t('pos.unitPrice') }} {{ formatMoney(line.product.price, currency) }}<span v-if="line.saleUnitId"> · {{ line.product.name.split(' · ').slice(1).join(' · ') }}</span></p>
           <div class="pos-cart__line-bottom">
-            <div v-if="needsSaleQuantity(line.product)" class="pos-cart__qty">
+            <div v-if="needsSaleQuantity(line.product) && !line.isAccompaniment" class="pos-cart__qty">
               <button type="button" @click="emit('decrement', line.lineId)">−</button>
               <input
                 type="number"
@@ -84,6 +92,7 @@ const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.qu
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-left: 1px solid #e7edf3;
   background: #fbfcfd;
 }
@@ -95,6 +104,25 @@ const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.qu
   padding: 0.9rem 1rem 0.8rem;
   border-bottom: 1px solid #e7edf3;
   background: #fff;
+}
+
+.pos-cart__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pos-cart__close {
+  display: none;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid #dbe3ea;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .pos-cart__title {
@@ -179,6 +207,16 @@ const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.qu
 .pos-cart__times {
   font-weight: 600;
   color: #64748b;
+}
+
+.pos-cart__free {
+  margin-left: 0.35rem;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
 }
 
 .pos-cart__remove {
@@ -300,5 +338,38 @@ const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.qu
   max-width: 12rem;
   font-size: 0.85rem;
   line-height: 1.4;
+}
+
+@media (max-width: 1279px) {
+  .pos-cart {
+    width: 19rem;
+    flex: 0 0 19rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .pos-cart {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    width: min(22rem, 92%);
+    flex: none;
+    transform: translateX(110%);
+    transition: transform 0.2s ease;
+    box-shadow: -12px 0 28px rgba(15, 23, 42, 0.16);
+    pointer-events: none;
+  }
+
+  :global(.pos-body--cart-open) .pos-cart {
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .pos-cart__close {
+    display: grid;
+    place-items: center;
+  }
 }
 </style>

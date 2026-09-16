@@ -112,4 +112,42 @@ const { t } = useI18n()
 .pos-categories__item--active .pos-categories__count {
   background: rgba(255, 255, 255, 0.18);
 }
+
+@media (max-width: 1279px) {
+  .pos-categories {
+    width: 100%;
+    flex: 0 0 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.3rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: unset;
+    border-right: 0;
+    border-bottom: 1px solid #e7edf3;
+    padding: 0.45rem 0.55rem;
+    background: #fff;
+  }
+
+  .pos-categories__heading {
+    display: none;
+  }
+
+  .pos-categories__item {
+    flex: 0 0 auto;
+    width: auto;
+    margin-bottom: 0;
+    white-space: nowrap;
+    background: #f8fafc;
+    border-color: #e7edf3;
+  }
+
+  .pos-categories__item--active {
+    background: var(--color-brand-600, #4a6d86);
+    color: #fff;
+    border-color: var(--color-brand-600, #4a6d86);
+  }
+}
 </style>

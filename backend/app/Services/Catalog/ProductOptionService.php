@@ -16,9 +16,10 @@ class ProductOptionService
     private const MAX_COMBINATIONS = 100;
 
     /**
-     * @param  list<array{name: string, values: list<string>}>  $groups
+     * @param  list<array{name: string, values: list<string>, value_prices?: array<string, int>}>  $groups
+     * @param  list<array{options: array<string, string>, price: int}>  $prices
      */
-    public function transform(Product $product, array $groups): Product
+    public function transform(Product $product, array $groups, array $prices = []): Product
     {
         if (in_array($product->product_type, ['service', 'digital', 'bundle'], true)) {
             throw ValidationException::withMessages([
@@ -28,6 +29,7 @@ class ProductOptionService
 
         $normalized = $this->normalizeGroups($groups);
         $combinations = $this->combinations($normalized);
+        $priceBySignature = $this->priceMap($prices);
 
         if ($combinations === []) {
             throw ValidationException::withMessages([
@@ -41,7 +43,7 @@ class ProductOptionService
             ]);
         }
 
-        return DB::transaction(function () use ($product, $normalized, $combinations): Product {
+        return DB::transaction(function () use ($product, $normalized, $combinations, $priceBySignature): Product {
             $product->load('variants');
             $existing = $product->variants->keyBy(fn (ProductVariant $variant) => $this->signature($this->optionsOf($variant)));
             $kept = [];
@@ -63,6 +65,9 @@ class ProductOptionService
                     'sort_order' => $index,
                     'is_active' => true,
                     'attributes' => ['options' => $options],
+                    'base_price' => $priceBySignature[$signature]
+                        ?? $variant->base_price
+                        ?? $product->base_price,
                 ]);
                 $variant->save();
                 $kept[] = $variant->id;
@@ -118,7 +123,20 @@ class ProductOptionService
             }
 
             $names[$key] = true;
-            $normalized[] = ['name' => $name, 'values' => $values];
+            $valuePrices = [];
+            foreach ($group['value_prices'] ?? [] as $value => $amount) {
+                $label = trim((string) $value);
+                if ($label === '' || ! in_array($label, $values, true)) {
+                    continue;
+                }
+                $valuePrices[$label] = max(0, (int) $amount);
+            }
+
+            $normalized[] = [
+                'name' => $name,
+                'values' => $values,
+                ...($valuePrices !== [] ? ['value_prices' => $valuePrices] : []),
+            ];
             if (count($normalized) >= self::MAX_GROUPS) {
                 break;
             }
@@ -146,6 +164,24 @@ class ProductOptionService
         }
 
         return array_values(array_filter($result));
+    }
+
+    /**
+     * @param  list<array{options?: array<string, string>, price?: int}>  $prices
+     * @return array<string, int>
+     */
+    private function priceMap(array $prices): array
+    {
+        $map = [];
+        foreach ($prices as $row) {
+            $options = $row['options'] ?? [];
+            if (! is_array($options) || $options === []) {
+                continue;
+            }
+            $map[$this->signature($options)] = max(0, (int) ($row['price'] ?? 0));
+        }
+
+        return $map;
     }
 
     /** @param  array<string, string>  $options */

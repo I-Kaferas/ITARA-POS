@@ -39,9 +39,18 @@ class CustomerController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $tenantId = (string) app('tenant.id');
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:50'],
+            'code' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('customers', 'code')->where(
+                    fn ($q) => $q->where('tenant_id', $tenantId)->whereNull('deleted_at')
+                ),
+            ],
             'company_name' => ['nullable', 'string', 'max:255'],
             'tax_id' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255'],
@@ -56,9 +65,14 @@ class CustomerController extends Controller
             'is_active' => ['boolean'],
         ]);
 
+        if (array_key_exists('code', $data)) {
+            $code = is_string($data['code']) ? trim($data['code']) : '';
+            $data['code'] = $code !== '' ? $code : null;
+        }
+
         $customer = Customer::query()->create([
             ...$data,
-            'tenant_id' => app('tenant.id'),
+            'tenant_id' => $tenantId,
             'payment_terms_days' => $data['payment_terms_days'] ?? 0,
             'is_active' => $data['is_active'] ?? true,
         ]);
@@ -77,9 +91,18 @@ class CustomerController extends Controller
 
     public function update(Request $request, Customer $customer): JsonResponse
     {
+        $tenantId = (string) ($customer->tenant_id ?: app('tenant.id'));
+
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:50'],
+            'code' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('customers', 'code')
+                    ->where(fn ($q) => $q->where('tenant_id', $tenantId)->whereNull('deleted_at'))
+                    ->ignore($customer->id),
+            ],
             'company_name' => ['nullable', 'string', 'max:255'],
             'tax_id' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255'],
@@ -93,6 +116,19 @@ class CustomerController extends Controller
             'metadata' => ['nullable', 'array'],
             'is_active' => ['boolean'],
         ]);
+
+        if (array_key_exists('code', $data)) {
+            $code = is_string($data['code']) ? trim($data['code']) : '';
+            if ($code === '') {
+                unset($data['code']);
+            } else {
+                $data['code'] = $code;
+            }
+        }
+
+        if (! filled($customer->code) && ! isset($data['code'])) {
+            $data['code'] = Customer::nextCode($tenantId);
+        }
 
         $customer->update($data);
 

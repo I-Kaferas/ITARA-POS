@@ -17,6 +17,8 @@ use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseProforma;
+use App\Models\PurchaseRequisition;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -95,6 +97,8 @@ class AppServiceProvider extends ServiceProvider
             'variant' => ProductVariant::class,
             'barcode' => Barcode::class,
             'purchaseOrder' => PurchaseOrder::class,
+            'purchaseRequisition' => PurchaseRequisition::class,
+            'purchaseProforma' => PurchaseProforma::class,
             'goodsReceipt' => GoodsReceipt::class,
             'purchaseInvoice' => PurchaseInvoice::class,
         ];

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -38,6 +39,7 @@ onMounted(async () => {
   warehouses.value = await store.loadAllWarehouses()
   await load()
 })
+watchLiveSearch([warehouseId, from, to], load, 0)
 </script>
 
 <template>
@@ -58,7 +60,6 @@ onMounted(async () => {
         <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
         <input v-model="to" type="date" class="field" />
       </div>
-      <button class="btn-secondary" :disabled="loading" @click="load">{{ t('common.search') }}</button>
       <button class="btn-primary" @click="exportCsv">{{ t('reports.export') }}</button>
     </div>
 

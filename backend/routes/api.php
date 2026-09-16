@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\V1\PayableController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PosController;
 use App\Http\Controllers\Api\V1\PosReservationController;
+use App\Http\Controllers\Api\V1\PosTableController;
 use App\Http\Controllers\Api\V1\RefundController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SaleController;
@@ -51,6 +52,7 @@ use App\Http\Controllers\Api\V1\SaleInvoiceController;
 use App\Http\Controllers\Api\V1\SaleReceiptController;
 use App\Http\Controllers\Api\V1\PriceController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProductAccompanimentController;
 use App\Http\Controllers\Api\V1\ProductImageController;
 use App\Http\Controllers\Api\V1\ProductOptionController;
 use App\Http\Controllers\Api\V1\ProductVariantController;
@@ -84,6 +86,8 @@ use App\Http\Controllers\Api\V1\WarehouseController;
 use App\Http\Middleware\AuthenticateApiToken;
 use App\Http\Middleware\ResolveStore;
 use App\Http\Middleware\ResolveTenant;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -123,6 +127,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::get('notifications', [NotificationController::class, 'index']);
+        Route::post('broadcasting/auth', function (Request $request) {
+            return Broadcast::auth($request);
+        });
         Route::get('terminal-backups', [TerminalBackupController::class, 'index']);
         Route::post('terminal-backups', [TerminalBackupController::class, 'store']);
         Route::get('terminal-backups/{backup}/file/{name}', [TerminalBackupController::class, 'download'])
@@ -396,6 +403,17 @@ Route::prefix('v1')->group(function () {
         Route::patch('products/{product}', [ProductController::class, 'update'])
             ->middleware('permission:catalog.products.manage');
         Route::delete('products/{product}', [ProductController::class, 'destroy'])
+            ->middleware('permission:catalog.products.manage');
+        Route::get('products/{product}/accompaniment', [ProductAccompanimentController::class, 'config'])
+            ->middleware('permission:catalog.products.view');
+        Route::put('products/{product}/accompaniment', [ProductAccompanimentController::class, 'sync'])
+            ->middleware('permission:catalog.products.manage');
+
+        Route::get('product-accompaniments', [ProductAccompanimentController::class, 'index'])
+            ->middleware('permission:catalog.products.view');
+        Route::get('product-accompaniments/candidates', [ProductAccompanimentController::class, 'candidates'])
+            ->middleware('permission:catalog.products.view');
+        Route::post('product-accompaniments', [ProductAccompanimentController::class, 'store'])
             ->middleware('permission:catalog.products.manage');
 
         // Product images
@@ -1026,6 +1044,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:sales.view');
         Route::get('hospitality', [DeskController::class, 'hospitality'])
             ->middleware('permission:sales.view,sales.create');
+        Route::get('hospitality/docs/{code}', [DeskController::class, 'hospitalityDocument'])
+            ->middleware('permission:sales.view,sales.create');
         Route::post('hospitality/actions', [DeskController::class, 'hospitalityAction'])
             ->middleware('permission:sales.create,sales.view');
         Route::get('production', [DeskController::class, 'production'])
@@ -1070,6 +1090,39 @@ Route::prefix('v1')->group(function () {
         Route::patch('pos-reservations/{posReservation}/status', [PosReservationController::class, 'updateStatus'])
             ->middleware('permission:sales.create');
 
+        Route::get('stores/{store}/pos/tables', [PosTableController::class, 'index'])
+            ->middleware('permission:pos.tables.view,sales.view');
+        Route::get('stores/{store}/pos/tables/stats', [PosTableController::class, 'stats'])
+            ->middleware('permission:pos.tables.view,pos.tables.stats,sales.view');
+        Route::post('stores/{store}/pos/tables', [PosTableController::class, 'store'])
+            ->middleware('permission:pos.tables.manage');
+        Route::put('pos-tables/{posTable}', [PosTableController::class, 'update'])
+            ->middleware('permission:pos.tables.manage');
+        Route::delete('pos-tables/{posTable}', [PosTableController::class, 'destroy'])
+            ->middleware('permission:pos.tables.manage');
+        Route::patch('pos-tables/{posTable}/status', [PosTableController::class, 'updateStatus'])
+            ->middleware('permission:pos.tables.manage');
+        Route::post('stores/{store}/pos/tables/{posTable}/open', [PosTableController::class, 'open'])
+            ->middleware('permission:pos.tables.open,sales.create');
+        Route::post('pos-tables/{posTable}/transfer', [PosTableController::class, 'transfer'])
+            ->middleware('permission:pos.tables.transfer');
+        Route::post('pos-tables/{posTable}/merge', [PosTableController::class, 'merge'])
+            ->middleware('permission:pos.tables.merge');
+        Route::post('stores/{store}/pos/tables/{posTable}/reserve', [PosTableController::class, 'reserve'])
+            ->middleware('permission:pos.tables.reserve,sales.create');
+        Route::post('pos-tables/{posTable}/cancel', [PosTableController::class, 'cancel'])
+            ->middleware('permission:pos.tables.open,sales.create');
+        Route::get('pos-tables/{posTable}/history', [PosTableController::class, 'history'])
+            ->middleware('permission:pos.tables.view,sales.view');
+        Route::get('stores/{store}/pos/table-zones', [PosTableController::class, 'zones'])
+            ->middleware('permission:pos.tables.view,sales.view');
+        Route::post('stores/{store}/pos/table-zones', [PosTableController::class, 'storeZone'])
+            ->middleware('permission:pos.tables.manage');
+        Route::put('pos-table-zones/{posTableZone}', [PosTableController::class, 'updateZone'])
+            ->middleware('permission:pos.tables.manage');
+        Route::delete('pos-table-zones/{posTableZone}', [PosTableController::class, 'destroyZone'])
+            ->middleware('permission:pos.tables.manage');
+
         Route::get('stores/{store}/sales', [SaleController::class, 'index'])
             ->middleware('permission:sales.view');
         Route::get('stores/{store}/sales/export', [SaleController::class, 'export'])
@@ -1080,6 +1133,12 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:sales.create');
         Route::get('sales/{sale}', [SaleController::class, 'show'])
             ->middleware('permission:sales.view');
+        Route::get('sales/{sale}/merge-candidates', [SaleController::class, 'mergeCandidates'])
+            ->middleware('permission:sales.merge,pos.tables.merge');
+        Route::post('sales/{sale}/merge/preview', [SaleController::class, 'mergePreview'])
+            ->middleware('permission:sales.merge,pos.tables.merge');
+        Route::post('sales/{sale}/merge', [SaleController::class, 'merge'])
+            ->middleware('permission:sales.merge,pos.tables.merge');
         Route::put('sales/{sale}', [SaleController::class, 'update'])
             ->middleware('permission:sales.create');
         Route::delete('sales/{sale}', [SaleController::class, 'destroy'])

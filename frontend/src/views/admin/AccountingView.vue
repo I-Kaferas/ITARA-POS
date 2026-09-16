@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
 import AppModal from '../../components/ui/AppModal.vue'
@@ -69,6 +70,7 @@ async function closePeriod() {
 }
 
 onMounted(load)
+watchLiveSearch([from, to], load, 0)
 </script>
 
 <template>
@@ -86,7 +88,6 @@ onMounted(load)
           <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
           <input v-model="to" type="date" class="field" />
         </div>
-        <button class="btn-secondary" @click="load">{{ t('common.search') }}</button>
       </div>
       <button class="btn-primary" @click="showModal = true">+ {{ t('accounting.addEntry') }}</button>
     </div>

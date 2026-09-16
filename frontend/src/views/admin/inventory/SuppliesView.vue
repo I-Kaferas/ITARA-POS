@@ -33,8 +33,12 @@ const form = ref({
 })
 
 onMounted(async () => {
-  await Promise.all([store.loadPurchaseOrders(), store.loadSuppliers()])
-  warehouses.value = await store.loadAllWarehouses()
+  try {
+    await Promise.all([store.loadPurchaseOrders(), store.loadSuppliers()])
+    warehouses.value = await store.loadAllWarehouses()
+  } catch (error) {
+    notify(extractApiErrorMessage(error))
+  }
 })
 
 function productsForLine(index: number) {
@@ -84,7 +88,7 @@ async function openDetails(id: string) {
   try {
     detail.value = await store.loadPurchaseOrder(id)
   } catch (error) {
-    notify(extractApiErrorMessage(error), 'error')
+    notify(extractApiErrorMessage(error))
     showDetails.value = false
   } finally {
     detailsLoading.value = false
@@ -94,14 +98,32 @@ async function openDetails(id: string) {
 function statusLabel(status: string) {
   if (status === 'draft') return t('inventory.statusDraft')
   if (status === 'pending') return t('inventory.statusPending')
-  if (['approved', 'partially_received', 'received', 'completed'].includes(status)) {
-    return t('inventory.statusCompleted')
-  }
+  if (status === 'approved') return t('inventory.statusApproved')
+  if (status === 'partially_received') return t('inventory.statusPartial')
+  if (['received', 'completed'].includes(status)) return t('inventory.statusCompleted')
   return status
 }
 
 function canConfirm(status: string) {
-  return status === 'draft' || status === 'pending'
+  return ['draft', 'pending', 'approved', 'partially_received'].includes(status)
+}
+
+function confirmLabel(status: string) {
+  if (status === 'draft') return t('inventory.confirm')
+  if (status === 'pending') return t('inventory.confirmFinal')
+  return t('inventory.receiveStock')
+}
+
+async function receiveRemaining(id: string) {
+  const order = await store.loadPurchaseOrder(id)
+  const items = (order.items ?? [])
+    .map(item => ({
+      purchase_order_item_id: item.id,
+      quantity: item.remaining ?? Math.max(0, (item.quantity_ordered ?? item.quantity ?? 0) - (item.received_quantity ?? item.quantity_received ?? 0)),
+    }))
+    .filter(item => item.quantity > 0)
+  if (!items.length) return
+  await store.receivePurchaseOrder(id, { notes: t('inventory.supplyReceiptNote'), items })
 }
 
 async function save() {
@@ -145,27 +167,21 @@ async function confirm(id: string, status: string) {
     approve ? t('inventory.approveModalMessage') : t('inventory.confirmModalMessage'),
     {
       title: approve ? t('inventory.approveModalTitle') : t('inventory.confirmModalTitle'),
-      confirmLabel: approve ? t('inventory.confirmFinal') : t('inventory.confirm'),
+      confirmLabel: confirmLabel(status),
       danger: false,
     },
   ))) return
   try {
-    await store.confirmPurchaseOrderStep(id)
-    if (approve) {
-      const order = await store.loadPurchaseOrder(id)
-      const items = (order.items ?? [])
-        .map(item => ({
-          purchase_order_item_id: item.id,
-          quantity: item.remaining ?? Math.max(0, (item.quantity_ordered ?? item.quantity) - (item.received_quantity ?? item.quantity_received ?? 0)),
-        }))
-        .filter(item => item.quantity > 0)
-      if (items.length) {
-        await store.receivePurchaseOrder(id, { notes: 'Confirmation de l’approvisionnement', items })
-      }
+    if (status === 'draft' || status === 'pending') {
+      await store.confirmPurchaseOrderStep(id)
+    }
+    if (status !== 'draft') {
+      await receiveRemaining(id)
     }
     await store.loadPurchaseOrders()
   } catch (error) {
     await notify(extractApiErrorMessage(error))
+    await store.loadPurchaseOrders()
   }
 }
 </script>
@@ -194,13 +210,13 @@ async function confirm(id: string, status: string) {
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ row.supplier?.name ?? '—' }}</td>
             <td class="px-4 py-3">
-              <StatusBadge :active="['approved', 'received', 'completed'].includes(row.status)" :label="statusLabel(row.status)" />
+              <StatusBadge :active="['received', 'completed'].includes(row.status)" :label="statusLabel(row.status)" />
             </td>
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
             <td class="px-4 py-3 text-right">
               <button class="text-slate-600" @click="openDetails(row.id)">{{ t('inventory.viewDetails') }}</button>
               <button v-if="canConfirm(row.status)" class="ml-3 text-brand-600" @click="confirm(row.id, row.status)">
-                {{ row.status === 'draft' ? t('inventory.confirm') : t('inventory.confirmFinal') }}
+                {{ confirmLabel(row.status) }}
               </button>
             </td>
           </tr>
@@ -230,6 +246,7 @@ async function confirm(id: string, status: string) {
             <option value="">—</option>
             <option v-for="s in store.suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
+          <p class="mt-1 text-xs text-slate-500">{{ t('inventory.supplierOptionalHint') }}</p>
         </div>
         <p class="text-xs text-slate-500">{{ t('inventory.entryHint') }}</p>
         <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>

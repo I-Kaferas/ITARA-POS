@@ -45,6 +45,7 @@ const form = ref({
   track_batch: false,
   track_expiration: false,
   expiration_days: null as number | null,
+  accompaniment_enabled: false,
 })
 
 const variants = ref<ProductVariant[]>([])
@@ -171,6 +172,7 @@ onMounted(async () => {
       track_batch: product.value.track_batch ?? false,
       track_expiration: product.value.track_expiration ?? false,
       expiration_days: product.value.expiration_days ?? null,
+      accompaniment_enabled: product.value.accompaniment_enabled ?? false,
     }
     variants.value = (product.value.variants ?? []).map(v => ({
       ...v,
@@ -454,6 +456,12 @@ async function makePrimary(id: string) {
           <input v-model.number="form.expiration_days" type="number" min="1" class="field max-w-xs" />
         </div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
+        <label class="flex items-center gap-2 text-sm">
+          <span class="field-icon"><AppIcon name="sparkles" :size="14" /></span>
+          <input v-model="form.accompaniment_enabled" type="checkbox" class="rounded" />
+          {{ t('accompaniments.enabled') }}
+        </label>
+        <p class="m-0 text-xs text-slate-500">{{ t('accompaniments.enabledHint') }}</p>
         <p v-if="product && isQuantifiable" class="text-sm text-slate-600">
           {{ t('products.stock') }} : <span class="font-medium">{{ product.stock ?? 0 }}</span>
         </p>

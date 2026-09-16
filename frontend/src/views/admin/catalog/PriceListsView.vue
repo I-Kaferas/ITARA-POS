@@ -4,11 +4,20 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Catalog, Company, Currency } from '../../../types'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 
-type Tier = { amount: number; currency_code: string; price_id?: string | null; quote: { ht: number; tva: number; ttc: number }; in_default: number }
+type Tier = {
+  amount: number
+  currency_code: string
+  price_id?: string | null
+  source?: string
+  resolved_type?: string
+  quote: { ht: number; tva: number; ttc: number }
+  in_default: number
+}
 type Row = {
   id: string
   sku: string
@@ -29,6 +38,7 @@ const defaultCurrency = ref('FBU')
 const drafts = ref<Record<string, Record<string, string>>>({})
 const currenciesByRow = ref<Record<string, string>>({})
 const savingId = ref('')
+const error = ref('')
 
 const catalogs = computed(() => store.catalogs)
 
@@ -53,26 +63,40 @@ async function load() {
   defaultCurrency.value = payload.default_currency
   drafts.value = Object.fromEntries(payload.data.map(row => [
     row.id,
-    Object.fromEntries(TYPES.map(type => [type, (row.prices[type].amount / 100).toFixed(2)])),
+    Object.fromEntries(TYPES.map(type => [type, ((row.prices[type]?.amount ?? 0) / 100).toFixed(2)])),
   ]))
   currenciesByRow.value = Object.fromEntries(payload.data.map(row => [row.id, row.prices.retail?.currency_code || payload.default_currency]))
 }
 
+function nativePriceId(tier: Tier | undefined, type: string): string | undefined {
+  if (!tier?.price_id) return undefined
+  // Only update an existing row when this column is a native tier (not retail/base fallback).
+  if (tier.resolved_type && tier.resolved_type !== type) return undefined
+  if (tier.source && tier.source !== 'tier') return undefined
+  return tier.price_id
+}
+
 async function save(row: Row) {
   savingId.value = row.id
+  error.value = ''
   try {
     const currency = (currenciesByRow.value[row.id] || defaultCurrency.value).toUpperCase()
     await store.saveProduct('', {
-      prices: TYPES.map(type => ({
-        ...(row.prices[type]?.price_id ? { id: row.prices[type].price_id } : {}),
-        price_type: type,
-        amount: parseMoneyInput(drafts.value[row.id]?.[type] ?? '0'),
-        currency_code: currency,
-        min_quantity: 1,
-        is_active: true,
-      })),
+      prices: TYPES.map(type => {
+        const id = nativePriceId(row.prices[type], type)
+        return {
+          ...(id ? { id } : {}),
+          price_type: type,
+          amount: parseMoneyInput(String(drafts.value[row.id]?.[type] ?? '0')),
+          currency_code: currency,
+          min_quantity: 1,
+          is_active: true,
+        }
+      }),
     }, row.id)
     await load()
+  } catch (e) {
+    error.value = extractApiErrorMessage(e, t('common.error'))
   } finally {
     savingId.value = ''
   }
@@ -108,6 +132,7 @@ function money(amount: number, currency?: string) {
         {{ t('catalog.priceList.currencyHint', { currency: defaultCurrency }) }}
         <RouterLink class="text-brand-600" to="/admin/organization/currencies">{{ t('org.tabs.currencies') }}</RouterLink>
       </p>
+      <p v-if="error" class="m-0 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
 
       <div class="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">

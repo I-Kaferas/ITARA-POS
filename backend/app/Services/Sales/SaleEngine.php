@@ -15,6 +15,8 @@ use App\Enums\SalePaymentStatus;
 use App\Enums\SaleStatus;
 use App\Events\SaleCompleted;
 use App\Models\Customer;
+use App\Models\PosTable;
+use App\Models\PosTableEvent;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleDiscount;
@@ -92,7 +94,10 @@ class SaleEngine
             $cart = $this->cartEngine->calculateForStore($store, $payload);
 
             $warehouse = $this->resolveWarehouse($store, $payload['warehouse_id'] ?? null);
-            $this->validateStock($warehouse, $cart);
+            $skipStock = (bool) ($payload['skip_stock'] ?? false);
+            if (! $skipStock) {
+                $this->validateStock($warehouse, $cart);
+            }
 
             $sale = Sale::query()->create([
                 'tenant_id' => $store->tenant_id,
@@ -150,7 +155,9 @@ class SaleEngine
                 $this->creditService->createInstallments($sale, $creditAmount, $payload['installments']);
             }
 
-            $this->decreaseInventory($sale, $warehouse, $cart, $user);
+            if (! $skipStock) {
+                $this->decreaseInventory($sale, $warehouse, $cart, $user);
+            }
             $this->accountingService->recordSale($sale, $user->id);
             $this->cashierShiftService->recordCompletedSale($sale, $user);
             $loyalty = $this->applyCustomerLoyalty($sale, $payload, $user);
@@ -180,14 +187,19 @@ class SaleEngine
     /** @param  array<string, mixed>  $payload */
     public function hold(Store $store, array $payload, User $user): Sale
     {
-        if (($payload['items'] ?? []) === []) {
+        $isTableOrder = ! empty($payload['table_id']);
+        if (($payload['items'] ?? []) === [] && ! $isTableOrder) {
             throw ValidationException::withMessages([
                 'items' => ['At least one item is required.'],
             ]);
         }
 
-        return DB::transaction(function () use ($store, $payload, $user): Sale {
+        return DB::transaction(function () use ($store, $payload, $user, $isTableOrder): Sale {
             $sale = $this->writePendingSale($store, $payload, $user);
+
+            if ($isTableOrder) {
+                $this->occupyTable($sale, $payload['table_id']);
+            }
 
             $this->auditLogService->log(
                 action: 'sale.held',
@@ -196,6 +208,7 @@ class SaleEngine
                 payload: [
                     'reference' => $sale->reference,
                     'total' => $sale->total,
+                    'table_id' => $sale->table_id,
                 ],
             );
 
@@ -208,7 +221,7 @@ class SaleEngine
     {
         $this->assertPending($sale);
 
-        if (($payload['items'] ?? []) === []) {
+        if (($payload['items'] ?? []) === [] && $sale->table_id === null) {
             throw ValidationException::withMessages([
                 'items' => ['At least one item is required.'],
             ]);
@@ -236,14 +249,324 @@ class SaleEngine
     {
         $this->assertPending($sale);
 
+        DB::transaction(function () use ($sale, $user): void {
+            $this->auditLogService->log(
+                action: 'sale.held_discarded',
+                entity: $sale,
+                userId: $user->id,
+                payload: ['reference' => $sale->reference, 'table_id' => $sale->table_id],
+            );
+
+            if ($sale->table_id) {
+                $this->voidPending($sale, $user, 'Commande table annulée');
+
+                return;
+            }
+
+            $sale->delete();
+        });
+    }
+
+    /** @param  array<string, mixed>  $payload */
+    public function openEmptyHold(Store $store, User $user, array $payload = []): Sale
+    {
+        $warehouse = $this->resolveWarehouse($store, $payload['warehouse_id'] ?? null);
+        $store->loadMissing('branch.company');
+
+        return Sale::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $store->id,
+            'table_id' => $payload['table_id'] ?? null,
+            'customer_id' => $payload['customer_id'] ?? null,
+            'warehouse_id' => $warehouse->id,
+            'cash_register_id' => $payload['cash_register_id'] ?? null,
+            'cashier_shift_id' => $payload['cashier_shift_id'] ?? null,
+            'device_id' => $payload['device_id'] ?? null,
+            'processed_by' => $user->id,
+            'reference' => $this->nextReference($store->tenant_id),
+            'status' => SaleStatus::Pending,
+            'subtotal' => 0,
+            'tax_total' => 0,
+            'discount_total' => 0,
+            'fees_total' => 0,
+            'total' => 0,
+            'paid_amount' => 0,
+            'payment_status' => SalePaymentStatus::Unpaid,
+            'currency' => $store->branch?->company?->currency_code ?? 'FBU',
+            'completed_at' => null,
+            'notes' => $payload['notes'] ?? null,
+        ]);
+    }
+
+    public function voidPending(Sale $sale, User $user, ?string $reason = null): Sale
+    {
+        $this->assertPending($sale);
+
+        $notes = trim((string) $sale->notes);
+        $reasonLine = $reason ? 'Annulée: '.$reason : 'Commande annulée';
+        $sale->update([
+            'status' => SaleStatus::Voided,
+            'notes' => $notes === '' ? $reasonLine : $notes."\n".$reasonLine,
+        ]);
+
+        PosTable::releaseSale($sale->id, 'cancelled');
+
         $this->auditLogService->log(
-            action: 'sale.held_discarded',
+            action: 'sale.voided',
             entity: $sale,
             userId: $user->id,
-            payload: ['reference' => $sale->reference],
+            payload: ['reference' => $sale->reference, 'reason' => $reason],
         );
 
-        $sale->delete();
+        return $sale->fresh(['items', 'customer']);
+    }
+
+    /**
+     * Merge source pending sale into target pending sale.
+     * No stock movement: pending holds have not deducted inventory yet.
+     *
+     * @param  array{
+     *     table_id?: string|null,
+     *     customer_id?: string|null,
+     *     confirm_different_customers?: bool,
+     *     consolidate?: bool
+     * }  $options
+     */
+    public function mergePending(Sale $target, Sale $source, User $user, array $options = []): Sale
+    {
+        $this->assertMergeable($target, 'commande principale');
+        $this->assertMergeable($source, 'commande secondaire');
+
+        if ($target->id === $source->id) {
+            throw ValidationException::withMessages([
+                'sale' => ['Impossible de fusionner une commande avec elle-même.'],
+            ]);
+        }
+
+        if ($target->store_id !== $source->store_id) {
+            throw ValidationException::withMessages([
+                'sale' => ['Les commandes doivent appartenir au même magasin.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($target, $source, $user, $options): Sale {
+            $ids = [$target->id, $source->id];
+            sort($ids);
+            $locked = Sale::query()
+                ->with(['items', 'customer', 'diningTable', 'discounts'])
+                ->whereIn('id', $ids)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            $target = $locked->get($target->id);
+            $source = $locked->get($source->id);
+            $this->assertMergeable($target, 'commande principale');
+            $this->assertMergeable($source, 'commande secondaire');
+
+            $beforeTargetTotal = (int) $target->total;
+            $beforeSourceTotal = (int) $source->total;
+            $sourceTableId = $source->table_id;
+            $targetTableId = $target->table_id;
+
+            $customerId = $this->resolveMergeCustomerId($target, $source, $options);
+            $finalTableId = $this->resolveMergeTableId($target, $source, $options);
+
+            $store = $target->store ?? Store::query()->findOrFail($target->store_id);
+            $items = array_merge($this->saleItemsPayload($target), $this->saleItemsPayload($source));
+            if (($options['consolidate'] ?? true) === true) {
+                $items = $this->consolidateSaleItems($items);
+            }
+
+            if ($items !== []) {
+                $this->replacePendingContents($target, $store, [
+                    'customer_id' => $customerId,
+                    'warehouse_id' => $target->warehouse_id ?? $source->warehouse_id,
+                    'cash_register_id' => $target->cash_register_id ?? $source->cash_register_id,
+                    'notes' => trim(implode("\n", array_filter([
+                        $target->notes,
+                        'Fusion de '.$source->reference,
+                    ]))),
+                    'items' => $items,
+                ]);
+            } else {
+                $target->update([
+                    'customer_id' => $customerId,
+                    'notes' => trim(implode("\n", array_filter([
+                        $target->notes,
+                        'Fusion de '.$source->reference,
+                    ]))),
+                ]);
+            }
+
+            $target->update(['table_id' => $finalTableId]);
+
+            $sourceNotes = trim((string) $source->notes);
+            $source->update([
+                'status' => SaleStatus::Merged,
+                'merged_into_id' => $target->id,
+                'table_id' => $sourceTableId,
+                'notes' => $sourceNotes === ''
+                    ? 'Fusionnée dans '.$target->reference
+                    : $sourceNotes."\nFusionnée dans ".$target->reference,
+            ]);
+
+            $this->syncTablesAfterMerge(
+                target: $target->fresh(),
+                source: $source,
+                previousTargetTableId: $targetTableId,
+                previousSourceTableId: $sourceTableId,
+                finalTableId: $finalTableId,
+                user: $user,
+            );
+
+            $target = $target->fresh(['items', 'customer', 'processedBy', 'mergedSales', 'diningTable']);
+
+            $this->auditLogService->log(
+                action: 'sale.merged',
+                entity: $target,
+                userId: $user->id,
+                payload: [
+                    'source_sale_id' => $source->id,
+                    'source_reference' => $source->reference,
+                    'target_sale_id' => $target->id,
+                    'target_reference' => $target->reference,
+                    'source_table_id' => $sourceTableId,
+                    'target_table_id' => $targetTableId,
+                    'final_table_id' => $finalTableId,
+                    'total_before_source' => $beforeSourceTotal,
+                    'total_before_target' => $beforeTargetTotal,
+                    'total_after' => (int) $target->total,
+                    'customer_id' => $customerId,
+                ],
+            );
+
+            return $target;
+        });
+    }
+
+    /**
+     * @param  array{
+     *     table_id?: string|null,
+     *     customer_id?: string|null,
+     *     confirm_different_customers?: bool,
+     *     consolidate?: bool
+     * }  $options
+     * @return array<string, mixed>
+     */
+    public function previewMerge(Sale $target, Sale $source, array $options = []): array
+    {
+        $this->assertMergeable($target, 'commande principale');
+        $this->assertMergeable($source, 'commande secondaire');
+
+        if ($target->id === $source->id) {
+            throw ValidationException::withMessages([
+                'sale' => ['Impossible de fusionner une commande avec elle-même.'],
+            ]);
+        }
+
+        if ($target->store_id !== $source->store_id) {
+            throw ValidationException::withMessages([
+                'sale' => ['Les commandes doivent appartenir au même magasin.'],
+            ]);
+        }
+
+        $target->loadMissing(['items', 'customer', 'diningTable']);
+        $source->loadMissing(['items', 'customer', 'diningTable']);
+
+        $customersDiffer = $target->customer_id
+            && $source->customer_id
+            && $target->customer_id !== $source->customer_id;
+
+        $customerId = $this->resolveMergeCustomerId($target, $source, array_merge($options, [
+            'preview' => true,
+        ]));
+        $finalTableId = $this->resolveMergeTableId($target, $source, array_merge($options, [
+            'preview' => true,
+        ]));
+
+        $store = $target->store ?? Store::query()->findOrFail($target->store_id);
+        $items = array_merge($this->saleItemsPayload($target), $this->saleItemsPayload($source));
+        if (($options['consolidate'] ?? true) === true) {
+            $items = $this->consolidateSaleItems($items);
+        }
+
+        $cart = $items === []
+            ? null
+            : $this->cartEngine->calculateForStore($store, [
+                'customer_id' => $customerId,
+                'warehouse_id' => $target->warehouse_id ?? $source->warehouse_id,
+                'items' => $items,
+            ]);
+
+        $productNames = $target->items->concat($source->items)
+            ->mapWithKeys(fn ($item) => [
+                ($item->product_id.'|'.$item->product_variant_id.'|'.$item->sale_unit_id) => $item->product_name,
+            ]);
+
+        $previewLines = collect($items)->map(function (array $line) use ($productNames) {
+            $key = ($line['product_id'] ?? '').'|'.($line['product_variant_id'] ?? '').'|'.($line['sale_unit_id'] ?? '');
+
+            return [
+                'product_id' => $line['product_id'] ?? null,
+                'product_variant_id' => $line['product_variant_id'] ?? null,
+                'sale_unit_id' => $line['sale_unit_id'] ?? null,
+                'quantity' => (int) ($line['quantity'] ?? 0),
+                'unit_price' => (int) ($line['unit_price'] ?? 0),
+                'product_name' => $productNames[$key] ?? null,
+            ];
+        })->values()->all();
+
+        return [
+            'source' => [
+                ...$source->toSummaryArray(),
+                'table' => $source->diningTable?->only(['id', 'name', 'code']),
+                'item_count' => (int) $source->items->sum('quantity'),
+            ],
+            'target' => [
+                ...$target->toSummaryArray(),
+                'table' => $target->diningTable?->only(['id', 'name', 'code']),
+                'item_count' => (int) $target->items->sum('quantity'),
+            ],
+            'customers_differ' => $customersDiffer,
+            'tables' => collect([
+                $target->diningTable,
+                $source->diningTable,
+            ])->filter()->unique('id')->values()->map->only(['id', 'name', 'code'])->all(),
+            'final_table_id' => $finalTableId,
+            'customer_id' => $customerId,
+            'customer' => $customerId
+                ? ($target->customer_id === $customerId
+                    ? $target->customer?->only(['id', 'name'])
+                    : $source->customer?->only(['id', 'name']))
+                : null,
+            'items' => $previewLines,
+            'totals' => [
+                'subtotal' => $cart?->subtotal ?? 0,
+                'tax_total' => $cart?->taxTotal ?? 0,
+                'discount_total' => $cart?->discountTotal ?? 0,
+                'fees_total' => $cart?->feesTotal ?? 0,
+                'total' => $cart?->grandTotal ?? 0,
+                'currency' => $cart?->currency ?? $target->currency,
+            ],
+        ];
+    }
+
+    /** @return Collection<int, Sale> */
+    public function mergeCandidates(Sale $sale): Collection
+    {
+        $this->assertMergeable($sale);
+
+        return Sale::query()
+            ->with(['customer:id,name', 'diningTable:id,name,code', 'processedBy:id,name'])
+            ->withSum('items as items_quantity_sum', 'quantity')
+            ->where('store_id', $sale->store_id)
+            ->where('status', SaleStatus::Pending)
+            ->whereKeyNot($sale->id)
+            ->whereNull('merged_into_id')
+            ->orderByDesc('created_at')
+            ->limit(100)
+            ->get();
     }
 
     /** @param  array<string, mixed>  $payload */
@@ -326,6 +649,8 @@ class SaleEngine
 
             $sealed = $this->sealCompletedSale($sale, $user, $payload['device_id'] ?? $sale->device_id);
 
+            PosTable::releaseSale($sale->id, 'paid');
+
             $this->auditLogService->log(
                 action: 'sale.completed',
                 entity: $sale,
@@ -348,7 +673,7 @@ class SaleEngine
     public function find(string $saleId): Sale
     {
         return Sale::query()
-            ->with(['items', 'payments.paymentTransaction', 'taxes', 'discounts', 'customer', 'processedBy', 'installments'])
+            ->with(['items', 'payments.paymentTransaction', 'taxes', 'discounts', 'customer', 'processedBy', 'installments', 'diningTable', 'mergedInto', 'mergedSales'])
             ->findOrFail($saleId);
     }
 
@@ -640,6 +965,7 @@ class SaleEngine
                 'line_tax' => $line->lineTax,
                 'line_total' => $line->lineTotal,
                 'sort_order' => $index,
+                'is_accompaniment' => $line->isAccompaniment,
             ]);
 
             $items[$line->lineId] = $saleItem;
@@ -862,6 +1188,33 @@ class SaleEngine
         }
     }
 
+    private function assertMergeable(Sale $sale, string $label = 'commande'): void
+    {
+        if ($sale->status === SaleStatus::Completed) {
+            throw ValidationException::withMessages([
+                'status' => ["Impossible de fusionner : la {$label} est déjà payée."],
+            ]);
+        }
+
+        if ($sale->status === SaleStatus::Voided) {
+            throw ValidationException::withMessages([
+                'status' => ["Impossible de fusionner : la {$label} est annulée."],
+            ]);
+        }
+
+        if ($sale->status === SaleStatus::Merged) {
+            throw ValidationException::withMessages([
+                'status' => ["Impossible de fusionner : la {$label} a déjà été fusionnée."],
+            ]);
+        }
+
+        if ($sale->status !== SaleStatus::Pending) {
+            throw ValidationException::withMessages([
+                'status' => ["Impossible de fusionner : la {$label} n’est pas en attente."],
+            ]);
+        }
+    }
+
     /** @param  array<string, mixed>  $payload */
     private function writePendingSale(Store $store, array $payload, User $user): Sale
     {
@@ -891,6 +1244,7 @@ class SaleEngine
             'idempotency_key' => $payload['idempotency_key'] ?? null,
             'completed_at' => null,
             'notes' => $payload['notes'] ?? null,
+            'table_id' => $payload['table_id'] ?? null,
         ]);
 
         $saleItems = $this->createSaleItems($sale, $cart);
@@ -936,6 +1290,193 @@ class SaleEngine
         $sale->discounts()->delete();
         $sale->taxes()->delete();
         $sale->items()->delete();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function saleItemsPayload(Sale $sale): array
+    {
+        $sale->loadMissing('items');
+
+        return $sale->items->map(fn ($item) => [
+            'product_id' => $item->product_id,
+            'product_variant_id' => $item->product_variant_id,
+            'sale_unit_id' => $item->sale_unit_id,
+            'quantity' => $item->quantity,
+            'unit_price' => $item->unit_price,
+        ])->all();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @return list<array<string, mixed>>
+     */
+    private function consolidateSaleItems(array $items): array
+    {
+        $grouped = [];
+
+        foreach ($items as $item) {
+            $key = implode('|', [
+                (string) ($item['product_id'] ?? ''),
+                (string) ($item['product_variant_id'] ?? ''),
+                (string) ($item['sale_unit_id'] ?? ''),
+                (string) ($item['unit_price'] ?? ''),
+            ]);
+
+            if (! isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'product_id' => $item['product_id'] ?? null,
+                    'product_variant_id' => $item['product_variant_id'] ?? null,
+                    'sale_unit_id' => $item['sale_unit_id'] ?? null,
+                    'quantity' => 0,
+                    'unit_price' => $item['unit_price'] ?? null,
+                ];
+            }
+
+            $grouped[$key]['quantity'] += (int) ($item['quantity'] ?? 0);
+        }
+
+        return array_values(array_filter(
+            $grouped,
+            fn (array $row) => (int) ($row['quantity'] ?? 0) > 0,
+        ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    private function resolveMergeCustomerId(Sale $target, Sale $source, array $options): ?string
+    {
+        $requested = $options['customer_id'] ?? null;
+        $customersDiffer = $target->customer_id
+            && $source->customer_id
+            && $target->customer_id !== $source->customer_id;
+
+        if ($customersDiffer && ! ($options['confirm_different_customers'] ?? false) && ! ($options['preview'] ?? false)) {
+            throw ValidationException::withMessages([
+                'customer_id' => ['Les deux commandes sont associées à des clients différents. Confirmez pour continuer.'],
+            ]);
+        }
+
+        if (is_string($requested) && $requested !== '') {
+            if (! in_array($requested, array_filter([$target->customer_id, $source->customer_id]), true)) {
+                throw ValidationException::withMessages([
+                    'customer_id' => ['Le client conservé doit être l’un des clients des deux commandes.'],
+                ]);
+            }
+
+            return $requested;
+        }
+
+        return $target->customer_id ?? $source->customer_id;
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    private function resolveMergeTableId(Sale $target, Sale $source, array $options): ?string
+    {
+        if (array_key_exists('table_id', $options)) {
+            $tableId = $options['table_id'];
+            if ($tableId === null || $tableId === '') {
+                return null;
+            }
+
+            $allowed = array_values(array_filter([$target->table_id, $source->table_id]));
+            if ($allowed !== [] && ! in_array($tableId, $allowed, true)) {
+                throw ValidationException::withMessages([
+                    'table_id' => ['La table finale doit être l’une des tables des deux commandes.'],
+                ]);
+            }
+
+            return $tableId;
+        }
+
+        return $target->table_id ?? $source->table_id;
+    }
+
+    private function syncTablesAfterMerge(
+        Sale $target,
+        Sale $source,
+        ?string $previousTargetTableId,
+        ?string $previousSourceTableId,
+        ?string $finalTableId,
+        User $user,
+    ): void {
+        $tableIds = array_values(array_unique(array_filter([
+            $previousTargetTableId,
+            $previousSourceTableId,
+            $finalTableId,
+        ])));
+
+        if ($tableIds === []) {
+            return;
+        }
+
+        $tables = PosTable::query()
+            ->whereIn('id', $tableIds)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        foreach ($tables as $table) {
+            if ($finalTableId !== null && $table->id === $finalTableId) {
+                $table->occupy($target);
+                PosTableEvent::record(
+                    table: $table,
+                    type: 'merged_into',
+                    user: $user,
+                    sale: $target,
+                    payload: [
+                        'source_sale_id' => $source->id,
+                        'target_sale_id' => $target->id,
+                        'source_reference' => $source->reference,
+                    ],
+                );
+
+                continue;
+            }
+
+            if ($table->current_sale_id === $source->id || $table->current_sale_id === $target->id) {
+                $table->release();
+                PosTableEvent::record(
+                    table: $table,
+                    type: 'merged_from',
+                    user: $user,
+                    sale: $source,
+                    payload: [
+                        'source_sale_id' => $source->id,
+                        'target_sale_id' => $target->id,
+                        'final_table_id' => $finalTableId,
+                    ],
+                );
+            }
+        }
+    }
+
+    private function occupyTable(Sale $sale, string $tableId): void
+    {
+        $table = PosTable::query()
+            ->where('store_id', $sale->store_id)
+            ->whereKey($tableId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($table === null) {
+            throw ValidationException::withMessages([
+                'table_id' => ['Table introuvable pour ce magasin.'],
+            ]);
+        }
+
+        $table->syncOccupancy();
+
+        if ($table->currentSaleIsOpen() && $table->current_sale_id !== $sale->id) {
+            throw ValidationException::withMessages([
+                'table_id' => ['Cette table a déjà une commande ouverte.'],
+            ]);
+        }
+
+        $table->occupy($sale);
+        $sale->update(['table_id' => $table->id]);
     }
 
     private function nextReference(string $tenantId): string

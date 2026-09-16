@@ -43,9 +43,13 @@ import type {
   InventoryMovement,
   Permission,
   Product,
+  ProductAccompanimentHost,
+  ProductAccompanimentItem,
   ProductVariant,
   PurchaseInvoice,
   PurchaseOrder,
+  PurchaseProforma,
+  PurchaseRequisition,
   PayablesSummary,
   PayableScheduleItem,
   PurchaseOrderDetail,
@@ -691,6 +695,8 @@ export const useBackofficeStore = defineStore('backoffice', () => {
           amount: number
           currency_code: string
           price_id?: string | null
+          source?: string
+          resolved_type?: string
           quote: { ht: number; tva: number; ttc: number }
           in_default: number
         }>
@@ -719,7 +725,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
 
   async function transformProductOptions(
     productId: string,
-    groups: { name: string; values: string[] }[],
+    groups: { name: string; values: string[]; value_prices?: Record<string, number> }[],
     prices: { options: Record<string, string>; price: number }[] = [],
   ) {
     return (await api.post<ApiItemResponse<{ product: Product; groups: { name: string; values: string[] }[]; variants: ProductVariant[] }>>(
@@ -1045,31 +1051,40 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   }
 
   async function loadPurchaseRequisitions(params: Record<string, string> = {}) {
-    return (await api.get<ApiListResponse<Record<string, unknown>>>(`/purchase-requisitions${queryFrom(params)}`)).data
+    return loadPaginated<PurchaseRequisition>(`/purchase-requisitions${queryFrom(params)}`)
   }
 
   async function createPurchaseRequisition(payload: Record<string, unknown>) {
-    return (await api.post<ApiItemResponse<Record<string, unknown>>>('/purchase-requisitions', payload)).data
+    return (await api.post<ApiItemResponse<PurchaseRequisition>>('/purchase-requisitions', payload)).data
   }
 
   async function actPurchaseRequisition(id: string, action: string, comment?: string) {
-    return (await api.post<ApiItemResponse<Record<string, unknown>>>(`/purchase-requisitions/${id}/act`, { action, comment })).data
+    return (await api.post<ApiItemResponse<PurchaseRequisition>>(`/purchase-requisitions/${id}/act`, { action, comment })).data
   }
 
-  async function convertPurchaseRequisition(id: string, target: 'proforma' | 'purchase_order', supplierId?: string) {
-    return (await api.post<{ data: { type: string; id: string; number: string } }>(`/purchase-requisitions/${id}/convert`, { target, supplier_id: supplierId })).data
+  async function convertPurchaseRequisition(
+    id: string,
+    target: 'proforma' | 'purchase_order',
+    supplierId?: string,
+    warehouseId?: string,
+  ) {
+    return (await api.post<{ data: { type: string; id: string; number: string } }>(`/purchase-requisitions/${id}/convert`, {
+      target,
+      supplier_id: supplierId,
+      warehouse_id: warehouseId,
+    })).data
   }
 
   async function loadPurchaseProformas(params: Record<string, string> = {}) {
-    return (await api.get<ApiListResponse<Record<string, unknown>>>(`/purchase-proformas${queryFrom(params)}`)).data
+    return loadPaginated<PurchaseProforma>(`/purchase-proformas${queryFrom(params)}`)
   }
 
   async function createPurchaseProforma(payload: Record<string, unknown>) {
-    return (await api.post<ApiItemResponse<Record<string, unknown>>>('/purchase-proformas', payload)).data
+    return (await api.post<ApiItemResponse<PurchaseProforma>>('/purchase-proformas', payload)).data
   }
 
-  async function actPurchaseProforma(id: string, action: string) {
-    return (await api.post<ApiItemResponse<Record<string, unknown>>>(`/purchase-proformas/${id}/act`, { action })).data
+  async function actPurchaseProforma(id: string, action: string, comment?: string) {
+    return (await api.post<ApiItemResponse<PurchaseProforma>>(`/purchase-proformas/${id}/act`, { action, comment })).data
   }
 
   async function convertPurchaseProforma(id: string, warehouseId: string) {
@@ -1494,6 +1509,21 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.get<ApiListResponse<Sale>>(`/customers/${id}/sales`)).data
   }
 
+  async function loadProductAccompaniments() {
+    return (await api.get<ApiListResponse<ProductAccompanimentHost>>('/product-accompaniments')).data
+  }
+
+  async function loadAccompanimentCandidates(excludeProductId?: string) {
+    const query = excludeProductId ? `?exclude_product_id=${excludeProductId}` : ''
+    return (await api.get<ApiListResponse<ProductAccompanimentItem>>(`/product-accompaniments/candidates${query}`)).data
+  }
+
+  async function saveProductAccompaniments(productId: string, accompanimentProductIds: string[]) {
+    return (await api.put<ApiItemResponse<ProductAccompanimentHost>>(`/products/${productId}/accompaniment`, {
+      accompaniment_product_ids: accompanimentProductIds,
+    })).data
+  }
+
   async function recordCustomerPayment(
     customerId: string,
     payload: { amount: number; payment_method?: string; reference?: string; notes?: string },
@@ -1738,7 +1768,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadAllProducts,
     loadSales, exportSales, loadSaleReceipt, loadSaleInvoice, loadSale, loadSaleReturns, loadStoreSaleReturns, loadSaleReturn, loadReturnReasons, createSaleReturn,
     loadCustomerDetail, loadCustomerSummary, loadCustomerHistory, loadCustomerPayments, redeemCustomerLoyalty,
-    loadCustomerSales, recordCustomerPayment,
+    loadCustomerSales, loadProductAccompaniments, loadAccompanimentCandidates, saveProductAccompaniments, recordCustomerPayment,
     loadCustomerAddresses, saveCustomerAddress, deleteCustomerAddress,
     loadSupplierContacts, saveSupplierContact, deleteSupplierContact,
     loadInventoryMovements, createInventoryMovement,

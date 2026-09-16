@@ -24,7 +24,7 @@ const hub = computed(() => [
   { to: '/admin/organization/company', label: t('settings.domains.print'), hint: t('settings.domains.printHint') },
   { to: '/admin/inventory/stock', label: t('settings.domains.stock'), hint: t('settings.domains.stockHint') },
   { to: '/admin/sync', label: t('settings.domains.sync'), hint: t('settings.domains.syncHint') },
-  { to: '/admin/hospitality?section=restaurant', label: t('settings.domains.restaurant'), hint: t('settings.domains.restaurantHint') },
+  { to: '/admin/hospitality', label: t('settings.domains.restaurant'), hint: t('settings.domains.restaurantHint') },
   { to: '/admin/hotel/settings', label: t('settings.domains.hotel'), hint: t('settings.domains.hotelHint') },
 ])
 

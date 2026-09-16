@@ -80,14 +80,14 @@ const title = computed(() => {
 .hotel-page {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: var(--space-4);
   min-height: 0;
 }
 
 .hotel-navs {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 

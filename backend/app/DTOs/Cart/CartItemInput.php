@@ -18,6 +18,7 @@ final readonly class CartItemInput
         public ?string $priceType = null,
         public ?string $saleUnitId = null,
         public ?int $volumeMl = null,
+        public bool $isAccompaniment = false,
     ) {}
 
     /** @param  array<string, mixed>  $payload */
@@ -37,6 +38,7 @@ final readonly class CartItemInput
             priceType: isset($payload['price_type']) ? (string) $payload['price_type'] : null,
             saleUnitId: isset($payload['sale_unit_id']) ? (string) $payload['sale_unit_id'] : null,
             volumeMl: isset($payload['volume_ml']) ? (int) $payload['volume_ml'] : null,
+            isAccompaniment: (bool) ($payload['is_accompaniment'] ?? false),
         );
     }
 }

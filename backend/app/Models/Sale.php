@@ -39,6 +39,8 @@ class Sale extends Model
         'idempotency_key',
         'completed_at',
         'notes',
+        'table_id',
+        'merged_into_id',
     ];
 
     protected function casts(): array
@@ -60,6 +62,21 @@ class Sale extends Model
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
+    }
+
+    public function diningTable(): BelongsTo
+    {
+        return $this->belongsTo(PosTable::class, 'table_id');
+    }
+
+    public function mergedInto(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'merged_into_id');
+    }
+
+    public function mergedSales(): HasMany
+    {
+        return $this->hasMany(self::class, 'merged_into_id');
     }
 
     public function customer(): BelongsTo
@@ -183,6 +200,17 @@ class Sale extends Model
             'payment_transaction_number' => $this->payment_transaction_number,
             'completed_at' => $this->completed_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
+            'table_id' => $this->table_id,
+            'table' => $this->relationLoaded('diningTable') && $this->diningTable
+                ? $this->diningTable->only(['id', 'name', 'code'])
+                : null,
+            'merged_into_id' => $this->merged_into_id,
+            'merged_into' => $this->relationLoaded('mergedInto') && $this->mergedInto
+                ? $this->mergedInto->only(['id', 'reference'])
+                : null,
+            'processed_by' => $this->relationLoaded('processedBy') && $this->processedBy
+                ? $this->processedBy->only(['id', 'name'])
+                : null,
             'customer' => $this->relationLoaded('customer') && $this->customer
                 ? $this->customer->only(['id', 'name', 'email'])
                 : null,

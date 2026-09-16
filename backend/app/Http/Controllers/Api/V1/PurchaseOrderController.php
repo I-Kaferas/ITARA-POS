@@ -21,7 +21,12 @@ class PurchaseOrderController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = PurchaseOrder::query()
-            ->with(['supplier:id,name,code', 'warehouse:id,name,code'])
+            ->with([
+                'supplier:id,name,code',
+                'warehouse:id,name,code',
+                'requisition:id,number,status',
+                'proforma:id,number,status',
+            ])
             ->orderByDesc('created_at');
 
         if ($request->filled('status')) {
@@ -49,6 +54,8 @@ class PurchaseOrderController extends Controller
                 'invoices.payments',
                 'createdByUser:id,name',
                 'approvedByUser:id,name',
+                'requisition:id,number,status',
+                'proforma:id,number,status',
             ]),
         ]);
     }

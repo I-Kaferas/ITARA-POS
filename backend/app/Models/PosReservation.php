@@ -30,6 +30,7 @@ class PosReservation extends Model
         'party_size',
         'reserved_at',
         'table_label',
+        'table_id',
         'status',
         'notes',
         'created_by',
@@ -51,5 +52,10 @@ class PosReservation extends Model
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
+    }
+
+    public function diningTable(): BelongsTo
+    {
+        return $this->belongsTo(PosTable::class, 'table_id');
     }
 }

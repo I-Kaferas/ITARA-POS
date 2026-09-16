@@ -267,6 +267,8 @@ class CartEngine
 
                 volumeMl: $item->volumeMl,
 
+                isAccompaniment: $item->isAccompaniment,
+
             );
 
         }
@@ -431,7 +433,28 @@ class CartEngine
 
         $quantity = max(1, (int) ($payload['quantity'] ?? 1));
 
+        $isAccompaniment = (bool) ($payload['is_accompaniment'] ?? false);
 
+        if ($isAccompaniment && isset($payload['product_id'])) {
+            $payload['unit_price'] = 0;
+            if (empty($payload['name']) || empty($payload['sku'])) {
+                $storeProduct = StoreProduct::query()
+                    ->where('store_id', $store->id)
+                    ->where('product_id', $payload['product_id'])
+                    ->with(['product.tax'])
+                    ->first()
+                    ?? app(\App\Services\Catalog\PosCatalogSyncService::class)->ensureStoreProduct($store, $payload['product_id']);
+
+                if ($storeProduct) {
+                    $storeProduct->loadMissing(['product.tax']);
+                    $product = $storeProduct->product;
+                    $payload['tax_rate'] ??= $product->tax?->rate ?? '0.0000';
+                    $payload['tax_inclusive'] ??= (bool) ($product->tax?->is_inclusive ?? false);
+                    $payload['sku'] ??= $product->sku;
+                    $payload['name'] ??= $product->name;
+                }
+            }
+        }
 
         if (! isset($payload['unit_price']) && isset($payload['product_id'])) {
 

@@ -8,11 +8,14 @@ import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import SubNav from '../../../components/ui/SubNav.vue'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { openPrintWindow, printSaleDocument, type SaleDocPayload } from '../../../utils/printSaleDocument'
+import MergeOrdersModal from '../../../components/pos/MergeOrdersModal.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -23,6 +26,15 @@ const storeId = computed(() => context.currentStoreId)
 const exporting = ref(false)
 const docLoadingId = ref<string | null>(null)
 const error = ref('')
+const mergeSale = ref<{
+  id: string
+  reference: string
+  total: number
+  currency?: string
+  customer?: { id: string; name: string } | null
+  table?: { id: string; name: string; code?: string } | null
+} | null>(null)
+const showMerge = ref(false)
 
 const filters = ref({
   q: '',
@@ -44,6 +56,7 @@ const statusOptions = computed(() => [
   { value: 'pending', label: t('pointOfSale.orders.status.pending') },
   { value: 'draft', label: t('pointOfSale.orders.status.draft') },
   { value: 'voided', label: t('pointOfSale.orders.status.voided') },
+  { value: 'merged', label: t('pointOfSale.orders.status.merged') },
 ])
 
 const paymentOptions = computed(() => [
@@ -156,8 +169,32 @@ function statusLabel(status: string): string {
   return label === key ? status : label
 }
 
+function openMerge(row: typeof store.sales[number]) {
+  mergeSale.value = {
+    id: row.id,
+    reference: row.reference,
+    total: row.total,
+    currency: row.currency,
+    customer: row.customer ?? null,
+    table: (row as { table?: { id: string; name: string; code?: string } | null }).table ?? null,
+  }
+  showMerge.value = true
+}
+
+async function onMerged() {
+  showMerge.value = false
+  mergeSale.value = null
+  await load()
+}
+
 onMounted(load)
 watch(storeId, load)
+useRealtimeSync([...realtimeTopics.sales, ...realtimeTopics.payments], load)
+watchLiveSearch(() => filters.value.q, load)
+watch(
+  () => [filters.value.status, filters.value.payment_status, filters.value.customer_id, filters.value.from, filters.value.to],
+  load,
+)
 </script>
 
 <template>
@@ -183,7 +220,6 @@ watch(storeId, load)
                 type="search"
                 class="ui-input !pl-8 w-full"
                 :placeholder="t('pointOfSale.orders.filters.searchPlaceholder')"
-                @keyup.enter="load"
               />
             </div>
           </div>
@@ -267,6 +303,7 @@ watch(storeId, load)
               </td>
               <td class="px-4 py-3">
                 <Badge v-if="row.status === 'pending'" variant="warning">{{ statusLabel(row.status) }}</Badge>
+                <Badge v-else-if="row.status === 'merged'" variant="brand">{{ statusLabel(row.status) }}</Badge>
                 <StatusBadge v-else :active="row.status === 'completed'" :label="statusLabel(row.status)" />
               </td>
               <td class="px-4 py-3">
@@ -305,6 +342,14 @@ watch(storeId, load)
                   <button
                     v-if="row.status === 'pending'"
                     type="button"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
+                    @click="openMerge(row)"
+                  >
+                    {{ t('pointOfSale.merge.action') }}
+                  </button>
+                  <button
+                    v-if="row.status === 'pending'"
+                    type="button"
                     class="ui-btn ui-btn--primary ui-btn--sm"
                     @click="router.push({ name: 'pos', query: { sale: row.id, pay: '1' } })"
                   >
@@ -328,5 +373,12 @@ watch(storeId, load)
         </p>
       </div>
     </template>
+
+    <MergeOrdersModal
+      :open="showMerge"
+      :sale="mergeSale"
+      @close="showMerge = false"
+      @merged="onMerged"
+    />
   </AdminLayout>
 </template>

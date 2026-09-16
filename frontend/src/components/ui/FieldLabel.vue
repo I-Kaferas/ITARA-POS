@@ -10,7 +10,7 @@ defineProps<{
 <template>
   <label class="field-label" :for="for">
     <span class="field-icon">
-      <AppIcon :name="icon" :size="14" />
+      <AppIcon :name="icon" :size="16" />
     </span>
     <span class="field-label__text"><slot /></span>
   </label>

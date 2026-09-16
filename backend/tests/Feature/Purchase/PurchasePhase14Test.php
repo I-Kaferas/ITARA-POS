@@ -164,6 +164,46 @@ class PurchasePhase14Test extends TestCase
         ], $headers)->assertStatus(422);
     }
 
+    public function test_zero_cost_receipt_without_supplier_updates_stock(): void
+    {
+        $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+
+        $create = $this->postJson('/api/v1/purchase-orders', [
+            'warehouse_id' => $warehouse->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 8, 'unit_cost' => 0],
+            ],
+        ], $headers)->assertCreated();
+
+        $poId = $create->json('data.id');
+        $itemId = $create->json('data.items.0.id');
+
+        $this->postJson("/api/v1/purchase-orders/{$poId}/submit", [], $headers)->assertOk();
+        $this->postJson("/api/v1/purchase-orders/{$poId}/approve", [], $headers)->assertOk();
+
+        $this->postJson("/api/v1/purchase-orders/{$poId}/receive", [
+            'items' => [
+                ['purchase_order_item_id' => $itemId, 'quantity' => 8],
+            ],
+        ], $headers)->assertCreated();
+
+        $po = PurchaseOrder::with('items')->find($poId);
+        $this->assertSame(PurchaseOrderStatus::Received->value, $po->status->value);
+        $this->assertSame(8, $po->items->first()->quantity_received);
+
+        $balance = StockBalance::query()
+            ->where('warehouse_id', $warehouse->id)
+            ->where('product_id', $product->id)
+            ->first();
+
+        $this->assertNotNull($balance);
+        $this->assertSame(8, $balance->quantity_on_hand);
+        $this->assertSame(0, PurchaseInvoice::query()->where('purchase_order_id', $poId)->count());
+        $this->assertSame(0, SupplierTransaction::query()->where('purchase_order_id', $poId)->count());
+    }
+
     public function test_purchase_order_statuses_endpoint(): void
     {
         $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);

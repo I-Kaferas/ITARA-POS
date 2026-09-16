@@ -6,10 +6,12 @@ import AppIcon from '../ui/AppIcon.vue'
 import LanguageSwitcher from '../ui/LanguageSwitcher.vue'
 import AppCalculator from './AppCalculator.vue'
 import ModuleSearch from './ModuleSearch.vue'
+import RealtimeIndicator from './RealtimeIndicator.vue'
 import StockAlertBell from './StockAlertBell.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useBrandingStore } from '../../stores/branding'
 import { useContextStore } from '../../stores/context'
+import { useRealtimeStore } from '../../stores/realtime'
 
 type NavChild = { name: string; to: string; label: string; icon: string; color?: string }
 type NavItem = {
@@ -26,6 +28,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const brandingStore = useBrandingStore()
 const context = useContextStore()
+const realtime = useRealtimeStore()
 const moduleSearch = ref<InstanceType<typeof ModuleSearch> | null>(null)
 const userMenuOpen = ref(false)
 const userMenuTrigger = ref<HTMLElement | null>(null)
@@ -34,10 +37,17 @@ const userMenuStyle = ref<Record<string, string>>({})
 
 const expandedMenus = ref<Record<string, boolean>>({})
 const sidebarOpen = ref(localStorage.getItem('pos_sidebar_open') !== '0')
+const drawerOpen = ref(false)
+const isDesktop = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
 
 watch(sidebarOpen, (open) => {
   localStorage.setItem('pos_sidebar_open', open ? '1' : '0')
 })
+
+function syncViewport() {
+  isDesktop.value = window.innerWidth >= 1024
+  if (isDesktop.value) drawerOpen.value = false
+}
 
 const navSections = computed(() => [
   {
@@ -52,6 +62,7 @@ const navSections = computed(() => [
         children: [
           { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview'), icon: 'dashboard', color: '#64748b' },
           { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal'), icon: 'device-pos', color: '#0f766e' },
+          { name: 'pos-tables', to: '/admin/hospitality', label: t('nav.restaurant'), icon: 'tables', color: '#0f766e' },
           { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts'), icon: 'shift', color: '#2563eb' },
           { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations'), icon: 'calendar', color: '#d97706' },
         ],
@@ -85,7 +96,6 @@ const navSections = computed(() => [
           { name: 'hotel-settings', to: '/admin/hotel/settings', label: t('hotel.tabs.settings'), icon: 'account', color: '#64748b' },
         ],
       },
-      { name: 'restaurant', to: '/admin/hospitality', label: t('nav.restaurant'), icon: 'store-pin' },
       { name: 'stores', to: '/admin/stores', label: t('nav.stores'), icon: 'stores' },
       { name: 'customers', to: '/admin/customers', label: t('nav.customers'), icon: 'customers' },
     ] as NavItem[],
@@ -100,6 +110,7 @@ const navSections = computed(() => [
         icon: 'catalog',
         children: [
           { name: 'product-catalog', to: '/admin/products', label: t('nav.productCatalog'), icon: 'products', color: '#0f766e' },
+          { name: 'product-accompaniments', to: '/admin/accompaniments', label: t('nav.accompaniments'), icon: 'sparkles', color: '#d97706' },
           { name: 'product-options', to: '/admin/catalog/options', label: t('nav.productOptions'), icon: 'layers', color: '#5c7f96' },
           { name: 'beverages', to: '/admin/catalog/beverages', label: t('nav.beverages'), icon: 'sparkles', color: '#b45309' },
           { name: 'catalog-gallery', to: '/admin/catalog/gallery', label: t('nav.catalogGallery'), icon: 'catalog', color: '#7c3aed' },
@@ -393,7 +404,12 @@ function isExpanded(item: NavItem) {
 
 function toggleMenu(item: NavItem) {
   if (!item.children?.length) return
-  if (!sidebarOpen.value) {
+  if (!isDesktop.value && !drawerOpen.value) {
+    drawerOpen.value = true
+    expandedMenus.value[item.name] = true
+    return
+  }
+  if (isDesktop.value && !sidebarOpen.value) {
     sidebarOpen.value = true
     expandedMenus.value[item.name] = true
     return
@@ -402,7 +418,15 @@ function toggleMenu(item: NavItem) {
 }
 
 function toggleSidebar() {
+  if (!isDesktop.value) {
+    drawerOpen.value = !drawerOpen.value
+    return
+  }
   sidebarOpen.value = !sidebarOpen.value
+}
+
+function closeDrawer() {
+  drawerOpen.value = false
 }
 
 watch(
@@ -450,6 +474,7 @@ function goUserMenu(path: string) {
 
 async function logout() {
   userMenuOpen.value = false
+  realtime.disconnect()
   await auth.logout()
   brandingStore.clear()
   context.reset()
@@ -461,22 +486,32 @@ function onSidebarPref(event: Event) {
 }
 
 onMounted(() => {
+  syncViewport()
   window.addEventListener('pointerdown', onUserMenuPointer)
   window.addEventListener('keydown', onUserMenuKey)
   window.addEventListener('resize', placeUserMenu)
+  window.addEventListener('resize', syncViewport)
   window.addEventListener('pos-sidebar-pref', onSidebarPref)
   void brandingStore.loadCurrent().catch(() => undefined)
+  realtime.connect()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onUserMenuPointer)
   window.removeEventListener('keydown', onUserMenuKey)
   window.removeEventListener('resize', placeUserMenu)
+  window.removeEventListener('resize', syncViewport)
   window.removeEventListener('pos-sidebar-pref', onSidebarPref)
+  realtime.disconnect()
 })
 
 watch(() => route.path, () => {
   userMenuOpen.value = false
+  drawerOpen.value = false
+})
+
+watch(() => context.currentStoreId, () => {
+  realtime.resubscribe()
 })
 
 watch(userMenuOpen, async (open) => {
@@ -488,7 +523,18 @@ watch(userMenuOpen, async (open) => {
 
 <template>
   <div class="app-shell">
-    <aside class="app-sidebar" :class="{ 'app-sidebar--collapsed': !sidebarOpen }">
+    <div
+      v-if="drawerOpen"
+      class="app-sidebar-backdrop"
+      @click="closeDrawer"
+    />
+    <aside
+      class="app-sidebar"
+      :class="{
+        'app-sidebar--collapsed': isDesktop && !sidebarOpen,
+        'app-sidebar--drawer-open': drawerOpen,
+      }"
+    >
       <div class="app-sidebar__brand">
         <div class="app-sidebar__logo">
           <img
@@ -514,11 +560,11 @@ watch(userMenuOpen, async (open) => {
           :aria-label="sidebarOpen ? t('nav.collapseMenu') : t('nav.expandMenu')"
           @click="toggleSidebar"
         >
-          <AppIcon name="chevron-right" :size="14" class="sidebar-toggle__icon" :class="{ 'sidebar-toggle__icon--open': sidebarOpen }" />
+          <AppIcon name="chevron-right" :size="16" class="sidebar-toggle__icon" :class="{ 'sidebar-toggle__icon--open': isDesktop ? sidebarOpen : drawerOpen }" />
         </button>
       </div>
       <button type="button" class="module-search-btn" @click="moduleSearch?.show()">
-        <AppIcon name="search" :size="17" />
+        <AppIcon name="search" :size="18" />
         <span>{{ t('command.open') }}</span>
         <kbd>Ctrl K</kbd>
       </button>
@@ -536,7 +582,7 @@ watch(userMenuOpen, async (open) => {
                 :aria-expanded="isExpanded(item)"
                 @click="toggleMenu(item)"
               >
-                <AppIcon :name="item.icon" :size="20" />
+                <AppIcon :name="item.icon" :size="18" />
                 <span class="min-w-0 flex-1 text-left">{{ item.label }}</span>
                 <AppIcon
                   name="chevron-right"
@@ -558,7 +604,7 @@ watch(userMenuOpen, async (open) => {
                   :style="child.color ? { '--nav-color': child.color } : undefined"
                 >
                   <span class="app-nav-link__mark" aria-hidden="true">
-                    <AppIcon :name="child.icon" :size="15" />
+                    <AppIcon :name="child.icon" :size="16" />
                   </span>
                   <span class="min-w-0 flex-1 text-left">{{ child.label }}</span>
                 </RouterLink>
@@ -571,7 +617,7 @@ watch(userMenuOpen, async (open) => {
               :class="{ 'app-nav-link--active': isActive(item.to) }"
               :title="item.label"
             >
-              <AppIcon :name="item.icon" :size="20" />
+              <AppIcon :name="item.icon" :size="18" />
               <span class="min-w-0 flex-1 text-left">{{ item.label }}</span>
             </RouterLink>
           </template>
@@ -582,21 +628,32 @@ watch(userMenuOpen, async (open) => {
 
     <div class="app-main">
       <header class="app-topbar">
-        <div>
-          <h1 class="app-topbar__title">
-            <slot name="title" />
-          </h1>
-          <p v-if="$slots.subtitle" class="m-0 mt-0.5 text-xs text-slate-500">
-            <slot name="subtitle" />
-          </p>
+        <div class="topbar-start">
+          <button
+            type="button"
+            class="topbar-menu-btn"
+            :aria-label="t('nav.expandMenu')"
+            @click="drawerOpen = true"
+          >
+            <AppIcon name="menu" :size="18" />
+          </button>
+          <div class="app-topbar__heading">
+            <h1 class="app-topbar__title">
+              <slot name="title" />
+            </h1>
+            <p v-if="$slots.subtitle" class="app-topbar__subtitle">
+              <slot name="subtitle" />
+            </p>
+          </div>
         </div>
 
         <div class="topbar-tools">
+          <RealtimeIndicator />
           <StockAlertBell />
           <AppCalculator />
           <LanguageSwitcher />
           <div v-if="context.activeStores.length" class="store-pill">
-            <AppIcon name="store-pin" :size="15" class="text-brand-500 shrink-0" />
+            <AppIcon name="store-pin" :size="16" class="text-brand-500 shrink-0" />
             <select
               :value="context.currentStoreId ?? ''"
               class="store-pill__select"
@@ -623,7 +680,7 @@ watch(userMenuOpen, async (open) => {
                 <span class="user-menu__name">{{ auth.user?.name }}</span>
                 <span class="user-menu__email">{{ auth.user?.email }}</span>
               </span>
-              <AppIcon name="chevron-right" :size="13" class="user-menu__caret" :class="{ 'user-menu__caret--open': userMenuOpen }" />
+              <AppIcon name="chevron-right" :size="16" class="user-menu__caret" :class="{ 'user-menu__caret--open': userMenuOpen }" />
             </button>
           </div>
           <Teleport to="body">
@@ -636,19 +693,19 @@ watch(userMenuOpen, async (open) => {
             >
               <p class="user-menu__heading">{{ auth.user?.name }}</p>
               <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin')">
-                <AppIcon name="dashboard" :size="15" />
+                <AppIcon name="dashboard" :size="18" />
                 {{ t('nav.dashboard') }}
               </button>
               <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin/profile')">
-                <AppIcon name="account" :size="15" />
+                <AppIcon name="account" :size="18" />
                 {{ t('auth.profile') }}
               </button>
               <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin/settings')">
-                <AppIcon name="organization" :size="15" />
+                <AppIcon name="organization" :size="18" />
                 {{ t('auth.settings') }}
               </button>
               <button type="button" class="user-menu__item user-menu__item--danger" role="menuitem" @click="logout">
-                <AppIcon name="logout" :size="15" />
+                <AppIcon name="logout" :size="18" />
                 {{ t('auth.logout') }}
               </button>
             </div>
@@ -670,27 +727,35 @@ watch(userMenuOpen, async (open) => {
 <style scoped>
 .text-brand-500 { color: var(--color-brand-500); }
 
+.topbar-start {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .topbar-tools {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: var(--space-2);
 }
 
 .module-search-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  width: calc(100% - 1.4rem);
-  margin: 0.55rem 0.7rem 0.35rem;
+  gap: var(--space-3);
+  height: var(--control-lg);
+  width: calc(100% - var(--space-6));
+  margin: var(--space-3) var(--space-3) var(--space-2);
   border: 1px solid rgba(227, 155, 43, 0.35);
-  border-radius: 0.8rem;
+  border-radius: var(--radius-md);
   background: rgba(0, 0, 0, 0.16);
   color: #ffffff;
-  padding: 0.55rem 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 650;
+  padding: 0 var(--space-3);
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: var(--line-sm);
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .module-search-btn:hover {
@@ -702,7 +767,6 @@ watch(userMenuOpen, async (open) => {
 .module-search-btn svg {
   flex-shrink: 0;
   color: #ffffff;
-  stroke-width: 2.2;
 }
 
 .module-search-btn span {
@@ -712,23 +776,31 @@ watch(userMenuOpen, async (open) => {
 
 .module-search-btn kbd {
   border: 1px solid rgba(227, 155, 43, 0.35);
-  border-radius: 0.4rem;
+  border-radius: var(--radius-sm);
   background: rgba(227, 155, 43, 0.12);
-  padding: 0.1rem 0.35rem;
-  font-size: 0.62rem;
+  padding: 2px var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--line-xs);
   color: #e39b2b;
 }
 
 .user-menu__trigger {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: var(--space-2);
+  height: var(--control-md);
+  min-width: var(--control-md);
   max-width: 16rem;
-  border: 1px solid #d7dbe6;
-  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   background: #fff;
-  padding: 0.28rem 0.65rem 0.28rem 0.28rem;
+  padding: 0 var(--space-2) 0 var(--space-1);
   cursor: pointer;
+}
+
+.user-menu__trigger .user-chip__avatar {
+  width: var(--control-sm);
+  height: var(--control-sm);
 }
 
 .user-menu__trigger--open {
@@ -740,26 +812,22 @@ watch(userMenuOpen, async (open) => {
   display: flex;
   min-width: 0;
   flex-direction: column;
+  justify-content: center;
   text-align: left;
 }
 
 .user-menu__name {
   overflow: hidden;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: var(--line-sm);
   color: #0f172a;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .user-menu__email {
-  overflow: hidden;
-  font-size: 0.6875rem;
-  line-height: 1.2;
-  color: #64748b;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: none;
 }
 
 .user-menu__caret {
@@ -778,18 +846,19 @@ watch(userMenuOpen, async (open) => {
   z-index: 500;
   width: 15.5rem;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.85rem;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: #fff;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--shadow-md);
 }
 
 .user-menu__heading {
   margin: 0;
-  padding: 0.7rem 0.85rem 0.45rem;
-  border-bottom: 1px solid #f1f5f9;
-  font-size: 0.75rem;
-  font-weight: 700;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--line-xs);
   color: #64748b;
 }
 
@@ -797,13 +866,17 @@ watch(userMenuOpen, async (open) => {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 0.55rem;
+  gap: var(--space-3);
+  height: var(--control-md);
+  min-height: var(--control-md);
   border: 0;
-  background: #fff;
-  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 0 var(--space-3);
   text-align: left;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: var(--line-sm);
   color: #0f172a;
   cursor: pointer;
 }
@@ -813,7 +886,12 @@ watch(userMenuOpen, async (open) => {
 }
 
 .user-menu__item--danger {
-  border-top: 1px solid #f1f5f9;
   color: #b91c1c;
+}
+
+@media (max-width: 767px) {
+  .user-menu__identity {
+    display: none;
+  }
 }
 </style>

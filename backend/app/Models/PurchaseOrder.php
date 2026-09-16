@@ -19,6 +19,8 @@ class PurchaseOrder extends Model
         'branch_id',
         'supplier_id',
         'warehouse_id',
+        'purchase_requisition_id',
+        'purchase_proforma_id',
         'order_number',
         'reference',
         'status',
@@ -65,6 +67,16 @@ class PurchaseOrder extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    public function requisition(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseRequisition::class, 'purchase_requisition_id');
+    }
+
+    public function proforma(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseProforma::class, 'purchase_proforma_id');
     }
 
     public function items(): HasMany

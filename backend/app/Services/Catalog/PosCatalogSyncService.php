@@ -51,6 +51,7 @@ class PosCatalogSyncService
                 'variants.barcodes',
                 'saleUnits',
                 'bundleItems',
+                'accompanimentProducts:id,sku,name,accompaniment_enabled,is_active',
                 'barcodes',
                 'batches:id,product_id,expires_at',
             ])
@@ -77,6 +78,15 @@ class PosCatalogSyncService
                     ? $activeVariants->map->toPosSyncArray($store)->values()->all()
                     : [];
                 $payload['option_groups'] = $product->metadata['option_groups'] ?? [];
+                $payload['accompaniment_enabled'] = (bool) $product->accompaniment_enabled;
+                $payload['accompaniments'] = $product->accompanimentProducts
+                    ->map(fn (Product $item) => [
+                        'product_id' => $item->id,
+                        'sku' => $item->sku,
+                        'name' => $item->name,
+                    ])
+                    ->values()
+                    ->all();
                 $payload['bottle_volume_ml'] = $product->bottle_volume_ml;
                 $payload['sale_units'] = $product->saleUnits
                     ->where('is_active', true)

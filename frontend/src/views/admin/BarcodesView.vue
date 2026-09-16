@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage, getStoreId } from '../../api/client'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
@@ -17,6 +18,8 @@ const generated = ref('')
 const error = ref('')
 
 onMounted(loadCatalog)
+watchLiveSearch(code, find)
+watchLiveSearch(query, search)
 
 async function loadCatalog() {
   const storeId = getStoreId()
@@ -27,6 +30,7 @@ async function loadCatalog() {
 async function find() {
   error.value = ''
   lookup.value = null
+  if (!code.value.trim()) return
   try {
     const res = await api.get<{ found: boolean; data: Record<string, any> | null }>(`/barcodes/lookup?code=${encodeURIComponent(code.value)}`)
     lookup.value = res.data
@@ -37,6 +41,10 @@ async function find() {
 
 async function search() {
   error.value = ''
+  if (!query.value.trim()) {
+    results.value = []
+    return
+  }
   results.value = (await api.get<{ data: Hit[] }>(`/barcodes/search?q=${encodeURIComponent(query.value)}`)).data
 }
 
@@ -64,8 +72,7 @@ function printCode(value: string, label = '') {
       <section class="rounded-2xl border border-slate-200 bg-white p-4">
         <h3 class="mt-0">{{ t('desk.lookup') }}</h3>
         <div class="flex gap-2">
-          <input v-model="code" class="field" :placeholder="t('desk.scan')" @keyup.enter="find" />
-          <button class="btn-primary" @click="find">{{ t('common.search') }}</button>
+          <input v-model="code" type="search" class="field" :placeholder="t('desk.scan')" />
         </div>
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
         <div v-if="lookup" class="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
@@ -91,8 +98,7 @@ function printCode(value: string, label = '') {
 
       <section class="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
         <div class="flex gap-2">
-          <input v-model="query" class="field" :placeholder="t('desk.searchCodes')" @keyup.enter="search" />
-          <button class="btn-secondary" @click="search">{{ t('common.search') }}</button>
+          <input v-model="query" type="search" class="field" :placeholder="t('desk.searchCodes')" />
         </div>
         <table class="mt-3 min-w-full text-sm">
           <tbody>

@@ -16,6 +16,7 @@ class ProductCatalogService
         private BarcodeService $barcodes,
         private PriceService $prices,
         private AuditLogService $audit,
+        private ProductAccompanimentService $accompaniments,
     ) {}
 
     /** @param  array<string, mixed>  $data */
@@ -41,6 +42,7 @@ class ProductCatalogService
             }
 
             $this->syncRelations($product, $data);
+            $this->accompaniments->detachDisabledAccompaniment($product);
 
             return $product->fresh($this->defaultRelations());
         });
@@ -59,6 +61,7 @@ class ProductCatalogService
             'variants.prices',
             'bundleItems.componentProduct',
             'bundleItems.componentVariant',
+            'accompanimentProducts:id,sku,name,accompaniment_enabled,is_active,base_price',
             'barcodes',
             'prices',
             'saleUnits',
@@ -97,6 +100,9 @@ class ProductCatalogService
                 : null,
             'low_stock_threshold' => array_key_exists('low_stock_threshold', $data) ? $data['low_stock_threshold'] : $existing?->low_stock_threshold,
             'metadata' => $data['metadata'] ?? $existing?->metadata,
+            'accompaniment_enabled' => array_key_exists('accompaniment_enabled', $data)
+                ? (bool) $data['accompaniment_enabled']
+                : ($existing?->accompaniment_enabled ?? false),
         ];
     }
 

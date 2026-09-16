@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import PosCartPanel from '../../../components/pos/PosCartPanel.vue'
 import PosCategorySidebar from '../../../components/pos/PosCategorySidebar.vue'
@@ -10,6 +10,7 @@ import PosProductGrid from '../../../components/pos/PosProductGrid.vue'
 import PosReturnSheet from '../../../components/pos/PosReturnSheet.vue'
 import PosSearchBar from '../../../components/pos/PosSearchBar.vue'
 import PosSessionGate from '../../../components/pos/PosSessionGate.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import { openPrintWindow, printSaleDocument } from '../../../utils/printSaleDocument'
 import { printZReport, type ZReportPayload } from '../../../utils/printZReport'
 import { useContextStore } from '../../../stores/context'
@@ -23,6 +24,7 @@ import { needsSaleQuantity } from '../../../utils/product'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const context = useContextStore()
 const pos = usePosStore()
 
@@ -41,6 +43,9 @@ const variantId = ref('')
 const optionQty = ref(1)
 const qtyProduct = ref<PosProduct | null>(null)
 const saleQty = ref(1)
+const accompanimentHost = ref<{ product: PosProduct; lineId: string } | null>(null)
+const selectedAccompanimentIds = ref<string[]>([])
+const cartOpen = ref(false)
 
 const footerLabels = computed(() => ({
   customer: t('pos.customer'),
@@ -198,8 +203,13 @@ async function loadForStore(storeId: string) {
   }
 }
 
+function onViewportChange() {
+  if (window.innerWidth > 900) cartOpen.value = false
+}
+
 onMounted(async () => {
   window.addEventListener('keydown', onScanKey)
+  window.addEventListener('resize', onViewportChange)
   await context.loadStores()
   if (context.currentStoreId) {
     await loadForStore(context.currentStoreId)
@@ -230,6 +240,47 @@ watch(
   },
 )
 
+watch(
+  () => pos.lines.map(line => `${line.lineId}:${line.quantity}`).join('|'),
+  () => {
+    if (!pos.activeTable || !pos.pendingSaleId) return
+    window.setTimeout(() => {
+      void pos.persistTableOrder().catch(() => undefined)
+    }, 600)
+  },
+)
+
+function addHostProduct(product: PosProduct, quantity = 1, saleUnitId?: string, variantId?: string) {
+  const before = pos.lines.length
+  const line = pos.addProduct(product, quantity, saleUnitId, variantId)
+  if (pos.lines.length > before) promptAccompaniments(product, line)
+}
+
+function promptAccompaniments(product: PosProduct, line: { lineId: string }) {
+  if ((product.accompaniments?.length ?? 0) > 0) {
+    accompanimentHost.value = { product, lineId: line.lineId }
+    selectedAccompanimentIds.value = []
+  }
+}
+
+function toggleAccompaniment(id: string) {
+  if (selectedAccompanimentIds.value.includes(id)) {
+    selectedAccompanimentIds.value = selectedAccompanimentIds.value.filter(item => item !== id)
+    return
+  }
+  selectedAccompanimentIds.value = [...selectedAccompanimentIds.value, id]
+}
+
+function confirmAccompaniments() {
+  const host = accompanimentHost.value
+  if (!host) return
+  const line = pos.lines.find(item => item.lineId === host.lineId)
+  if (line && selectedAccompanimentIds.value.length) {
+    pos.addAccompaniments(line, selectedAccompanimentIds.value)
+  }
+  accompanimentHost.value = null
+}
+
 function onAddProduct(product: PosProduct) {
   if (product.variants?.length || product.product_type === 'variant' || product.option_groups?.length) {
     optionProduct.value = product
@@ -248,28 +299,33 @@ function onAddProduct(product: PosProduct) {
     saleQty.value = 1
     return
   }
-  pos.addProduct(product, 1)
+  addHostProduct(product, 1)
 }
 
 function confirmQtySale() {
   if (!qtyProduct.value) return
   const quantity = Math.max(1, Math.trunc(Number(saleQty.value) || 0))
-  pos.addProduct(qtyProduct.value, quantity)
+  const product = qtyProduct.value
   qtyProduct.value = null
+  addHostProduct(product, quantity)
 }
 
 function confirmOptionSale() {
   if (!optionProduct.value || !variantId.value) return
   const quantity = needsSaleQuantity(optionProduct.value) ? Math.max(1, Math.trunc(optionQty.value) || 1) : 1
-  pos.addProduct(optionProduct.value, quantity, undefined, variantId.value)
+  const product = optionProduct.value
+  const variant = variantId.value
   optionProduct.value = null
+  addHostProduct(product, quantity, undefined, variant)
 }
 
 function confirmUnitSale() {
   if (!unitProduct.value || !unitId.value) return
   const quantity = needsSaleQuantity(unitProduct.value) ? Math.max(1, Math.trunc(unitQty.value) || 1) : 1
-  pos.addProduct(unitProduct.value, quantity, unitId.value)
+  const product = unitProduct.value
+  const unit = unitId.value
   unitProduct.value = null
+  addHostProduct(product, quantity, unit)
 }
 
 async function onSearchSubmit(value: string) {
@@ -307,7 +363,11 @@ async function onSearchSubmit(value: string) {
 
 async function onHold() {
   try {
+    const fromTable = Boolean(pos.activeTable)
     await pos.holdSale()
+    if (fromTable) {
+      await router.push({ name: 'pos-tables' })
+    }
   } catch (e) {
     pos.setStatus(e instanceof Error ? e.message : 'Erreur', true)
   }
@@ -325,6 +385,7 @@ async function onRetrieve(id: string, options?: { openPayment?: boolean }) {
 }
 
 function onPay(payments: { method: string; amount: number; tendered?: number }[]) {
+  const fromTable = Boolean(pos.activeTable)
   void pos.pay(payments).then(async result => {
     const changeMsg = result.change > 0 ? ` — ${t('pos.change')}: ${formatChange(result.change)}` : ''
     const earned = result.loyalty?.earned ?? 0
@@ -335,6 +396,9 @@ function onPay(payments: { method: string; amount: number; tendered?: number }[]
     kickDrawer()
     if (result.receipt) {
       printSaleDocument(result.receipt, t('pointOfSale.orders.receipt'))
+    }
+    if (fromTable) {
+      await router.push({ name: 'pos-tables' })
     }
   })
 }
@@ -445,6 +509,7 @@ function formatChange(amount: number) {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onScanKey)
+  window.removeEventListener('resize', onViewportChange)
   pos.reset()
 })
 </script>
@@ -460,7 +525,7 @@ onUnmounted(() => {
 
       <template v-else>
         <div class="pos-desk">
-          <span v-if="pos.shift">
+          <span v-if="pos.shift" class="pos-desk__meta">
             {{ pos.shift.cashier?.name }}
             · {{ t('pos.shiftSales') }}: {{ Number(pos.shiftSummary?.sales_count ?? 0) }}
             · {{ formatMoney(Number(pos.shiftSummary?.sales_total ?? 0)) }}
@@ -497,13 +562,32 @@ onUnmounted(() => {
           @done="onReturnDone"
         />
 
-        <PosSearchBar
-          ref="searchRef"
-          v-model="searchQuery"
-          :placeholder="t('pos.searchPlaceholder')"
-          :hint="t('pos.scanHint')"
-          @submit="onSearchSubmit"
-        />
+        <div v-if="pos.activeTable" class="pos-table-banner">
+          <strong>{{ pos.activeTable.name }}</strong>
+          <span>{{ t('pointOfSale.tables.status.occupied') }}</span>
+          <button type="button" class="btn-secondary" @click="router.push({ name: 'pos-tables' })">
+            {{ t('nav.posTables') }}
+          </button>
+        </div>
+        <div class="pos-search-row">
+          <PosSearchBar
+            ref="searchRef"
+            v-model="searchQuery"
+            :placeholder="t('pos.searchPlaceholder')"
+            :hint="t('pos.scanHint')"
+            @submit="onSearchSubmit"
+          />
+          <button
+            type="button"
+            class="pos-cart-toggle"
+            :class="{ 'pos-cart-toggle--open': cartOpen }"
+            @click="cartOpen = !cartOpen"
+          >
+            <AppIcon name="receipt" :size="18" />
+            <span>{{ t('pos.cart') }}</span>
+            <em>{{ pos.lines.length }}</em>
+          </button>
+        </div>
 
         <div v-if="pos.loading" class="pos-loading">{{ t('common.loading') }}</div>
         <div v-else-if="pos.error" class="pos-error">
@@ -513,7 +597,14 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <div v-else class="pos-body">
+        <div v-else class="pos-body" :class="{ 'pos-body--cart-open': cartOpen }">
+          <button
+            v-if="cartOpen"
+            type="button"
+            class="pos-cart-backdrop"
+            :aria-label="t('pos.cart')"
+            @click="cartOpen = false"
+          />
           <PosCategorySidebar
             :categories="pos.categories"
             :selected-category-id="selectedCategoryId"
@@ -537,6 +628,7 @@ onUnmounted(() => {
             @decrement="pos.decrementQuantity"
             @quantity="pos.updateQuantity"
             @remove="pos.removeLine"
+            @close="cartOpen = false"
           />
         </div>
 
@@ -640,6 +732,45 @@ onUnmounted(() => {
           </form>
         </AppModal>
 
+        <AppModal
+          :open="Boolean(accompanimentHost)"
+          :title="accompanimentHost ? `${t('pos.chooseAccompaniment')} · ${accompanimentHost.product.name}` : t('pos.chooseAccompaniment')"
+          icon="sparkles"
+          tone="info"
+          size="md"
+          @close="accompanimentHost = null"
+        >
+          <form class="space-y-3" @submit.prevent="confirmAccompaniments">
+            <p class="text-sm text-slate-500">{{ t('pos.chooseAccompanimentHint') }}</p>
+            <div class="max-h-72 space-y-1 overflow-auto">
+              <label
+                v-for="item in accompanimentHost?.product.accompaniments ?? []"
+                :key="item.product_id"
+                class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                :class="selectedAccompanimentIds.includes(item.product_id) ? 'border-[#4a6d86] bg-slate-50' : 'border-slate-200'"
+              >
+                <span class="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    class="rounded"
+                    :checked="selectedAccompanimentIds.includes(item.product_id)"
+                    @change="toggleAccompaniment(item.product_id)"
+                  />
+                  <span>
+                    <span class="block font-medium">{{ item.name }}</span>
+                    <span class="text-xs text-slate-500">{{ item.sku }}</span>
+                  </span>
+                </span>
+                <span class="text-xs font-medium text-emerald-700">{{ t('accompaniments.priceFree') }}</span>
+              </label>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button type="button" class="rounded-lg border border-slate-300 px-4 py-2" @click="accompanimentHost = null">{{ t('pos.skipAccompaniment') }}</button>
+              <button type="submit" class="rounded-lg bg-[#4a6d86] px-4 py-2 text-white">{{ t('beverages.add') }}</button>
+            </div>
+          </form>
+        </AppModal>
+
         <PosFooterPanel
           ref="footerRef"
           :totals="pos.totals"
@@ -680,26 +811,158 @@ onUnmounted(() => {
 <style scoped>
 .pos-root {
   position: relative;
-  margin: -1.35rem -1.75rem -2.25rem;
-  height: calc(100vh - 4.15rem);
+  margin: 0;
+  flex: 1;
+  width: 100%;
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: #eef2f6;
 }
-.pos-desk { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; padding: 0.45rem 0.85rem 0; }
+.pos-desk {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem 0;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.pos-desk__meta {
+  margin-right: auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+.pos-table-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  min-height: 40px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+.pos-table-banner strong {
+  font-size: 14px;
+}
 .pos-desk__amount { width: 6.5rem; border: 1px solid #cbd5e1; border-radius: 0.45rem; padding: 0.3rem 0.45rem; }
 .pos-desk select, .pos-desk button { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.35rem 0.65rem; background: white; font-size: 0.8rem; }
+.pos-search-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin: 0.5rem 0.75rem 0;
+  flex-shrink: 0;
+}
+.pos-search-row :deep(.pos-search) {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.pos-cart-toggle {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  padding: 0 0.85rem;
+  background: #fff;
+  color: #1c2830;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pos-cart-toggle em {
+  min-width: 1.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #4a6d86;
+  color: #fff;
+  font-style: normal;
+  font-size: 0.72rem;
+  text-align: center;
+}
+.pos-cart-toggle--open {
+  border-color: #4a6d86;
+  background: #4a6d86;
+  color: #fff;
+}
+.pos-cart-toggle--open em {
+  background: rgba(255, 255, 255, 0.2);
+}
+.pos-cart-backdrop {
+  display: none;
+}
 .pos-body {
   position: relative;
   flex: 1 1 auto;
   display: flex;
-  min-height: 0;
+  min-height: 12rem;
   overflow: hidden;
-  margin-top: 0.75rem;
+  margin-top: 0.55rem;
   border-top: 1px solid #e7edf3;
   background: #fff;
+}
+@media (max-width: 1279px) {
+  .pos-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19rem;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "cats cats"
+      "products cart";
+  }
+  .pos-body :deep(.pos-categories) { grid-area: cats; }
+  .pos-body :deep(.pos-products) { grid-area: products; min-width: 0; min-height: 0; }
+  .pos-body :deep(.pos-cart) { grid-area: cart; min-height: 0; }
+}
+@media (max-width: 900px) {
+  .pos-desk__meta {
+    display: none;
+  }
+  .pos-desk__amount {
+    width: 5.25rem;
+  }
+  .pos-cart-toggle {
+    display: inline-flex;
+  }
+  .pos-cart-toggle span {
+    display: none;
+  }
+  .pos-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "cats"
+      "products";
+  }
+  .pos-body :deep(.pos-cart) {
+    grid-area: unset;
+  }
+  .pos-cart-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    border: 0;
+    background: rgba(15, 23, 42, 0.38);
+    cursor: pointer;
+  }
+  .pos-body--cart-open :deep(.pos-cart) {
+    transform: none;
+    pointer-events: auto;
+  }
 }
 .pos-shift-gate {
   position: absolute;
@@ -750,7 +1013,7 @@ onUnmounted(() => {
 .pos-option-form { display: flex; flex-direction: column; gap: 0.85rem; }
 .pos-option-hint { margin: 0; font-size: 0.85rem; color: #64748b; }
 .pos-option-empty { margin: 0; font-size: 0.85rem; color: #b45309; }
-.pos-option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.55rem; max-height: 22rem; overflow: auto; }
+.pos-option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); gap: 0.55rem; max-height: 22rem; overflow: auto; }
 .pos-option-card {
   display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem;
   padding: 0.75rem 0.8rem; border-radius: 0.75rem; border: 1px solid #dbe3ea;

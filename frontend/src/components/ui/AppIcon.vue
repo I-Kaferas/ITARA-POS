@@ -73,6 +73,12 @@ defineProps<{
       <circle cx="12" cy="10" r="3" />
     </template>
 
+    <template v-else-if="name === 'menu'">
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+    </template>
+
     <!-- Chevron -->
     <template v-else-if="name === 'chevron-right'">
       <polyline points="9 18 15 12 9 6" />
@@ -223,6 +229,11 @@ defineProps<{
     <!-- Bluetooth -->
     <template v-else-if="name === 'conn-bluetooth'">
       <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5" />
+    </template>
+
+    <template v-else-if="name === 'edit'">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </template>
 
     <template v-else-if="name === 'trash'">
@@ -392,6 +403,13 @@ defineProps<{
       <rect x="4" y="4" width="16" height="4" rx="1" />
       <rect x="4" y="10" width="16" height="4" rx="1" />
       <rect x="4" y="16" width="16" height="4" rx="1" />
+    </template>
+
+    <template v-else-if="name === 'tables'">
+      <rect x="3" y="4" width="8" height="7" rx="1.5" />
+      <rect x="13" y="4" width="8" height="7" rx="1.5" />
+      <rect x="3" y="13" width="8" height="7" rx="1.5" />
+      <rect x="13" y="13" width="8" height="7" rx="1.5" />
     </template>
 
     <!-- Default fallback -->

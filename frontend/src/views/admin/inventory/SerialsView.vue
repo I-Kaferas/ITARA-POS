@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
@@ -68,13 +69,14 @@ async function remove(id: string) {
   await load()
 }
 
+watchLiveSearch([search, status], load)
 onMounted(load)
 </script>
 
 <template>
   <InventoryLayout>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <form class="flex gap-2" @submit.prevent="load">
+      <div class="flex gap-2">
         <input v-model="search" type="search" :placeholder="t('common.search')" class="field" />
         <select v-model="status" class="field">
           <option value="">{{ t('products.status') }}</option>
@@ -84,8 +86,7 @@ onMounted(load)
           <option value="damaged">damaged</option>
           <option value="lost">lost</option>
         </select>
-        <button type="submit" class="btn-secondary">{{ t('common.search') }}</button>
-      </form>
+      </div>
       <button class="btn-primary" @click="openCreate">+ {{ t('inventory.addSerial') }}</button>
     </div>
 

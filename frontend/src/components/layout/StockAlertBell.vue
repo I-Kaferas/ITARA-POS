@@ -116,10 +116,11 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.15rem;
-  height: 2.15rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.7rem;
+  width: var(--control-md);
+  height: var(--control-md);
+  min-width: var(--control-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   background: #fff;
   color: #3d5c73;
   cursor: pointer;
@@ -148,15 +149,16 @@ onBeforeUnmount(() => {
 
 .stock-bell__panel {
   position: absolute;
-  top: calc(100% + 0.45rem);
+  top: calc(100% + var(--space-2));
   right: 0;
   z-index: 40;
   width: 18.5rem;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.85rem;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: #fff;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--shadow-md);
 }
 
 .stock-bell__head {
@@ -166,16 +168,18 @@ onBeforeUnmount(() => {
 
 .stock-bell__title {
   margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 650;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: var(--line-md);
   color: #16324f;
 }
 
 .stock-bell__count,
 .stock-bell__meta,
 .stock-bell__empty {
-  margin: 0.15rem 0 0;
-  font-size: 0.72rem;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  line-height: var(--line-xs);
   color: #64748b;
 }
 
@@ -186,12 +190,16 @@ onBeforeUnmount(() => {
 }
 
 .stock-bell__item {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   width: 100%;
+  min-height: var(--control-md);
   border: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
   text-align: left;
-  padding: 0.45rem 0.85rem;
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
 }
 
@@ -199,8 +207,9 @@ onBeforeUnmount(() => {
 
 .stock-bell__name {
   display: block;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: var(--line-sm);
   color: #1e293b;
 }
 

@@ -132,6 +132,11 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/admin/pos/tables',
+      name: 'pos-tables',
+      redirect: '/admin/hospitality',
+    },
+    {
       path: '/admin/pos/orders',
       name: 'pos-orders',
       component: () => import('../views/admin/pos/PosOrdersView.vue'),
@@ -520,6 +525,12 @@ const router = createRouter({
       path: '/admin/services',
       name: 'services',
       component: () => import('../views/admin/ServicesView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/accompaniments',
+      name: 'product-accompaniments',
+      component: () => import('../views/admin/catalog/ProductAccompanimentsView.vue'),
       meta: { requiresAuth: true },
     },
     {

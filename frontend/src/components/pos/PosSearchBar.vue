@@ -52,7 +52,7 @@ defineExpose({ focus })
   grid-template-columns: 1fr auto;
   gap: 0.45rem;
   align-items: center;
-  margin: 0.55rem 0.85rem 0;
+  min-width: 0;
 }
 .pos-search__input {
   width: 100%;
@@ -79,5 +79,14 @@ defineExpose({ focus })
   margin: 0;
   font-size: 0.72rem;
   color: #64748b;
+}
+@media (max-width: 900px) {
+  .pos-search__hint {
+    display: none;
+  }
+  .pos-search__input,
+  .pos-search__btn {
+    padding: 0.58rem 0.75rem;
+  }
 }
 </style>

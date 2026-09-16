@@ -170,6 +170,7 @@ class ProductController extends Controller
             'bundle_items.*.component_product_id' => ['required_with:bundle_items', 'uuid', 'exists:products,id'],
             'bundle_items.*.component_variant_id' => ['nullable', 'uuid', 'exists:product_variants,id'],
             'bundle_items.*.quantity' => ['nullable', 'numeric', 'min:0.0001'],
+            'accompaniment_enabled' => ['boolean'],
         ]);
     }
 }
