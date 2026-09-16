@@ -93,6 +93,11 @@ Route::prefix('v1')->group(function () {
     Route::get('/public/tenants/{slug}/branding', [TenantBrandingController::class, 'publicShow'])
         ->middleware('throttle:60,1');
 
+    Route::get('/public/stay-sign/{token}', [DeskController::class, 'staySignShow'])
+        ->middleware('throttle:60,1');
+    Route::post('/public/stay-sign/{token}', [DeskController::class, 'staySignSubmit'])
+        ->middleware('throttle:30,1');
+
     Route::middleware('throttle:auth-login')->group(function () {
         Route::post('/auth/login', [AuthController::class, 'login']);
         Route::post('/auth/pin-login', [AuthController::class, 'pinLogin']);

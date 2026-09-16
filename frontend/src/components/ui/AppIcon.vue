@@ -204,7 +204,7 @@ defineProps<{
     </template>
 
     <!-- Network -->
-    <template v-else-if="name === 'conn-network'">
+    <template v-else-if="name === 'wifi' || name === 'conn-network'">
       <path d="M5 12.55a11 11 0 0 1 14.08 0" />
       <path d="M1.42 9a16 16 0 0 1 21.16 0" />
       <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
@@ -351,6 +351,47 @@ defineProps<{
       <circle cx="8.5" cy="16" r="0.8" fill="currentColor" stroke="none" />
       <circle cx="12" cy="16" r="0.8" fill="currentColor" stroke="none" />
       <circle cx="15.5" cy="16" r="0.8" fill="currentColor" stroke="none" />
+    </template>
+
+    <template v-else-if="name === 'id-card'">
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <circle cx="8.5" cy="12" r="1.7" />
+      <path d="M12.5 10.5h6" />
+      <path d="M12.5 13.5h5" />
+    </template>
+
+    <template v-else-if="name === 'upload'">
+      <path d="M12 16V7" />
+      <path d="M8.5 10.5 12 7l3.5 3.5" />
+      <path d="M5 19h14" />
+    </template>
+
+    <template v-else-if="name === 'bed'">
+      <path d="M3 18v-6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v6" />
+      <path d="M3 14h18" />
+      <path d="M6 9V7a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2" />
+      <line x1="3" y1="18" x2="3" y2="21" />
+      <line x1="21" y1="18" x2="21" y2="21" />
+    </template>
+
+    <template v-else-if="name === 'broom'">
+      <path d="M12 4v8" />
+      <path d="M9 3h6" />
+      <path d="M8 12h8l1.5 7H6.5L8 12z" />
+      <path d="M10 15h4" />
+    </template>
+
+    <template v-else-if="name === 'key'">
+      <circle cx="8" cy="15" r="4" />
+      <path d="M11.5 12.5 21 3" />
+      <path d="M16 5.5 18.5 8" />
+      <path d="M18.5 3 21 5.5" />
+    </template>
+
+    <template v-else-if="name === 'floors'">
+      <rect x="4" y="4" width="16" height="4" rx="1" />
+      <rect x="4" y="10" width="16" height="4" rx="1" />
+      <rect x="4" y="16" width="16" height="4" rx="1" />
     </template>
 
     <!-- Default fallback -->

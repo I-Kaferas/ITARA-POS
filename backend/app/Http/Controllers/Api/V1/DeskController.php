@@ -32,6 +32,22 @@ class DeskController extends Controller
         ]);
     }
 
+    public function staySignShow(string $token): JsonResponse
+    {
+        return response()->json(['data' => $this->hospitality->stayBySignToken($token)]);
+    }
+
+    public function staySignSubmit(Request $request, string $token): JsonResponse
+    {
+        $data = $request->validate([
+            'guest_signature_data' => ['required', 'string', 'max:600000'],
+        ]);
+
+        return response()->json([
+            'data' => $this->hospitality->submitStaySignatureByToken($token, $data['guest_signature_data']),
+        ]);
+    }
+
     public function production(Request $request): JsonResponse
     {
         return response()->json(['data' => $this->production->snapshot($this->store())]);

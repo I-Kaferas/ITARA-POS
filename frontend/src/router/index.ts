@@ -26,6 +26,12 @@ const router = createRouter({
       meta: { guest: true },
     },
     {
+      path: '/sign/stay/:token',
+      name: 'stay-sign',
+      component: () => import('../views/public/StaySignView.vue'),
+      meta: { guest: true },
+    },
+    {
       path: '/admin',
       name: 'dashboard',
       component: () => import('../views/admin/DashboardView.vue'),
@@ -395,6 +401,104 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/admin/hotel',
+      redirect: '/admin/hotel/rooms',
+    },
+    {
+      path: '/admin/hotel/room-config',
+      redirect: '/admin/hotel/room-config/amenities',
+    },
+    {
+      path: '/admin/hotel/room-config/amenities',
+      name: 'hotel-room-config-amenities',
+      component: () => import('../views/admin/hotel/HotelSectionView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/room-config/room-types',
+      name: 'hotel-room-config-room-types',
+      component: () => import('../views/admin/hotel/HotelRoomTypesView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/room-config/buildings',
+      name: 'hotel-room-config-buildings',
+      component: () => import('../views/admin/hotel/HotelBuildingsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/room-config/wings',
+      name: 'hotel-room-config-wings',
+      component: () => import('../views/admin/hotel/HotelWingsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/room-config/floors',
+      name: 'hotel-room-config-floors',
+      component: () => import('../views/admin/hotel/HotelFloorsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/rooms',
+      name: 'hotel-rooms',
+      component: () => import('../views/admin/hotel/HotelRoomsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/reservations',
+      name: 'hotel-reservations',
+      component: () => import('../views/admin/hotel/HotelReservationsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/stays',
+      name: 'hotel-stays',
+      component: () => import('../views/admin/hotel/HotelStaysView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/invoices',
+      name: 'hotel-invoices',
+      component: () => import('../views/admin/hotel/HotelSectionView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/guests',
+      name: 'hotel-guests',
+      component: () => import('../views/admin/hotel/HotelSectionView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/housekeeping',
+      name: 'hotel-housekeeping',
+      component: () => import('../views/admin/hotel/HotelHousekeepingView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/calendar',
+      name: 'hotel-calendar',
+      component: () => import('../views/admin/hotel/HotelCalendarView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/concierge',
+      name: 'hotel-concierge',
+      component: () => import('../views/admin/hotel/HotelConciergeView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/reports',
+      name: 'hotel-reports',
+      component: () => import('../views/admin/hotel/HotelReportsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/hotel/settings',
+      name: 'hotel-settings',
+      component: () => import('../views/admin/hotel/HotelSettingsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin/production',
       name: 'production',
       component: () => import('../views/admin/ProductionView.vue'),
@@ -541,7 +645,8 @@ router.beforeEach(async (to) => {
     return { name: 'login' }
   }
 
-  if (to.meta.guest && isAuthenticated()) {
+  // Public signing links must stay reachable even when staff is logged in.
+  if (to.meta.guest && isAuthenticated() && to.name !== 'stay-sign') {
     return { name: 'dashboard' }
   }
 
