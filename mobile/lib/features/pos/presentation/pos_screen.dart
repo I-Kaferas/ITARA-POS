@@ -19,6 +19,9 @@ import '../../reports/presentation/reports_screen.dart';
 import '../../services/presentation/services_screen.dart';
 import '../../barcode/presentation/widgets/hid_scanner_field.dart';
 import '../../barcode/services/hid_scanner_controller.dart';
+import '../../receipt/domain/receipt_models.dart';
+import '../../receipt/services/receipt_print_service.dart';
+import '../../shifts/data/shifts_api_service.dart';
 import '../data/pos_api_service.dart';
 import '../domain/pos_models.dart';
 import '../services/pos_cart_engine.dart';
@@ -27,7 +30,9 @@ import 'widgets/pos_cart_panel.dart';
 import 'widgets/pos_category_sidebar.dart';
 import 'widgets/pos_footer_panel.dart';
 import 'widgets/pos_product_grid.dart';
+import 'widgets/pos_return_sheet.dart';
 import 'widgets/pos_search_bar.dart';
+import 'widgets/pos_session_gate.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key, this.embedded = false});
@@ -41,6 +46,7 @@ class PosScreen extends StatefulWidget {
 class _PosScreenState extends State<PosScreen> {
   final _api = PosApiService();
   final _cart = PosCartEngine();
+  final _shiftsApi = ShiftsApiService();
   final _searchController = TextEditingController();
   late final HidScannerController _hidScanner;
 
@@ -54,6 +60,10 @@ class _PosScreenState extends State<PosScreen> {
   bool _cartOpen = false;
   DateTime? _catalogSyncedAt;
   bool _requestPayment = false;
+  bool _shiftOpen = false;
+  bool _shiftLoading = false;
+  List<PosGateRegister> _registers = [];
+  Timer? _recalcTimer;
 
   @override
   void initState() {
@@ -65,10 +75,12 @@ class _PosScreenState extends State<PosScreen> {
     unawaited(_loadPendingOrders().then((_) => _consumePendingIntent()));
     _catalogSyncedAt = SyncEngine.instance.lastSyncAt;
     _loadCatalog();
+    unawaited(_loadShiftSession());
   }
 
   @override
   void dispose() {
+    _recalcTimer?.cancel();
     PosPendingIntent.notifier.removeListener(_onPendingIntent);
     SyncEngine.instance.removeListener(_onSyncChanged);
     _cart.removeListener(_onCartChanged);
@@ -81,10 +93,107 @@ class _PosScreenState extends State<PosScreen> {
 
   void _onCartChanged() {
     setState(() {});
+    _scheduleRecalc();
     final signature = _cart.heldSales.map((sale) => '${sale.id}:${sale.itemCount}:${sale.lines.length}:${sale.note}').join('|');
     if (signature == _holdsSignature) return;
     _holdsSignature = signature;
     unawaited(_persistHolds());
+  }
+
+  Future<void> _loadShiftSession() async {
+    setState(() => _shiftLoading = true);
+    try {
+      final registers = await _shiftsApi.fetchRegisters();
+      final current = await _shiftsApi.currentCashierShift();
+      if (!mounted) return;
+      setState(() {
+        _registers = registers.map((r) => PosGateRegister(id: r.id, name: r.name, code: r.code)).toList();
+        _shiftOpen = current != null && (current['status']?.toString() == 'open' || current['closed_at'] == null);
+        _shiftLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      try {
+        final registers = await _shiftsApi.fetchRegisters();
+        var open = false;
+        for (final reg in registers) {
+          final session = await _shiftsApi.currentSession(reg.id);
+          if (session.session != null && session.session!.isOpen) {
+            open = true;
+            break;
+          }
+        }
+        if (!mounted) return;
+        setState(() {
+          _registers = registers.map((r) => PosGateRegister(id: r.id, name: r.name, code: r.code)).toList();
+          _shiftOpen = open;
+          _shiftLoading = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _shiftLoading = false;
+          _shiftOpen = true; // allow offline selling
+        });
+      }
+    }
+  }
+
+  Future<void> _openShift(String pin, String registerId, int opening) async {
+    try {
+      await _shiftsApi.openCashierShiftWithPin(registerId: registerId, pin: pin, openingFloat: opening);
+    } catch (_) {
+      await _shiftsApi.openSession(registerId: registerId, openingBalance: opening);
+    }
+    await _loadShiftSession();
+  }
+
+  Future<void> _recalculateCart() async {
+    if (_cart.isEmpty) {
+      _cart.clearServerTotals();
+      return;
+    }
+    try {
+      final payload = {
+        'items': _cart.lines
+            .map(
+              (line) => {
+                'line_id': line.lineId,
+                'product_id': line.product.productId,
+                'quantity': line.quantity,
+                'unit_price': line.unitPrice,
+                if (line.variantId != null) 'product_variant_id': line.variantId,
+                if (line.saleUnitId != null) 'sale_unit_id': line.saleUnitId,
+                if (line.isAccompaniment) 'is_accompaniment': true,
+                if (line.lineDiscountFixed > 0) 'line_discount_fixed': line.lineDiscountFixed,
+              },
+            )
+            .toList(),
+        if (_cart.customer != null) 'customer_id': _cart.customer!.saleCustomerId,
+        if (_cart.discountPercent > 0)
+          'discount': {'type': 'percent', 'value': _cart.discountPercent}
+        else if (_cart.discountAmount > 0)
+          'discount': {'type': 'fixed', 'value': _cart.discountAmount},
+        if (_cart.loyaltyPoints > 0) 'loyalty_points': _cart.loyaltyPoints,
+        if (_cart.note != null) 'notes': _cart.note,
+        if (_cart.tableId != null) 'table_id': _cart.tableId,
+      };
+      final calc = await _api.calculateCart(payload);
+      _cart.applyServerTotals(
+        subtotal: calc.subtotal,
+        taxTotal: calc.taxTotal,
+        discountTotal: calc.discountTotal,
+        feesTotal: calc.feesTotal,
+        total: calc.total,
+      );
+    } catch (_) {
+      _cart.clearServerTotals();
+    }
+  }
+
+  void _scheduleRecalc() {
+    _recalcTimer?.cancel();
+    _recalcTimer = Timer(const Duration(milliseconds: 280), () => unawaited(_recalculateCart()));
   }
 
   Future<void> _persistHolds() async {
@@ -183,18 +292,64 @@ class _PosScreenState extends State<PosScreen> {
     // Never show a toast/snackbar when adding to cart.
     ScaffoldMessenger.of(context).clearSnackBars();
 
-    if (product.hasOptions) {
+    PosCartLine? parentLine;
+    final needsOptions = product.hasOptions || product.saleUnits.length > 1;
+    if (needsOptions) {
       final choice = await showDialog<_OptionChoice>(
         context: context,
         builder: (context) => _OptionDialog(product: product),
       );
       if (choice == null || !mounted) return;
       ScaffoldMessenger.of(context).clearSnackBars();
-      _cart.addProduct(product, quantity: choice.quantity, variant: choice.variant);
-      return;
+      _cart.addProduct(
+        product,
+        quantity: choice.quantity,
+        variant: choice.variant,
+        saleUnitId: choice.saleUnitId,
+      );
+      parentLine = _cart.lines.cast<PosCartLine?>().lastWhere(
+            (line) =>
+                line != null &&
+                line.product.productId == product.productId &&
+                !line.isAccompaniment,
+            orElse: () => null,
+          );
+    } else {
+      _cart.addProduct(product);
+      parentLine = _cart.lines.cast<PosCartLine?>().lastWhere(
+            (line) =>
+                line != null &&
+                line.product.productId == product.productId &&
+                !line.isAccompaniment,
+            orElse: () => null,
+          );
     }
 
-    _cart.addProduct(product);
+    if (parentLine != null &&
+        product.accompanimentEnabled &&
+        product.accompaniments.isNotEmpty &&
+        mounted) {
+      final selected = await showDialog<List<PosAccompaniment>>(
+        context: context,
+        builder: (context) => _AccompanimentDialog(product: product),
+      );
+      if (selected != null && selected.isNotEmpty && mounted) {
+        final stubs = selected
+            .map(
+              (item) => PosProduct(
+                storeProductId: item.productId,
+                productId: item.productId,
+                sku: item.sku,
+                name: item.name,
+                price: 0,
+              ),
+            )
+            .toList();
+        _cart.addAccompaniments(parentLine, stubs);
+      }
+    }
+
+    _scheduleRecalc();
   }
 
   Future<void> _loadPendingOrders() async {
@@ -224,6 +379,13 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _consumePendingIntent() async {
     final intent = PosPendingIntent.take();
     if (intent == null || !mounted) return;
+
+    final tableId = intent.tableId?.trim();
+    if (tableId != null && tableId.isNotEmpty) {
+      _cart.setTableId(tableId);
+    }
+
+    if (intent.holdId.trim().isEmpty) return;
 
     try {
       if (_cart.heldById(intent.holdId) == null) {
@@ -263,6 +425,45 @@ class _PosScreenState extends State<PosScreen> {
     } catch (e) {
       if (!mounted) return;
       _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
+    }
+  }
+
+  Future<void> _handlePaymentSuccess(PosPaymentResult result) async {
+    final change = result.change > 0 ? ' — Monnaie: ${MoneyFormatter.format(result.change)}' : '';
+    final balance = result.outstandingAmount > 0
+        ? ' — Solde: ${MoneyFormatter.format(result.outstandingAmount)}'
+        : '';
+    final loyalty = (result.loyaltyEarned ?? 0) > 0
+        ? ' — Fidélité: +${result.loyaltyEarned} pts'
+        : '';
+    _showStatus('${result.message}$change$balance$loyalty');
+    _cart.cancel();
+    await _tryPrintReceipt(result);
+  }
+
+  Future<void> _tryPrintReceipt(PosPaymentResult result) async {
+    try {
+      Map<String, dynamic>? receipt = result.receipt;
+      final saleId = result.saleId;
+      if (receipt == null && saleId != null && saleId.isNotEmpty) {
+        receipt = await _api.createReceipt(saleId);
+      }
+      if (receipt == null) return;
+      final payload = _receiptPayloadFromMap(receipt);
+      if (payload == null || !mounted) return;
+      await ReceiptPrintService().print(payload);
+    } catch (_) {}
+  }
+
+  ReceiptPrintPayload? _receiptPayloadFromMap(Map<String, dynamic> map) {
+    final payload = map['payload'] ??
+        (map['data'] is Map ? (map['data'] as Map)['payload'] : null) ??
+        map;
+    if (payload is! Map) return null;
+    try {
+      return ReceiptPrintPayload.fromJson(Map<String, dynamic>.from(payload));
+    } catch (_) {
+      return null;
     }
   }
 
@@ -465,13 +666,7 @@ class _PosScreenState extends State<PosScreen> {
               },
               onPayment: (result) {
                 if (result.success) {
-                  final change = result.change > 0
-                      ? ' — Monnaie: ${MoneyFormatter.format(result.change)}'
-                      : '';
-                  final balance = result.outstandingAmount > 0
-                      ? ' — Solde: ${MoneyFormatter.format(result.outstandingAmount)}'
-                      : '';
-                  _showStatus('${result.message}$change$balance');
+                  unawaited(_handlePaymentSuccess(result));
                 } else {
                   _showStatus(result.message ?? 'Paiement refusé');
                 }
@@ -480,6 +675,14 @@ class _PosScreenState extends State<PosScreen> {
           ],
         ),
         HidScannerField(controller: _hidScanner),
+        if (!_shiftOpen)
+          PosSessionGate(
+            registers: _registers,
+            currentShiftOpen: _shiftOpen,
+            loading: _shiftLoading,
+            onOpen: _openShift,
+            onRefresh: _loadShiftSession,
+          ),
         if (_statusMessage != null) const SizedBox.shrink(),
       ],
     );
@@ -492,6 +695,11 @@ class _PosScreenState extends State<PosScreen> {
       appBar: AppBar(
         title: const Text('Caisse POS'),
         actions: [
+          IconButton(
+            tooltip: 'Retour',
+            onPressed: () => showPosReturnSheet(context, api: _api),
+            icon: const Icon(Icons.assignment_return_outlined),
+          ),
           IconButton(
             tooltip: 'Restaurant et hôtel',
             onPressed: () {
@@ -676,9 +884,14 @@ class _PosWorkspace extends StatelessWidget {
 }
 
 class _OptionChoice {
-  const _OptionChoice({required this.variant, required this.quantity});
+  const _OptionChoice({
+    required this.quantity,
+    this.variant,
+    this.saleUnitId,
+  });
 
-  final PosVariant variant;
+  final PosVariant? variant;
+  final String? saleUnitId;
   final int quantity;
 }
 
@@ -693,128 +906,262 @@ class _OptionDialog extends StatefulWidget {
 
 class _OptionDialogState extends State<_OptionDialog> {
   late String _variantId;
+  String? _saleUnitId;
   int _quantity = 1;
 
   @override
   void initState() {
     super.initState();
     _variantId = widget.product.variants.isEmpty ? '' : widget.product.variants.first.id;
+    if (widget.product.saleUnits.length > 1) {
+      final base = widget.product.saleUnits.cast<PosSaleUnit?>().firstWhere(
+            (unit) => unit!.isBase,
+            orElse: () => null,
+          );
+      _saleUnitId = base?.id ?? widget.product.saleUnits.first.id;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final variants = widget.product.variants;
-    final selected = variants.cast<PosVariant?>().firstWhere(
-          (item) => item!.id == _variantId,
-          orElse: () => null,
-        );
+    final saleUnits = widget.product.saleUnits;
+    final selectedVariant = variants.isEmpty
+        ? null
+        : variants.cast<PosVariant?>().firstWhere(
+              (item) => item!.id == _variantId,
+              orElse: () => null,
+            );
+    final canSubmit = (!widget.product.hasOptions || selectedVariant != null) &&
+        (saleUnits.length <= 1 || (_saleUnitId != null && _saleUnitId!.isNotEmpty));
 
     return AlertDialog(
       title: Text('Choisir une option · ${widget.product.name}'),
       content: SizedBox(
         width: 420,
-        child: variants.isEmpty
-            ? const Text('Aucune option disponible pour cet article.')
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('Sélectionnez l’option à vendre, puis la quantité.'),
-                  const SizedBox(height: 12),
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: variants.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final variant = variants[index];
-                        final active = variant.id == _variantId;
-                        return Material(
-                          color: active ? AppColors.brand50 : AppColors.surface,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.product.hasOptions) ...[
+              const Text('Sélectionnez l’option à vendre, puis la quantité.'),
+              const SizedBox(height: 12),
+              if (variants.isEmpty)
+                const Text('Aucune option disponible pour cet article.')
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: variants.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final variant = variants[index];
+                      final active = variant.id == _variantId;
+                      return Material(
+                        color: active ? AppColors.brand50 : AppColors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          onTap: () => setState(() => _variantId = variant.id),
                           borderRadius: BorderRadius.circular(10),
-                          child: InkWell(
-                            onTap: () => setState(() => _variantId = variant.id),
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: active ? AppColors.brand600 : AppColors.border,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          variant.displayLabel,
-                                          style: GoogleFonts.inter(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                            color: AppColors.textPrimary,
-                                          ),
-                                        ),
-                                        if (variant.sku.isNotEmpty)
-                                          Text(
-                                            variant.sku,
-                                            style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    MoneyFormatter.format(
-                                      variant.price,
-                                      currencyCode: AppConfig.currencyCode,
-                                    ),
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.brandInk,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: active ? AppColors.brand600 : AppColors.border,
                               ),
                             ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        variant.displayLabel,
+                                        style: GoogleFonts.ibmPlexSans(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      if (variant.sku.isNotEmpty)
+                                        Text(
+                                          variant.sku,
+                                          style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  MoneyFormatter.format(
+                                    variant.price,
+                                    currencyCode: AppConfig.currencyCode,
+                                  ),
+                                  style: GoogleFonts.ibmPlexSans(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.brandInk,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        );
-                      },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: 12),
+            ],
+            if (saleUnits.length > 1) ...[
+              Text(
+                'Unité de vente',
+                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              ...saleUnits.map((unit) {
+                final active = unit.id == _saleUnitId;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: active ? AppColors.brand50 : AppColors.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
+                      onTap: () => setState(() => _saleUnitId = unit.id),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: active ? AppColors.brand600 : AppColors.border,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                unit.name,
+                                style: GoogleFonts.ibmPlexSans(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              MoneyFormatter.format(
+                                unit.price,
+                                currencyCode: AppConfig.currencyCode,
+                              ),
+                              style: GoogleFonts.ibmPlexSans(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.brandInk,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Text('Quantité', style: GoogleFonts.inter(color: AppColors.textPrimary)),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: _quantity <= 1 ? null : () => setState(() => _quantity -= 1),
-                        icon: const Icon(Icons.remove),
-                      ),
-                      Text(
-                        '$_quantity',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                      ),
-                      IconButton(
-                        onPressed: () => setState(() => _quantity += 1),
-                        icon: const Icon(Icons.add),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                );
+              }),
+              const SizedBox(height: 4),
+            ],
+            Row(
+              children: [
+                Text('Quantité', style: GoogleFonts.ibmPlexSans(color: AppColors.textPrimary)),
+                const Spacer(),
+                IconButton(
+                  onPressed: _quantity <= 1 ? null : () => setState(() => _quantity -= 1),
+                  icon: const Icon(Icons.remove),
+                ),
+                Text(
+                  '$_quantity',
+                  style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _quantity += 1),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
         FilledButton(
-          onPressed: selected == null
+          onPressed: !canSubmit
               ? null
               : () => Navigator.pop(
                     context,
-                    _OptionChoice(variant: selected, quantity: _quantity),
+                    _OptionChoice(
+                      variant: selectedVariant,
+                      saleUnitId: _saleUnitId,
+                      quantity: _quantity,
+                    ),
                   ),
+          child: const Text('Ajouter'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccompanimentDialog extends StatefulWidget {
+  const _AccompanimentDialog({required this.product});
+
+  final PosProduct product;
+
+  @override
+  State<_AccompanimentDialog> createState() => _AccompanimentDialogState();
+}
+
+class _AccompanimentDialogState extends State<_AccompanimentDialog> {
+  final Set<String> _selected = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.product.accompaniments;
+    return AlertDialog(
+      title: Text('Accompagnements · ${widget.product.name}'),
+      content: SizedBox(
+        width: 420,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            final checked = _selected.contains(item.productId);
+            return CheckboxListTile(
+              value: checked,
+              onChanged: (value) {
+                setState(() {
+                  if (value == true) {
+                    _selected.add(item.productId);
+                  } else {
+                    _selected.remove(item.productId);
+                  }
+                });
+              },
+              title: Text(item.name),
+              subtitle: item.sku.isEmpty ? null : Text(item.sku),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Passer')),
+        FilledButton(
+          onPressed: () {
+            final selected = items.where((item) => _selected.contains(item.productId)).toList();
+            Navigator.pop(context, selected);
+          },
           child: const Text('Ajouter'),
         ),
       ],

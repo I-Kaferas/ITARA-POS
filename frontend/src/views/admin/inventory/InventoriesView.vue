@@ -11,11 +11,13 @@ import { useConfirm } from '../../../composables/useConfirm'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Category, InventoryCountDetail, Product, StockBalance, StockLedgerRow, Warehouse } from '../../../types'
 import { formatMoney } from '../../../utils/money'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
+import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 type CountType = 'opening' | 'full' | 'cycle' | 'spot'
 
@@ -44,6 +46,21 @@ const saving = ref(false)
 const categoryId = ref('')
 const search = ref('')
 const selected = ref<Record<string, boolean>>({})
+const listFilters = ref<ListFilters>(emptyListFilters('all'))
+const countStatusOptions = computed(() =>
+  ['draft', 'confirmed', 'completed', 'cancelled'].map(value => ({
+    value,
+    label: statusLabel(value),
+  })),
+)
+const filteredCounts = computed(() => store.inventoryCounts.filter(row =>
+  matchesSearch(
+    `${row.count_number} ${row.count_type ?? ''} ${row.warehouse?.name ?? ''}`,
+    listFilters.value.search,
+  )
+  && (!listFilters.value.status || row.status === listFilters.value.status)
+  && inPeriod(row.counted_at ?? row.created_at, listFilters.value),
+))
 
 const form = ref({
   warehouse_id: '',
@@ -401,6 +418,15 @@ async function completeFromPreview() {
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div class="border-b border-slate-100 p-4">
+        <ModuleFilters
+          v-model="listFilters"
+          :statuses="countStatusOptions"
+          show-search
+          show-period
+          show-status
+        />
+      </div>
       <table class="min-w-full divide-y divide-slate-200 text-sm">
         <thead class="bg-slate-50">
           <tr>
@@ -414,7 +440,7 @@ async function completeFromPreview() {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in store.inventoryCounts" :key="row.id" class="cursor-pointer hover:bg-slate-50" @click="openRow(row)">
+          <tr v-for="row in filteredCounts" :key="row.id" class="cursor-pointer hover:bg-slate-50" @click="openRow(row)">
             <td class="px-4 py-3 font-mono">{{ row.count_number }}</td>
             <td class="px-4 py-3">{{ row.count_type ? t(`inventory.countTypes.${row.count_type}.label`) : '—' }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
@@ -429,7 +455,7 @@ async function completeFromPreview() {
           </tr>
         </tbody>
       </table>
-      <p v-if="!store.inventoryCounts.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <p v-if="!filteredCounts.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
     </div>
 
     <CycleCountModal

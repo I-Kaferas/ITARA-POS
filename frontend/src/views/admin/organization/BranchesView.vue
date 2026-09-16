@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
@@ -7,9 +7,11 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Branch } from '../../../types'
 import { formatMoney } from '../../../utils/format'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import { parseMoneyInput } from '../../../utils/money'
 
 const { t } = useI18n()
@@ -24,6 +26,11 @@ const form = ref({ name: '', code: '', is_active: true, receipt_footer: '' })
 const selected = ref<Branch | null>(null)
 const expenseDescription = ref('')
 const expenseAmount = ref('')
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.branches.filter(branch =>
+  matchesSearch(`${branch.name} ${branch.code}`, filters.value.search)
+  && matchesActive(branch.is_active, filters.value.active),
+))
 
 onMounted(async () => {
   await store.loadCompanies()
@@ -98,6 +105,8 @@ async function remove(branch: Branch) {
         <button class="btn-primary" @click="openCreate">+ {{ t('org.addBranch') }}</button>
       </div>
 
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
+
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -109,7 +118,7 @@ async function remove(branch: Branch) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="branch in store.branches" :key="branch.id" class="cursor-pointer hover:bg-slate-50" @click="openProfile(branch)">
+            <tr v-for="branch in filtered" :key="branch.id" class="cursor-pointer hover:bg-slate-50" @click="openProfile(branch)">
               <td class="px-4 py-3 font-medium">{{ branch.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ branch.code }}</td>
               <td class="px-4 py-3"><StatusBadge :active="branch.is_active" /></td>
@@ -120,7 +129,7 @@ async function remove(branch: Branch) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.branches.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
 
       <section v-if="selected" class="space-y-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">

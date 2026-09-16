@@ -72,9 +72,7 @@ class PaymentEngine
             ? Customer::query()->findOrFail($input->customerId)
             : null;
 
-        $cashRegister = $input->cashRegisterId
-            ? CashRegister::query()->where('store_id', $store->id)->findOrFail($input->cashRegisterId)
-            : null;
+        $cashRegister = CashRegister::findForStore($store, $input->cashRegisterId);
 
         $transactionNumber = $this->nextTransactionNumber($store->tenant_id);
 
@@ -111,9 +109,7 @@ class PaymentEngine
             ? Customer::query()->findOrFail($input->customerId)
             : null;
 
-        $cashRegister = $input->cashRegisterId
-            ? CashRegister::query()->where('store_id', $store->id)->findOrFail($input->cashRegisterId)
-            : null;
+        $cashRegister = CashRegister::findForStore($store, $input->cashRegisterId);
 
         $transactionNumber = $this->nextTransactionNumber($store->tenant_id);
 

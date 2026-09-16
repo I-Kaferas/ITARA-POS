@@ -15,6 +15,7 @@ use App\Enums\SalePaymentStatus;
 use App\Enums\SaleStatus;
 use App\Events\SaleCompleted;
 use App\Models\Customer;
+use App\Models\CashRegister;
 use App\Models\PosTable;
 use App\Models\PosTableEvent;
 use App\Models\Product;
@@ -89,6 +90,7 @@ class SaleEngine
         }
 
         return DB::transaction(function () use ($store, $payload, $user, $idempotencyKey): SaleResult {
+            $payload = $this->sanitizeCashRegisterPayload($store, $payload);
             $this->validateProducts($store, $payload);
 
             $cart = $this->cartEngine->calculateForStore($store, $payload);
@@ -585,6 +587,7 @@ class SaleEngine
         }
 
         return DB::transaction(function () use ($store, $payload, $user, $sale): SaleResult {
+            $payload = $this->sanitizeCashRegisterPayload($store, $payload);
             $this->validateProducts($store, $payload);
 
             $cart = $this->cartEngine->calculateForStore($store, $payload);
@@ -593,10 +596,17 @@ class SaleEngine
 
             $this->clearSaleLines($sale);
 
+            $resolvedRegisterId = CashRegister::findForStore(
+                $store,
+                isset($payload['cash_register_id'])
+                    ? (string) $payload['cash_register_id']
+                    : $sale->cash_register_id,
+            )?->id;
+
             $sale->update([
                 'customer_id' => $payload['customer_id'] ?? null,
                 'warehouse_id' => $warehouse->id,
-                'cash_register_id' => $payload['cash_register_id'] ?? $sale->cash_register_id,
+                'cash_register_id' => $resolvedRegisterId,
                 'cashier_shift_id' => $payload['cashier_shift_id'] ?? $sale->cashier_shift_id,
                 'device_id' => $payload['device_id'] ?? $sale->device_id,
                 'processed_by' => $user->id,
@@ -904,6 +914,34 @@ class SaleEngine
                 ]);
             }
         }
+    }
+
+    /**
+     * Drop unknown/offline placeholder cash register ids (e.g. "reg-…") so sync
+     * does not fail with ModelNotFoundException.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function sanitizeCashRegisterPayload(Store $store, array $payload): array
+    {
+        $registerId = isset($payload['cash_register_id']) ? (string) $payload['cash_register_id'] : '';
+        if ($registerId === '') {
+            unset($payload['cash_register_id']);
+
+            return $payload;
+        }
+
+        $register = CashRegister::findForStore($store, $registerId);
+        if ($register === null) {
+            unset($payload['cash_register_id'], $payload['cash_session_id']);
+
+            return $payload;
+        }
+
+        $payload['cash_register_id'] = $register->id;
+
+        return $payload;
     }
 
     private function resolveWarehouse(Store $store, ?string $warehouseId): Warehouse
@@ -1219,6 +1257,7 @@ class SaleEngine
     private function writePendingSale(Store $store, array $payload, User $user): Sale
     {
         $this->validateProducts($store, $payload);
+        $payload = $this->sanitizeCashRegisterPayload($store, $payload);
         $cart = $this->cartEngine->calculateForStore($store, $payload);
         $warehouse = $this->resolveWarehouse($store, $payload['warehouse_id'] ?? null);
 

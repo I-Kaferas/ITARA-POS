@@ -5,8 +5,10 @@ import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Role } from '../../../types'
+import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -16,6 +18,10 @@ const showModal = ref(false)
 const editing = ref<Role | null>(null)
 const saving = ref(false)
 const form = ref({ name: '', slug: '', permissions: [] as string[] })
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.roles.filter(role =>
+  matchesSearch(`${role.name} ${role.slug}`, filters.value.search),
+))
 
 const groupedPermissions = computed(() => {
   const groups: Record<string, typeof store.permissions> = {}
@@ -81,6 +87,8 @@ async function remove(role: Role) {
         <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('rbac.addRole') }}</button>
       </div>
 
+      <ModuleFilters v-model="filters" :show-period="false" show-search />
+
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -92,7 +100,7 @@ async function remove(role: Role) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="role in store.roles" :key="role.id" class="hover:bg-slate-50">
+            <tr v-for="role in filtered" :key="role.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">
                 {{ role.name }}
                 <span v-if="role.is_system" class="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">system</span>

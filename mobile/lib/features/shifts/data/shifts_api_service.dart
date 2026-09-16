@@ -100,4 +100,80 @@ class ShiftsApiService {
         .where((t) => allowed.contains(t.value))
         .toList();
   }
+
+  Future<Map<String, dynamic>?> currentCashierShift() async {
+    final body = await _client.get('/me/cashier-shifts/current');
+    final data = body['data'];
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return null;
+  }
+
+  Future<Map<String, dynamic>> openCashierShiftWithPin({
+    required String registerId,
+    required String pin,
+    required int openingFloat,
+    String? notes,
+  }) async {
+    final body = await _client.post(
+      '/cash-registers/$registerId/cashier-shifts/open-with-pin',
+      body: {
+        'pin': pin,
+        'opening_float': openingFloat,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      },
+    );
+    final data = body['data'];
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return body;
+  }
+
+  Future<Map<String, dynamic>> closeCashierShiftWithPin({
+    required String registerId,
+    required String pin,
+    required int countedCash,
+    String? notes,
+    String? varianceReason,
+  }) async {
+    final body = await _client.post(
+      '/cash-registers/$registerId/cashier-shifts/close-with-pin',
+      body: {
+        'pin': pin,
+        'counted_cash': countedCash,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+        if (varianceReason != null && varianceReason.isNotEmpty) 'variance_reason': varianceReason,
+      },
+    );
+    final data = body['data'];
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return body;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchStoreCashierShifts({String? status}) async {
+    final body = await _client.get('/stores/$_storeId/cashier-shifts', query: {
+      if (status != null && status.isNotEmpty) 'status': status,
+    });
+    final data = body['data'];
+    if (data is List) {
+      return data.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+    }
+    return [];
+  }
+
+  Future<SessionSummary> recordCashierMovement({
+    required String registerId,
+    required String shiftId,
+    required String movementType,
+    required int amount,
+    String? description,
+  }) async {
+    final body = await _client.post(
+      '/cash-registers/$registerId/cashier-shifts/$shiftId/movements',
+      body: {
+        'movement_type': movementType,
+        'amount': amount,
+        if (description != null && description.isNotEmpty) 'description': description,
+      },
+    );
+    return SessionSummary.fromJson(body['summary'] as Map<String, dynamic>? ?? body);
+  }
 }

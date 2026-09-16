@@ -44,7 +44,7 @@ class ServiceAppointmentController extends Controller
             'scheduled_at' => ['required', 'date'],
         ]);
 
-        $appointment = $this->desk->book((string) app('tenant.id'), $data, $this->store());
+        $appointment = $this->desk->book((string) app('tenant.id'), $data, $this->currentStore());
 
         return response()->json(['data' => $appointment->load(['offering', 'employee'])], 201);
     }
@@ -74,7 +74,7 @@ class ServiceAppointmentController extends Controller
 
     public function pay(Request $request, ServiceAppointment $serviceAppointment): JsonResponse
     {
-        $store = $this->store();
+        $store = $this->currentStore();
         if ($store === null) {
             abort(400, 'X-Store-ID header is required.');
         }
@@ -89,7 +89,7 @@ class ServiceAppointmentController extends Controller
         ]);
     }
 
-    private function store(): ?Store
+    private function currentStore(): ?Store
     {
         $store = app()->bound('store') ? app('store') : null;
 

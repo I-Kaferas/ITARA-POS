@@ -236,7 +236,7 @@ async function save() {
       },
     }, companyId.value || undefined)
     companyId.value = saved.id
-    await store.loadCompanies()
+    await Promise.all([store.loadCompanies(), store.loadCurrencies()])
     setAppCurrency(form.value.currency_code)
     await context.loadStores()
     savedFlash.value = true
@@ -394,12 +394,13 @@ async function save() {
                 <input v-model="form.legal_name" class="field" />
               </div>
               <div>
-                <FieldLabel icon="coins">{{ t('org.currency') }}</FieldLabel>
+                <FieldLabel icon="coins">{{ t('org.appCurrency') }}</FieldLabel>
                 <select v-model="form.currency_code" required class="field">
                   <option v-for="c in store.currencies" :key="c.id" :value="c.code">
                     {{ c.code }} — {{ c.name }}{{ c.is_default ? ` (${t('org.default')})` : '' }}
                   </option>
                 </select>
+                <p class="mt-1 text-xs text-slate-500">{{ t('org.appCurrencyHint') }}</p>
               </div>
             </div>
           </div>

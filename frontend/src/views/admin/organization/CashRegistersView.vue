@@ -7,10 +7,12 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import { intlLocale } from '../../../i18n/locales'
 import type { CashRegister, RegisterSummary } from '../../../types'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { openPrintWindow } from '../../../utils/printSaleDocument'
 import { printZReport } from '../../../utils/printZReport'
@@ -28,6 +30,11 @@ const showCloseModal = ref(false)
 const editing = ref<CashRegister | null>(null)
 const activeRegister = ref<CashRegister | null>(null)
 const sessionSummary = ref<RegisterSummary | null>(null)
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.cashRegisters.filter(register =>
+  matchesSearch(`${register.name} ${register.code}`, filters.value.search)
+  && matchesActive(register.is_active, filters.value.active),
+))
 const saving = ref(false)
 const sessionBusy = ref(false)
 
@@ -261,6 +268,8 @@ const varianceClass = computed(() => {
         </button>
       </div>
 
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
+
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -273,7 +282,7 @@ const varianceClass = computed(() => {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="register in store.cashRegisters" :key="register.id" class="hover:bg-slate-50">
+            <tr v-for="register in filtered" :key="register.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ register.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ register.code }}</td>
               <td class="px-4 py-3">
@@ -294,7 +303,7 @@ const varianceClass = computed(() => {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.cashRegisters.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 

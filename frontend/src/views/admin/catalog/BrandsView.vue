@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
@@ -7,8 +7,10 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Brand } from '../../../types'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -16,6 +18,11 @@ const store = useBackofficeStore()
 const showModal = ref(false)
 const editing = ref<Brand | null>(null)
 const saving = ref(false)
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.brands.filter(brand =>
+  matchesSearch(`${brand.name} ${brand.slug}`, filters.value.search)
+  && matchesActive(brand.is_active, filters.value.active),
+))
 const form = ref({ name: '', slug: '', description: '', is_active: true })
 
 onMounted(() => store.loadBrands())
@@ -56,6 +63,7 @@ async function remove(brand: Brand) {
       <div class="flex justify-end">
         <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('catalog.addBrand') }}</button>
       </div>
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -67,7 +75,7 @@ async function remove(brand: Brand) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="brand in store.brands" :key="brand.id" class="hover:bg-slate-50">
+            <tr v-for="brand in filtered" :key="brand.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ brand.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ brand.slug }}</td>
               <td class="px-4 py-3"><StatusBadge :active="brand.is_active" /></td>
@@ -78,7 +86,7 @@ async function remove(brand: Brand) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.brands.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 

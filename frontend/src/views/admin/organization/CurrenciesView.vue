@@ -1,20 +1,32 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { Currency } from '../../../types'
+import { getAppCurrency, setAppCurrency } from '../../../utils/currency'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const { confirm: confirmDialog, notify } = useConfirm()
 const store = useBackofficeStore()
+const context = useContextStore()
 const showModal = ref(false)
 const editing = ref<Currency | null>(null)
 const saving = ref(false)
+const applyingAppCurrency = ref(false)
+const appCurrencyCode = ref(getAppCurrency())
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.currencies.filter(currency =>
+  matchesSearch(`${currency.code} ${currency.name} ${currency.symbol}`, filters.value.search)
+  && matchesActive(currency.is_active, filters.value.active),
+))
 const form = ref({
   code: 'FBU',
   name: '',
@@ -25,7 +37,63 @@ const form = ref({
   is_active: true,
 })
 
-onMounted(() => store.loadCurrencies())
+const activeCurrencies = computed(() =>
+  store.currencies.filter(c => c.is_active).sort((a, b) => {
+    if (a.is_default !== b.is_default) return a.is_default ? -1 : 1
+    return a.code.localeCompare(b.code)
+  }),
+)
+
+const currentAppCurrency = computed(() =>
+  store.currencies.find(c => c.code === appCurrencyCode.value)
+  ?? store.currencies.find(c => c.is_default)
+  ?? null,
+)
+
+const companyCurrencyCode = computed(() => {
+  const company = store.companies.find(c => c.is_active) ?? store.companies[0]
+  return (company?.currency_code || '').toUpperCase()
+})
+
+const appCurrencyDirty = computed(() =>
+  !!appCurrencyCode.value && appCurrencyCode.value !== companyCurrencyCode.value,
+)
+
+onMounted(async () => {
+  await Promise.all([store.loadCurrencies(), store.loadCompanies()])
+  syncAppCurrencyFromCompany()
+})
+
+function syncAppCurrencyFromCompany() {
+  const company = store.companies.find(c => c.is_active) ?? store.companies[0]
+  const code = (company?.currency_code || store.currencies.find(c => c.is_default)?.code || getAppCurrency()).toUpperCase()
+  appCurrencyCode.value = code
+  setAppCurrency(code)
+}
+
+async function applyAppCurrency() {
+  const code = appCurrencyCode.value.trim().toUpperCase()
+  if (!code) return
+  const company = store.companies.find(c => c.is_active) ?? store.companies[0]
+  if (!company) {
+    await notify(t('org.appCurrencyNoCompany'))
+    return
+  }
+  applyingAppCurrency.value = true
+  try {
+    await store.saveCompany({ currency_code: code }, company.id)
+    const existing = store.currencies.find(c => c.code === code)
+    if (existing && !existing.is_default) {
+      await store.saveCurrency({ is_default: true, is_active: true }, existing.id)
+    }
+    await Promise.all([store.loadCurrencies(), store.loadCompanies()])
+    setAppCurrency(code)
+    await context.loadStores()
+    syncAppCurrencyFromCompany()
+  } finally {
+    applyingAppCurrency.value = false
+  }
+}
 
 function openCreate() {
   editing.value = null
@@ -58,12 +126,18 @@ function openEdit(currency: Currency) {
 async function save() {
   saving.value = true
   try {
-    await store.saveCurrency({
+    const saved = await store.saveCurrency({
       ...form.value,
       code: form.value.code.toUpperCase(),
       symbol: form.value.symbol || form.value.code.toUpperCase(),
     }, editing.value?.id)
     await store.loadCurrencies()
+    if (saved.is_default) {
+      await store.loadCompanies()
+      setAppCurrency(saved.code)
+      appCurrencyCode.value = saved.code
+      await context.loadStores()
+    }
     showModal.value = false
   } finally {
     saving.value = false
@@ -89,11 +163,50 @@ function closeModal() {
 <template>
   <OrganizationLayout>
     <div class="space-y-4">
+      <section class="app-currency rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
+        <div class="app-currency__head">
+          <span class="app-currency__icon" aria-hidden="true">
+            <AppIcon name="coins" :size="18" />
+          </span>
+          <div>
+            <h2 class="app-currency__title">{{ t('org.appCurrency') }}</h2>
+            <p class="app-currency__hint">{{ t('org.appCurrencyHint') }}</p>
+          </div>
+        </div>
+
+        <div class="app-currency__row">
+          <div class="app-currency__field">
+            <FieldLabel icon="coins">{{ t('org.appCurrency') }}</FieldLabel>
+            <select v-model="appCurrencyCode" class="field" :disabled="!activeCurrencies.length || applyingAppCurrency">
+              <option v-for="currency in activeCurrencies" :key="currency.id" :value="currency.code">
+                {{ currency.code }} — {{ currency.name }}{{ currency.is_default ? ` (${t('org.default')})` : '' }}
+              </option>
+            </select>
+          </div>
+          <button
+            type="button"
+            class="btn-primary app-currency__apply"
+            :disabled="!activeCurrencies.length || applyingAppCurrency || !appCurrencyDirty"
+            @click="applyAppCurrency"
+          >
+            {{ applyingAppCurrency ? t('common.save') : t('org.appCurrencyApply') }}
+          </button>
+        </div>
+
+        <p v-if="currentAppCurrency" class="app-currency__current">
+          {{ t('org.appCurrencyCurrent', { code: currentAppCurrency.code, name: currentAppCurrency.name }) }}
+        </p>
+        <p v-else-if="!store.currencies.length" class="app-currency__current app-currency__current--warn">
+          {{ t('org.appCurrencyEmpty') }}
+        </p>
+      </section>
+
       <div class="flex justify-end">
         <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" @click="openCreate">
           + {{ t('org.addCurrency') }}
         </button>
       </div>
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -107,7 +220,7 @@ function closeModal() {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="currency in store.currencies" :key="currency.id" class="hover:bg-slate-50">
+            <tr v-for="currency in filtered" :key="currency.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono font-medium">{{ currency.code }}</td>
               <td class="px-4 py-3">{{ currency.name }}</td>
               <td class="px-4 py-3">{{ currency.symbol }}</td>
@@ -120,7 +233,7 @@ function closeModal() {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.currencies.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 
@@ -169,6 +282,7 @@ function closeModal() {
             {{ t('products.active') }}
           </label>
         </div>
+        <p class="text-xs text-slate-500">{{ t('org.defaultCurrencyHint') }}</p>
 
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
@@ -199,23 +313,81 @@ function closeModal() {
 }
 
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .btn-secondary {
   border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
   padding: 0.45rem 0.95rem;
   font-size: 0.875rem;
-  background: white;
+  font-weight: 500;
+  color: #334155;
+  background: #f1f5f9;
 }
 
-.bg-brand-600 {
-  background-color: var(--color-brand-600);
+.field-icon {
+  display: inline-flex;
+  color: #64748b;
 }
 
-.uppercase {
-  text-transform: uppercase;
+.app-currency__head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.app-currency__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--color-brand-500, #2f6fed) 12%, #fff);
+  color: var(--color-brand-700, #1d4ed8);
+  flex-shrink: 0;
+}
+
+.app-currency__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.app-currency__hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.app-currency__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.app-currency__field {
+  flex: 1 1 16rem;
+  min-width: 12rem;
+}
+
+.app-currency__apply {
+  flex: 0 0 auto;
+  height: 2.35rem;
+}
+
+.app-currency__current {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.app-currency__current--warn {
+  color: #b45309;
 }
 </style>

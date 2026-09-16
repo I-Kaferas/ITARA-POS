@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
@@ -10,6 +11,7 @@ import '../core/config/terminal_config_repository.dart';
 import '../data/local/local_database.dart';
 import '../features/pos/domain/pos_models.dart';
 import 'sync_models.dart';
+import 'sync_numbers.dart';
 
 class StockConflict implements Exception {
   StockConflict(this.message);
@@ -63,7 +65,7 @@ class OfflineStore {
       for (final product in products.values) {
         final json = _productToJson(product);
         final previous = existingStock[product.productId];
-        final previousVersion = (previous?['stock_version'] as num?)?.toInt() ?? 0;
+        final previousVersion = _asInt(previous?['stock_version']);
         if (previous != null && previousVersion > product.stockVersion) {
           json['quantity_on_hand'] = previous['quantity_on_hand'];
           json['stock_version'] = previousVersion;
@@ -267,6 +269,172 @@ class OfflineStore {
         .map((row) => PosPaymentMethod.fromJson(jsonDecode(row['json'] as String) as Map<String, dynamic>))
         .where((method) => method.value.isNotEmpty)
         .toList();
+  }
+
+  Future<void> cacheReferenceBundle(Map<String, dynamic> data) async {
+    final paymentMethods = _mapList(data['payment_methods'])
+        .map(PosPaymentMethod.fromJson)
+        .where((method) => method.value.isNotEmpty)
+        .toList();
+    if (paymentMethods.isNotEmpty) {
+      await cachePaymentMethods(paymentMethods);
+    }
+
+    await _replaceJsonTable(
+      'units',
+      _mapList(data['units']),
+      (item) => {
+        'id': item['id']?.toString() ?? '',
+        'code': item['code']?.toString(),
+        'name': item['name']?.toString(),
+        'symbol': item['symbol']?.toString(),
+        'is_fractional': (item['is_fractional'] == true || item['is_fractional'] == 1) ? 1 : 0,
+        'is_active': (item['is_active'] == false || item['is_active'] == 0) ? 0 : 1,
+        'json': jsonEncode(item),
+      },
+      idKey: 'id',
+    );
+
+    await _replaceJsonTable(
+      'currencies',
+      _mapList(data['currencies']),
+      (item) => {
+        'id': item['id']?.toString() ?? '',
+        'code': item['code']?.toString(),
+        'name': item['name']?.toString(),
+        'symbol': item['symbol']?.toString(),
+        'is_default': (item['is_default'] == true || item['is_default'] == 1) ? 1 : 0,
+        'is_active': (item['is_active'] == false || item['is_active'] == 0) ? 0 : 1,
+        'json': jsonEncode(item),
+      },
+      idKey: 'id',
+    );
+
+    await _replaceJsonTable(
+      'taxes',
+      _mapList(data['taxes']),
+      (item) => {
+        'id': item['id']?.toString() ?? '',
+        'code': item['code']?.toString(),
+        'name': item['name']?.toString(),
+        'rate': syncAsDoubleOrNull(item['rate']),
+        'is_inclusive': (item['is_inclusive'] == true || item['is_inclusive'] == 1) ? 1 : 0,
+        'is_active': (item['is_active'] == false || item['is_active'] == 0) ? 0 : 1,
+        'json': jsonEncode(item),
+      },
+      idKey: 'id',
+    );
+
+    await _replaceJsonTable(
+      'permissions',
+      _mapList(data['permissions']),
+      (item) => {
+        'id': item['id']?.toString() ?? item['slug']?.toString() ?? '',
+        'slug': item['slug']?.toString() ?? '',
+        'name': item['name']?.toString(),
+        'group_name': item['group']?.toString() ?? item['group_name']?.toString(),
+        'json': jsonEncode(item),
+      },
+      idKey: 'id',
+    );
+
+    await _replaceJsonTable(
+      'roles',
+      _mapList(data['roles']),
+      (item) => {
+        'id': item['id']?.toString() ?? item['slug']?.toString() ?? '',
+        'slug': item['slug']?.toString() ?? '',
+        'name': item['name']?.toString(),
+        'is_system': (item['is_system'] == true || item['is_system'] == 1) ? 1 : 0,
+        'json': jsonEncode(item),
+      },
+      idKey: 'id',
+    );
+
+    await _replaceJsonTable(
+      'users',
+      _mapList(data['users']).where((item) => (item['pin_verifier']?.toString() ?? '').isNotEmpty),
+      (item) => {
+        'id': item['id']?.toString() ?? '',
+        'name': item['name']?.toString() ?? '',
+        'email': item['email']?.toString(),
+        'is_active': (item['is_active'] == false || item['is_active'] == 0) ? 0 : 1,
+        'pin_verifier': item['pin_verifier']?.toString() ?? '',
+        'json': jsonEncode(item),
+      },
+      idKey: 'id',
+    );
+
+    await setCheckpoint('references_synced_at', DateTime.now().toIso8601String());
+  }
+
+  Future<Map<String, dynamic>> referenceDocument() async {
+    return {
+      'payment_methods': await paymentMethodDocuments(),
+      'units': await _documentsFrom('units'),
+      'currencies': await _documentsFrom('currencies'),
+      'taxes': await _documentsFrom('taxes'),
+      'permissions': await _documentsFrom('permissions'),
+      'roles': await _documentsFrom('roles'),
+      'users': await _documentsFrom('users'),
+    };
+  }
+
+  Future<Map<String, dynamic>?> findOfflineUserByPin(String pin) async {
+    final db = await _db;
+    final rows = await db.query('users', where: 'is_active = 1');
+    for (final row in rows) {
+      final id = row['id']?.toString() ?? '';
+      final verifier = row['pin_verifier']?.toString() ?? '';
+      if (id.isEmpty || verifier.isEmpty) continue;
+      final candidate = sha256.convert(utf8.encode('itara-pos|$id|$pin')).toString();
+      if (candidate == verifier) {
+        final decoded = jsonDecode(row['json'] as String);
+        if (decoded is Map<String, dynamic>) return decoded;
+        return {
+          'id': id,
+          'name': row['name'],
+          'email': row['email'],
+          'pin_verifier': verifier,
+        };
+      }
+    }
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> _documentsFrom(String table) async {
+    final db = await _db;
+    final rows = await db.query(table);
+    return rows
+        .map((row) {
+          final decoded = jsonDecode(row['json'] as String);
+          return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+        })
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _replaceJsonTable(
+    String table,
+    Iterable<Map<String, dynamic>> items,
+    Map<String, Object?> Function(Map<String, dynamic> item) toRow, {
+    required String idKey,
+  }) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      await txn.delete(table);
+      for (final item in items) {
+        final row = toRow(item);
+        final id = row[idKey]?.toString() ?? '';
+        if (id.isEmpty) continue;
+        await txn.insert(table, row);
+      }
+    });
+  }
+
+  List<Map<String, dynamic>> _mapList(Object? raw) {
+    if (raw is! List) return const [];
+    return raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
   Future<void> applyCustomerServerId(String localId, String serverId) async {
@@ -588,7 +756,7 @@ class OfflineStore {
     final seqRows = await db.rawQuery('SELECT MAX(sequence) AS seq FROM sync_events');
     return {
       'store_id': storeId,
-      'server_sequence': (seqRows.first['seq'] as int?) ?? 0,
+      'server_sequence': syncAsInt(seqRows.first['seq']),
       'products': catalog?.products.map(_productToJson).toList() ?? [],
       'categories': catalog?.categories
               .map((category) => {
@@ -661,10 +829,10 @@ class OfflineStore {
       };
     }
 
-    final paidAmount = payments.fold<int>(0, (sum, payment) => sum + ((payment['amount'] as num?)?.toInt() ?? 0));
+    final paidAmount = payments.fold<int>(0, (sum, payment) => sum + _asInt(payment['amount']));
     final total = items.fold<int>(0, (sum, item) {
-      final price = (item['unit_price'] as num?)?.toInt() ?? 0;
-      final qty = (item['quantity'] as num?)?.toInt() ?? 0;
+      final price = _asInt(item['unit_price']);
+      final qty = _asInt(item['quantity']);
       return sum + price * qty;
     });
     final method = payments.isEmpty ? 'cash' : payments.first['method']?.toString() ?? 'cash';
@@ -701,7 +869,7 @@ class OfflineStore {
         'created_at': now,
       });
       for (final payment in payments) {
-        final amount = (payment['amount'] as num?)?.toInt() ?? 0;
+        final amount = _asInt(payment['amount']);
         if (amount <= 0) continue;
         await txn.insert('payments', {
           'id': const Uuid().v4(),
@@ -715,7 +883,7 @@ class OfflineStore {
       }
       for (final item in items) {
         final productId = item['product_id']?.toString();
-        final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
+        final quantity = _asInt(item['quantity']);
         if (productId == null || productId.isEmpty || quantity <= 0) continue;
         await txn.insert('stock_movements', {
           'id': const Uuid().v4(),
@@ -1006,7 +1174,7 @@ class OfflineStore {
         'SELECT COUNT(*) AS c FROM sync_queue WHERE status = ?',
         [status],
       );
-      return (rows.first['c'] as int?) ?? 0;
+      return syncAsInt(rows.first['c']);
     }
 
     return {
@@ -1051,7 +1219,7 @@ class OfflineStore {
     final db = await _db;
     Future<int> count(String table) async {
       final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM $table');
-      return (rows.first['c'] as num?)?.toInt() ?? 0;
+      return syncAsInt(rows.first['c']);
     }
 
     return {
@@ -1070,7 +1238,7 @@ class OfflineStore {
     final id = sale['id'] as String;
     Future<int> count(String sql) async {
       final rows = await db.rawQuery(sql, [id]);
-      return (rows.first['c'] as num?)?.toInt() ?? 0;
+      return syncAsInt(rows.first['c']);
     }
 
     return {
@@ -1109,15 +1277,13 @@ class OfflineStore {
     });
   }
 
-  int _asInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
+  int _asInt(dynamic value) => syncAsInt(value);
+
+  int? _asIntOrNull(dynamic value) => syncAsIntOrNull(value);
 
   Future<int> _nextSyncSequence(Transaction txn) async {
     final rows = await txn.rawQuery('SELECT MAX(sequence) AS seq FROM sync_events');
-    return ((rows.first['seq'] as int?) ?? 0) + 1;
+    return syncAsInt(rows.first['seq']) + 1;
   }
 
   Future<String> _nextReference(Database db, String deviceIdentifier) async {
@@ -1126,7 +1292,7 @@ class OfflineStore {
     final suffix = deviceIdentifier.replaceAll('-', '');
     final pos = suffix.isEmpty ? 'POS' : suffix.substring(0, suffix.length.clamp(0, 4)).toUpperCase();
     final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM sales');
-    final seq = ((rows.first['c'] as int?) ?? 0) + 1;
+    final seq = syncAsInt(rows.first['c']) + 1;
     return 'SALE-$pos-$stamp-${seq.toString().padLeft(6, '0')}';
   }
 
@@ -1151,7 +1317,7 @@ class OfflineStore {
     await exclusiveStock(() => db.transaction((txn) async {
       for (final line in ingredients) {
         final productId = line['product_id']?.toString() ?? '';
-        final quantity = (line['quantity'] as num?)?.toInt() ?? 0;
+        final quantity = _asInt(line['quantity']);
         if (productId.isEmpty || quantity <= 0) continue;
         await txn.insert('stock_movements', {
           'id': const Uuid().v4(),
@@ -1198,13 +1364,13 @@ class OfflineStore {
     final rows = await txn.query('products', where: 'product_id = ?', whereArgs: [productId], limit: 1);
     if (rows.isEmpty) throw StockConflict('Produit introuvable pour la production');
     final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
-    final current = (json['quantity_on_hand'] as num?)?.toInt() ?? 0;
+    final current = _asInt(json['quantity_on_hand']);
     final next = current + delta;
     if (next < 0) {
       final name = json['name']?.toString() ?? 'Article';
       throw StockConflict('Stock insuffisant pour $name');
     }
-    final version = ((json['stock_version'] as num?)?.toInt() ?? 0) + 1;
+    final version = _asInt(json['stock_version']) + 1;
     json['quantity_on_hand'] = next;
     json['stock_version'] = version;
     await txn.update(
@@ -1227,13 +1393,13 @@ class OfflineStore {
       await db.transaction((txn) async {
         for (final line in lines.whereType<Map>()) {
           final productId = line['product_id']?.toString() ?? '';
-          final version = (line['stock_version'] as num?)?.toInt();
-          final quantity = (line['quantity_on_hand'] as num?)?.toInt();
+          final version = _asIntOrNull(line['stock_version']);
+          final quantity = _asIntOrNull(line['quantity_on_hand']);
           if (productId.isEmpty || version == null || quantity == null) continue;
           final rows = await txn.query('products', where: 'product_id = ?', whereArgs: [productId], limit: 1);
           if (rows.isEmpty) continue;
           final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
-          final currentVersion = (json['stock_version'] as num?)?.toInt() ?? 0;
+          final currentVersion = _asInt(json['stock_version']);
           if (version < currentVersion) continue;
           json['quantity_on_hand'] = quantity;
           json['stock_version'] = version;
@@ -1255,12 +1421,12 @@ class OfflineStore {
     for (final row in rows) {
       final decoded = jsonDecode(row['json'] as String);
       if (decoded is! Map) continue;
-      final quantity = decoded['quantity_on_hand'];
-      if (quantity is! num) continue;
+      final quantity = _asIntOrNull(decoded['quantity_on_hand']);
+      if (quantity == null) continue;
       lines.add({
         'product_id': row['product_id'],
-        'quantity_on_hand': quantity.toInt(),
-        'stock_version': (decoded['stock_version'] as num?)?.toInt() ?? 0,
+        'quantity_on_hand': quantity,
+        'stock_version': _asInt(decoded['stock_version']),
       });
     }
     return lines;
@@ -1281,27 +1447,41 @@ class OfflineStore {
       if (sessionId.isEmpty) sessionId = rows.first['cash_session_id']?.toString() ?? '';
       if (userId.isEmpty) userId = rows.first['user_id']?.toString() ?? '';
     }
-    if (registerId.isEmpty) registerId = 'reg-$deviceId';
-    if (sessionId.isEmpty) sessionId = 'ses-$deviceId';
+    // Prefer the configured cloud register. Never invent placeholder ids like
+    // "reg-<device>" — the API rejects unknown CashRegister keys.
+    if (registerId.isEmpty || registerId.startsWith('reg-')) {
+      registerId = config.cashRegisterId;
+    }
+    if (sessionId.isEmpty || sessionId.startsWith('ses-')) {
+      sessionId = config.cashSessionId;
+    }
     await txn.insert(
       'lane_sessions',
       {
         'device_id': deviceId,
-        'cash_register_id': registerId,
-        'cash_session_id': sessionId,
+        'cash_register_id': registerId.isEmpty ? null : registerId,
+        'cash_session_id': sessionId.isEmpty ? null : sessionId,
         'user_id': userId.isEmpty ? null : userId,
         'opened_at': DateTime.now().toIso8601String(),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     payload['device_id'] = deviceId;
-    payload['cash_register_id'] = registerId;
-    payload['cash_session_id'] = sessionId;
+    if (registerId.isNotEmpty) {
+      payload['cash_register_id'] = registerId;
+    } else {
+      payload.remove('cash_register_id');
+    }
+    if (sessionId.isNotEmpty) {
+      payload['cash_session_id'] = sessionId;
+    } else {
+      payload.remove('cash_session_id');
+    }
     if (userId.isNotEmpty) payload['user_id'] = userId;
     return {
       'device_id': deviceId,
-      'cash_register_id': registerId,
-      'cash_session_id': sessionId,
+      if (registerId.isNotEmpty) 'cash_register_id': registerId,
+      if (sessionId.isNotEmpty) 'cash_session_id': sessionId,
       if (userId.isNotEmpty) 'user_id': userId,
     };
   }
@@ -1315,14 +1495,14 @@ class OfflineStore {
     final rows = await txn.query('products', where: 'product_id = ?', whereArgs: [productId], limit: 1);
     if (rows.isEmpty) return {};
     final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
-    final current = (json['quantity_on_hand'] as num?)?.toInt();
+    final current = _asIntOrNull(json['quantity_on_hand']);
     if (current == null) return {};
     if (authoritative && current < quantity) {
       final name = json['name']?.toString() ?? 'Article';
       throw StockConflict('Stock insuffisant pour $name');
     }
     final next = current - quantity;
-    final version = ((json['stock_version'] as num?)?.toInt() ?? 0) + (authoritative ? 1 : 0);
+    final version = _asInt(json['stock_version']) + (authoritative ? 1 : 0);
     json['quantity_on_hand'] = next;
     json['stock_version'] = version;
     await txn.update(

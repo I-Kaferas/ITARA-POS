@@ -6,10 +6,12 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Device, DeviceCategory, DeviceConnection, DeviceRole } from '../../../types'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const props = withDefaults(defineProps<{ deviceType?: DeviceCategory | null }>(), {
   deviceType: null,
@@ -28,6 +30,14 @@ const showModal = ref(false)
 const editing = ref<Device | null>(null)
 const saving = ref(false)
 const saveError = ref('')
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.devices.filter(device =>
+  matchesSearch(
+    `${device.code ?? ''} ${device.name} ${device.user?.name ?? ''} ${device.branch?.name ?? ''} ${device.category ?? ''} ${device.device_type ?? ''}`,
+    filters.value.search,
+  )
+  && matchesActive(device.is_active, filters.value.active),
+))
 const saveNotice = ref('')
 const copied = ref(false)
 const showFormToken = ref(false)
@@ -238,6 +248,8 @@ async function revoke(device: Device) {
         </button>
       </div>
 
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
+
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -253,7 +265,7 @@ async function revoke(device: Device) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="device in store.devices" :key="device.id" class="hover:bg-slate-50">
+            <tr v-for="device in filtered" :key="device.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs">{{ device.code || '—' }}</td>
               <td class="px-4 py-3">
                 <p class="m-0 font-medium">{{ device.name }}</p>
@@ -297,7 +309,7 @@ async function revoke(device: Device) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.devices.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 

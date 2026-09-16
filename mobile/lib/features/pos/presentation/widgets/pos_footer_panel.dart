@@ -98,6 +98,16 @@ class PosFooterPanel extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: _ActionChip(
+                          icon: Icons.stars_outlined,
+                          label: cart.loyaltyPoints > 0
+                              ? 'Fidélité ${cart.loyaltyPoints} pts'
+                              : 'Fidélité',
+                          onTap: () => _showLoyaltyDialog(context),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ActionChip(
                           icon: Icons.note_outlined,
                           label: cart.note ?? 'Note',
                           onTap: () => _showNoteDialog(context),
@@ -182,7 +192,7 @@ class PosFooterPanel extends StatelessWidget {
                       icon: const Icon(Icons.pause_circle_outline, size: 20),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.brand600,
-                        textStyle: GoogleFonts.inter(
+                        textStyle: GoogleFonts.ibmPlexSans(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                           letterSpacing: 0.4,
@@ -249,7 +259,7 @@ class PosFooterPanel extends StatelessWidget {
                       onPressed: cart.isEmpty ? null : () => _showPaymentDialog(context),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.brand600,
-                        textStyle: GoogleFonts.inter(
+                        textStyle: GoogleFonts.ibmPlexSans(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
                           letterSpacing: 0.8,
@@ -404,7 +414,7 @@ class PosFooterPanel extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       'Le client est enregistré sur ce terminal, puis envoyé lors de la synchronisation.',
-                      style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                      style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ] else ...[
                     TextField(
@@ -534,6 +544,73 @@ class PosFooterPanel extends StatelessWidget {
     percentController.dispose();
   }
 
+  Future<void> _showLoyaltyDialog(BuildContext context) async {
+    final customer = cart.customer;
+    if (customer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sélectionnez un client pour utiliser la fidélité')),
+      );
+      return;
+    }
+
+    PosLoyaltySummary? summary;
+    try {
+      summary = await api.fetchLoyalty(customer.saleCustomerId);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+
+    final pointsCtrl = TextEditingController(
+      text: cart.loyaltyPoints > 0 ? '${cart.loyaltyPoints}' : '',
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Fidélité'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${summary!.points} points · ${summary.tier ?? 'Standard'}'),
+            if (summary.rewardPerPoint > 0)
+              Text('1 pt = ${_money(summary.rewardPerPoint)}', style: PosUi.caption()),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pointsCtrl,
+              decoration: const InputDecoration(labelText: 'Points à utiliser'),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              cart.clearLoyalty();
+              Navigator.pop(ctx, 'cleared');
+            },
+            child: const Text('Effacer'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'apply'), child: const Text('Appliquer')),
+        ],
+      ),
+    );
+
+    if (result == 'apply') {
+      final points = int.tryParse(pointsCtrl.text.trim()) ?? 0;
+      if (points > 0) {
+        cart.setLoyaltyPoints(points.clamp(0, summary.points));
+      }
+    }
+    pointsCtrl.dispose();
+  }
+
   Future<void> _showNoteDialog(BuildContext context) async {
     final controller = TextEditingController(text: cart.note);
     final result = await showDialog<String>(
@@ -617,7 +694,7 @@ class PosFooterPanel extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Détail, modification, séparation et paiement tant que la commande n’est pas encaissée.',
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 Flexible(
@@ -640,12 +717,12 @@ class PosFooterPanel extends StatelessWidget {
                                         Expanded(
                                           child: Text(
                                             sale.label,
-                                            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
+                                            style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14),
                                           ),
                                         ),
                                         Text(
                                           _formatTime(sale.heldAt),
-                                          style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
+                                          style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
                                         ),
                                       ],
                                     ),
@@ -653,21 +730,21 @@ class PosFooterPanel extends StatelessWidget {
                                       const SizedBox(height: 2),
                                       Text(
                                         sale.customer!.displayLabel,
-                                        style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                                        style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                                       ),
                                     ],
                                     if (sale.note != null && sale.note!.isNotEmpty) ...[
                                       const SizedBox(height: 2),
                                       Text(
                                         sale.note!,
-                                        style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+                                        style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
                                       ),
                                     ],
                                     const SizedBox(height: 10),
                                     if (sale.lines.isEmpty)
                                       Text(
                                         'Aucun article (commande distante sans détail local).',
-                                        style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+                                        style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
                                       )
                                     else
                                       ...sale.lines.map((line) {
@@ -682,7 +759,7 @@ class PosFooterPanel extends StatelessWidget {
                                                   children: [
                                                     Text(
                                                       line.displayName,
-                                                      style: GoogleFonts.inter(
+                                                      style: GoogleFonts.ibmPlexSans(
                                                         fontSize: 13,
                                                         fontWeight: FontWeight.w600,
                                                         color: AppColors.textPrimary,
@@ -691,7 +768,7 @@ class PosFooterPanel extends StatelessWidget {
                                                     const SizedBox(height: 2),
                                                     Text(
                                                       '${line.quantity} × ${_money(line.unitPrice)}',
-                                                      style: GoogleFonts.inter(
+                                                      style: GoogleFonts.ibmPlexSans(
                                                         fontSize: 11,
                                                         color: AppColors.textMuted,
                                                       ),
@@ -701,7 +778,7 @@ class PosFooterPanel extends StatelessWidget {
                                               ),
                                               Text(
                                                 _money(line.lineSubtotal),
-                                                style: GoogleFonts.jetBrainsMono(
+                                                style: GoogleFonts.ibmPlexMono(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                   color: AppColors.textPrimary,
@@ -724,16 +801,16 @@ class PosFooterPanel extends StatelessWidget {
                                         children: [
                                           Text(
                                             '${sale.itemCount} art.',
-                                            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                                            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                                           ),
                                           const Spacer(),
                                           Text(
                                             'Total ',
-                                            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                                            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                                           ),
                                           Text(
                                             _money(sale.total),
-                                            style: GoogleFonts.jetBrainsMono(
+                                            style: GoogleFonts.ibmPlexMono(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w700,
                                               color: AppColors.brand700,
@@ -859,6 +936,7 @@ class PosFooterPanel extends StatelessWidget {
         customerId: cart.customer?.saleCustomerId,
         notes: cart.note,
         saleId: cart.pendingServerId,
+        loyaltyPoints: cart.loyaltyPoints > 0 ? cart.loyaltyPoints : null,
       );
       cart.consumeActiveHold();
       cart.cancel();
@@ -871,6 +949,8 @@ class PosFooterPanel extends StatelessWidget {
         outstandingAmount: saleResult.outstandingAmount,
         saleId: saleResult.saleId,
         saleReference: saleResult.reference,
+        receipt: saleResult.receipt,
+        loyaltyEarned: saleResult.loyaltyEarned,
         message: saleResult.pendingSync
             ? 'Vente ${saleResult.reference} enregistrée sur cet appareil. Paiement, stock et sync en file — internet non requis.'
             : 'Vente ${saleResult.reference} acceptée',
@@ -997,12 +1077,12 @@ class _SummaryRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
           ),
           const Spacer(),
           Text(
             value,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.ibmPlexSans(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
@@ -1042,7 +1122,7 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                 children: [
                   Text(
                     'Choisissez les articles (et quantités) à déplacer vers une nouvelle commande en attente.',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                    style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 12),
                   ConstrainedBox(
@@ -1065,14 +1145,14 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                             children: [
                               Text(
                                 line.displayName,
-                                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+                                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13),
                               ),
                               const SizedBox(height: 6),
                               Row(
                                 children: [
                                   Text(
                                     'Qty ${line.quantity}',
-                                    style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+                                    style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
                                   ),
                                   const Spacer(),
                                   IconButton(
@@ -1082,7 +1162,7 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                                         : () => setModalState(() => selected[line.lineId] = move - 1),
                                     icon: const Icon(Icons.remove, size: 18),
                                   ),
-                                  Text('$move', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                                  Text('$move', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
                                     onPressed: move >= line.quantity
@@ -1101,7 +1181,7 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                   const SizedBox(height: 8),
                   Text(
                     'À séparer: $moveCount · Restent: $remainCount',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                    style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
               ),

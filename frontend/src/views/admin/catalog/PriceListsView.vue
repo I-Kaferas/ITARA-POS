@@ -4,9 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Catalog, Company, Currency } from '../../../types'
+import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 
 type Tier = {
@@ -41,6 +43,10 @@ const savingId = ref('')
 const error = ref('')
 
 const catalogs = computed(() => store.catalogs)
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filteredRows = computed(() =>
+  rows.value.filter(row => matchesSearch(`${row.sku} ${row.name}`, filters.value.search)),
+)
 
 onMounted(async () => {
   await store.loadCompanies()
@@ -134,6 +140,8 @@ function money(amount: number, currency?: string) {
       </p>
       <p v-if="error" class="m-0 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
 
+      <ModuleFilters v-model="filters" :show-period="false" show-search :search-placeholder="t('filters.search')" />
+
       <div class="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -146,7 +154,7 @@ function money(amount: number, currency?: string) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in rows" :key="row.id">
+            <tr v-for="row in filteredRows" :key="row.id">
               <td class="px-4 py-3">
                 <span class="block font-medium">{{ row.name }}</span>
                 <span class="font-mono text-xs text-slate-400">{{ row.sku }}</span>
@@ -175,7 +183,7 @@ function money(amount: number, currency?: string) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!rows.length" class="px-4 py-8 text-center text-slate-500">{{ t('products.empty') }}</p>
+        <p v-if="!filteredRows.length" class="px-4 py-8 text-center text-slate-500">{{ t('products.empty') }}</p>
       </div>
     </div>
   </CatalogLayout>

@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '../../api/client'
 import AdminLayout from '../../components/layout/AdminLayout.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { formatDate, formatMoney } from '../../utils/format'
+import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../utils/listFilters'
 
 type Offering = { id: string; name: string; category: string; price: number; duration_minutes: number }
 type Appointment = {
@@ -28,6 +30,21 @@ const showModal = ref(false)
 const notes = ref<Record<string, string>>({})
 const employees = ref<Record<string, string>>({})
 const form = ref({ service_offering_id: '', customer_name: '', scheduled_at: '' })
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const statusOptions = computed(() =>
+  ['booked', 'assigned', 'completed', 'paid'].map(value => ({
+    value,
+    label: statusLabel(value),
+  })),
+)
+const filtered = computed(() => rows.value.filter(row =>
+  matchesSearch(
+    `${row.customer_name} ${row.offering?.name ?? ''} ${row.offering?.category ?? ''} ${row.employee?.name ?? ''}`,
+    filters.value.search,
+  )
+  && (!filters.value.status || row.status === filters.value.status)
+  && inPeriod(row.scheduled_at, filters.value),
+))
 
 onMounted(load)
 
@@ -84,6 +101,15 @@ function statusLabel(status: string) {
       <button class="btn-primary" @click="openCreate">+ {{ t('services.book') }}</button>
     </template>
 
+    <ModuleFilters
+      v-model="filters"
+      class="mb-4"
+      :statuses="statusOptions"
+      show-search
+      show-period
+      show-status
+    />
+
     <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <table class="min-w-full text-sm">
         <thead class="bg-slate-50 text-slate-500">
@@ -96,7 +122,7 @@ function statusLabel(status: string) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in rows" :key="row.id" class="border-t border-slate-100">
+          <tr v-for="row in filtered" :key="row.id" class="border-t border-slate-100">
             <td class="px-4 py-3">
               <div class="font-medium">{{ row.offering?.name }}</div>
               <div class="text-xs text-slate-500">{{ row.offering?.category }} · {{ formatMoney(row.offering?.price ?? 0) }}</div>
@@ -122,7 +148,7 @@ function statusLabel(status: string) {
           </tr>
         </tbody>
       </table>
-      <p v-if="!rows.length" class="px-4 py-8 text-center text-slate-500">{{ t('services.empty') }}</p>
+      <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('services.empty') }}</p>
     </div>
 
     <AppModal :open="showModal" :title="t('services.book')" @close="showModal = false">

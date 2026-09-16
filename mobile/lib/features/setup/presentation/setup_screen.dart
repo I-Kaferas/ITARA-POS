@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/api/api_client.dart';
 import '../../../core/branding/branding_service.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config.dart';
@@ -12,6 +13,8 @@ import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../sync/local_master_discovery.dart';
+import '../../../sync/sync_engine.dart';
+import '../../../sync/sync_models.dart';
 import '../../settings/data/device_api_service.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -25,9 +28,13 @@ class _SetupScreenState extends State<SetupScreen> {
   final _formKey = GlobalKey<FormState>();
   int _step = 0;
   bool _showToken = false;
+  bool _showRefreshToken = false;
 
   final _apiUrlCtrl = TextEditingController(text: AppConfig.apiBaseUrl);
   final _tokenCtrl = TextEditingController(text: AppConfig.authToken);
+  final _refreshTokenCtrl = TextEditingController(
+    text: TerminalConfigRepository.instance.config.refreshToken,
+  );
   final _slugCtrl = TextEditingController(
     text: TerminalConfigRepository.instance.config.tenantSlug.isNotEmpty
         ? TerminalConfigRepository.instance.config.tenantSlug
@@ -46,15 +53,35 @@ class _SetupScreenState extends State<SetupScreen> {
   String? _error;
 
   static const _steps = [
-    _SetupStep(title: 'Connexion', caption: 'Identifiants du backoffice'),
+    _SetupStep(title: 'Magasin', caption: 'Poste et contexte'),
     _SetupStep(title: 'Mode', caption: 'Rôle de ce terminal'),
     _SetupStep(title: 'Liaison', caption: 'Master et nom du poste'),
   ];
+
+  bool get _hasAdminSession {
+    final config = TerminalConfigRepository.instance.config;
+    return config.isSignedIn && config.authToken.trim().isNotEmpty;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final config = TerminalConfigRepository.instance.config;
+    if (config.apiBaseUrl.isNotEmpty) _apiUrlCtrl.text = config.apiBaseUrl;
+    if (config.authToken.isNotEmpty) _tokenCtrl.text = config.authToken;
+    if (config.refreshToken.isNotEmpty) _refreshTokenCtrl.text = config.refreshToken;
+    if (config.tenantSlug.isNotEmpty) _slugCtrl.text = config.tenantSlug;
+    if (config.tenantId.isNotEmpty) _tenantCtrl.text = config.tenantId;
+    if (config.storeId.isNotEmpty) _storeCtrl.text = config.storeId;
+    if (config.deviceName.isNotEmpty) _nameCtrl.text = config.deviceName;
+    if (config.currencyCode.isNotEmpty) _currencyCtrl.text = config.currencyCode;
+  }
 
   @override
   void dispose() {
     _apiUrlCtrl.dispose();
     _tokenCtrl.dispose();
+    _refreshTokenCtrl.dispose();
     _slugCtrl.dispose();
     _tenantCtrl.dispose();
     _storeCtrl.dispose();
@@ -93,7 +120,8 @@ class _SetupScreenState extends State<SetupScreen> {
     final current = repo.config;
     await repo.save(current.copyWith(
       apiBaseUrl: _apiUrlCtrl.text.trim(),
-      authToken: _tokenCtrl.text.trim(),
+      authToken: ApiClient.normalizeBearer(_tokenCtrl.text),
+      refreshToken: _refreshTokenCtrl.text.trim(),
       tenantId: _tenantCtrl.text.trim(),
       tenantSlug: _slugCtrl.text.trim().toLowerCase(),
       storeId: _storeCtrl.text.trim(),
@@ -118,7 +146,8 @@ class _SetupScreenState extends State<SetupScreen> {
     final repo = TerminalConfigRepository.instance;
     await repo.save(repo.config.copyWith(
       apiBaseUrl: _apiUrlCtrl.text.trim(),
-      authToken: _tokenCtrl.text.trim(),
+      authToken: ApiClient.normalizeBearer(_tokenCtrl.text),
+      refreshToken: _refreshTokenCtrl.text.trim(),
       tenantId: branding.tenantId,
       tenantSlug: branding.slug,
       brandName: branding.brandName,
@@ -173,9 +202,22 @@ class _SetupScreenState extends State<SetupScreen> {
       await repo.save(config.copyWith(
         deviceId: deviceId,
         deviceName: deviceName,
-        isConfigured: true,
+        isConfigured: false,
       ));
 
+      if (!mounted) return;
+      setState(() => _loading = true);
+      final report = await SyncEngine.instance.downloadStock();
+      if (!mounted) return;
+      setState(() => _loading = false);
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _FirstSyncReportDialog(report: report),
+      );
+      if (!mounted) return;
+
+      await repo.save(repo.config.copyWith(isConfigured: true));
       if (!mounted) return;
       context.go(AppRoutes.dashboard);
     } catch (e) {
@@ -214,12 +256,17 @@ class _SetupScreenState extends State<SetupScreen> {
                         0 => _ConnectionStep(
                             apiUrlCtrl: _apiUrlCtrl,
                             tokenCtrl: _tokenCtrl,
+                            refreshTokenCtrl: _refreshTokenCtrl,
                             slugCtrl: _slugCtrl,
                             storeCtrl: _storeCtrl,
                             currencyCtrl: _currencyCtrl,
                             nameCtrl: _nameCtrl,
                             showToken: _showToken,
+                            showRefreshToken: _showRefreshToken,
+                            hideTokens: _hasAdminSession,
+                            adminName: TerminalConfigRepository.instance.config.cashierName,
                             onToggleToken: () => setState(() => _showToken = !_showToken),
+                            onToggleRefreshToken: () => setState(() => _showRefreshToken = !_showRefreshToken),
                           ),
                         1 => _RoleStep(
                             role: _role,
@@ -342,12 +389,12 @@ class _Header extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 'Configuration',
-                style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
               const Spacer(),
               Text(
                 '${step + 1}/${steps.length}',
-                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+                style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted),
               ),
             ],
           ),
@@ -371,12 +418,12 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             steps[step].title,
-            style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 2),
           Text(
             steps[step].caption,
-            style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -422,7 +469,7 @@ class _Footer extends StatelessWidget {
               ),
               child: Text(
                 error!,
-                style: GoogleFonts.inter(color: AppColors.danger, fontWeight: FontWeight.w600, fontSize: 13),
+                style: GoogleFonts.ibmPlexSans(color: AppColors.danger, fontWeight: FontWeight.w600, fontSize: 13),
               ),
             ),
           ],
@@ -456,27 +503,53 @@ class _ConnectionStep extends StatelessWidget {
   const _ConnectionStep({
     required this.apiUrlCtrl,
     required this.tokenCtrl,
+    required this.refreshTokenCtrl,
     required this.slugCtrl,
     required this.storeCtrl,
     required this.currencyCtrl,
     required this.nameCtrl,
     required this.showToken,
+    required this.showRefreshToken,
     required this.onToggleToken,
+    required this.onToggleRefreshToken,
+    this.hideTokens = false,
+    this.adminName,
   });
 
   final TextEditingController apiUrlCtrl;
   final TextEditingController tokenCtrl;
+  final TextEditingController refreshTokenCtrl;
   final TextEditingController slugCtrl;
   final TextEditingController storeCtrl;
   final TextEditingController currencyCtrl;
   final TextEditingController nameCtrl;
   final bool showToken;
+  final bool showRefreshToken;
   final VoidCallback onToggleToken;
+  final VoidCallback onToggleRefreshToken;
+  final bool hideTokens;
+  final String? adminName;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        if (hideTokens) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.successBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
+            ),
+            child: Text(
+              'Connecté en tant que ${adminName?.trim().isNotEmpty == true ? adminName : 'admin'}. Complétez la configuration du terminal.',
+              style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.success),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         _Field(
           controller: nameCtrl,
           label: 'Nom du terminal',
@@ -489,31 +562,58 @@ class _ConnectionStep extends StatelessWidget {
         _Field(
           controller: apiUrlCtrl,
           label: 'URL de l\'API',
-          hint: 'http://192.168.1.10:8000/api/v1',
+          hint: 'http://127.0.0.1:8000/api/v1',
           icon: Icons.link,
           keyboardType: TextInputType.url,
           textInputAction: TextInputAction.next,
           autocorrect: false,
           validator: _required,
         ),
-        const SizedBox(height: 12),
-        _Field(
-          controller: tokenCtrl,
-          label: 'Token d\'accès',
-          hint: 'Collez le token des Paramètres',
-          icon: Icons.key_outlined,
-          obscure: !showToken,
-          keyboardType: TextInputType.visiblePassword,
-          textInputAction: TextInputAction.next,
-          autocorrect: false,
-          enableSuggestions: false,
-          suffix: IconButton(
-            tooltip: showToken ? 'Masquer' : 'Afficher',
-            onPressed: onToggleToken,
-            icon: Icon(showToken ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+        if (!hideTokens) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Utilisez le backend Laravel (port 8000), pas le front Vite (5173).',
+              style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+            ),
           ),
-          validator: _required,
-        ),
+          const SizedBox(height: 12),
+          _Field(
+            controller: tokenCtrl,
+            label: 'Token d\'accès',
+            hint: 'Collez le token des Paramètres',
+            icon: Icons.key_outlined,
+            obscure: !showToken,
+            keyboardType: TextInputType.visiblePassword,
+            textInputAction: TextInputAction.next,
+            autocorrect: false,
+            enableSuggestions: false,
+            suffix: IconButton(
+              tooltip: showToken ? 'Masquer' : 'Afficher',
+              onPressed: onToggleToken,
+              icon: Icon(showToken ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+            ),
+            validator: _required,
+          ),
+          const SizedBox(height: 12),
+          _Field(
+            controller: refreshTokenCtrl,
+            label: 'Token de rafraîchissement',
+            hint: 'Copié depuis Paramètres web',
+            icon: Icons.refresh_outlined,
+            obscure: !showRefreshToken,
+            keyboardType: TextInputType.visiblePassword,
+            textInputAction: TextInputAction.next,
+            autocorrect: false,
+            enableSuggestions: false,
+            suffix: IconButton(
+              tooltip: showRefreshToken ? 'Masquer' : 'Afficher',
+              onPressed: onToggleRefreshToken,
+              icon: Icon(showRefreshToken ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         _Field(
           controller: slugCtrl,
@@ -531,31 +631,36 @@ class _ConnectionStep extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Text(
             'Le slug résout automatiquement le tenant et charge la marque (logo, couleurs).',
-            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(height: 12),
         _Field(
           controller: storeCtrl,
           label: 'Store ID',
-          icon: Icons.store_outlined,
-          keyboardType: TextInputType.visiblePassword,
+          hint: 'UUID du magasin',
+          icon: Icons.storefront_outlined,
           textInputAction: TextInputAction.next,
           autocorrect: false,
-          enableSuggestions: false,
           validator: _required,
         ),
         const SizedBox(height: 12),
         _Field(
           controller: currencyCtrl,
           label: 'Devise',
-          hint: 'FBU',
+          hint: 'FBU / USD / EUR',
           icon: Icons.payments_outlined,
           textCapitalization: TextCapitalization.characters,
           textInputAction: TextInputAction.done,
+          validator: _required,
         ),
       ],
     );
+  }
+
+  String? _required(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Champ requis';
+    return null;
   }
 }
 
@@ -596,9 +701,9 @@ class _RoleStep extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(item.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
+                          Text(item.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14)),
                           const SizedBox(height: 2),
-                          Text(item.description, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                          Text(item.description, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
                         ],
                       ),
                     ),
@@ -646,7 +751,7 @@ class _SlaveStep extends StatelessWidget {
           validator: _required,
         ),
         const SizedBox(height: 16),
-        Text('Terminal master', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600)),
+        Text('Terminal master', style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         if (masters.isEmpty)
           Container(
@@ -657,7 +762,7 @@ class _SlaveStep extends StatelessWidget {
             ),
             child: Text(
               'Aucun master enregistré. Saisissez l\'adresse IP ci-dessous.',
-              style: GoogleFonts.inter(fontSize: 12, color: AppColors.warning),
+              style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.warning),
             ),
           )
         else
@@ -690,8 +795,8 @@ class _SlaveStep extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(item.name, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
-                              Text(item.id, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary)),
+                              Text(item.name, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+                              Text(item.id, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
                             ],
                           ),
                         ),
@@ -717,7 +822,7 @@ class _SlaveStep extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           'Sans Internet, choisissez le maître trouvé sur le réseau, ou saisissez son IP. L’API locale écoute sur le port 8001.',
-          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
       ],
     );
@@ -740,7 +845,7 @@ class _LanMasters extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
               'Recherche d’un maître Android ou Windows sur le réseau…',
-              style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+              style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
             ),
           );
         }
@@ -805,7 +910,7 @@ class _Field extends StatelessWidget {
       autocorrect: autocorrect,
       enableSuggestions: enableSuggestions,
       enableIMEPersonalizedLearning: !obscure,
-      style: GoogleFonts.inter(fontSize: 14),
+      style: GoogleFonts.ibmPlexSans(fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -820,3 +925,64 @@ class _Field extends StatelessWidget {
 }
 
 String? _required(String? value) => value == null || value.trim().isEmpty ? 'Requis' : null;
+
+class _FirstSyncReportDialog extends StatelessWidget {
+  const _FirstSyncReportDialog({required this.report});
+
+  final SyncReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = report.ok ? AppColors.success : AppColors.danger;
+    final bg = report.ok ? AppColors.successBg : AppColors.dangerBg;
+
+    return AlertDialog(
+      title: Text(report.ok ? 'Synchronisation initiale' : 'Synchronisation incomplète'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.25)),
+            ),
+            child: Text(
+              report.message.isNotEmpty
+                  ? report.message
+                  : (report.ok ? 'Données téléchargées' : 'Échec de la synchronisation'),
+              style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, color: color),
+            ),
+          ),
+          if (report.ok) ...[
+            const SizedBox(height: 14),
+            ...report.lines.map(
+              (line) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(line.label, style: GoogleFonts.ibmPlexSans(fontSize: 14)),
+                    ),
+                    Text(
+                      '${line.count}',
+                      style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Continuer'),
+        ),
+      ],
+    );
+  }
+}

@@ -11,8 +11,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../core/widgets/role_guard.dart';
 import '../../../sync/offline_store.dart';
+import '../../pos/data/pos_api_service.dart';
 import '../../pos/domain/pos_models.dart';
+import '../../pos/presentation/widgets/pos_merge_sheet.dart';
 import '../../pos/services/pos_pending_intent.dart';
+import '../../receipt/domain/receipt_models.dart';
+import '../../receipt/services/receipt_print_service.dart';
 import '../data/orders_api_service.dart';
 import '../domain/order_models.dart';
 
@@ -25,6 +29,8 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> {
   final _api = OrdersApiService();
+  final _posApi = PosApiService();
+  final _printer = ReceiptPrintService();
   final _search = TextEditingController();
 
   List<_SaleRow> _sales = [];
@@ -32,8 +38,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
   List<PurchaseOrder> _orders = [];
   List<PurchaseInvoice> _invoices = [];
   bool _loading = true;
+  String? _salesError;
   String? _ordersError;
   String? _invoicesError;
+  String? _docBusyId;
   int _section = 0;
   String? _status;
   String? _payment;
@@ -45,8 +53,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
   List<(String?, String)> get _statusFilters => switch (_section) {
         0 => const [
             (null, 'Tous les statuts'),
-            ('pending', 'En attente'),
             ('completed', 'Terminées'),
+            ('pending', 'En attente'),
+            ('draft', 'Brouillon'),
+            ('voided', 'Annulées'),
+            ('merged', 'Fusionnées'),
             ('failed', 'À renvoyer'),
           ],
         1 => const [
@@ -73,6 +84,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
     ('paid', 'Payées'),
     ('partial', 'Partielles'),
     ('on_credit', 'À crédit'),
+    ('unpaid', 'Impayées'),
+    ('credit', 'Crédit'),
   ];
 
   @override
@@ -103,6 +116,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   String? get _sectionError => switch (_section) {
+        0 => _salesError,
         1 => _ordersError,
         2 => _invoicesError,
         _ => null,
@@ -111,6 +125,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     await _loadLocalSales();
+    await _loadRemoteSales();
     await _loadOrders();
     await _loadInvoices();
     if (mounted) setState(() => _loading = false);
@@ -124,6 +139,43 @@ class _OrdersScreenState extends State<OrdersScreen> {
       _sales = sales.map(_SaleRow.fromLocal).toList();
       _holds = holds.map(_SaleRow.fromHold).where((sale) => sale.total > 0 || sale.reference.isNotEmpty).toList();
     });
+  }
+
+  Future<void> _loadRemoteSales() async {
+    try {
+      final remote = await _posApi.fetchSales(
+        search: _search.text.trim().isEmpty ? null : _search.text.trim(),
+        status: _section == 0 && _status != null && _status != 'failed' ? _status : null,
+        paymentStatus: _section == 0 ? _payment : null,
+        from: _from == null ? null : DateFormat('yyyy-MM-dd').format(_from!),
+        to: _to == null ? null : DateFormat('yyyy-MM-dd').format(_to!),
+      );
+      if (!mounted) return;
+      final remoteRows = remote.map(_SaleRow.fromRemote).where((sale) => sale.id.isNotEmpty).toList();
+      setState(() {
+        _sales = _mergeSales(local: _sales.where((sale) => !sale.isRemote).toList(), remote: remoteRows);
+        _salesError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _salesError = _networkMessage(error));
+    }
+  }
+
+  List<_SaleRow> _mergeSales({required List<_SaleRow> local, required List<_SaleRow> remote}) {
+    final remoteIds = <String>{};
+    for (final sale in remote) {
+      remoteIds.add(sale.id);
+      final serverId = sale.serverId;
+      if (serverId != null && serverId.isNotEmpty) remoteIds.add(serverId);
+    }
+    final keptLocal = local.where((sale) {
+      if (remoteIds.contains(sale.id)) return false;
+      final serverId = sale.serverId;
+      if (serverId != null && serverId.isNotEmpty && remoteIds.contains(serverId)) return false;
+      return true;
+    });
+    return [...keptLocal, ...remote];
   }
 
   Future<void> _loadOrders() async {
@@ -165,6 +217,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   void _reloadRemote() {
+    if (_section == 0) {
+      _loadRemoteSales();
+      return;
+    }
     if (_section == 1) {
       _loadOrders();
       return;
@@ -184,7 +240,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   List<_SaleRow> get _venteRows {
-    final rows = [..._holds, ..._sales];
+    final remoteIds = _sales.where((sale) => sale.isRemote).map((sale) => sale.id).toSet();
+    for (final sale in _sales.where((sale) => sale.isRemote)) {
+      final serverId = sale.serverId;
+      if (serverId != null && serverId.isNotEmpty) remoteIds.add(serverId);
+    }
+    final holds = _holds.where((hold) {
+      if (remoteIds.contains(hold.id)) return false;
+      final serverId = hold.serverId;
+      if (serverId != null && serverId.isNotEmpty && remoteIds.contains(serverId)) return false;
+      return true;
+    });
+    final rows = [...holds, ..._sales];
     rows.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return rows;
   }
@@ -205,7 +272,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           .where((sale) => matches('${sale.reference} ${sale.method} ${sale.status} ${sale.statusLabel} ${sale.customerName}'))
           .where((sale) => _inRange(sale.createdAt))
           .where((sale) => _status == null || sale.filterStatus == _status)
-          .where((sale) => _payment == null || sale.paymentStatus == _payment)
+          .where((sale) => _payment == null || sale.matchesPayment(_payment!))
           .map((sale) => _ListItem(
                 id: sale.id,
                 title: sale.reference,
@@ -260,6 +327,66 @@ class _OrdersScreenState extends State<OrdersScreen> {
     context.go(AppRoutes.pos);
   }
 
+  void _resumeSale(_SaleRow sale) {
+    _openHoldOnPos(sale.resumeId);
+  }
+
+  void _viewSale(_SaleRow sale) {
+    final id = sale.detailId;
+    if (id == null || id.isEmpty) return;
+    context.go(AppRoutes.saleDetail(id));
+  }
+
+  Future<void> _mergeSale(_SaleRow sale) async {
+    final id = sale.mergeId;
+    if (id == null || id.isEmpty) return;
+    final merged = await showPosMergeSheet(
+      context,
+      saleId: id,
+      saleReference: sale.reference,
+      api: _posApi,
+    );
+    if (merged == true && mounted) await _loadRemoteSales();
+  }
+
+  Future<void> _createReceipt(_SaleRow sale) async {
+    final id = sale.detailId;
+    if (id == null || id.isEmpty) return;
+    await _issueDocument(saleId: id, label: 'Reçu', create: () => _posApi.createReceipt(id));
+  }
+
+  Future<void> _createInvoice(_SaleRow sale) async {
+    final id = sale.detailId;
+    if (id == null || id.isEmpty) return;
+    await _issueDocument(saleId: id, label: 'Facture', create: () => _posApi.createInvoice(id));
+  }
+
+  Future<void> _issueDocument({
+    required String saleId,
+    required String label,
+    required Future<Map<String, dynamic>> Function() create,
+  }) async {
+    setState(() => _docBusyId = saleId);
+    try {
+      final result = await create();
+      final payload = _receiptPayload(result);
+      if (payload != null) {
+        await _printer.print(payload);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label imprimé')));
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label créé avec succès')));
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_networkMessage(error))),
+      );
+    } finally {
+      if (mounted) setState(() => _docBusyId = null);
+    }
+  }
+
   _Detail? get _detail {
     final id = _selectedId;
     if (id == null) return null;
@@ -286,8 +413,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
           if (!sale.isHold) ('Paiement', sale.methodLabel),
           if (!sale.isHold) ('Payé', MoneyFormatter.format(sale.paid, currencyCode: sale.currency)),
           if (!sale.isHold) ('Reste', MoneyFormatter.format(sale.outstanding, currencyCode: sale.currency)),
-          ('Origine', sale.isHold ? 'Caisse locale' : 'Vente locale'),
-          if (!sale.isHold) ('Synchro', sale.syncLabel),
+          ('Origine', sale.isHold ? 'Caisse locale' : sale.isRemote ? 'Serveur' : 'Vente locale'),
+          if (!sale.isHold && !sale.isRemote) ('Synchro', sale.syncLabel),
+          if (sale.isRemote) ('Paiement statut', sale.paymentStatus),
         ],
         onModify: sale.isHold ? () => _openHoldOnPos(sale.id) : null,
         onAddArticles: sale.isHold ? () => _openHoldOnPos(sale.id, action: PosHoldAction.addArticles) : null,
@@ -351,6 +479,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
       };
 
   void _open(String id) {
+    if (_section == 0) {
+      final sale = _venteRows.where((item) => item.id == id).firstOrNull;
+      if (sale != null && sale.canOpenRemoteDetail) {
+        _viewSale(sale);
+        return;
+      }
+    }
     final wide = MediaQuery.sizeOf(context).width >= 980;
     setState(() => _selectedId = id);
     if (wide) return;
@@ -462,7 +597,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     setState(() => _status = value);
                     _reloadRemote();
                   },
-                  onPayment: (value) => setState(() => _payment = value),
+                  onPayment: (value) {
+                    setState(() => _payment = value);
+                    if (_section == 0) _reloadRemote();
+                  },
                   onFrom: (value) {
                     setState(() => _from = value);
                     _reloadRemote();
@@ -496,7 +634,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
                 ),
-                child: Text(_sectionError!, style: GoogleFonts.inter(fontSize: 12, color: AppColors.danger)),
+                child: Text(_sectionError!, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.danger)),
               ),
             ),
           Expanded(
@@ -520,10 +658,29 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   separatorBuilder: (_, _) => const SizedBox(height: 8),
                                   itemBuilder: (context, index) {
                                     final item = items[index];
+                                    final sale = _section == 0
+                                        ? _venteRows.where((row) => row.id == item.id).firstOrNull
+                                        : null;
+                                    final busy = sale != null && _docBusyId == sale.detailId;
                                     return _RowCard(
                                       item: item,
                                       selected: _selectedId == item.id,
                                       onTap: () => _open(item.id),
+                                      onView: sale != null && sale.canOpenRemoteDetail
+                                          ? () => _viewSale(sale)
+                                          : null,
+                                      onReceipt: sale != null && sale.canIssueDocs && !busy
+                                          ? () => _createReceipt(sale)
+                                          : null,
+                                      onInvoice: sale != null && sale.canIssueDocs && !busy
+                                          ? () => _createInvoice(sale)
+                                          : null,
+                                      onMerge: sale != null && sale.canMerge
+                                          ? () => _mergeSale(sale)
+                                          : null,
+                                      onResume: sale != null && sale.canResume
+                                          ? () => _resumeSale(sale)
+                                          : null,
                                     );
                                   },
                                 ),
@@ -565,7 +722,7 @@ class _OrdersHeader extends StatelessWidget {
         Expanded(
           child: Text(
             'Commandes',
-            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
           ),
         ),
         _MiniChip(label: '$totalSales ventes'),
@@ -597,7 +754,7 @@ class _MiniChip extends StatelessWidget {
         color: tone.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(99),
       ),
-      child: Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: tone)),
+      child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 10, fontWeight: FontWeight.w700, color: tone)),
     );
   }
 }
@@ -635,7 +792,7 @@ class _Segments extends StatelessWidget {
                     child: Text(
                       '${_labels[i]} ${counts[i]}',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.ibmPlexSans(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: index == i ? Colors.white : AppColors.textSecondary,
@@ -652,11 +809,28 @@ class _Segments extends StatelessWidget {
 }
 
 class _RowCard extends StatelessWidget {
-  const _RowCard({required this.item, required this.selected, required this.onTap});
+  const _RowCard({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+    this.onView,
+    this.onReceipt,
+    this.onInvoice,
+    this.onMerge,
+    this.onResume,
+  });
 
   final _ListItem item;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onView;
+  final VoidCallback? onReceipt;
+  final VoidCallback? onInvoice;
+  final VoidCallback? onMerge;
+  final VoidCallback? onResume;
+
+  bool get _hasActions =>
+      onView != null || onReceipt != null || onInvoice != null || onMerge != null || onResume != null;
 
   @override
   Widget build(BuildContext context) {
@@ -664,57 +838,126 @@ class _RowCard extends StatelessWidget {
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: selected ? AppColors.brand600 : AppColors.border, width: selected ? 1.4 : 1),
-            color: selected ? AppColors.brand50.withValues(alpha: 0.55) : AppColors.surface,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(item.icon, size: 18, color: color),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: selected ? AppColors.brand600 : AppColors.border, width: selected ? 1.4 : 1),
+          color: selected ? AppColors.brand50.withValues(alpha: 0.55) : AppColors.surface,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12, 12, 12, _hasActions ? 8 : 12),
+                child: Row(
                   children: [
-                    Text(item.title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.textPrimary)),
-                    const SizedBox(height: 3),
-                    Text(
-                      item.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(item.icon, size: 18, color: color),
                     ),
-                    const SizedBox(height: 3),
-                    Text(item.meta, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.title, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.textPrimary)),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(item.meta, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          MoneyFormatter.format(item.amount, currencyCode: item.currency),
+                          style: GoogleFonts.ibmPlexMono(fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.brand700),
+                        ),
+                        const SizedBox(height: 6),
+                        _Status(label: item.status, status: item.statusKey),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    MoneyFormatter.format(item.amount, currencyCode: item.currency),
-                    style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.brand700),
-                  ),
-                  const SizedBox(height: 6),
-                  _Status(label: item.status, status: item.statusKey),
-                ],
+            ),
+            if (_hasActions)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    if (onView != null)
+                      _SaleActionChip(label: 'Voir', icon: Icons.visibility_outlined, onPressed: onView!),
+                    if (onReceipt != null)
+                      _SaleActionChip(label: 'Reçu', icon: Icons.receipt_outlined, onPressed: onReceipt!),
+                    if (onInvoice != null)
+                      _SaleActionChip(label: 'Facture', icon: Icons.description_outlined, onPressed: onInvoice!),
+                    if (onMerge != null)
+                      _SaleActionChip(label: 'Fusionner', icon: Icons.merge_type, onPressed: onMerge!),
+                    if (onResume != null)
+                      _SaleActionChip(label: 'Reprendre', icon: Icons.play_arrow_outlined, onPressed: onResume!),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SaleActionChip extends StatelessWidget {
+  const _SaleActionChip({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.fieldFill,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: AppColors.brand700),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.brand700),
               ),
             ],
           ),
@@ -740,7 +983,7 @@ class _Status extends StatelessWidget {
         borderRadius: BorderRadius.circular(99),
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
-      child: Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+      child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }
@@ -781,7 +1024,7 @@ class _DetailBody extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text(detail.title, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700))),
+            Expanded(child: Text(detail.title, style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700))),
             _Status(label: detail.status, status: detail.statusKey),
           ],
         ),
@@ -833,14 +1076,14 @@ class _DetailBody extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Total', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+              Text('Total', style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
-              Text(detail.amount, style: GoogleFonts.jetBrainsMono(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
+              Text(detail.amount, style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
               if (detail.itemCount > 0) ...[
                 const SizedBox(height: 4),
                 Text(
                   '${detail.itemCount} article${detail.itemCount > 1 ? 's' : ''}',
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
             ],
@@ -850,7 +1093,7 @@ class _DetailBody extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             'Articles',
-            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 8),
           for (final line in detail.lines)
@@ -872,19 +1115,19 @@ class _DetailBody extends StatelessWidget {
                       children: [
                         Text(
                           line.name,
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                          style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           '${line.quantity} × ${MoneyFormatter.format(line.unitPrice, currencyCode: currency)}',
-                          style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
+                          style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
                         ),
                       ],
                     ),
                   ),
                   Text(
                     MoneyFormatter.format(line.lineTotal, currencyCode: currency),
-                    style: GoogleFonts.jetBrainsMono(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.brandInk),
+                    style: GoogleFonts.ibmPlexMono(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.brandInk),
                   ),
                 ],
               ),
@@ -900,22 +1143,22 @@ class _DetailBody extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text('Sous-total', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                    Text('Sous-total', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
                     const Spacer(),
                     Text(
                       MoneyFormatter.format(detail.subtotal, currencyCode: currency),
-                      style: GoogleFonts.jetBrainsMono(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                      style: GoogleFonts.ibmPlexMono(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Text('Total', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    Text('Total', style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                     const Spacer(),
                     Text(
                       detail.amount,
-                      style: GoogleFonts.jetBrainsMono(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.brandInk),
+                      style: GoogleFonts.ibmPlexMono(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.brandInk),
                     ),
                   ],
                 ),
@@ -926,7 +1169,7 @@ class _DetailBody extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             'Aucun détail d’article disponible pour cette commande.',
-            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
           ),
         ],
         const SizedBox(height: 14),
@@ -943,13 +1186,13 @@ class _DetailBody extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(row.$1, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                  child: Text(row.$1, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
                 ),
                 Flexible(
                   child: Text(
                     row.$2,
                     textAlign: TextAlign.right,
-                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                   ),
                 ),
               ],
@@ -979,7 +1222,7 @@ class _DetailPlaceholder extends StatelessWidget {
         children: [
           Icon(Icons.touch_app_outlined, color: AppColors.textMuted, size: 28),
           const SizedBox(height: 8),
-          Text('Sélectionnez une commande', style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 13)),
+          Text('Sélectionnez une commande', style: GoogleFonts.ibmPlexSans(color: AppColors.textMuted, fontSize: 13)),
         ],
       ),
     );
@@ -1013,12 +1256,12 @@ class _Empty extends StatelessWidget {
             child: Icon(Icons.inbox_outlined, color: AppColors.brand600, size: 28),
           ),
           const SizedBox(height: 12),
-          Text(label, style: GoogleFonts.inter(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 14)),
+          Text(label, style: GoogleFonts.ibmPlexSans(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 4),
           Text(
             'Modifiez les filtres ou tirez pour actualiser.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 12),
+            style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary, fontSize: 12),
           ),
         ],
       ),
@@ -1028,8 +1271,9 @@ class _Empty extends StatelessWidget {
 
 Color _statusColor(String status) => switch (status.toLowerCase()) {
       'completed' || 'approved' || 'paid' || 'synced' => AppColors.success,
-      'pending' || 'held' || 'submitted' || 'partial' || 'partially_paid' || 'retrying' => AppColors.warning,
-      'cancelled' || 'failed' || 'conflict' => AppColors.danger,
+      'pending' || 'held' || 'submitted' || 'partial' || 'partially_paid' || 'retrying' || 'draft' => AppColors.warning,
+      'cancelled' || 'failed' || 'conflict' || 'voided' => AppColors.danger,
+      'merged' => AppColors.brand600,
       _ => AppColors.brand600,
     };
 
@@ -1121,10 +1365,13 @@ class _SaleRow {
     required this.status,
     required this.createdAt,
     required this.currency,
+    this.serverId,
     this.customerName,
     this.note,
     this.itemCount = 0,
     this.isHold = false,
+    this.isRemote = false,
+    this.paymentStatusRaw,
     this.lines = const [],
   });
 
@@ -1152,6 +1399,7 @@ class _SaleRow {
     } catch (_) {}
     return _SaleRow(
       id: row['id'] as String,
+      serverId: row['server_id']?.toString(),
       reference: row['reference'] as String? ?? 'Vente',
       total: (row['total'] as num?)?.toInt() ?? 0,
       paid: (row['paid_amount'] as num?)?.toInt() ?? 0,
@@ -1170,6 +1418,7 @@ class _SaleRow {
     final currency = TerminalConfigRepository.instance.config.currencyCode;
     return _SaleRow(
       id: held.id,
+      serverId: held.serverId,
       reference: held.label,
       total: held.total,
       paid: 0,
@@ -1182,6 +1431,7 @@ class _SaleRow {
       note: held.note,
       itemCount: held.itemCount,
       isHold: true,
+      paymentStatusRaw: 'unpaid',
       lines: held.lines
           .map(
             (line) => _LineDetail(
@@ -1194,7 +1444,59 @@ class _SaleRow {
     );
   }
 
+  factory _SaleRow.fromRemote(Map<String, dynamic> row) {
+    final customer = row['customer'];
+    final customerName = customer is Map
+        ? customer['name']?.toString()
+        : row['customer_name']?.toString();
+    final items = row['items'];
+    final lines = items is List
+        ? items.whereType<Map>().map((raw) {
+            final item = Map<String, dynamic>.from(raw);
+            return _LineDetail(
+              name: item['product_name']?.toString() ??
+                  item['name']?.toString() ??
+                  item['product_sku']?.toString() ??
+                  'Article',
+              quantity: (item['quantity'] as num?)?.toInt() ?? 1,
+              unitPrice: (item['unit_price'] as num?)?.toInt() ?? 0,
+            );
+          }).toList()
+        : const <_LineDetail>[];
+    final payments = row['payments'];
+    var method = row['payment_method']?.toString() ?? row['method']?.toString() ?? 'cash';
+    if (payments is List && payments.isNotEmpty) {
+      final first = payments.first;
+      if (first is Map) {
+        method = first['method']?.toString() ?? first['payment_method']?.toString() ?? method;
+      }
+    }
+    return _SaleRow(
+      id: row['id']?.toString() ?? '',
+      serverId: row['id']?.toString(),
+      reference: row['reference']?.toString() ?? 'Vente',
+      total: (row['total'] as num?)?.toInt() ?? 0,
+      paid: (row['paid_amount'] as num?)?.toInt() ?? 0,
+      outstanding: (row['outstanding_amount'] as num?)?.toInt() ?? 0,
+      method: method,
+      status: row['status']?.toString() ?? 'completed',
+      createdAt: DateTime.tryParse(
+            row['completed_at']?.toString() ?? row['created_at']?.toString() ?? '',
+          ) ??
+          DateTime.now(),
+      currency: row['currency']?.toString() ??
+          TerminalConfigRepository.instance.config.currencyCode,
+      customerName: customerName,
+      note: row['notes']?.toString(),
+      itemCount: lines.fold<int>(0, (sum, line) => sum + line.quantity),
+      isRemote: true,
+      paymentStatusRaw: row['payment_status']?.toString(),
+      lines: lines,
+    );
+  }
+
   final String id;
+  final String? serverId;
   final String reference;
   final int total;
   final int paid;
@@ -1207,7 +1509,37 @@ class _SaleRow {
   final String? note;
   final int itemCount;
   final bool isHold;
+  final bool isRemote;
+  final String? paymentStatusRaw;
   final List<_LineDetail> lines;
+
+  String? get detailId {
+    if (isRemote) return id;
+    final remote = serverId;
+    if (remote != null && remote.isNotEmpty) return remote;
+    return null;
+  }
+
+  String get resumeId => serverId?.isNotEmpty == true ? serverId! : id;
+
+  String? get mergeId {
+    if (isHold) return serverId?.isNotEmpty == true ? serverId : null;
+    if (isRemote && status.toLowerCase() == 'pending') return id;
+    return null;
+  }
+
+  bool get canOpenRemoteDetail => detailId != null && !isHold;
+
+  bool get canIssueDocs {
+    final id = detailId;
+    if (id == null || id.isEmpty) return false;
+    final key = status.toLowerCase();
+    return key == 'completed' || key == 'synced';
+  }
+
+  bool get canMerge => mergeId != null;
+
+  bool get canResume => isHold || (isRemote && status.toLowerCase() == 'pending');
 
   String get methodLabel => switch (method) {
         'held' => 'Non payée',
@@ -1228,28 +1560,59 @@ class _SaleRow {
       ];
       return parts.join(' · ');
     }
-    return methodLabel;
+    final parts = <String>[
+      methodLabel,
+      if (customerName != null && customerName!.isNotEmpty) customerName!,
+      if (isRemote) 'Serveur',
+    ];
+    return parts.join(' · ');
   }
 
-  String get statusLabel => switch (status) {
+  String get statusLabel => switch (status.toLowerCase()) {
         'held' => 'En attente',
-        'synced' => 'Envoyée',
-        'pending' => 'À synchroniser',
+        'synced' => 'Terminée',
+        'completed' => 'Terminée',
+        'pending' => isRemote || isHold ? 'En attente' : 'À synchroniser',
+        'draft' => 'Brouillon',
+        'voided' => 'Annulée',
+        'merged' => 'Fusionnée',
         'failed' || 'retrying' => 'À renvoyer',
         _ => status,
       };
 
-  String get filterStatus => switch (status) {
-        'held' => 'pending',
-        'synced' => 'completed',
-        'failed' || 'retrying' => 'failed',
-        _ => 'pending',
-      };
+  String get filterStatus {
+    if (isRemote) return status.toLowerCase();
+    return switch (status.toLowerCase()) {
+      'held' => 'pending',
+      'synced' => 'completed',
+      'failed' || 'retrying' => 'failed',
+      _ => 'pending',
+    };
+  }
 
   String get paymentStatus {
+    final raw = paymentStatusRaw?.toLowerCase();
+    if (raw != null && raw.isNotEmpty) return raw;
     if (isHold || (paid <= 0 && outstanding > 0)) return 'on_credit';
     if (outstanding > 0) return 'partial';
+    if (method == 'credit') return 'credit';
     return 'paid';
+  }
+
+  bool matchesPayment(String filter) {
+    final key = filter.toLowerCase();
+    final current = paymentStatus.toLowerCase();
+    if (current == key) return true;
+    if (key == 'unpaid') {
+      return current == 'on_credit' || current == 'unpaid' || (paid <= 0 && outstanding > 0);
+    }
+    if (key == 'credit') {
+      return current == 'credit' || current == 'on_credit' || method == 'credit';
+    }
+    if (key == 'on_credit') {
+      return current == 'on_credit' || current == 'unpaid' || current == 'credit';
+    }
+    return false;
   }
 
   String get syncLabel => statusLabel;
@@ -1341,7 +1704,7 @@ class _FilterBar extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Text('Filtres', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                      Text('Filtres', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                       const Spacer(),
                       TextButton(
                         onPressed: () {
@@ -1429,7 +1792,7 @@ class _FilterBar extends StatelessWidget {
                   child: TextField(
                     controller: search,
                     onChanged: onSearch,
-                    style: GoogleFonts.inter(fontSize: 13),
+                    style: GoogleFonts.ibmPlexSans(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Rechercher…',
                       prefixIcon: const Icon(Icons.search, size: 16),
@@ -1479,7 +1842,7 @@ class _FilterBar extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             '$_activeCount',
-                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brand700),
+                            style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brand700),
                           ),
                         ],
                         if (!sheet) ...[
@@ -1498,7 +1861,7 @@ class _FilterBar extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '$resultCount',
-                style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -1566,14 +1929,14 @@ class _FilterBar extends StatelessWidget {
           Text(
             option.$1 == null || option.$1!.isEmpty ? label : option.$2,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textPrimary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textPrimary),
           ),
       ],
       items: [
         for (final option in options)
           DropdownMenuItem(
             value: option.$1 ?? '',
-            child: Text(option.$2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12)),
+            child: Text(option.$2, overflow: TextOverflow.ellipsis, style: GoogleFonts.ibmPlexSans(fontSize: 12)),
           ),
       ],
       onChanged: (picked) => onChanged(picked == null || picked.isEmpty ? null : picked),
@@ -1609,7 +1972,7 @@ class _FilterBar extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.ibmPlexSans(
             fontSize: 12,
             color: value == null ? AppColors.textMuted : AppColors.textPrimary,
           ),
@@ -1617,4 +1980,20 @@ class _FilterBar extends StatelessWidget {
       ),
     );
   }
+}
+
+ReceiptPrintPayload? _receiptPayload(dynamic result) {
+  if (result is ReceiptPrintPayload) return result;
+  if (result is Map) {
+    final map = Map<String, dynamic>.from(result);
+    final payload = map['payload'] ??
+        (map['data'] is Map ? (map['data'] as Map)['payload'] : null) ??
+        map;
+    if (payload is Map) {
+      try {
+        return ReceiptPrintPayload.fromJson(Map<String, dynamic>.from(payload));
+      } catch (_) {}
+    }
+  }
+  return null;
 }

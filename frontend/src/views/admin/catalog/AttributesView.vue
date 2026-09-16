@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
@@ -7,8 +7,10 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { CatalogAttribute } from '../../../types'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -16,6 +18,11 @@ const store = useBackofficeStore()
 const showModal = ref(false)
 const editing = ref<CatalogAttribute | null>(null)
 const saving = ref(false)
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.catalogAttributes.filter(attribute =>
+  matchesSearch(`${attribute.name} ${attribute.code} ${(attribute.values ?? []).join(' ')}`, filters.value.search)
+  && matchesActive(attribute.is_active, filters.value.active),
+))
 const form = ref({ name: '', code: '', valuesText: '', is_active: true })
 
 onMounted(() => store.loadCatalogAttributes(true))
@@ -73,6 +80,7 @@ async function remove(attribute: CatalogAttribute) {
         <p class="m-0 max-w-2xl text-sm text-slate-500">{{ t('catalog.attributesHint') }}</p>
         <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('catalog.addAttribute') }}</button>
       </div>
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -84,7 +92,7 @@ async function remove(attribute: CatalogAttribute) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="attribute in store.catalogAttributes" :key="attribute.id" class="hover:bg-slate-50">
+            <tr v-for="attribute in filtered" :key="attribute.id" class="hover:bg-slate-50">
               <td class="px-4 py-3">
                 <span class="block font-medium">{{ attribute.name }}</span>
                 <span class="font-mono text-xs text-slate-400">{{ attribute.code }}</span>
@@ -98,7 +106,7 @@ async function remove(attribute: CatalogAttribute) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.catalogAttributes.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 

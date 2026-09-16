@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { extractApiErrorMessage } from '../../../api/client'
 import InventoryActionDetails from '../../../components/inventory/InventoryActionDetails.vue'
@@ -8,11 +8,13 @@ import WarehouseOptions from '../../../components/inventory/WarehouseOptions.vue
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, StockAdjustment, StockAdjustmentDetail, StockAdjustmentItem, StockBalance, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
+import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 type SaleUnit = { id: string; name: string; volume_ml: number; is_base?: boolean }
 type IssueLine = {
@@ -51,6 +53,21 @@ const form = ref({
   reason: '',
   items: [emptyLine()],
 })
+
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const warehouseOptions = computed(() => warehouses.value.map(w => ({ id: w.id, name: w.name })))
+const statusOptions = computed(() =>
+  ['draft', 'approved', 'completed'].map(value => ({ value, label: statusLabel(value) })),
+)
+const filtered = computed(() => rows.value.filter(row =>
+  matchesSearch(
+    `${row.adjustment_number} ${row.reason ?? ''} ${row.warehouse?.name ?? ''} ${row.movement_type ?? ''}`,
+    filters.value.search,
+  )
+  && (!filters.value.status || row.status === filters.value.status)
+  && inPeriod(row.created_at, filters.value)
+  && (!filters.value.warehouse_id || row.warehouse_id === filters.value.warehouse_id),
+))
 
 function emptyLine(): IssueLine {
   return { product_id: '', quantity: 1, sale_unit_id: '', units: [], bottle_volume_ml: 0 }
@@ -261,8 +278,19 @@ async function complete(id: string) {
 
 <template>
   <InventoryLayout>
-    <div class="mb-4 flex justify-end">
-      <button class="btn-primary" @click="openCreate">+ {{ t('inventory.newIssue') }}</button>
+    <div class="mb-4 space-y-3">
+      <div class="flex justify-end">
+        <button class="btn-primary" @click="openCreate">+ {{ t('inventory.newIssue') }}</button>
+      </div>
+      <ModuleFilters
+        v-model="filters"
+        :statuses="statusOptions"
+        :warehouses="warehouseOptions"
+        show-search
+        show-period
+        show-status
+        show-warehouse
+      />
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -279,7 +307,7 @@ async function complete(id: string) {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in rows" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in filtered" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 font-mono">{{ row.adjustment_number }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ movementLabel(row.movement_type) }}</td>
@@ -294,7 +322,7 @@ async function complete(id: string) {
           </tr>
         </tbody>
       </table>
-      <p v-if="!rows.length" class="px-4 py-8 text-center text-slate-500">{{ t('inventory.issueEmpty') }}</p>
+      <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('inventory.issueEmpty') }}</p>
     </div>
 
     <AppModal

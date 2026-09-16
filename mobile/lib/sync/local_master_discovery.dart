@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/config/terminal_config_repository.dart';
 import 'local_master_server.dart';
+import 'sync_numbers.dart';
 
 class DiscoveredMaster {
   const DiscoveredMaster({
@@ -116,7 +117,7 @@ class LocalMasterDiscovery extends ChangeNotifier {
     if (host.isEmpty || host == LocalMasterServer.instance.lanAddress) return;
     final found = DiscoveredMaster(
       host: host,
-      port: (body['port'] as num?)?.toInt() ?? LocalMasterServer.port,
+      port: syncAsInt(body['port'], LocalMasterServer.port),
       name: body['name']?.toString().trim().isNotEmpty == true ? body['name'].toString() : host,
       storeId: body['store_id']?.toString() ?? '',
       seenAt: DateTime.now(),

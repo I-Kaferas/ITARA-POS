@@ -16,7 +16,7 @@ class LoadingView extends StatelessWidget {
         children: [
           const CircularProgressIndicator(color: AppColors.brand500),
           const SizedBox(height: 12),
-          Text(message, style: GoogleFonts.inter(color: AppColors.textSecondary)),
+          Text(message, style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary)),
         ],
       ),
     );
@@ -42,7 +42,7 @@ class ErrorView extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: AppColors.textPrimary),
+              style: GoogleFonts.ibmPlexSans(color: AppColors.textPrimary),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 14),

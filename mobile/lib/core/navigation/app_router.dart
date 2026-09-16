@@ -3,18 +3,22 @@ import 'package:go_router/go_router.dart';
 
 import '../config/terminal_config_repository.dart';
 import '../../features/accounting/presentation/accounting_screen.dart';
+import '../../features/auth/presentation/admin_login_screen.dart';
 import '../../features/auth/presentation/pin_login_screen.dart';
 import '../../features/barcode/presentation/barcode_hub_screen.dart';
-import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/customers/presentation/customer_account_screen.dart';
 import '../../features/expenses/presentation/expenses_screen.dart';
 import '../../features/hospitality/presentation/hospitality_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/orders/presentation/orders_screen.dart';
+import '../../features/pos/presentation/pos_overview_screen.dart';
+import '../../features/pos/presentation/pos_reservations_screen.dart';
+import '../../features/pos/presentation/pos_screen.dart';
 import '../../features/production/presentation/production_screen.dart';
 import '../../features/reports/presentation/reports_screen.dart';
+import '../../features/sales/presentation/returns_screen.dart';
+import '../../features/sales/presentation/sale_detail_screen.dart';
 import '../../features/services/presentation/services_screen.dart';
-import '../../features/orders/presentation/orders_screen.dart';
-import '../../features/pos/presentation/pos_screen.dart';
 import '../../features/settings/presentation/configuration_screen.dart';
 import '../../features/setup/presentation/setup_screen.dart';
 import '../../features/shifts/presentation/shifts_screen.dart';
@@ -28,11 +32,12 @@ class AppRouter {
   AppRouter._();
 
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
+  static GoRouter? _router;
 
   static GoRouter create() {
     SyncEngine.instance.start();
     LocalMasterServer.instance.startIfMaster();
-    return GoRouter(
+    return _router ??= GoRouter(
       navigatorKey: _rootNavigatorKey,
       initialLocation: AppRoutes.dashboard,
       refreshListenable: TerminalConfigRepository.instance,
@@ -41,17 +46,34 @@ class AppRouter {
         if (!repo.isLoaded) return null;
 
         final location = state.matchedLocation;
+        final isAdminLogin = location == AppRoutes.adminLogin;
         final isSetup = location == AppRoutes.setup;
         final isPin = location == AppRoutes.pin;
+        final hasToken = repo.config.authToken.trim().isNotEmpty;
+        final signedIn = repo.config.isSignedIn && hasToken;
 
-        if (!repo.isConfigured && !isSetup) return AppRoutes.setup;
+        // First launch: admin account login before terminal configuration.
+        if (!repo.isConfigured && !signedIn && !isAdminLogin) {
+          return AppRoutes.adminLogin;
+        }
+        if (!repo.isConfigured && signedIn && !isSetup) {
+          return AppRoutes.setup;
+        }
+        if (!repo.isConfigured && isAdminLogin && signedIn) {
+          return AppRoutes.setup;
+        }
         if (!repo.isConfigured) return null;
 
-        if (!repo.config.isSignedIn && !isPin) return AppRoutes.pin;
-        if (repo.config.isSignedIn && (isSetup || isPin)) return AppRoutes.dashboard;
+        // Configured terminal: cashier PIN session.
+        if (!signedIn && !isPin && !isAdminLogin) return AppRoutes.pin;
+        if (signedIn && (isSetup || isPin || isAdminLogin)) return AppRoutes.dashboard;
         return null;
       },
       routes: [
+        GoRoute(
+          path: AppRoutes.adminLogin,
+          builder: (_, __) => const AdminLoginScreen(),
+        ),
         GoRoute(
           path: AppRoutes.setup,
           builder: (_, __) => const SetupScreen(),
@@ -69,10 +91,7 @@ class AppRouter {
               routes: [
                 GoRoute(
                   path: AppRoutes.dashboard,
-                  builder: (_, __) => DashboardScreen(
-                    onNavigate: (index) => _goToTab(index),
-                    onConfigurationTap: () => _rootNavigatorKey.currentContext?.go(AppRoutes.configuration),
-                  ),
+                  builder: (_, __) => const PosOverviewScreen(),
                   routes: [
                     GoRoute(
                       path: 'hospitality',
@@ -131,6 +150,22 @@ class AppRouter {
                 GoRoute(
                   path: AppRoutes.orders,
                   builder: (_, __) => const OrdersScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'sale/:id',
+                      builder: (_, state) => SaleDetailScreen(
+                        saleId: state.pathParameters['id'] ?? '',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.returns,
+                  builder: (_, __) => const ReturnsScreen(),
                 ),
               ],
             ),
@@ -139,6 +174,14 @@ class AppRouter {
                 GoRoute(
                   path: AppRoutes.shifts,
                   builder: (_, __) => const ShiftsScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.reservations,
+                  builder: (_, __) => const PosReservationsScreen(),
                 ),
               ],
             ),
@@ -156,7 +199,7 @@ class AppRouter {
     );
   }
 
-  static void _goToTab(int index) {
+  static void goToTab(int index) {
     final context = _rootNavigatorKey.currentContext;
     if (context == null) return;
     switch (index) {
@@ -167,8 +210,12 @@ class AppRouter {
       case 2:
         context.go(AppRoutes.orders);
       case 3:
-        context.go(AppRoutes.shifts);
+        context.go(AppRoutes.returns);
       case 4:
+        context.go(AppRoutes.shifts);
+      case 5:
+        context.go(AppRoutes.reservations);
+      case 6:
         context.go(AppRoutes.configuration);
     }
   }

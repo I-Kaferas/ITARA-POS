@@ -7,11 +7,13 @@ import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, StockTransferDetail, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
+import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -29,6 +31,25 @@ const formError = ref('')
 const destinationWarehouses = computed(() =>
   warehouses.value.filter(w => w.id !== form.value.source_warehouse_id),
 )
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const warehouseOptions = computed(() => warehouses.value.map(w => ({ id: w.id, name: w.name })))
+const statusOptions = computed(() =>
+  ['draft', 'pending', 'approved', 'in_transit', 'completed', 'cancelled'].map(value => ({
+    value,
+    label: statusLabel(value),
+  })),
+)
+const filtered = computed(() => store.stockTransfers.filter(row =>
+  matchesSearch(
+    `${row.transfer_number} ${(row as { notes?: string | null }).notes ?? ''} ${row.source_warehouse?.name ?? ''} ${row.destination_warehouse?.name ?? ''}`,
+    filters.value.search,
+  )
+  && (!filters.value.status || row.status === filters.value.status)
+  && inPeriod(row.created_at, filters.value)
+  && (!filters.value.warehouse_id
+    || row.source_warehouse_id === filters.value.warehouse_id
+    || row.destination_warehouse_id === filters.value.warehouse_id),
+))
 const form = ref({
   source_warehouse_id: '',
   destination_warehouse_id: '',
@@ -212,8 +233,19 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
 <template>
   <InventoryLayout>
     <p class="mb-4 text-xs text-slate-500">{{ t('inventory.transferFlowHint') }}</p>
-    <div class="mb-4 flex justify-end">
-      <button class="btn-primary" @click="openCreate">+ {{ t('inventory.newTransfer') }}</button>
+    <div class="mb-4 space-y-3">
+      <div class="flex justify-end">
+        <button class="btn-primary" @click="openCreate">+ {{ t('inventory.newTransfer') }}</button>
+      </div>
+      <ModuleFilters
+        v-model="filters"
+        :statuses="statusOptions"
+        :warehouses="warehouseOptions"
+        show-search
+        show-period
+        show-status
+        show-warehouse
+      />
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -229,7 +261,7 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in store.stockTransfers" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in filtered" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 font-mono">{{ row.transfer_number }}</td>
             <td class="px-4 py-3">{{ row.source_warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ row.destination_warehouse?.name ?? '—' }}</td>
@@ -244,7 +276,7 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
           </tr>
         </tbody>
       </table>
-      <p v-if="!store.stockTransfers.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
     </div>
 
     <AppModal

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/config/terminal_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../sync/local_master_server.dart';
+import '../../../sync/offline_store.dart';
 
 class PinAuthService {
   PinAuthService({http.Client? client}) : _client = client ?? http.Client();
@@ -70,7 +71,7 @@ class PinAuthService {
     }
 
     if (response == null || response.statusCode >= 500) {
-      final offline = _offlineSession(pin);
+      final offline = await _offlineSessionFromStore(pin) ?? _offlineSession(pin);
       if (offline != null) return offline;
       if (config.pinVerifier.isNotEmpty) {
         throw Exception('PIN refusé');
@@ -105,6 +106,30 @@ class PinAuthService {
       token: token,
       refreshToken: body['refresh_token'] as String? ?? '',
       expiresIn: (body['expires_in'] as num?)?.toInt() ?? 3600,
+      permissions: _stringList(user['permissions']),
+      roles: _stringList(user['roles']),
+    );
+  }
+
+  Future<({
+    String name,
+    String id,
+    String token,
+    String refreshToken,
+    int expiresIn,
+    List<String> permissions,
+    List<String> roles,
+  })?> _offlineSessionFromStore(String pin) async {
+    final config = TerminalConfigRepository.instance.config;
+    if (config.authToken.isEmpty) return null;
+    final user = await OfflineStore.instance.findOfflineUserByPin(pin);
+    if (user == null) return null;
+    return (
+      name: user['name']?.toString().isNotEmpty == true ? user['name'].toString() : 'Caissier',
+      id: user['id']?.toString() ?? '',
+      token: config.authToken,
+      refreshToken: config.refreshToken,
+      expiresIn: 3600,
       permissions: _stringList(user['permissions']),
       roles: _stringList(user['roles']),
     );

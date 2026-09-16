@@ -7,8 +7,10 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Category } from '../../../types'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -49,6 +51,12 @@ const flatCategories = computed(() => {
   walk(store.categories)
   return result
 })
+
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filteredCategories = computed(() => flatCategories.value.filter(cat =>
+  matchesSearch(`${cat.name} ${cat.slug}`, filters.value.search)
+  && matchesActive(cat.is_active, filters.value.active),
+))
 
 function openCreate() {
   editing.value = null
@@ -107,6 +115,8 @@ async function remove(category: Category) {
         </button>
       </div>
 
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
+
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -118,7 +128,7 @@ async function remove(category: Category) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="cat in flatCategories" :key="cat.id" class="hover:bg-slate-50">
+            <tr v-for="cat in filteredCategories" :key="cat.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium" :style="{ paddingLeft: `${1 + cat.depth}rem` }">
                 {{ cat.depth ? '↳ ' : '' }}{{ cat.name }}
               </td>
@@ -131,7 +141,7 @@ async function remove(category: Category) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!flatCategories.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filteredCategories.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 

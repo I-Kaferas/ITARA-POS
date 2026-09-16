@@ -1,15 +1,67 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatDate, formatMoney } from '../../../utils/format'
+import { emptyListFilters, inPeriod, listFilterParams, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const router = useRouter()
 const store = useBackofficeStore()
 const activeTab = ref<'accounts' | 'schedule' | 'payments'>('accounts')
+const filters = ref<ListFilters>(emptyListFilters())
+
+const scheduleStatuses = computed(() => [
+  { value: 'overdue', label: t('payables.overdue') },
+])
+
+const methodOptions = computed(() => [
+  { value: 'cash', label: paymentMethodLabel('cash') },
+  { value: 'bank_transfer', label: paymentMethodLabel('bank_transfer') },
+  { value: 'check', label: paymentMethodLabel('check') },
+  { value: 'mobile_money', label: paymentMethodLabel('mobile_money') },
+  { value: 'card', label: paymentMethodLabel('card') },
+  { value: 'other', label: paymentMethodLabel('other') },
+])
+
+const summary = computed(() => store.payablesSummary)
+
+const filteredAccounts = computed(() =>
+  (summary.value?.suppliers ?? []).filter((row) =>
+    matchesSearch([row.supplier_name, row.supplier_code].filter(Boolean).join(' '), filters.value.search),
+  ),
+)
+
+const filteredSchedule = computed(() =>
+  store.payablesSchedule.filter((item) => {
+    const haystack = [item.supplier_name, item.supplier_code, item.reference].filter(Boolean).join(' ')
+    if (!matchesSearch(haystack, filters.value.search)) return false
+    if (!inPeriod(item.due_date, filters.value)) return false
+    return true
+  }),
+)
+
+const filteredPayments = computed(() =>
+  store.supplierPayments.filter((payment) => {
+    const haystack = [
+      payment.payment_number,
+      payment.reference,
+      payment.supplier?.name,
+      payment.payment_method,
+    ].filter(Boolean).join(' ')
+    if (!matchesSearch(haystack, filters.value.search)) return false
+    if (!inPeriod(payment.paid_at, filters.value)) return false
+    if (filters.value.payment_method && payment.payment_method !== filters.value.payment_method) return false
+    return true
+  }),
+)
+
+watch(activeTab, () => {
+  filters.value = { ...filters.value, status: '', payment_method: '' }
+})
 
 onMounted(async () => {
   await Promise.all([
@@ -19,7 +71,13 @@ onMounted(async () => {
   ])
 })
 
-const summary = computed(() => store.payablesSummary)
+async function applyFilters() {
+  if (activeTab.value === 'schedule') {
+    await store.loadPayablesSchedule(filters.value.status === 'overdue')
+  } else if (activeTab.value === 'payments') {
+    await store.loadRecentSupplierPayments(listFilterParams(filters.value))
+  }
+}
 
 function openSupplier(supplierId: string) {
   router.push({ name: 'supplier-detail', params: { id: supplierId } })
@@ -75,6 +133,17 @@ function paymentMethodLabel(method: string): string {
         </button>
       </div>
 
+      <ModuleFilters
+        v-model="filters"
+        :statuses="scheduleStatuses"
+        :methods="methodOptions"
+        show-search
+        :show-period="activeTab === 'schedule' || activeTab === 'payments'"
+        :show-status="activeTab === 'schedule'"
+        :show-method="activeTab === 'payments'"
+        @apply="applyFilters"
+      />
+
       <div v-if="activeTab === 'accounts'" class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -88,7 +157,7 @@ function paymentMethodLabel(method: string): string {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr
-              v-for="row in summary?.suppliers ?? []"
+              v-for="row in filteredAccounts"
               :key="row.supplier_id"
               class="cursor-pointer hover:bg-slate-50"
               @click="openSupplier(row.supplier_id)"
@@ -103,7 +172,7 @@ function paymentMethodLabel(method: string): string {
             </tr>
           </tbody>
         </table>
-        <p v-if="!summary?.suppliers.length" class="px-4 py-8 text-center text-slate-500">{{ t('payables.noDebt') }}</p>
+        <p v-if="!filteredAccounts.length" class="px-4 py-8 text-center text-slate-500">{{ t('payables.noDebt') }}</p>
       </div>
 
       <div v-else-if="activeTab === 'schedule'" class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -119,7 +188,7 @@ function paymentMethodLabel(method: string): string {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr
-              v-for="item in store.payablesSchedule"
+              v-for="item in filteredSchedule"
               :key="item.id"
               class="cursor-pointer hover:bg-slate-50"
               @click="openSupplier(item.supplier_id)"
@@ -135,7 +204,7 @@ function paymentMethodLabel(method: string): string {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.payablesSchedule.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filteredSchedule.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
 
       <div v-else class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -150,7 +219,7 @@ function paymentMethodLabel(method: string): string {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="payment in store.supplierPayments" :key="payment.id" class="hover:bg-slate-50">
+            <tr v-for="payment in filteredPayments" :key="payment.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono">{{ payment.payment_number }}</td>
               <td class="px-4 py-3">{{ payment.supplier?.name ?? '—' }}</td>
               <td class="px-4 py-3 text-slate-600">{{ paymentMethodLabel(payment.payment_method) }}</td>
@@ -159,7 +228,7 @@ function paymentMethodLabel(method: string): string {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.supplierPayments.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filteredPayments.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
   </AdminLayout>

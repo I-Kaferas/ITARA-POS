@@ -98,7 +98,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Nouvelle caisse', style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text('Nouvelle caisse', style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 14),
                 TextField(
                   controller: nameCtrl,
@@ -110,7 +110,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                   controller: codeCtrl,
                   decoration: const InputDecoration(labelText: 'Code'),
                   textCapitalization: TextCapitalization.characters,
-                  style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.w600),
+                  style: GoogleFonts.ibmPlexMono(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -169,7 +169,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Ouvrir le shift', style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text('Ouvrir le shift', style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text('${register.name} · ${register.code}', style: PosUi.caption()),
                 const SizedBox(height: 14),
@@ -243,6 +243,8 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
       text: (expected / 100).toStringAsFixed(2),
     );
     final notesCtrl = TextEditingController();
+    final pinCtrl = TextEditingController();
+    final varianceCtrl = TextEditingController();
 
     if (!mounted) return;
 
@@ -259,7 +261,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Fermer le shift', style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text('Fermer le shift', style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(register.name, style: PosUi.caption()),
                 const SizedBox(height: 14),
@@ -289,9 +291,22 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  controller: pinCtrl,
+                  decoration: const InputDecoration(labelText: 'PIN caissier'),
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                ),
+                const SizedBox(height: 12),
+                TextField(
                   controller: notesCtrl,
                   decoration: const InputDecoration(labelText: 'Notes de clôture'),
                   maxLines: 2,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: varianceCtrl,
+                  decoration: const InputDecoration(labelText: 'Motif d’écart (si besoin)'),
                 ),
                 const SizedBox(height: 18),
                 Row(
@@ -321,11 +336,36 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     if (confirmed != true) return;
 
     try {
-      final closed = await _api.closeSession(
-        registerId: register.id,
-        actualCash: _parseMoney(actualCtrl.text),
-        notes: notesCtrl.text.trim(),
-      );
+      final counted = _parseMoney(actualCtrl.text);
+      final pin = pinCtrl.text.trim();
+      final notes = notesCtrl.text.trim();
+      final variance = varianceCtrl.text.trim();
+      SessionSummary? report = current.summary;
+      if (pin.isNotEmpty) {
+        try {
+          await _api.closeCashierShiftWithPin(
+            registerId: register.id,
+            pin: pin,
+            countedCash: counted,
+            notes: notes,
+            varianceReason: variance,
+          );
+        } catch (_) {
+          final closed = await _api.closeSession(
+            registerId: register.id,
+            actualCash: counted,
+            notes: notes,
+          );
+          report = closed.zReport ?? closed.summary ?? report;
+        }
+      } else {
+        final closed = await _api.closeSession(
+          registerId: register.id,
+          actualCash: counted,
+          notes: notes,
+        );
+        report = closed.zReport ?? closed.summary ?? report;
+      }
       final repo = TerminalConfigRepository.instance;
       if (repo.config.cashRegisterId == register.id) {
         await repo.save(repo.config.copyWith(cashSessionId: ''));
@@ -333,7 +373,6 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
       _showMessage('Shift fermé');
       await _load();
 
-      final report = closed.zReport ?? closed.summary;
       if (report != null && mounted) {
         final printIt = await showDialog<bool>(
           context: context,
@@ -442,7 +481,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Mouvement de caisse', style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700)),
+                  Text('Mouvement de caisse', style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     key: ValueKey(selectedType),
@@ -621,7 +660,7 @@ class _ShiftsHeader extends StatelessWidget {
               children: [
                 Text(
                   'Shifts',
-                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 2),
                 Row(
@@ -718,7 +757,7 @@ class _RegisterCard extends StatelessWidget {
                                 register.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700),
+                                style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w700),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -867,9 +906,9 @@ class _SessionDetailView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(register.name, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700)),
+                  Text(register.name, style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text(register.code, style: GoogleFonts.jetBrainsMono(fontSize: 12, color: AppColors.textMuted)),
+                  Text(register.code, style: GoogleFonts.ibmPlexMono(fontSize: 12, color: AppColors.textMuted)),
                 ],
               ),
             ),
@@ -891,12 +930,12 @@ class _SessionDetailView extends StatelessWidget {
               ),
               Text(
                 'Depuis ${dateFormat.format(session.openedAt)}',
-                style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
               ),
               if (session.openedByName != null)
                 Text(
                   session.openedByName!,
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                 ),
             ],
           ),
@@ -943,10 +982,10 @@ class _SessionDetailView extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 18),
-        Text('Historique', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+        Text('Historique', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
         if (history.isEmpty)
-          Text('Aucun shift précédent', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted))
+          Text('Aucun shift précédent', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted))
         else
           ...history.take(8).map((item) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -962,17 +1001,17 @@ class _SessionDetailView extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(dateFormat.format(item.openedAt), style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                            Text(dateFormat.format(item.openedAt), style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600)),
                             Text(
                               item.closedAt == null ? 'En cours' : 'Fermé ${dateFormat.format(item.closedAt!)}',
-                              style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
+                              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
                             ),
                           ],
                         ),
                       ),
                       Text(
                         item.variance == null ? '—' : MoneyFormatter.format(item.variance!),
-                        style: GoogleFonts.jetBrainsMono(
+                        style: GoogleFonts.ibmPlexMono(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: (item.variance ?? 0) < 0 ? AppColors.danger : AppColors.textPrimary,
@@ -1007,10 +1046,10 @@ class _AmountLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary))),
+          Expanded(child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary))),
           Text(
             MoneyFormatter.format(amount),
-            style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w700, color: color),
+            style: GoogleFonts.ibmPlexMono(fontSize: 13, fontWeight: FontWeight.w700, color: color),
           ),
         ],
       ),

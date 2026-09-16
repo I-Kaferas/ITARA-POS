@@ -239,7 +239,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
               if (_scannerMode == 'hid')
                 Text(
                   'Scanner USB ou Bluetooth (mode clavier) actif — scannez un code.',
-                  style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 13),
+                  style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary, fontSize: 13),
                 ),
               const SizedBox(height: 10),
               Align(
@@ -376,7 +376,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.brand900),
+        style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.brand900),
       ),
     );
   }

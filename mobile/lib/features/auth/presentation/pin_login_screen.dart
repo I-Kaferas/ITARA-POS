@@ -256,7 +256,7 @@ class _BrandPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.ibmPlexSans(
                     fontSize: compact ? 24 : 36,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -1.0,
@@ -270,7 +270,7 @@ class _BrandPanel extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Connexion caissier',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.ibmPlexSans(
               fontSize: compact ? 14 : 16,
               fontWeight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.72),
@@ -293,7 +293,7 @@ class _BrandPanel extends StatelessWidget {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.ibmPlexSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -307,7 +307,7 @@ class _BrandPanel extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               'Saisissez votre code PIN pour ouvrir la caisse.',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.ibmPlexSans(
                 fontSize: 13,
                 height: 1.45,
                 color: Colors.white.withValues(alpha: 0.55),
@@ -356,7 +356,7 @@ class _AuthPanel extends StatelessWidget {
         children: [
           Text(
             'Code PIN',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.ibmPlexSans(
               fontSize: 15,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -365,7 +365,7 @@ class _AuthPanel extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             '4 chiffres',
-            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
           ),
           const SizedBox(height: 22),
           _PinDots(length: pinLength, max: 4, hasError: error != null),
@@ -374,7 +374,7 @@ class _AuthPanel extends StatelessWidget {
             Text(
               error!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.ibmPlexSans(
                 color: AppColors.danger,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -407,7 +407,7 @@ class _AuthPanel extends StatelessWidget {
                     )
                   : Text(
                       'Se connecter',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15),
+                      style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 15),
                     ),
             ),
           ),
@@ -508,7 +508,7 @@ class _Pad extends StatelessWidget {
               ),
               child: Text(
                 label,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.ibmPlexSans(
                   color: AppColors.textPrimary,
                   fontSize: isAction ? 16 : 20,
                   fontWeight: FontWeight.w600,

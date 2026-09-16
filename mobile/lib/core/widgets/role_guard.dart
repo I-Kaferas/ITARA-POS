@@ -45,7 +45,7 @@ class SlaveModeBanner extends StatelessWidget {
                 if (config.masterHost.isNotEmpty)
                   Text(
                     'Master: ${config.masterHost}',
-                    style: GoogleFonts.jetBrainsMono(fontSize: 12, color: AppColors.textSecondary),
+                    style: GoogleFonts.ibmPlexMono(fontSize: 12, color: AppColors.textSecondary),
                   ),
               ],
             ),

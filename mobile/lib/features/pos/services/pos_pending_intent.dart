@@ -20,10 +20,15 @@ class PosPendingIntent {
 }
 
 class PosHoldIntent {
-  const PosHoldIntent({required this.holdId, required this.action});
+  const PosHoldIntent({
+    required this.holdId,
+    required this.action,
+    this.tableId,
+  });
 
   final String holdId;
   final PosHoldAction action;
+  final String? tableId;
 
   bool get openSplit => action == PosHoldAction.split;
   bool get openPay => action == PosHoldAction.pay;

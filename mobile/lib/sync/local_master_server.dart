@@ -14,6 +14,7 @@ import '../features/reports/data/reports_store.dart';
 import '../features/production/data/production_store.dart';
 import '../features/services/data/service_desk_store.dart';
 import 'offline_store.dart';
+import 'sync_numbers.dart';
 
 class LocalMasterServer extends ChangeNotifier {
   LocalMasterServer._();
@@ -140,6 +141,10 @@ class LocalMasterServer extends ChangeNotifier {
         await _json(request, 200, {'data': await OfflineStore.instance.catalogDocument(storeId)});
         return;
       }
+      if (path == '/api/v1/sync/references' && request.method == 'GET') {
+        await _json(request, 200, {'data': await OfflineStore.instance.referenceDocument()});
+        return;
+      }
       if (path == '/api/v1/sync/stock' && request.method == 'GET') {
         await _json(request, 200, {
           'data': {
@@ -229,13 +234,13 @@ class LocalMasterServer extends ChangeNotifier {
         final body = await _readJson(request);
         final customerId = body['customer_id']?.toString() ?? '';
         final data = switch (body['action']?.toString() ?? '') {
-          'pay' => await CustomerAccountStore.instance.pay(customerId, (body['amount'] as num?)?.toInt() ?? 0),
-          'redeem' => await CustomerAccountStore.instance.redeem(customerId, (body['points'] as num?)?.toInt() ?? 0),
+          'pay' => await CustomerAccountStore.instance.pay(customerId, syncAsInt(body['amount'])),
+          'redeem' => await CustomerAccountStore.instance.redeem(customerId, syncAsInt(body['points'])),
           'post_sale' => await CustomerAccountStore.instance.postSale(
               customerId: customerId,
               saleId: body['sale_id']?.toString() ?? '',
-              total: (body['total'] as num?)?.toInt() ?? 0,
-              outstanding: (body['outstanding'] as num?)?.toInt() ?? 0,
+              total: syncAsInt(body['total']),
+              outstanding: syncAsInt(body['outstanding']),
               payments: (body['payments'] as List<dynamic>? ?? []).whereType<Map>().map(Map<String, dynamic>.from).toList(),
               reference: body['reference']?.toString(),
             ),
@@ -369,7 +374,7 @@ class LocalMasterServer extends ChangeNotifier {
     clients[id] = LocalMasterClient(
       id: id,
       name: name.isEmpty ? id : name,
-      pending: (body['pending'] as num?)?.toInt() ?? clients[id]?.pending ?? 0,
+      pending: syncAsIntOrNull(body['pending']) ?? clients[id]?.pending ?? 0,
       seenAt: DateTime.now(),
     );
     notifyListeners();

@@ -78,45 +78,66 @@ class TerminalConfig {
 
   factory TerminalConfig.fromJson(Map<String, dynamic> json) {
     return TerminalConfig(
-      apiBaseUrl: json['api_base_url'] as String? ?? 'http://localhost:8000/api/v1',
-      internalApiBaseUrl: json['internal_api_base_url'] as String? ?? '',
-      authToken: json['auth_token'] as String? ?? '',
-      refreshToken: json['refresh_token'] as String? ?? '',
-      tokenExpiresAt: json['token_expires_at'] as String? ?? '',
-      tenantId: json['tenant_id'] as String? ?? '',
-      tenantSlug: json['tenant_slug'] as String? ?? '',
-      brandName: json['brand_name'] as String? ?? '',
-      brandLogoUrl: json['brand_logo_url'] as String? ?? '',
-      brandPrimaryColor: json['brand_primary_color'] as String? ?? '',
-      brandAccentColor: json['brand_accent_color'] as String? ?? '',
-      storeId: json['store_id'] as String? ?? '',
-      deviceId: json['device_id'] as String? ?? '',
-      deviceIdentifier: json['device_identifier'] as String? ?? '',
-      deviceName: json['device_name'] as String? ?? '',
-      posRole: PosRole.fromString(json['pos_role'] as String? ?? 'standalone'),
-      masterDeviceId: json['master_device_id'] as String? ?? '',
-      masterHost: json['master_host'] as String? ?? '',
-      currencyCode: json['currency_code'] as String? ?? 'USD',
-      locale: json['locale'] as String? ?? 'fr',
-      timezone: json['timezone'] as String? ?? 'Africa/Bujumbura',
-      companyProfile: json['company_profile'] as String? ?? '',
-      isConfigured: json['is_configured'] as bool? ?? false,
-      isSignedIn: json['is_signed_in'] as bool? ?? false,
-      cashierId: json['cashier_id'] as String? ?? '',
-      cashierName: json['cashier_name'] as String? ?? '',
-      cashRegisterId: json['cash_register_id'] as String? ?? '',
-      cashSessionId: json['cash_session_id'] as String? ?? '',
+      apiBaseUrl: _string(json['api_base_url'], 'http://localhost:8000/api/v1'),
+      internalApiBaseUrl: _string(json['internal_api_base_url']),
+      authToken: _string(json['auth_token']),
+      refreshToken: _string(json['refresh_token']),
+      tokenExpiresAt: _string(json['token_expires_at']),
+      tenantId: _string(json['tenant_id']),
+      tenantSlug: _string(json['tenant_slug']),
+      brandName: _string(json['brand_name']),
+      brandLogoUrl: _string(json['brand_logo_url']),
+      brandPrimaryColor: _string(json['brand_primary_color']),
+      brandAccentColor: _string(json['brand_accent_color']),
+      storeId: _string(json['store_id']),
+      deviceId: _string(json['device_id']),
+      deviceIdentifier: _string(json['device_identifier']),
+      deviceName: _string(json['device_name']),
+      posRole: PosRole.fromString(_string(json['pos_role'], 'standalone')),
+      masterDeviceId: _string(json['master_device_id']),
+      masterHost: _string(json['master_host']),
+      currencyCode: _string(json['currency_code'], 'USD'),
+      locale: _string(json['locale'], 'fr'),
+      timezone: _string(json['timezone'], 'Africa/Bujumbura'),
+      companyProfile: _string(json['company_profile']),
+      isConfigured: _bool(json['is_configured']),
+      isSignedIn: _bool(json['is_signed_in']),
+      cashierId: _string(json['cashier_id']),
+      cashierName: _string(json['cashier_name']),
+      cashRegisterId: _string(json['cash_register_id']),
+      cashSessionId: _string(json['cash_session_id']),
       permissions: (json['permissions'] as List?)?.map((item) => item.toString()).toList() ?? const [],
       roles: (json['roles'] as List?)?.map((item) => item.toString()).toList() ?? const [],
-      pinVerifier: json['pin_verifier'] as String? ?? '',
-      printerHost: json['printer_host'] as String? ?? '',
-      printerPort: json['printer_port'] as int? ?? 9100,
-      printerEnabled: json['printer_enabled'] as bool? ?? false,
-      printerModel: json['printer_model'] as String? ?? 'generic_80',
-      printerConnection: json['printer_connection'] as String? ?? 'system',
-      printerName: json['printer_name'] as String? ?? '',
-      printerFormat: json['printer_format'] as String? ?? 'thermal_80',
+      pinVerifier: _string(json['pin_verifier']),
+      printerHost: _string(json['printer_host']),
+      printerPort: _int(json['printer_port'], 9100),
+      printerEnabled: _bool(json['printer_enabled']),
+      printerModel: _string(json['printer_model'], 'generic_80'),
+      printerConnection: _string(json['printer_connection'], 'system'),
+      printerName: _string(json['printer_name']),
+      printerFormat: _string(json['printer_format'], 'thermal_80'),
     );
+  }
+
+  static String _string(dynamic value, [String fallback = '']) {
+    if (value == null) return fallback;
+    final text = value.toString().trim();
+    return text.isEmpty ? fallback : text;
+  }
+
+  static int _int(dynamic value, [int fallback = 0]) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
+
+  static bool _bool(dynamic value, [bool fallback = false]) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final text = value?.toString().trim().toLowerCase();
+    if (text == 'true' || text == '1' || text == 'yes') return true;
+    if (text == 'false' || text == '0' || text == 'no') return false;
+    return fallback;
   }
 
   final String apiBaseUrl;

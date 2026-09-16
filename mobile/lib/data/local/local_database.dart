@@ -53,7 +53,7 @@ class LocalDatabase {
     final path = p.join(dir.path, 'pos_offline.sqlite');
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -137,6 +137,7 @@ class LocalDatabase {
         await _createSaleLedger(db);
         await _createLanes(db);
         await _createHospitality(db);
+        await _createReferenceData(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -151,6 +152,9 @@ class LocalDatabase {
         }
         if (oldVersion < 5) {
           await _createHospitality(db);
+        }
+        if (oldVersion < 6) {
+          await _createReferenceData(db);
         }
       },
     );
@@ -252,5 +256,72 @@ class LocalDatabase {
         json TEXT NOT NULL
       )
     ''');
+  }
+
+  static Future<void> _createReferenceData(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS units (
+        id TEXT PRIMARY KEY,
+        code TEXT,
+        name TEXT,
+        symbol TEXT,
+        is_fractional INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        json TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS currencies (
+        id TEXT PRIMARY KEY,
+        code TEXT,
+        name TEXT,
+        symbol TEXT,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        json TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS taxes (
+        id TEXT PRIMARY KEY,
+        code TEXT,
+        name TEXT,
+        rate REAL,
+        is_inclusive INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        json TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS permissions (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL,
+        name TEXT,
+        group_name TEXT,
+        json TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS permissions_slug ON permissions(slug)');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS roles (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL,
+        name TEXT,
+        is_system INTEGER NOT NULL DEFAULT 0,
+        json TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS roles_slug ON roles(slug)');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        pin_verifier TEXT NOT NULL,
+        json TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS users_pin_verifier ON users(pin_verifier)');
   }
 }

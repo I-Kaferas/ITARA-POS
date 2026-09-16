@@ -81,7 +81,7 @@ class _SyncScreenState extends State<SyncScreen> {
           const SizedBox(height: 16),
           Text(
             snapshot.label,
-            style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600),
+            style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
@@ -95,7 +95,7 @@ class _SyncScreenState extends State<SyncScreen> {
           const SizedBox(height: 8),
           Text(
             'File → API → serveur → ACK → marqué synchronisé',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600),
           ),
           Text(
             engine.lastSent == 0 && engine.lastAcknowledged == 0
@@ -103,6 +103,43 @@ class _SyncScreenState extends State<SyncScreen> {
                 : 'Dernier passage : ${engine.lastSent} envoyés · ${engine.lastAcknowledged} ACK · ${engine.lastKept} conservés · 0 perdu',
             style: TextStyle(color: AppColors.textSecondary),
           ),
+          if (engine.lastReport.message.isNotEmpty || engine.lastReport.hasDetails) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dernière synchronisation',
+                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
+                  ),
+                  if (engine.lastReport.message.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(engine.lastReport.message, style: TextStyle(color: AppColors.textSecondary)),
+                  ],
+                  const SizedBox(height: 8),
+                  ...engine.lastReport.lines.map(
+                    (line) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(line.label)),
+                          Text('${line.count}', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (snapshot.lastError != null) ...[
             const SizedBox(height: 8),
             Text(snapshot.lastError!, style: const TextStyle(color: AppColors.danger)),
@@ -127,7 +164,7 @@ class _SyncScreenState extends State<SyncScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          Text('File d’attente', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          Text('File d’attente', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           if (_items.isEmpty)
             Text('Aucune transaction locale.', style: TextStyle(color: AppColors.textMuted))
@@ -186,7 +223,7 @@ class _ChainCard extends StatelessWidget {
         children: [
           Text(
             'Chaîne locale — fonctionne sans internet',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
@@ -209,7 +246,7 @@ class _ChainCard extends StatelessWidget {
             Text(
               '${chain['reference']} · paiement ${chain['payments']} · stock ${chain['movements']} · sync ${chain['events']}'
               '${status == null || status.isEmpty ? '' : ' · $status'}',
-              style: GoogleFonts.jetBrainsMono(fontSize: 12),
+              style: GoogleFonts.ibmPlexMono(fontSize: 12),
             ),
           ],
         ],
@@ -232,7 +269,7 @@ class _Chip extends StatelessWidget {
         color: AppColors.canvas,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text('$label $value', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
+      child: Text('$label $value', style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -259,7 +296,7 @@ class _Stat extends StatelessWidget {
         children: [
           Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           const SizedBox(height: 4),
-          Text(value, style: GoogleFonts.jetBrainsMono(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
+          Text(value, style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
         ],
       ),
     );

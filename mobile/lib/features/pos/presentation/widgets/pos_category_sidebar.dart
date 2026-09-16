@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
 
@@ -24,16 +24,16 @@ class PosCategorySidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(right: BorderSide(color: Color(0xFFE7EDF3))),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(right: BorderSide(color: AppColors.border)),
       ),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(10, 14, 10, 14),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
-            child: Text('CATÉGORIES', style: PosUi.sectionLabel(color: const Color(0xFF94A3B8))),
+            child: Text('CATÉGORIES', style: PosUi.sectionLabel()),
           ),
           _CategoryTile(
             label: 'Tous',
@@ -74,20 +74,18 @@ class _CategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 3),
       child: Material(
         color: selected ? AppColors.brand600 : Colors.transparent,
-        borderRadius: BorderRadius.circular(11),
-        elevation: selected ? 2 : 0,
-        shadowColor: AppColors.brand600.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(11),
-          hoverColor: selected ? null : Colors.white,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          hoverColor: selected ? null : AppColors.brand50,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: PosUi.touchMin),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(10 + depth * 11.0, 10, 10, 10),
+              padding: EdgeInsets.fromLTRB(10 + depth * 10.0, 10, 10, 10),
               child: Row(
                 children: [
                   Expanded(
@@ -95,10 +93,10 @@ class _CategoryTile extends StatelessWidget {
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
+                      style: AppTypography.plex(
                         fontSize: 13,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                        color: selected ? Colors.white : const Color(0xFF334155),
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                        color: selected ? Colors.white : AppColors.textPrimary,
                       ),
                     ),
                   ),
@@ -108,14 +106,14 @@ class _CategoryTile extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: selected
-                          ? Colors.white.withValues(alpha: 0.2)
-                          : AppColors.textPrimary.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(99),
+                          ? Colors.white.withValues(alpha: 0.18)
+                          : AppColors.fieldFill,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
                     child: Text(
                       '$count',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
+                      style: AppTypography.plex(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: selected ? Colors.white : AppColors.textSecondary,

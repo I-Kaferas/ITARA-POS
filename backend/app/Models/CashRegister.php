@@ -90,4 +90,16 @@ class CashRegister extends Model
             'is_active' => true,
         ]);
     }
+
+    public static function findForStore(Store $store, ?string $id): ?self
+    {
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        return static::query()
+            ->where('store_id', $store->id)
+            ->whereKey($id)
+            ->first();
+    }
 }

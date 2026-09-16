@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\Currency;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,7 +51,7 @@ class CurrencyController extends Controller
                 Currency::query()->where('is_default', true)->update(['is_default' => false]);
             }
 
-            return Currency::query()->create([
+            $created = Currency::query()->create([
                 ...$data,
                 'tenant_id' => $tenantId,
                 'symbol' => $data['symbol'] ?? $data['code'],
@@ -59,6 +60,12 @@ class CurrencyController extends Controller
                 'is_default' => $isDefault,
                 'is_active' => $data['is_active'] ?? true,
             ]);
+
+            if ($isDefault) {
+                $this->syncCompanyCurrency($created->code);
+            }
+
+            return $created;
         });
 
         return response()->json(['data' => $currency], 201);
@@ -112,6 +119,11 @@ class CurrencyController extends Controller
             }
 
             $currency->update($data);
+
+            $fresh = $currency->fresh();
+            if ($fresh?->is_default) {
+                $this->syncCompanyCurrency($fresh->code);
+            }
         });
 
         return response()->json(['data' => $currency->fresh()]);
@@ -128,5 +140,11 @@ class CurrencyController extends Controller
         $currency->delete();
 
         return response()->json(['message' => 'Deleted.']);
+    }
+
+    private function syncCompanyCurrency(string $code): void
+    {
+        $normalized = strtoupper($code);
+        Company::query()->update(['currency_code' => $normalized]);
     }
 }

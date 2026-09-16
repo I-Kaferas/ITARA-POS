@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_typography.dart';
 
 class EmptyState extends StatelessWidget {
   const EmptyState({
@@ -21,27 +21,36 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpace.xxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 36, color: AppColors.textMuted),
-            const SizedBox(height: 12),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.brand50,
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Icon(icon, size: 28, color: AppColors.brand600),
+            ),
+            const SizedBox(height: AppSpace.lg),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
+              style: AppTypography.sectionTitle(),
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpace.sm),
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+                style: AppTypography.subtitle(),
               ),
             ],
             if (action != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpace.lg),
               action!,
             ],
           ],

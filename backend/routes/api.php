@@ -1040,6 +1040,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:sales.create');
         Route::get('sync/pull', [SyncController::class, 'pull'])
             ->middleware('permission:sales.view');
+        Route::get('sync/references', [SyncController::class, 'references'])
+            ->middleware('permission:sales.view');
         Route::get('sync/status', [SyncController::class, 'status'])
             ->middleware('permission:sales.view');
         Route::get('hospitality', [DeskController::class, 'hospitality'])
@@ -1183,7 +1185,7 @@ Route::prefix('v1')->group(function () {
         // Payment Engine (Phase 22 — MOD-PAYMENT)
         Route::get('payments/methods', [PaymentController::class, 'methods'])
             ->middleware('permission:sales.view');
-        Route::post('stores/{store}/payments/validate', [PaymentController::class, 'validate'])
+        Route::post('stores/{store}/payments/validate', [PaymentController::class, 'validatePayment'])
             ->middleware('permission:payments.create,sales.create');
         Route::post('stores/{store}/payments/process', [PaymentController::class, 'process'])
             ->middleware('permission:payments.create,sales.create');

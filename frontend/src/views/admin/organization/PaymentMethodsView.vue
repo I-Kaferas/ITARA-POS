@@ -2,17 +2,23 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { CompanyPaymentMethod } from '../../../types'
+import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t, locale } = useI18n()
 const store = useBackofficeStore()
 const savingId = ref<string | null>(null)
 const message = ref('')
+const filters = ref<ListFilters>(emptyListFilters('all'))
 
 const companyId = computed(() => store.companies[0]?.id ?? null)
 
 const methods = computed(() => store.paymentMethods)
+const filtered = computed(() => methods.value.filter(row =>
+  matchesSearch(`${row.code} ${methodLabel(row)} ${row.label} ${row.label_fr ?? ''}`, filters.value.search),
+))
 
 function methodLabel(row: CompanyPaymentMethod) {
   return locale.value === 'fr' ? (row.label_fr || row.label) : row.label
@@ -83,6 +89,8 @@ async function move(row: CompanyPaymentMethod, direction: -1 | 1) {
         <p v-if="message" class="mt-2 mb-0 text-sm text-brand-700">{{ message }}</p>
       </div>
 
+      <ModuleFilters v-model="filters" :show-period="false" show-search />
+
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -95,7 +103,7 @@ async function move(row: CompanyPaymentMethod, direction: -1 | 1) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in methods" :key="row.id" class="hover:bg-slate-50">
+            <tr v-for="row in filtered" :key="row.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs uppercase text-slate-600">{{ row.code }}</td>
               <td class="px-4 py-3">
                 <input

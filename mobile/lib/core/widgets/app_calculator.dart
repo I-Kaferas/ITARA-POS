@@ -228,7 +228,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
                     ),
                     child: Row(
                       children: [
-                        Text('Calculatrice', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+                        Text('Calculatrice', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
                         const Spacer(),
                         IconButton(
                           visualDensity: VisualDensity.compact,
@@ -298,8 +298,8 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(_expression.isEmpty ? '0' : _expression, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted)),
-              Text(_display, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.jetBrainsMono(fontSize: 22, fontWeight: FontWeight.w700)),
+              Text(_expression.isEmpty ? '0' : _expression, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
+              Text(_display, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700)),
             ],
           ),
         ),
@@ -330,7 +330,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
         const SizedBox(height: 6),
         Row(
           children: [
-            Text('M ${formatCalcNumber(_memory)}', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary)),
+            Text('M ${formatCalcNumber(_memory)}', style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
             const Spacer(),
             _mini('MC', () => setState(() => _memory = 0)),
             _mini('MR', () => setState(() => _append(formatCalcNumber(_memory)))),
@@ -398,7 +398,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
                   child: Text(
                     labels[value] ?? value,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: current == value ? AppColors.brand700 : AppColors.textSecondary),
+                    style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600, color: current == value ? AppColors.brand700 : AppColors.textSecondary),
                   ),
                 ),
               ),
@@ -425,9 +425,9 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
           const Spacer(),
-          Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700)),
+          Text(value, style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700)),
         ],
       ),
     );
@@ -443,13 +443,13 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
           border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600)),
+        child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600)),
       ),
     );
   }
 
   Widget _mini(String label, VoidCallback onTap) {
-    return TextButton(onPressed: onTap, child: Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)));
+    return TextButton(onPressed: onTap, child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700)));
   }
 
   String _keyKind(String key) {
@@ -484,7 +484,7 @@ class _KeyButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: SizedBox(
           height: 40,
-          child: Center(child: Text(label, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: foreground))),
+          child: Center(child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w600, color: foreground))),
         ),
       ),
     );

@@ -51,25 +51,21 @@ class _SyncStockDialog extends StatefulWidget {
 
 class _SyncStockDialogState extends State<_SyncStockDialog> {
   bool _running = false;
-  String? _result;
-  bool _ok = false;
+  SyncReport? _report;
 
   Future<void> _run(String action) async {
     if (_running) return;
     setState(() {
       _running = true;
-      _result = null;
+      _report = null;
     });
-    final message = action == 'send'
+    final report = action == 'send'
         ? await SyncEngine.instance.sendStock()
         : await SyncEngine.instance.downloadStock();
     if (!mounted) return;
-    final failed = SyncEngine.instance.connectivity == ConnectivityState.syncError ||
-        SyncEngine.instance.connectivity == ConnectivityState.offline;
     setState(() {
       _running = false;
-      _result = message;
-      _ok = !failed && !message.toLowerCase().contains('erreur') && !message.toLowerCase().contains('indisponible');
+      _report = report;
     });
   }
 
@@ -111,11 +107,11 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Synchroniser le stock', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700)),
+                            Text('Synchroniser le stock', style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w700)),
                             const SizedBox(height: 2),
                             Text(
                               'Ventes, catalogue, clients et paiements',
-                              style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                              style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                             ),
                           ],
                         ),
@@ -133,7 +129,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                     children: [
                       _statusRow(live),
                       const SizedBox(height: 14),
-                      if (_running) _busy() else if (_result != null) _resultCard() else _actions(snapshot),
+                      if (_running) _busy() else if (_report != null) _resultCard(_report!) else _actions(snapshot),
                     ],
                   ),
                 ),
@@ -169,9 +165,9 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
     return Expanded(
       child: Column(
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 10, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 10, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
-          Text(value, textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
+          Text(value, textAlign: TextAlign.center, style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700)),
         ],
       ),
     );
@@ -192,7 +188,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
         _ActionTile(
           icon: Icons.download_outlined,
           title: 'Télécharger le stock',
-          caption: 'Met à jour le catalogue, les clients et les moyens de paiement.',
+          caption: 'Catalogue, clients, paiements, unités, utilisateurs, rôles et permissions.',
           onTap: () => _run('download'),
         ),
         const SizedBox(height: 6),
@@ -211,15 +207,15 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
         children: [
           const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4)),
           const SizedBox(height: 10),
-          Text('Synchronisation en cours…', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+          Text('Synchronisation en cours…', style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
-  Widget _resultCard() {
-    final color = _ok ? AppColors.success : AppColors.danger;
-    final bg = _ok ? AppColors.successBg : AppColors.dangerBg;
+  Widget _resultCard(SyncReport report) {
+    final color = report.ok ? AppColors.success : AppColors.danger;
+    final bg = report.ok ? AppColors.successBg : AppColors.dangerBg;
     return Column(
       children: [
         Container(
@@ -230,19 +226,48 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(_ok ? Icons.check_circle_outline : Icons.error_outline, color: color, size: 18),
-              const SizedBox(width: 8),
-              Expanded(child: Text(_result ?? '', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(report.ok ? Icons.check_circle_outline : Icons.error_outline, color: color, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      report.message.isNotEmpty ? report.message : (report.ok ? 'Synchronisation terminée' : 'Échec'),
+                      style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: color),
+                    ),
+                  ),
+                ],
+              ),
+              if (report.ok) ...[
+                const SizedBox(height: 12),
+                ...report.lines.map(
+                  (line) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(line.label, style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textPrimary)),
+                        ),
+                        Text(
+                          '${line.count}',
+                          style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            TextButton(onPressed: () => setState(() => _result = null), child: const Text('Autre action')),
+            TextButton(onPressed: () => setState(() => _report = null), child: const Text('Autre action')),
             const Spacer(),
             FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
           ],
@@ -292,9 +317,9 @@ class _ActionTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700)),
+                    Text(title, style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
-                    Text(caption, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                    Text(caption, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -318,35 +343,49 @@ class AppShell extends StatelessWidget {
       icon: Icons.dashboard_outlined,
       selectedIcon: Icons.dashboard,
       label: 'Accueil',
-      hint: 'Vue du terminal et raccourcis',
+      hint: 'Vue d’ensemble POS',
     ),
     _NavItem(
       route: AppRoutes.pos,
       icon: Icons.point_of_sale_outlined,
       selectedIcon: Icons.point_of_sale,
       label: 'Caisse',
-      hint: 'Rechercher, encaisser, imprimer',
+      hint: 'Terminal de vente',
     ),
     _NavItem(
       route: AppRoutes.orders,
       icon: Icons.receipt_long_outlined,
       selectedIcon: Icons.receipt_long,
       label: 'Commandes',
-      hint: 'Ventes et bons en cours',
+      hint: 'Ventes et attente',
+    ),
+    _NavItem(
+      route: AppRoutes.returns,
+      icon: Icons.undo_outlined,
+      selectedIcon: Icons.undo,
+      label: 'Retours',
+      hint: 'Retours et remboursements',
     ),
     _NavItem(
       route: AppRoutes.shifts,
       icon: Icons.schedule_outlined,
       selectedIcon: Icons.schedule,
       label: 'Shift',
-      hint: 'Ouverture et clôture de caisse',
+      hint: 'Ouverture et clôture',
+    ),
+    _NavItem(
+      route: AppRoutes.reservations,
+      icon: Icons.event_seat_outlined,
+      selectedIcon: Icons.event_seat,
+      label: 'Réservations',
+      hint: 'Réservations salle',
     ),
     _NavItem(
       route: AppRoutes.configuration,
       icon: Icons.settings_outlined,
       selectedIcon: Icons.settings,
       label: 'Réglages',
-      hint: 'Terminal, API et serveur interne',
+      hint: 'Terminal et connexion',
     ),
   ];
 
@@ -420,10 +459,10 @@ class AppShell extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(page.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
+            Text(page.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 16)),
             Text(
               storeLabel,
-              style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -520,7 +559,7 @@ class _Sidebar extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     'POS',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.ibmPlexSans(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                       fontSize: 12,
@@ -535,7 +574,7 @@ class _Sidebar extends StatelessWidget {
                     children: [
                       Text(
                         config.deviceName.isNotEmpty ? config.deviceName : 'POS Mobile',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.ibmPlexSans(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -547,7 +586,7 @@ class _Sidebar extends StatelessWidget {
                         config.cashierName.isNotEmpty
                             ? config.cashierName
                             : 'v${AppConfig.appVersion}',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.ibmPlexSans(
                           color: Colors.white.withValues(alpha: 0.5),
                           fontSize: 11,
                         ),
@@ -570,6 +609,11 @@ class _Sidebar extends StatelessWidget {
                   selected: selectedIndex == 1,
                   onTap: () => onSelected(1),
                 ),
+                _SidebarItem(
+                  item: AppShell._navItems[5],
+                  selected: selectedIndex == 5,
+                  onTap: () => onSelected(5),
+                ),
                 const _SectionLabel('Suivi'),
                 _SidebarItem(
                   item: AppShell._navItems[0],
@@ -586,11 +630,16 @@ class _Sidebar extends StatelessWidget {
                   selected: selectedIndex == 3,
                   onTap: () => onSelected(3),
                 ),
-                const _SectionLabel('Système'),
                 _SidebarItem(
                   item: AppShell._navItems[4],
                   selected: selectedIndex == 4,
                   onTap: () => onSelected(4),
+                ),
+                const _SectionLabel('Système'),
+                _SidebarItem(
+                  item: AppShell._navItems[6],
+                  selected: selectedIndex == 6,
+                  onTap: () => onSelected(6),
                 ),
                 _SidebarItem(
                   item: AppShell._barcodeItem,
@@ -624,7 +673,7 @@ class _Sidebar extends StatelessWidget {
                         config.cashierName.isNotEmpty ? config.cashierName : 'Caissier',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.ibmPlexSans(
                           color: Colors.white.withValues(alpha: 0.86),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -735,27 +784,29 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Material(
-        color: selected ? AppColors.sidebarActive : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        color: selected ? AppColors.sidebarActive.withValues(alpha: 0.92) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           hoverColor: AppColors.sidebarHover,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: selected ? AppColors.accent.withValues(alpha: 0.28) : Colors.transparent,
+                color: selected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
               ),
             ),
             child: Row(
               children: [
                 Container(
                   width: 3,
-                  height: 18,
+                  height: 16,
                   decoration: BoxDecoration(
                     color: selected ? AppColors.accent : Colors.transparent,
                     borderRadius: BorderRadius.circular(2),
@@ -768,12 +819,14 @@ class _SidebarItem extends StatelessWidget {
                   size: 18,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  item.label,
-                  style: GoogleFonts.inter(
-                    color: selected ? Colors.white : AppColors.sidebarText,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    fontSize: 13.5,
+                Expanded(
+                  child: Text(
+                    item.label,
+                    style: GoogleFonts.ibmPlexSans(
+                      color: selected ? Colors.white : AppColors.sidebarText,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      fontSize: 13.5,
+                    ),
                   ),
                 ),
               ],
@@ -798,11 +851,18 @@ class _TopBar extends StatelessWidget {
     final cashier = config.cashierName.trim().isEmpty ? 'Caissier' : config.cashierName.trim();
 
     return Container(
-      height: 72,
+      height: 68,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.border)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 8,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -814,7 +874,12 @@ class _TopBar extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: AppColors.textPrimary,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
@@ -905,7 +970,7 @@ class _ContextChip extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
           ),
         ],
@@ -946,7 +1011,7 @@ class _SectionLabel extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: GoogleFonts.ibmPlexSans(
             fontSize: 10,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.4,

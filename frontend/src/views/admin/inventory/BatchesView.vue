@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatMoney } from '../../../utils/format'
+import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -17,6 +19,10 @@ const warehouses = ref<Warehouse[]>([])
 const productId = ref('')
 const showModal = ref(false)
 const saving = ref(false)
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.productBatches.filter(row =>
+  matchesSearch(`${row.batch_number} ${row.expires_at ?? ''} ${row.unit_cost ?? ''}`, filters.value.search),
+))
 const form = ref({
   batch_number: '',
   quantity: 1,
@@ -77,6 +83,8 @@ async function save() {
       <button class="btn-primary" :disabled="!productId" @click="openCreate">+ {{ t('inventory.addBatch') }}</button>
     </div>
 
+    <ModuleFilters v-model="filters" class="mb-4" :show-period="false" show-search />
+
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
       <table class="min-w-full divide-y text-sm">
         <thead class="bg-slate-50">
@@ -88,7 +96,7 @@ async function save() {
           </tr>
         </thead>
         <tbody class="divide-y">
-          <tr v-for="row in store.productBatches" :key="row.id">
+          <tr v-for="row in filtered" :key="row.id">
             <td class="px-4 py-3 font-mono">{{ row.batch_number }}</td>
             <td class="px-4 py-3">{{ formatDate(row.expires_at) }}</td>
             <td class="px-4 py-3 text-right">{{ row.unit_cost != null ? formatMoney(row.unit_cost) : '—' }}</td>
@@ -96,7 +104,7 @@ async function save() {
           </tr>
         </tbody>
       </table>
-      <p v-if="!store.productBatches.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
     </div>
 
     <AppModal

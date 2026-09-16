@@ -3,13 +3,22 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Device;
+use App\Models\Permission;
+use App\Models\Role;
 use App\Models\Sale;
 use App\Models\Store;
 use App\Models\SyncEvent;
 use App\Models\SyncFailure;
+use App\Models\Tax;
+use App\Models\Unit;
+use App\Models\User;
+use App\Services\Authorization\AuthorizationService;
 use App\Services\Catalog\PosCatalogSyncService;
+use App\Services\Payments\CompanyPaymentMethodService;
+use App\Services\Rbac\PermissionCatalog;
 use App\Services\Sales\SaleEngine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +29,8 @@ class SyncController extends Controller
     public function __construct(
         private readonly SaleEngine $sales,
         private readonly PosCatalogSyncService $catalog,
+        private readonly CompanyPaymentMethodService $paymentMethods,
+        private readonly AuthorizationService $authorization,
     ) {}
 
     public function push(Request $request): JsonResponse
@@ -69,6 +80,107 @@ class SyncController extends Controller
                     ->get()
                     ->map(fn (SyncEvent $event) => $event->toSummaryArray())
                     ->values(),
+            ],
+        ]);
+    }
+
+    /**
+     * Reference data for POS offline terminals (payment methods, RBAC, UoM, etc.).
+     * Accessible with sales.view so cashiers can refresh without admin permissions.
+     */
+    public function references(Request $request): JsonResponse
+    {
+        $store = $this->store()->loadMissing('branch.company');
+
+        foreach (PermissionCatalog::definitions() as $slug => [$name, $group]) {
+            Permission::query()->firstOrCreate(
+                ['slug' => $slug],
+                ['name' => $name, 'group' => $group],
+            );
+        }
+
+        $company = $store->branch?->company;
+        $paymentMethods = $company
+            ? $this->paymentMethods
+                ->forCompany($company, enabledOnly: true, posOnly: true)
+                ->map(fn ($method) => $method->toPosArray())
+                ->values()
+            : collect();
+
+        $units = Unit::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'symbol', 'is_fractional', 'is_active']);
+
+        $currencies = Currency::query()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('code')
+            ->get(['id', 'code', 'name', 'symbol', 'decimal_places', 'exchange_rate', 'is_default', 'is_active']);
+
+        $taxes = Tax::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'rate', 'is_inclusive', 'is_active']);
+
+        $permissions = Permission::query()
+            ->orderBy('group')
+            ->orderBy('slug')
+            ->get(['id', 'slug', 'name', 'group']);
+
+        $roles = Role::query()
+            ->where('tenant_id', $store->tenant_id)
+            ->with('permissions:id,slug,name,group')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Role $role) => [
+                'id' => $role->id,
+                'name' => $role->name,
+                'slug' => $role->slug,
+                'is_system' => (bool) $role->is_system,
+                'permissions' => $role->permissions->pluck('slug')->values(),
+            ])
+            ->values();
+
+        $users = User::query()
+            ->where('tenant_id', $store->tenant_id)
+            ->where('is_active', true)
+            ->whereNotNull('pin')
+            ->where('pin', '!=', '')
+            ->with(['roles.permissions:id,slug', 'stores:id'])
+            ->where(function ($query) use ($store): void {
+                $query->whereDoesntHave('stores')
+                    ->orWhereHas('stores', fn ($stores) => $stores->where('stores.id', $store->id));
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $user) {
+                $pin = (string) $user->pin;
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'is_active' => true,
+                    'pin_verifier' => hash('sha256', "itara-pos|{$user->id}|{$pin}"),
+                    'roles' => $user->roles->pluck('slug')->values(),
+                    'permissions' => collect($this->authorization->getPermissions($user))->pluck('slug')->values(),
+                    'store_ids' => $user->stores->pluck('id')->values(),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => [
+                'store_id' => $store->id,
+                'server_time' => now()->toIso8601String(),
+                'payment_methods' => $paymentMethods,
+                'units' => $units,
+                'currencies' => $currencies,
+                'taxes' => $taxes,
+                'permissions' => $permissions,
+                'roles' => $roles,
+                'users' => $users,
             ],
         ]);
     }

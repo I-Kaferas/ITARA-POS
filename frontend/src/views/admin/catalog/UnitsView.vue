@@ -1,19 +1,26 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Unit } from '../../../types'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
 const showModal = ref(false)
 const editing = ref<Unit | null>(null)
 const saving = ref(false)
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.units.filter(unit =>
+  matchesSearch(`${unit.code} ${unit.name} ${unit.symbol ?? ''}`, filters.value.search)
+  && matchesActive(unit.is_active, filters.value.active),
+))
 const form = ref({ code: '', name: '', symbol: '', is_fractional: false, is_active: true })
 
 onMounted(() => store.loadUnits())
@@ -55,6 +62,7 @@ async function remove(unit: Unit) {
         <p class="m-0 text-sm text-slate-500">{{ t('catalog.unitsHint') }}</p>
         <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('catalog.addUnit') }}</button>
       </div>
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -68,7 +76,7 @@ async function remove(unit: Unit) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="unit in store.units" :key="unit.id" class="hover:bg-slate-50">
+            <tr v-for="unit in filtered" :key="unit.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono">{{ unit.code }}</td>
               <td class="px-4 py-3 font-medium">{{ unit.name }}</td>
               <td class="px-4 py-3">{{ unit.symbol || '—' }}</td>
@@ -81,7 +89,7 @@ async function remove(unit: Unit) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.units.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 

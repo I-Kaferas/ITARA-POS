@@ -1,0 +1,38 @@
+[
+  {
+    "id": "d8016fa5-23b7-4af4-8b17-b09c342723be",
+    "store_id": "",
+    "device_id": null,
+    "sequence": 1,
+    "event_type": "production.completed",
+    "entity_type": "production",
+    "entity_id": "0903f7a3-bbd0-4186-aa38-1ad02c1ebf3a",
+    "payload": "{\"finished_product_id\":\"prod-pizza\",\"finished_quantity\":1,\"ingredients\":[{\"product_id\":\"prod-farine\",\"name\":\"Farine\",\"quantity\":1},{\"product_id\":\"prod-fromage\",\"name\":\"Fromage\",\"quantity\":1},{\"product_id\":\"prod-sauce\",\"name\":\"Sauce\",\"quantity\":1},{\"product_id\":\"prod-viande\",\"name\":\"Viande\",\"quantity\":1}]}",
+    "occurred_at": "2026-09-14T08:45:07.673638",
+    "sync_status": "pending"
+  },
+  {
+    "id": "001cc6ba-f5f2-4006-aade-3ef23fa2cabe",
+    "store_id": "01a09c4d-2955-70b4-a851-04d9b3e2de36",
+    "device_id": "01a0aaa1-c57f-731a-843b-fe906ef21e52",
+    "sequence": 2,
+    "event_type": "sale.completed",
+    "entity_type": "sale",
+    "entity_id": "6f256f54-194c-457c-9c33-1d3f17be8ed1",
+    "payload": "{\"reference\":\"SALE-2F3F-20260916-000001\",\"total\":20000,\"paid_amount\":20000,\"outstanding_amount\":0,\"method\":\"cash\",\"payment_ids\":[\"0ec5ab7a-2e08-44b4-bf8a-e95334d3949f\"],\"movement_ids\":[\"b5081f92-f5b6-4bf2-8fc9-bef97b90d702\",\"418311bc-9697-4221-aa2f-21a555ed0cc2\"],\"item_count\":2,\"device_id\":\"01a0aaa1-c57f-731a-843b-fe906ef21e52\",\"cash_register_id\":\"reg-01a0aaa1-c57f-731a-843b-fe906ef21e52\",\"cash_session_id\":\"ses-01a0aaa1-c57f-731a-843b-fe906ef21e52\",\"user_id\":\"01a09c1d-a29e-7289-877f-03510cbdce70\"}",
+    "occurred_at": "2026-09-16T16:36:11.495949",
+    "sync_status": "synced"
+  },
+  {
+    "id": "00eef116-94d4-4d56-8cfb-6a2df396c889",
+    "store_id": "01a09c4d-2955-70b4-a851-04d9b3e2de36",
+    "device_id": "01a0aaa1-c57f-731a-843b-fe906ef21e52",
+    "sequence": 3,
+    "event_type": "sale.completed",
+    "entity_type": "sale",
+    "entity_id": "cbace7e3-c3d9-4824-a67e-1ea403e80ca9",
+    "payload": "{\"reference\":\"SALE-2F3F-20260916-000002\",\"total\":0,\"paid_amount\":0,\"outstanding_amount\":0,\"method\":\"cash\",\"payment_ids\":[\"dc1fe977-7fa9-45a9-aeec-ef43a2ed703b\"],\"movement_ids\":[\"3473c440-8002-441d-bb32-6a9c9749b3bf\"],\"item_count\":1,\"device_id\":\"01a0aaa1-c57f-731a-843b-fe906ef21e52\",\"cash_register_id\":\"reg-01a0aaa1-c57f-731a-843b-fe906ef21e52\",\"cash_session_id\":\"ses-01a0aaa1-c57f-731a-843b-fe906ef21e52\",\"user_id\":\"01a09c1d-a29e-7289-877f-03510cbdce70\"}",
+    "occurred_at": "2026-09-16T17:22:52.559354",
+    "sync_status": "pending"
+  }
+]

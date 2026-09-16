@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_cart_engine.dart';
@@ -26,18 +27,18 @@ class PosCartPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: PosUi.cartCanvas,
-        border: Border(left: BorderSide(color: Color(0xFFE7EDF3))),
+        border: Border(left: BorderSide(color: AppColors.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE7EDF3))),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border(bottom: BorderSide(color: AppColors.border)),
             ),
             child: Row(
               children: [
@@ -47,17 +48,12 @@ class PosCartPanel extends StatelessWidget {
                     children: [
                       Text(
                         'Panier',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
-                          color: AppColors.textPrimary,
-                        ),
+                        style: AppTypography.sectionTitle(),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${cart.itemCount} article${cart.itemCount == 1 ? '' : 's'}',
-                        style: PosUi.caption(color: const Color(0xFF94A3B8)),
+                        style: PosUi.caption(),
                       ),
                     ],
                   ),
@@ -67,12 +63,12 @@ class PosCartPanel extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.brand100,
-                    borderRadius: BorderRadius.circular(99),
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                   child: Text(
                     '${cart.lines.length}',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
+                    style: AppTypography.plex(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: AppColors.brand700,
@@ -101,7 +97,7 @@ class PosCartPanel extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Modification — ${cart.activeHoldLabel ?? 'commande en attente'}\nAjoutez des articles puis Enregistrer (Attente)',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.ibmPlexSans(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: AppColors.warning,
@@ -158,7 +154,7 @@ class _EmptyCart extends StatelessWidget {
               ),
               child: Text(
                 '+',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.ibmPlexSans(
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
                   color: AppColors.brand600,
@@ -204,16 +200,10 @@ class _CartLineTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE7EDF3)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(PosUi.radiusMd),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.elevationSm,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +261,7 @@ class _CartLineTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Text(
                         '${line.quantity}',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.ibmPlexSans(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
                           color: AppColors.textPrimary,
@@ -317,7 +307,7 @@ class _CartThumb extends StatelessWidget {
               ? Center(
                   child: Text(
                     initial,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.ibmPlexSans(
                       fontWeight: FontWeight.w700,
                       color: AppColors.brand700,
                     ),
@@ -329,7 +319,7 @@ class _CartThumb extends StatelessWidget {
                   errorBuilder: (_, _, _) => Center(
                     child: Text(
                       initial,
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.ibmPlexSans(
                         fontWeight: FontWeight.w700,
                         color: AppColors.brand700,
                       ),

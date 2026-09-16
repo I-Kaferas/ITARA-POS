@@ -6,10 +6,12 @@ import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Tax, TaxClass, TaxGroup, TaxRegisterRow, TaxReportRow, TaxRule } from '../../../types'
 import { formatDateTime } from '../../../utils/format'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 
 type Tab = 'report' | 'register' | 'groups' | 'classes' | 'rules' | 'calculator'
@@ -74,6 +76,11 @@ const tabs = computed(() => [
 ])
 
 const activeTaxes = computed(() => store.taxes.filter(tax => tax.is_active))
+const registerFilters = ref<ListFilters>(emptyListFilters('all'))
+const filteredTaxes = computed(() => store.taxes.filter(tax =>
+  matchesSearch(`${tax.name} ${tax.code}`, registerFilters.value.search)
+  && matchesActive(tax.is_active, registerFilters.value.active),
+))
 
 function today() {
   const now = new Date()
@@ -403,6 +410,7 @@ function toggleCalcTax(id: string, checked: boolean) {
         <div class="flex justify-end">
           <button class="btn-primary" @click="openTax()">+ {{ t('catalog.addTax') }}</button>
         </div>
+        <ModuleFilters v-model="registerFilters" :show-period="false" show-search show-active />
         <div class="panel">
           <table class="min-w-full text-sm">
             <thead class="bg-slate-50">
@@ -418,7 +426,7 @@ function toggleCalcTax(id: string, checked: boolean) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="tax in store.taxes" :key="tax.id">
+              <tr v-for="tax in filteredTaxes" :key="tax.id">
                 <td class="font-medium">{{ tax.name }}</td>
                 <td class="font-mono">{{ tax.code }}</td>
                 <td>{{ tax.rate }}%</td>
@@ -437,7 +445,7 @@ function toggleCalcTax(id: string, checked: boolean) {
               </tr>
             </tbody>
           </table>
-          <p v-if="!store.taxes.length" class="empty">{{ t('org.empty') }}</p>
+          <p v-if="!filteredTaxes.length" class="empty">{{ t('org.empty') }}</p>
         </div>
         <div class="panel">
           <h3 class="px-4 py-3 text-sm font-medium">{{ t('catalog.tax.journal') }}</h3>

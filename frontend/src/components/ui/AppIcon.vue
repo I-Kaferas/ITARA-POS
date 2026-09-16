@@ -412,6 +412,436 @@ defineProps<{
       <rect x="13" y="13" width="8" height="7" rx="1.5" />
     </template>
 
+    <!-- Amenity: TV -->
+    <template v-else-if="name === 'tv'">
+      <rect x="2" y="4" width="20" height="13" rx="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+    </template>
+
+    <!-- Amenity: Air conditioning -->
+    <template v-else-if="name === 'ac'">
+      <path d="M12 3v18" />
+      <path d="M5.5 7.5 12 12l6.5-4.5" />
+      <path d="M5.5 16.5 12 12l6.5 4.5" />
+      <circle cx="12" cy="12" r="1.5" />
+    </template>
+
+    <!-- Amenity: Minibar -->
+    <template v-else-if="name === 'minibar'">
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M5 9h14" />
+      <path d="M9 13h2v5H9z" />
+      <path d="M13 13h2v3h-2z" />
+    </template>
+
+    <!-- Amenity: Safe -->
+    <template v-else-if="name === 'safe'">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="12" cy="12" r="3.5" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+      <path d="M7 8h.01" />
+    </template>
+
+    <!-- Amenity: Balcony -->
+    <template v-else-if="name === 'balcony'">
+      <path d="M4 10V4h16v6" />
+      <path d="M3 20h18" />
+      <path d="M5 10v10" />
+      <path d="M19 10v10" />
+      <path d="M9 10v10" />
+      <path d="M15 10v10" />
+      <path d="M3 14h18" />
+    </template>
+
+    <!-- Amenity: Bathtub -->
+    <template v-else-if="name === 'bathtub'">
+      <path d="M4 12h16a2 2 0 0 1 2 2v2a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4v-2a2 2 0 0 1 2-2z" />
+      <path d="M6 12V7a2 2 0 0 1 2-2h1" />
+      <circle cx="15" cy="7" r="1" />
+      <circle cx="18" cy="6" r="1" />
+    </template>
+
+    <!-- Amenity: Shower -->
+    <template v-else-if="name === 'shower'">
+      <path d="M4 4h8a4 4 0 0 1 4 4v2" />
+      <path d="M12 10v2" />
+      <circle cx="8" cy="16" r="1" />
+      <circle cx="12" cy="18" r="1" />
+      <circle cx="16" cy="16" r="1" />
+      <circle cx="10" cy="20" r="1" />
+      <circle cx="14" cy="20" r="1" />
+    </template>
+
+    <!-- Amenity: Desk -->
+    <template v-else-if="name === 'desk'">
+      <path d="M3 10h18" />
+      <path d="M5 10v10" />
+      <path d="M19 10v10" />
+      <path d="M9 14h6" />
+      <path d="M8 6h8l1 4H7l1-4z" />
+    </template>
+
+    <!-- Amenity: Kettle -->
+    <template v-else-if="name === 'kettle'">
+      <path d="M8 8h8l1 10H7L8 8z" />
+      <path d="M10 8V6a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2" />
+      <path d="M17 11h2a2 2 0 0 1 0 4h-2" />
+      <path d="M7 18h10" />
+    </template>
+
+    <!-- Amenity: Hairdryer -->
+    <template v-else-if="name === 'hairdryer'">
+      <path d="M4 10a6 6 0 0 1 12 0v1H4v-1z" />
+      <path d="M16 11h3a2 2 0 0 1 2 2v1" />
+      <path d="M10 11v9" />
+      <path d="M8 20h4" />
+      <circle cx="10" cy="8" r="1.5" />
+    </template>
+
+    <!-- Amenity: Projector -->
+    <template v-else-if="name === 'projector'">
+      <rect x="2" y="8" width="20" height="9" rx="2" />
+      <circle cx="12" cy="12.5" r="2.5" />
+      <path d="M7 17v2" />
+      <path d="M17 17v2" />
+      <path d="M6 8V6" />
+    </template>
+
+    <!-- Amenity: Sound / mic -->
+    <template v-else-if="name === 'sound'">
+      <path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v3" />
+      <path d="M8 21h8" />
+    </template>
+
+    <!-- Amenity: Stage -->
+    <template v-else-if="name === 'stage'">
+      <path d="M3 18h18" />
+      <path d="M5 18V12l7-5 7 5v6" />
+      <path d="M9 18v-3h6v3" />
+      <path d="M12 7V4" />
+    </template>
+
+    <!-- Amenity: Catering -->
+    <template v-else-if="name === 'catering'">
+      <path d="M4 11h16v2a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6v-2z" />
+      <path d="M8 11V7a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4" />
+      <path d="M12 19v2" />
+      <path d="M9 21h6" />
+    </template>
+
+    <template v-else-if="name === 'parking'">
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M9 17V7h4.2a3.3 3.3 0 0 1 0 6.6H9" />
+    </template>
+
+    <template v-else-if="name === 'pool'">
+      <path d="M4 18c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0 3 1 4.5 0" />
+      <path d="M4 14c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0 3 1 4.5 0" />
+      <path d="M8 6c0 2 1.5 3 1.5 5" />
+      <path d="M16 4c0 2.5-1.5 3.5-1.5 6" />
+    </template>
+
+    <template v-else-if="name === 'gym'">
+      <path d="M6.5 9.5 4 12l2.5 2.5" />
+      <path d="M17.5 9.5 20 12l-2.5 2.5" />
+      <path d="M6.5 12h11" />
+      <path d="M4 10v4" />
+      <path d="M20 10v4" />
+      <path d="M8 9v6" />
+      <path d="M16 9v6" />
+    </template>
+
+    <template v-else-if="name === 'coffee'">
+      <path d="M5 8h11v5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8z" />
+      <path d="M16 9h2a2.5 2.5 0 0 1 0 5h-2" />
+      <path d="M4 19h13" />
+      <path d="M9 3c0 1 .5 1.5.5 2.5S9 7 9 8" />
+      <path d="M12 3c0 1 .5 1.5.5 2.5S12 7 12 8" />
+    </template>
+
+    <template v-else-if="name === 'iron'">
+      <path d="M4 16h14a3 3 0 0 0 0-6H9L5 14v2z" />
+      <path d="M4 16v2h12" />
+      <circle cx="15" cy="12" r="1" />
+    </template>
+
+    <template v-else-if="name === 'fridge'">
+      <rect x="6" y="2" width="12" height="20" rx="2" />
+      <path d="M6 10h12" />
+      <path d="M9 6v2" />
+      <path d="M9 13v3" />
+    </template>
+
+    <template v-else-if="name === 'microwave'">
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <rect x="5" y="9" width="10" height="6" rx="1" />
+      <circle cx="18" cy="10" r="1" />
+      <circle cx="18" cy="14" r="1" />
+    </template>
+
+    <template v-else-if="name === 'laundry'">
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <circle cx="12" cy="13" r="4" />
+      <circle cx="12" cy="13" r="1.5" />
+      <path d="M8 6h.01" />
+      <path d="M11 6h5" />
+    </template>
+
+    <template v-else-if="name === 'elevator'">
+      <rect x="5" y="2" width="14" height="20" rx="2" />
+      <path d="M9 9l3-2 3 2" />
+      <path d="M9 15l3 2 3-2" />
+    </template>
+
+    <template v-else-if="name === 'wheelchair'">
+      <circle cx="8" cy="5" r="2" />
+      <path d="M10 8.5 12 14l4 1" />
+      <path d="M8 8v4" />
+      <circle cx="9" cy="17" r="4" />
+      <path d="M13 17h5l2 3" />
+    </template>
+
+    <template v-else-if="name === 'pets'">
+      <circle cx="11" cy="5" r="2" />
+      <circle cx="17" cy="7" r="1.5" />
+      <circle cx="5" cy="7" r="1.5" />
+      <circle cx="18" cy="13" r="1.5" />
+      <circle cx="4" cy="13" r="1.5" />
+      <path d="M8 14c0-2 1.5-3.5 4-3.5s4 1.5 4 3.5-2 5-4 5-4-3-4-5z" />
+    </template>
+
+    <template v-else-if="name === 'smoking'">
+      <path d="M3 17h10" />
+      <path d="M16 17h1" />
+      <path d="M19 17h2" />
+      <path d="M17 14c1 0 2-.8 2-2s-1-2-1-3 1-2 1-3" />
+      <path d="M20 14c1.2 0 2.2-1 2.2-2.3S21 9.5 21 8.2 22.2 6 22.2 4.7" />
+    </template>
+
+    <template v-else-if="name === 'no-smoking'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M4.5 4.5 19.5 19.5" />
+      <path d="M5 14h7" />
+      <path d="M14 14h1.5" />
+    </template>
+
+    <template v-else-if="name === 'baby'">
+      <circle cx="12" cy="6" r="3" />
+      <path d="M7 20c0-3 2.2-5 5-5s5 2 5 5" />
+      <path d="M8 13c-1.5.5-2.5 2-2.5 3.5" />
+      <path d="M16 13c1.5.5 2.5 2 2.5 3.5" />
+    </template>
+
+    <template v-else-if="name === 'towel'">
+      <path d="M6 4h9a3 3 0 0 1 0 6H8" />
+      <path d="M8 10v10" />
+      <path d="M6 4v4" />
+      <path d="M12 10v4" />
+    </template>
+
+    <template v-else-if="name === 'slippers'">
+      <path d="M4 15c0-3 2-5 5-5h3c2 0 3 1.2 3 3v4H4v-2z" />
+      <path d="M12 15c0-2.5 1.8-4 4.5-4H19c1.5 0 2.5 1 2.5 2.5V18H12v-3z" />
+    </template>
+
+    <template v-else-if="name === 'robe'">
+      <path d="M8 4h8l2 6v10H6V10l2-6z" />
+      <path d="M12 4v16" />
+      <path d="M8 10h8" />
+    </template>
+
+    <template v-else-if="name === 'lamp'">
+      <path d="M9 18h6" />
+      <path d="M12 18v3" />
+      <path d="M7 14h10l-1.5-7h-7L7 14z" />
+      <path d="M10 7V4h4v3" />
+    </template>
+
+    <template v-else-if="name === 'fan'">
+      <circle cx="12" cy="12" r="2" />
+      <path d="M12 10c2-4 6-5 7-3s-1 5-5 6" />
+      <path d="M14 12c4 2 5 6 3 7s-5-1-6-5" />
+      <path d="M12 14c-2 4-6 5-7 3s1-5 5-6" />
+      <path d="M10 12C6 10 5 6 7 5s5 1 6 5" />
+    </template>
+
+    <template v-else-if="name === 'heater'">
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 7v10" />
+      <path d="M12 7v10" />
+      <path d="M15 7v10" />
+    </template>
+
+    <template v-else-if="name === 'window'">
+      <rect x="3" y="4" width="18" height="16" rx="1.5" />
+      <path d="M12 4v16" />
+      <path d="M3 12h18" />
+    </template>
+
+    <template v-else-if="name === 'garden'">
+      <path d="M12 21V11" />
+      <path d="M8 21h8" />
+      <path d="M12 11c-3 0-5-2.2-5-5 2.5 0 5 2 5 5z" />
+      <path d="M12 11c3 0 5-2.2 5-5-2.5 0-5 2-5 5z" />
+      <path d="M12 11c0-3 2-5 5-5-1 2.5-3 5-5 5z" />
+    </template>
+
+    <template v-else-if="name === 'restaurant'">
+      <path d="M7 3v8a2 2 0 0 0 2 2v8" />
+      <path d="M5 3c0 2.5 2 3 2 5" />
+      <path d="M9 3c0 2.5-2 3-2 5" />
+      <path d="M16 3v18" />
+      <path d="M16 8h3a2 2 0 0 0 0-4h-3" />
+    </template>
+
+    <template v-else-if="name === 'bar'">
+      <path d="M6 4h12l-5 8v6h3v2H8v-2h3v-6L6 4z" />
+      <path d="M8 8h8" />
+    </template>
+
+    <template v-else-if="name === 'spa'">
+      <path d="M12 21c-4-3-7-6.5-7-10a7 7 0 0 1 14 0c0 3.5-3 7-7 10z" />
+      <path d="M9 11c1-2 2.5-3 3-3s2 1 3 3" />
+    </template>
+
+    <template v-else-if="name === 'luggage'">
+      <rect x="5" y="7" width="14" height="13" rx="2" />
+      <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+      <path d="M5 12h14" />
+    </template>
+
+    <template v-else-if="name === 'clock'">
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15 14" />
+    </template>
+
+    <template v-else-if="name === 'camera'">
+      <path d="M4 8h3l2-2h6l2 2h3v11H4V8z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </template>
+
+    <template v-else-if="name === 'music'">
+      <path d="M9 18V6l10-2v12" />
+      <circle cx="7" cy="18" r="2.5" />
+      <circle cx="17" cy="16" r="2.5" />
+    </template>
+
+    <template v-else-if="name === 'game'">
+      <rect x="2" y="8" width="20" height="10" rx="4" />
+      <path d="M7 13h4" />
+      <path d="M9 11v4" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="18" cy="14" r="1" />
+    </template>
+
+    <template v-else-if="name === 'water'">
+      <path d="M12 3c0 0-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11z" />
+    </template>
+
+    <template v-else-if="name === 'fire'">
+      <path d="M12 3c2 4-2 5-1 9 3-1 5-4 5-7 3 3 4 6 4 9a8 8 0 1 1-16 0c0-4 3-7 8-11z" />
+    </template>
+
+    <template v-else-if="name === 'leaf'">
+      <path d="M5 19c8 0 14-6 14-14-8 0-14 6-14 14z" />
+      <path d="M5 19c3-4 7-7 12-9" />
+    </template>
+
+    <template v-else-if="name === 'sun'">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="M4.9 4.9 6.3 6.3" />
+      <path d="M17.7 17.7 19.1 19.1" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="M4.9 19.1 6.3 17.7" />
+      <path d="M17.7 6.3 19.1 4.9" />
+    </template>
+
+    <template v-else-if="name === 'moon'">
+      <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3 7 7 0 0 0 21 14.5z" />
+    </template>
+
+    <template v-else-if="name === 'star'">
+      <polygon points="12 3 14.8 9.2 21.5 9.8 16.5 14.2 18.2 21 12 17.5 5.8 21 7.5 14.2 2.5 9.8 9.2 9.2 12 3" />
+    </template>
+
+    <template v-else-if="name === 'heart'">
+      <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
+    </template>
+
+    <template v-else-if="name === 'umbrella'">
+      <path d="M12 12v8a2 2 0 0 0 4 0" />
+      <path d="M4 12a8 8 0 0 1 16 0H4z" />
+    </template>
+
+    <template v-else-if="name === 'car'">
+      <path d="M4 15h16v3H4z" />
+      <path d="M5 15 7 9h10l2 6" />
+      <circle cx="7.5" cy="18" r="1.5" />
+      <circle cx="16.5" cy="18" r="1.5" />
+    </template>
+
+    <template v-else-if="name === 'bus'">
+      <rect x="4" y="3" width="16" height="15" rx="2" />
+      <path d="M4 11h16" />
+      <path d="M8 18v2" />
+      <path d="M16 18v2" />
+      <circle cx="8" cy="14" r="1" />
+      <circle cx="16" cy="14" r="1" />
+    </template>
+
+    <template v-else-if="name === 'plane'">
+      <path d="M10.5 19 12 22l1.5-3 6.5 1-4-5 5-9-9 5-5-4 1 6.5z" />
+    </template>
+
+    <template v-else-if="name === 'map'">
+      <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6" />
+      <line x1="9" y1="3" x2="9" y2="18" />
+      <line x1="15" y1="6" x2="15" y2="21" />
+    </template>
+
+    <template v-else-if="name === 'globe'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a14 14 0 0 1 0 18" />
+      <path d="M12 3a14 14 0 0 0 0 18" />
+    </template>
+
+    <template v-else-if="name === 'power'">
+      <path d="M12 3v9" />
+      <path d="M7.5 6.5a7 7 0 1 0 9 0" />
+    </template>
+
+    <template v-else-if="name === 'plug'">
+      <path d="M9 3v6" />
+      <path d="M15 3v6" />
+      <path d="M7 9h10v3a5 5 0 0 1-10 0V9z" />
+      <path d="M12 17v4" />
+    </template>
+
+    <template v-else-if="name === 'battery'">
+      <rect x="3" y="7" width="16" height="10" rx="2" />
+      <path d="M19 10h2v4h-2" />
+      <path d="M6 10h6v4H6z" fill="currentColor" stroke="none" />
+    </template>
+
+    <template v-else-if="name === 'speaker'">
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <circle cx="12" cy="14" r="3.5" />
+      <circle cx="12" cy="7" r="1.2" />
+    </template>
+
+    <template v-else-if="name === 'headset'">
+      <path d="M4 13v-2a8 8 0 0 1 16 0v2" />
+      <rect x="2" y="13" width="4" height="6" rx="1.5" />
+      <rect x="18" y="13" width="4" height="6" rx="1.5" />
+    </template>
+
     <!-- Default fallback -->
     <template v-else>
       <circle cx="12" cy="12" r="10" />

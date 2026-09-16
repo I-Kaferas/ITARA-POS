@@ -6,6 +6,7 @@ import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import { LOCALE_META, SUPPORTED_LOCALES, persistLocale, type AppLocale } from '../../../i18n/locales'
 import LanguageFlag from '../../../components/ui/LanguageFlag.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import { getRefreshToken, getTenantId, getToken } from '../../../api/client'
 import { useContextStore } from '../../../stores/context'
 
 const { t, locale } = useI18n()
@@ -15,6 +16,22 @@ const language = ref<AppLocale>('fr')
 const storeId = ref('')
 const sidebarOpen = ref(true)
 const message = ref('')
+const showToken = ref(false)
+const showRefreshToken = ref(false)
+const copiedKey = ref('')
+const accessToken = ref(getToken() ?? '')
+const refreshToken = ref(getRefreshToken() ?? '')
+const tenantId = ref(getTenantId() ?? '')
+
+/** Direct Laravel URL for Windows/mobile terminals (not the Vite proxy). */
+const apiUrl = computed(() => {
+  const terminal = String(import.meta.env.VITE_TERMINAL_API_URL || '').trim()
+  if (terminal) return terminal.replace(/\/$/, '')
+  const base = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
+  if (/^https?:\/\//i.test(base)) return String(base).replace(/\/$/, '')
+  return 'http://127.0.0.1:8000/api/v1'
+})
+
 const hub = computed(() => [
   { to: '/admin/organization/company', label: t('settings.domains.company'), hint: t('settings.companyHint') },
   { to: '/admin/organization/stores', label: t('settings.domains.store'), hint: t('settings.storeHint') },
@@ -33,7 +50,28 @@ onMounted(async () => {
   sidebarOpen.value = localStorage.getItem('pos_sidebar_open') !== '0'
   if (!context.stores.length) await context.loadStores()
   storeId.value = context.currentStoreId ?? ''
+  accessToken.value = getToken() ?? ''
+  refreshToken.value = getRefreshToken() ?? ''
+  tenantId.value = getTenantId() ?? ''
 })
+
+function maskToken(value: string) {
+  if (value.length <= 12) return '••••••••'
+  return `${value.slice(0, 6)}…${value.slice(-4)}`
+}
+
+async function copyValue(key: string, value: string) {
+  if (!value) return
+  try {
+    await navigator.clipboard.writeText(value)
+    copiedKey.value = key
+    window.setTimeout(() => {
+      if (copiedKey.value === key) copiedKey.value = ''
+    }, 1800)
+  } catch {
+    // Clipboard may be blocked; user can still select the value.
+  }
+}
 
 function save() {
   locale.value = language.value
@@ -83,6 +121,64 @@ function save() {
             </option>
           </select>
           <p v-else class="hint">{{ t('settings.noStore') }}</p>
+        </section>
+
+        <section class="card terminal-card">
+          <h3>{{ t('settings.terminal') }}</h3>
+          <p class="hint">{{ t('settings.terminalHint') }}</p>
+
+          <div class="cred">
+            <span class="cred__label">{{ t('settings.tenantId') }}</span>
+            <code class="cred__value">{{ tenantId || '—' }}</code>
+            <button type="button" class="cred__btn" :disabled="!tenantId" @click="copyValue('tenant', tenantId)">
+              {{ copiedKey === 'tenant' ? t('settings.copied') : t('settings.copy') }}
+            </button>
+          </div>
+
+          <div class="cred">
+            <span class="cred__label">{{ t('settings.storeId') }}</span>
+            <code class="cred__value">{{ storeId || '—' }}</code>
+            <button type="button" class="cred__btn" :disabled="!storeId" @click="copyValue('store', storeId)">
+              {{ copiedKey === 'store' ? t('settings.copied') : t('settings.copy') }}
+            </button>
+          </div>
+
+          <div class="cred">
+            <span class="cred__label">{{ t('settings.accessToken') }}</span>
+            <code class="cred__value">
+              <template v-if="accessToken">{{ showToken ? accessToken : maskToken(accessToken) }}</template>
+              <template v-else>{{ t('settings.noToken') }}</template>
+            </code>
+            <button type="button" class="cred__btn" :disabled="!accessToken" @click="showToken = !showToken">
+              {{ showToken ? t('settings.hide') : t('settings.show') }}
+            </button>
+            <button type="button" class="cred__btn" :disabled="!accessToken" @click="copyValue('token', accessToken)">
+              {{ copiedKey === 'token' ? t('settings.copied') : t('settings.copy') }}
+            </button>
+          </div>
+
+          <div class="cred">
+            <span class="cred__label">{{ t('settings.refreshToken') }}</span>
+            <code class="cred__value">
+              <template v-if="refreshToken">{{ showRefreshToken ? refreshToken : maskToken(refreshToken) }}</template>
+              <template v-else>—</template>
+            </code>
+            <button type="button" class="cred__btn" :disabled="!refreshToken" @click="showRefreshToken = !showRefreshToken">
+              {{ showRefreshToken ? t('settings.hide') : t('settings.show') }}
+            </button>
+            <button type="button" class="cred__btn" :disabled="!refreshToken" @click="copyValue('refresh', refreshToken)">
+              {{ copiedKey === 'refresh' ? t('settings.copied') : t('settings.copy') }}
+            </button>
+          </div>
+
+          <div class="cred">
+            <span class="cred__label">{{ t('settings.apiUrl') }}</span>
+            <code class="cred__value">{{ apiUrl }}</code>
+            <button type="button" class="cred__btn" @click="copyValue('api', apiUrl)">
+              {{ copiedKey === 'api' ? t('settings.copied') : t('settings.copy') }}
+            </button>
+          </div>
+          <p class="hint">{{ t('settings.terminalApiHint') }}</p>
         </section>
 
         <section class="card">
@@ -169,9 +265,55 @@ function save() {
 .shortcut:hover { border-color: #4a6d86; background: #f3f6f8; }
 .shortcut span { color: #64748b; font-size: 0.75rem; }
 .hub { display: flex; flex-direction: column; gap: 0.5rem; grid-column: 1 / -1; }
+.terminal-card { grid-column: 1 / -1; }
+.cred {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr) auto auto;
+  gap: 0.45rem 0.55rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #e8edf2;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+.cred__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.cred__value {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  color: #0f172a;
+}
+.cred__btn {
+  border: 1px solid #dbe3ea;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #334155;
+  font-size: 0.72rem;
+  font-weight: 650;
+  padding: 0.28rem 0.55rem;
+  cursor: pointer;
+}
+.cred__btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.cred__btn:not(:disabled):hover { border-color: #4a6d86; color: #1c2830; }
 .settings-actions { display: flex; justify-content: flex-end; }
 @media (min-width: 860px) {
   .settings-grid { grid-template-columns: 1fr 1fr; }
   .settings-actions { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .cred {
+    grid-template-columns: 1fr auto auto;
+  }
+  .cred__label { grid-column: 1 / -1; }
+  .cred__value { grid-column: 1 / -1; white-space: normal; word-break: break-all; }
 }
 </style>

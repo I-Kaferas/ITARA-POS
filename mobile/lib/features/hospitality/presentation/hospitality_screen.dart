@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../core/navigation/app_routes.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../pos/services/pos_pending_intent.dart';
 import '../data/hospitality_api.dart';
 
 class HospitalityScreen extends StatefulWidget {
@@ -433,6 +436,21 @@ class _OrderSheetState extends State<_OrderSheet> {
                     if (context.mounted) Navigator.pop(context);
                   },
                   child: const Text('Envoyer cuisine'),
+                ),
+                OutlinedButton(
+                  onPressed: () {
+                    final saleId = widget.order['sale_id']?.toString() ?? widget.order['id']?.toString() ?? '';
+                    final tableId = widget.order['table_id']?.toString();
+                    if (saleId.isEmpty) return;
+                    PosPendingIntent.notifier.value = PosHoldIntent(
+                      holdId: saleId,
+                      action: PosHoldAction.modify,
+                      tableId: tableId,
+                    );
+                    Navigator.pop(context);
+                    context.go(AppRoutes.pos);
+                  },
+                  child: const Text('Ouvrir en caisse'),
                 ),
                 OutlinedButton(
                   onPressed: _selected.isEmpty

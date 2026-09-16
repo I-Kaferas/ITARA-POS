@@ -11,6 +11,7 @@ import '../features/pos/domain/pos_models.dart';
 import 'local_master_server.dart';
 import 'offline_store.dart';
 import 'sync_models.dart';
+import 'sync_numbers.dart';
 
 class _BatchResult {
   const _BatchResult({this.sent = 0, this.acknowledged = 0, this.kept = 0, this.stopped = false});
@@ -42,6 +43,7 @@ class SyncEngine extends ChangeNotifier {
   int lastSent = 0;
   int lastAcknowledged = 0;
   int lastKept = 0;
+  SyncReport lastReport = const SyncReport();
 
   SyncSnapshot get snapshot => SyncSnapshot(
         connectivity: connectivity,
@@ -95,10 +97,15 @@ class SyncEngine extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> syncNow() => runCycle(forcePull: true, pushOutbound: true);
+  Future<SyncReport> syncNow() async {
+    await runCycle(forcePull: true, pushOutbound: true);
+    return lastReport;
+  }
 
-  Future<String> downloadStock() async {
-    if (_running) return 'Synchronisation déjà en cours';
+  Future<SyncReport> downloadStock() async {
+    if (_running) {
+      return lastReport = const SyncReport(ok: false, message: 'Synchronisation déjà en cours');
+    }
     _running = true;
     connectivity = ConnectivityState.syncing;
     notifyListeners();
@@ -107,26 +114,40 @@ class SyncEngine extends ChangeNotifier {
       if (activeTarget == null) {
         lastError = 'Serveur indisponible';
         connectivity = ConnectivityState.offline;
-        return lastError!;
+        return lastReport = SyncReport(ok: false, message: lastError!);
       }
-      await refreshCatalogNow();
-      await _pullReferenceData();
+      final catalog = await _refreshCatalogCounts();
+      final refs = await _pullReferenceCounts();
       lastSyncAt = DateTime.now();
       lastError = null;
       connectivity = ConnectivityState.online;
-      return 'Stock, clients et paiements téléchargés';
+      return lastReport = SyncReport(
+        message: 'Téléchargement terminé',
+        products: catalog.products,
+        categories: catalog.categories,
+        customers: refs.customers,
+        paymentMethods: refs.paymentMethods,
+        units: refs.units,
+        users: refs.users,
+        roles: refs.roles,
+        permissions: refs.permissions,
+        currencies: refs.currencies,
+        taxes: refs.taxes,
+      );
     } catch (error) {
-      lastError = error.toString();
+      lastError = error.toString().replaceFirst('Exception: ', '');
       connectivity = ConnectivityState.syncError;
-      return lastError!;
+      return lastReport = SyncReport(ok: false, message: lastError!);
     } finally {
       _running = false;
       notifyListeners();
     }
   }
 
-  Future<String> syncStock() async {
-    if (_running) return 'Synchronisation déjà en cours';
+  Future<SyncReport> syncStock() async {
+    if (_running) {
+      return lastReport = const SyncReport(ok: false, message: 'Synchronisation déjà en cours');
+    }
     _running = true;
     connectivity = ConnectivityState.syncing;
     notifyListeners();
@@ -135,28 +156,43 @@ class SyncEngine extends ChangeNotifier {
       if (activeTarget == null) {
         lastError = 'Serveur indisponible';
         connectivity = ConnectivityState.offline;
-        return lastError!;
+        return lastReport = SyncReport(ok: false, message: lastError!);
       }
-      await _drainQueue();
-      await refreshCatalogNow();
-      await _pullReferenceData();
+      final sent = await _drainQueue();
+      final catalog = await _refreshCatalogCounts();
+      final refs = await _pullReferenceCounts();
       lastSyncAt = DateTime.now();
       lastError = null;
       connectivity = ConnectivityState.online;
       await refreshCounts();
-      return pending == 0 ? 'Stock envoyé et téléchargé' : 'Stock téléchargé · $pending en attente';
+      return lastReport = SyncReport(
+        message: pending == 0 ? 'Stock envoyé et téléchargé' : 'Stock téléchargé · $pending en attente',
+        products: catalog.products,
+        categories: catalog.categories,
+        customers: refs.customers,
+        paymentMethods: refs.paymentMethods,
+        units: refs.units,
+        users: refs.users,
+        roles: refs.roles,
+        permissions: refs.permissions,
+        currencies: refs.currencies,
+        taxes: refs.taxes,
+        sent: sent,
+      );
     } catch (error) {
-      lastError = error.toString();
+      lastError = error.toString().replaceFirst('Exception: ', '');
       connectivity = ConnectivityState.syncError;
-      return lastError!;
+      return lastReport = SyncReport(ok: false, message: lastError!);
     } finally {
       _running = false;
       await refreshCounts();
     }
   }
 
-  Future<String> sendStock() async {
-    if (_running) return 'Synchronisation déjà en cours';
+  Future<SyncReport> sendStock() async {
+    if (_running) {
+      return lastReport = const SyncReport(ok: false, message: 'Synchronisation déjà en cours');
+    }
     _running = true;
     connectivity = ConnectivityState.syncing;
     notifyListeners();
@@ -165,7 +201,7 @@ class SyncEngine extends ChangeNotifier {
       if (activeTarget == null) {
         lastError = 'Serveur indisponible. Vérifiez l’URL API et la connexion.';
         connectivity = ConnectivityState.offline;
-        return lastError!;
+        return lastReport = SyncReport(ok: false, message: lastError!);
       }
       await _prepareAuth();
       await OfflineStore.instance.releaseStuck();
@@ -179,20 +215,20 @@ class SyncEngine extends ChangeNotifier {
       if (error != null && pending > 0) {
         lastError = error;
         connectivity = ConnectivityState.syncError;
-        return error;
+        return lastReport = SyncReport(ok: false, message: error, sent: sent);
       }
 
       lastSyncAt = DateTime.now();
       lastError = null;
       connectivity = ConnectivityState.online;
-      if (pending == 0) {
-        return sent == 0 ? 'Rien à envoyer' : 'Ventes et stock envoyés';
-      }
-      return 'Envoi partiel · $pending en attente';
+      final message = pending == 0
+          ? (sent == 0 ? 'Rien à envoyer' : 'Ventes et stock envoyés')
+          : 'Envoi partiel · $pending en attente';
+      return lastReport = SyncReport(ok: pending == 0 || sent > 0, message: message, sent: sent);
     } catch (error) {
       lastError = error.toString().replaceFirst('Exception: ', '');
       connectivity = ConnectivityState.syncError;
-      return lastError!;
+      return lastReport = SyncReport(ok: false, message: lastError!);
     } finally {
       _running = false;
       await refreshCounts();
@@ -204,6 +240,18 @@ class SyncEngine extends ChangeNotifier {
     _running = true;
     connectivity = ConnectivityState.syncing;
     notifyListeners();
+
+    var products = 0;
+    var categories = 0;
+    var customers = 0;
+    var paymentMethods = 0;
+    var units = 0;
+    var users = 0;
+    var roles = 0;
+    var permissions = 0;
+    var currencies = 0;
+    var taxes = 0;
+    var sent = 0;
 
     try {
       final hadTarget = activeTarget != null;
@@ -222,17 +270,27 @@ class SyncEngine extends ChangeNotifier {
       } catch (_) {}
       try {
         if (forcePull || await _shouldPull()) {
-          await _pullCatalog();
+          final catalog = await _pullCatalog();
+          products = catalog.products;
+          categories = catalog.categories;
         }
         if (forcePull || await _shouldPullReference()) {
-          await _pullReferenceData();
+          final refs = await _pullReferenceCounts();
+          customers = refs.customers;
+          paymentMethods = refs.paymentMethods;
+          units = refs.units;
+          users = refs.users;
+          roles = refs.roles;
+          permissions = refs.permissions;
+          currencies = refs.currencies;
+          taxes = refs.taxes;
         }
       } catch (error) {
         lastError = error.toString();
         await OfflineStore.instance.log('error', lastError!);
       }
       if (pushOutbound) {
-        await _drainQueue();
+        sent = await _drainQueue();
         await _pushLocalHolds();
         if (activeTarget == _internalBase) {
           try {
@@ -245,9 +303,24 @@ class SyncEngine extends ChangeNotifier {
       connectivity = activeTarget == _internalBase
           ? ConnectivityState.localAvailable
           : ConnectivityState.online;
+      lastReport = SyncReport(
+        message: 'Synchronisation terminée',
+        products: products,
+        categories: categories,
+        customers: customers,
+        paymentMethods: paymentMethods,
+        units: units,
+        users: users,
+        roles: roles,
+        permissions: permissions,
+        currencies: currencies,
+        taxes: taxes,
+        sent: sent,
+      );
     } catch (error) {
       lastError = error.toString();
       connectivity = ConnectivityState.syncError;
+      lastReport = SyncReport(ok: false, message: lastError!);
       await OfflineStore.instance.log('error', lastError!);
     } finally {
       _running = false;
@@ -343,10 +416,10 @@ class SyncEngine extends ChangeNotifier {
     return DateTime.now().difference(parsed) > const Duration(minutes: 5);
   }
 
-  Future<void> _pullCatalog() async {
+  Future<({int products, int categories})> _pullCatalog() async {
     final target = activeTarget;
     final storeId = TerminalConfigRepository.instance.config.storeId;
-    if (target == null || storeId.isEmpty) return;
+    if (target == null || storeId.isEmpty) return (products: 0, categories: 0);
 
     final since = await OfflineStore.instance.checkpoint('last_server_sequence') ?? '0';
     final uri = Uri.parse('$target/sync/pull').replace(queryParameters: {'since': since});
@@ -364,16 +437,89 @@ class SyncEngine extends ChangeNotifier {
     if (sequence != null) {
       await OfflineStore.instance.setCheckpoint('last_server_sequence', sequence);
     }
+    await OfflineStore.instance.setCheckpoint('catalog_synced_at', DateTime.now().toIso8601String());
+    return (products: catalog.products.length, categories: catalog.categories.length);
   }
 
-  Future<void> _pullReferenceData() async {
+  Future<({
+    int customers,
+    int paymentMethods,
+    int units,
+    int users,
+    int roles,
+    int permissions,
+    int currencies,
+    int taxes,
+  })> _pullReferenceCounts() async {
     final target = activeTarget;
-    if (target == null) return;
-    await _pullCustomers(target);
-    await _pullPaymentMethods(target);
+    if (target == null) {
+      return (
+        customers: 0,
+        paymentMethods: 0,
+        units: 0,
+        users: 0,
+        roles: 0,
+        permissions: 0,
+        currencies: 0,
+        taxes: 0,
+      );
+    }
+    final customers = await _pullCustomers(target);
+    final refs = await _pullSyncReferences(target);
+    await OfflineStore.instance.setCheckpoint('customers_synced_at', DateTime.now().toIso8601String());
+    return (
+      customers: customers,
+      paymentMethods: refs.paymentMethods,
+      units: refs.units,
+      users: refs.users,
+      roles: refs.roles,
+      permissions: refs.permissions,
+      currencies: refs.currencies,
+      taxes: refs.taxes,
+    );
   }
 
-  Future<void> _pullCustomers(String target) async {
+  Future<({
+    int paymentMethods,
+    int units,
+    int users,
+    int roles,
+    int permissions,
+    int currencies,
+    int taxes,
+  })> _pullSyncReferences(String target) async {
+    final uri = Uri.parse('$target/sync/references');
+    final response = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+    if (response.statusCode == 404) {
+      final paymentMethods = await _pullPaymentMethods(target);
+      return (
+        paymentMethods: paymentMethods,
+        units: 0,
+        users: 0,
+        roles: 0,
+        permissions: 0,
+        currencies: 0,
+        taxes: 0,
+      );
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Pull references failed: HTTP ${response.statusCode}');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>? ?? body;
+    await OfflineStore.instance.cacheReferenceBundle(data);
+    return (
+      paymentMethods: (data['payment_methods'] as List?)?.length ?? 0,
+      units: (data['units'] as List?)?.length ?? 0,
+      users: (data['users'] as List?)?.length ?? 0,
+      roles: (data['roles'] as List?)?.length ?? 0,
+      permissions: (data['permissions'] as List?)?.length ?? 0,
+      currencies: (data['currencies'] as List?)?.length ?? 0,
+      taxes: (data['taxes'] as List?)?.length ?? 0,
+    );
+  }
+
+  Future<int> _pullCustomers(String target) async {
     final customers = <PosCustomer>[];
     var page = 1;
     var lastPage = 1;
@@ -398,19 +544,20 @@ class SyncEngine extends ChangeNotifier {
       } else {
         pageBody = raw is Map<String, dynamic> ? raw : body;
         data = pageBody['data'] as List<dynamic>? ?? pageBody['items'] as List<dynamic>? ?? [];
-        lastPage = (pageBody['last_page'] as num?)?.toInt() ?? page;
+        lastPage = syncAsInt(pageBody['last_page'], page);
       }
       customers.addAll(
         data.whereType<Map>().map((item) => PosCustomer.fromJson(Map<String, dynamic>.from(item))),
       );
-      lastPage = (pageBody['last_page'] as num?)?.toInt() ?? page;
+      lastPage = syncAsInt(pageBody['last_page'], page);
       page++;
     } while (page <= lastPage && page <= 20);
 
     await OfflineStore.instance.cacheCustomers(customers);
+    return customers.length;
   }
 
-  Future<void> _pullPaymentMethods(String target) async {
+  Future<int> _pullPaymentMethods(String target) async {
     final storeId = TerminalConfigRepository.instance.config.storeId;
     final uri = Uri.parse('$target/payments/methods').replace(queryParameters: {
       if (storeId.isNotEmpty) 'store_id': storeId,
@@ -430,6 +577,7 @@ class SyncEngine extends ChangeNotifier {
     if (methods.isNotEmpty) {
       await OfflineStore.instance.cachePaymentMethods(methods);
     }
+    return methods.length;
   }
 
   Future<void> _pushLocalHolds() async {
@@ -550,8 +698,24 @@ class SyncEngine extends ChangeNotifier {
         if ((payload['cash_register_id']?.toString() ?? '').isEmpty && config.cashRegisterId.isNotEmpty) {
           payload['cash_register_id'] = config.cashRegisterId;
         }
+        final registerId = payload['cash_register_id']?.toString() ?? '';
+        if (registerId.startsWith('reg-')) {
+          if (config.cashRegisterId.isNotEmpty) {
+            payload['cash_register_id'] = config.cashRegisterId;
+          } else {
+            payload.remove('cash_register_id');
+          }
+        }
         if ((payload['cash_session_id']?.toString() ?? '').isEmpty && config.cashSessionId.isNotEmpty) {
           payload['cash_session_id'] = config.cashSessionId;
+        }
+        final sessionId = payload['cash_session_id']?.toString() ?? '';
+        if (sessionId.startsWith('ses-')) {
+          if (config.cashSessionId.isNotEmpty) {
+            payload['cash_session_id'] = config.cashSessionId;
+          } else {
+            payload.remove('cash_session_id');
+          }
         }
         final customerId = payload['customer_id']?.toString() ?? '';
         if (customerId.isEmpty) payload.remove('customer_id');
@@ -581,7 +745,7 @@ class SyncEngine extends ChangeNotifier {
         await repo.save(repo.config.copyWith(isSignedIn: false));
       }
       for (final row in accepted) {
-        final attempts = ((row['attempts'] as int?) ?? 0) + 1;
+        final attempts = syncAsInt(row['attempts']) + 1;
         await OfflineStore.instance.markFailed(
           row['id'] as String,
           message,
@@ -618,7 +782,7 @@ class SyncEngine extends ChangeNotifier {
           'entity_type': row?['entity_type']?.toString() ?? 'sale',
           'server_id': item['server_id']?.toString(),
           'reference': item['reference']?.toString(),
-          'attempts': (row?['attempts'] as int?) ?? 0,
+          'attempts': syncAsInt(row?['attempts']),
           'stock': item['stock'],
           'cash_register_id': item['cash_register_id']?.toString(),
           'cash_session_id': item['cash_session_id']?.toString(),
@@ -628,7 +792,7 @@ class SyncEngine extends ChangeNotifier {
       await OfflineStore.instance.markFailed(
         queueId,
         item['error'] as String? ?? 'Sync rejected, événement conservé',
-        attempts: ((row?['attempts'] as int?) ?? 0) + 1,
+        attempts: syncAsInt(row?['attempts']) + 1,
       );
     }
 
@@ -638,7 +802,7 @@ class SyncEngine extends ChangeNotifier {
       await OfflineStore.instance.markFailed(
         queueId,
         'Réponse serveur incomplète, événement conservé',
-        attempts: ((row['attempts'] as int?) ?? 0) + 1,
+        attempts: syncAsInt(row['attempts']) + 1,
       );
     }
 
@@ -652,7 +816,7 @@ class SyncEngine extends ChangeNotifier {
         await OfflineStore.instance.markFailed(
           item['id'] as String,
           'ACK manquant, événement conservé',
-          attempts: ((item['attempts'] as int?) ?? 0) + 1,
+          attempts: syncAsInt(item['attempts']) + 1,
         );
       }
       return _BatchResult(sent: operations.length, kept: operations.length, stopped: true);
@@ -666,7 +830,7 @@ class SyncEngine extends ChangeNotifier {
         await OfflineStore.instance.markFailed(
           item['id'] as String,
           'ACK manquant, événement conservé',
-          attempts: ((item['attempts'] as int?) ?? 0) + 1,
+          attempts: syncAsInt(item['attempts']) + 1,
         );
       }
       return _BatchResult(sent: operations.length, kept: operations.length);
@@ -679,7 +843,7 @@ class SyncEngine extends ChangeNotifier {
         await OfflineStore.instance.markFailed(
           queueId,
           'ACK refusé, événement conservé',
-          attempts: ((item['attempts'] as int?) ?? 0) + 1,
+          attempts: syncAsInt(item['attempts']) + 1,
         );
         continue;
       }
@@ -794,10 +958,16 @@ class SyncEngine extends ChangeNotifier {
     return OfflineStore.instance.loadCatalog(TerminalConfigRepository.instance.config.storeId);
   }
 
-  Future<void> refreshCatalogNow() async {
+  Future<({int products, int categories})> _refreshCatalogCounts() async {
     final api = PosApiService();
     final catalog = await api.fetchCatalog();
     await OfflineStore.instance.cacheCatalog(catalog);
+    await OfflineStore.instance.setCheckpoint('catalog_synced_at', DateTime.now().toIso8601String());
     notifyListeners();
+    return (products: catalog.products.length, categories: catalog.categories.length);
+  }
+
+  Future<void> refreshCatalogNow() async {
+    await _refreshCatalogCounts();
   }
 }

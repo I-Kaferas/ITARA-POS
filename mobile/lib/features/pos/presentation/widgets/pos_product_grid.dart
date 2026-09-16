@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/config/terminal_config_repository.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
@@ -29,11 +29,7 @@ class PosProductGrid extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
             child: Text(
               '${products.length} article${products.length == 1 ? '' : 's'}',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF64748B),
-              ),
+              style: PosUi.caption(color: AppColors.textSecondary),
             ),
           ),
           Expanded(
@@ -42,16 +38,20 @@ class PosProductGrid extends StatelessWidget {
                 : LayoutBuilder(
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
-                      final crossAxisCount = width >= 520 ? 3 : 2;
-                      final extent = width >= 520 ? 210.0 : 196.0;
+                      final crossAxisCount = width >= 720
+                          ? 4
+                          : width >= 520
+                              ? 3
+                              : 2;
+                      final extent = width >= 520 ? 198.0 : 188.0;
 
                       return GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
                           mainAxisExtent: extent,
-                          crossAxisSpacing: 11,
-                          mainAxisSpacing: 11,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
                         ),
                         itemCount: products.length,
                         itemBuilder: (context, index) {
@@ -85,7 +85,7 @@ class _EmptyProducts extends StatelessWidget {
             height: 64,
             decoration: BoxDecoration(
               color: AppColors.brand50,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(AppRadius.xl),
               border: Border.all(color: AppColors.border),
             ),
             child: Icon(Icons.inventory_2_outlined, size: 28, color: AppColors.brand600),
@@ -127,12 +127,13 @@ class _ProductCardState extends State<_ProductCard> {
         : (product.quantityOnHand != null ? '${product.quantityOnHand}' : null);
 
     return AnimatedScale(
-      scale: _pressed ? 0.97 : 1,
+      scale: _pressed ? 0.975 : 1,
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOut,
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(PosUi.radiusMd),
+        elevation: 0,
         child: InkWell(
           onTap: available
               ? () {
@@ -146,21 +147,22 @@ class _ProductCardState extends State<_ProductCard> {
           onTapDown: available ? (_) => setState(() => _pressed = true) : null,
           onTapCancel: () => setState(() => _pressed = false),
           onTapUp: (_) => setState(() => _pressed = false),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(PosUi.radiusMd),
           child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(PosUi.radiusMd),
               border: Border.all(
-                color: available ? const Color(0xFFE2E8F0) : AppColors.danger.withValues(alpha: 0.35),
+                color: available ? AppColors.border : AppColors.danger.withValues(alpha: 0.35),
               ),
+              boxShadow: AppColors.elevationSm,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
-                  height: 100,
+                  height: 92,
                   child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(PosUi.radiusMd - 1)),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
@@ -180,15 +182,15 @@ class _ProductCardState extends State<_ProductCard> {
                               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                               decoration: BoxDecoration(
                                 color: (product.quantityOnHand ?? 1) <= 0
-                                    ? const Color(0xFFB91C1C)
-                                    : const Color(0xFF1C2830).withValues(alpha: 0.82),
-                                borderRadius: BorderRadius.circular(99),
+                                    ? AppColors.danger
+                                    : AppColors.textPrimary.withValues(alpha: 0.78),
+                                borderRadius: BorderRadius.circular(AppRadius.pill),
                               ),
                               child: Text(
                                 stock,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
+                                style: AppTypography.plex(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
@@ -202,7 +204,7 @@ class _ProductCardState extends State<_ProductCard> {
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -210,15 +212,12 @@ class _ProductCardState extends State<_ProductCard> {
                           product.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            height: 1.25,
-                            color: available ? const Color(0xFF1C2830) : AppColors.textSecondary,
+                          style: PosUi.cardTitle(
+                            color: available ? AppColors.textPrimary : AppColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(product.sku, style: PosUi.caption(color: const Color(0xFF94A3B8))),
+                        Text(product.sku, style: PosUi.caption()),
                         const Spacer(),
                         Row(
                           children: [
@@ -229,7 +228,7 @@ class _ProductCardState extends State<_ProductCard> {
                                 overflow: TextOverflow.ellipsis,
                                 style: PosUi.money(
                                   size: 13,
-                                  color: available ? const Color(0xFFE39B2B) : AppColors.danger,
+                                  color: available ? AppColors.accent : AppColors.danger,
                                 ),
                               ),
                             ),
@@ -278,7 +277,7 @@ class _ProductPhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFFF3F6F8),
+      color: AppColors.brand50,
       child: url == null
           ? _fallback()
           : Image.network(
@@ -296,17 +295,17 @@ class _ProductPhoto extends StatelessWidget {
   Widget _fallback() {
     return Center(
       child: Container(
-        width: 42,
-        height: 42,
+        width: 40,
+        height: 40,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: const Color(0xFFE7EEF3),
-          borderRadius: BorderRadius.circular(11),
+          color: AppColors.brand100,
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Text(
           initial,
-          style: GoogleFonts.inter(
-            fontSize: 17,
+          style: AppTypography.plex(
+            fontSize: 16,
             fontWeight: FontWeight.w700,
             color: available ? AppColors.brand600 : AppColors.textMuted,
           ),

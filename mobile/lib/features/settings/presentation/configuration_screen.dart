@@ -355,11 +355,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           },
         ),
         const SizedBox(height: 18),
-        Text('Mode du terminal', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text('Mode du terminal', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text(
           'Choisissez comment ce poste se comporte sur le réseau du magasin.',
-          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
         if (wide)
@@ -426,7 +426,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
             child: ListTile(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: AppColors.border),
+                side: BorderSide(color: AppColors.border),
               ),
               title: Text(item.$1),
               subtitle: Text(item.$2),
@@ -451,7 +451,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           alignment: Alignment.centerLeft,
           child: Text(
             'À l’enregistrement, le slug charge la marque et remplit le Tenant ID.',
-            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(height: 12),
@@ -478,7 +478,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         const SizedBox(height: 8),
         Text(
           'Utilisé en priorité. Le cloud sert de secours si le réseau local ne répond pas.',
-          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
         _field(_apiUrlCtrl, 'API cloud', icon: Icons.cloud_outlined),
@@ -500,11 +500,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           const _DiscoveredMasters(),
         ],
         const SizedBox(height: 22),
-        Text('Réglage impression', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700)),
+        Text('Réglage impression', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Text(
           'Modèle, connexion et ticket, configurés avec le terminal.',
-          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
         _printSection(),
@@ -634,11 +634,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                   children: [
                     Text(
                       _printerEnabled ? 'Impression activée' : 'Impression désactivée',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
+                      style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                     Text(
                       '${model.brand} · ${model.label}',
-                      style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                      style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -651,7 +651,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        Text('Modèle', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text('Modèle', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         ...PrinterModelPreset.all.map((item) {
           final selected = _printerModel == item.id;
@@ -681,10 +681,10 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
+                            Text(item.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
                             Text(
                               '${item.brand} · ${item.hint}',
-                              style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary),
+                              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary),
                             ),
                           ],
                         ),
@@ -697,7 +697,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           );
         }),
         const SizedBox(height: 8),
-        Text('Connexion', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text('Connexion', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -716,7 +716,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         const SizedBox(height: 6),
         Text(
           _printerConnection.hint,
-          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
         if (_printerConnection == PrinterConnection.network) ...[
@@ -756,7 +756,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
       obscureText: obscure,
       enabled: enabled,
       onChanged: (_) => setState(() {}),
-      style: GoogleFonts.inter(fontSize: 14),
+      style: GoogleFonts.ibmPlexSans(fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -819,7 +819,7 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   'Configuration',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.ibmPlexSans(
                     fontSize: compact ? 20 : 24,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.6,
@@ -832,7 +832,7 @@ class _Header extends StatelessWidget {
                   '$name · $platform · ${role.label}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -863,7 +863,7 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         configured ? 'Configuré' : 'Incomplet',
-        style: GoogleFonts.inter(
+        style: GoogleFonts.ibmPlexSans(
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: configured ? AppColors.success : AppColors.warning,
@@ -946,7 +946,7 @@ class _NavTile extends StatelessWidget {
                 children: [
                   Text(
                     section.label,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.ibmPlexSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: selected ? AppColors.brandInk : AppColors.textPrimary,
@@ -954,7 +954,7 @@ class _NavTile extends StatelessWidget {
                   ),
                   Text(
                     section.caption,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.ibmPlexSans(
                       fontSize: 11,
                       color: AppColors.textSecondary,
                     ),
@@ -1017,7 +1017,7 @@ class _SectionChips extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 section.label,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.ibmPlexSans(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: active ? Colors.white : AppColors.textPrimary,
@@ -1043,7 +1043,7 @@ class _SectionHeading extends StatelessWidget {
       children: [
         Text(
           section.label,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.ibmPlexSans(
             fontSize: 18,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
@@ -1053,7 +1053,7 @@ class _SectionHeading extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           section.caption,
-          style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+          style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
         ),
       ],
     );
@@ -1103,11 +1103,11 @@ class _RoleCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              Text(role.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
+              Text(role.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
               const SizedBox(height: 4),
               Text(
                 role.description,
-                style: GoogleFonts.inter(fontSize: 11, height: 1.35, color: AppColors.textSecondary),
+                style: GoogleFonts.ibmPlexSans(fontSize: 11, height: 1.35, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -1135,13 +1135,13 @@ class _Fact extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary)),
+          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
           const SizedBox(height: 4),
           Text(
             value,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -1194,7 +1194,7 @@ class _Footer extends StatelessWidget {
               ),
               child: Text(
                 message!,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.ibmPlexSans(
                   color: messageOk ? AppColors.success : AppColors.danger,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -1307,7 +1307,7 @@ class _LocalMasterStatus extends StatelessWidget {
             children: [
               Text(
                 ready ? 'Serveur maître local actif' : 'Serveur maître local arrêté',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
+                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13),
               ),
               const SizedBox(height: 4),
               Text(
@@ -1316,7 +1316,7 @@ class _LocalMasterStatus extends StatelessWidget {
                     : server.listening
                         ? 'Écoute sur le port ${LocalMasterServer.port}, mais l’adresse IP locale est introuvable.'
                         : server.lastError ?? 'Le terminal maître n’écoute pas encore sur le réseau local.',
-                style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
               ),
               if (ready) ...[
                 const SizedBox(height: 8),
@@ -1324,7 +1324,7 @@ class _LocalMasterStatus extends StatelessWidget {
                   server.clients.isEmpty
                       ? 'Aucune autre caisse connectée pour le moment. Elles apparaissent dès qu’elles joignent cette adresse, sans Internet.'
                       : 'Caisses connectées : ${server.clients.values.map((item) => item.name).join(', ')}',
-                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ],
             ],
@@ -1347,13 +1347,13 @@ class _DiscoveredMasters extends StatelessWidget {
         if (found.isEmpty) {
           return Text(
             'Recherche du maître sur le réseau local…',
-            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
           );
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Maîtres trouvés sur le réseau', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
+            Text('Maîtres trouvés sur le réseau', style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
             ...found.map((item) => Padding(
                   padding: const EdgeInsets.only(bottom: 6),

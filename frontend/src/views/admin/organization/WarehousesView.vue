@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
@@ -7,8 +7,10 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Branch, Warehouse } from '../../../types'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -21,6 +23,11 @@ const showModal = ref(false)
 const editing = ref<Warehouse | null>(null)
 const saving = ref(false)
 const form = ref({ name: '', code: '', is_active: true })
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.warehouses.filter(wh =>
+  matchesSearch(`${wh.name} ${wh.code}`, filters.value.search)
+  && matchesActive(wh.is_active, filters.value.active),
+))
 
 onMounted(async () => {
   await store.loadCompanies()
@@ -79,6 +86,8 @@ async function remove(wh: Warehouse) {
         <button class="btn-primary ml-auto" @click="openCreate">+ {{ t('org.addWarehouse') }}</button>
       </div>
 
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
+
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -90,7 +99,7 @@ async function remove(wh: Warehouse) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="wh in store.warehouses" :key="wh.id" class="hover:bg-slate-50">
+            <tr v-for="wh in filtered" :key="wh.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ wh.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ wh.code }}</td>
               <td class="px-4 py-3"><StatusBadge :active="wh.is_active" /></td>
@@ -101,7 +110,7 @@ async function remove(wh: Warehouse) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.warehouses.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 

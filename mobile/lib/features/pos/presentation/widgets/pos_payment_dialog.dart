@@ -233,7 +233,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                     const SizedBox(height: 14),
                     if (_mode == 'single') ...[
                       if (available.isEmpty)
-                        Text('Aucun mode de paiement configuré', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted))
+                        Text('Aucun mode de paiement configuré', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted))
                       else
                         LayoutBuilder(
                           builder: (context, constraints) {
@@ -384,13 +384,13 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Paiement', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Text('Paiement', style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                 if (customer != null)
                   Text(
                     customer!.displayLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary),
+                    style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary),
                   ),
               ],
             ),
@@ -419,12 +419,12 @@ class _TotalCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text('Montant dû', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+          Text('Montant dû', style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
           const SizedBox(height: 4),
-          Text(totalLabel, style: GoogleFonts.jetBrainsMono(fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.brand700)),
+          Text(totalLabel, style: GoogleFonts.ibmPlexMono(fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.brand700)),
           if (customerBalance != null) ...[
             const SizedBox(height: 4),
-            Text('Solde client $customerBalance', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary)),
+            Text('Solde client $customerBalance', style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
           ],
         ],
       ),
@@ -462,7 +462,7 @@ class _ModeTabs extends StatelessWidget {
                     child: Text(
                       entry.$2,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.ibmPlexSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: mode == entry.$1 ? Colors.white : AppColors.textSecondary,
@@ -515,9 +515,9 @@ class _MethodTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                     if (hint != null)
-                      Text(hint!, style: GoogleFonts.inter(fontSize: 10, color: AppColors.warning)),
+                      Text(hint!, style: GoogleFonts.ibmPlexSans(fontSize: 10, color: AppColors.warning)),
                   ],
                 ),
               ),
@@ -550,9 +550,9 @@ class _MixStat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
-          Text(value, style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+          Text(value, style: GoogleFonts.ibmPlexMono(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
         ],
       ),
     );
@@ -664,9 +664,9 @@ class _ChangeBanner extends StatelessWidget {
         children: [
           Icon(Icons.currency_exchange, size: 16, color: AppColors.success),
           const SizedBox(width: 8),
-          Text('Monnaie', style: GoogleFonts.inter(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w600)),
+          Text('Monnaie', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w600)),
           const Spacer(),
-          Text(value, style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.success)),
+          Text(value, style: GoogleFonts.ibmPlexMono(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.success)),
         ],
       ),
     );
@@ -691,7 +691,7 @@ class _ErrorBanner extends StatelessWidget {
         children: [
           Icon(Icons.error_outline, size: 16, color: AppColors.danger),
           const SizedBox(width: 8),
-          Expanded(child: Text(message, style: GoogleFonts.inter(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600))),
+          Expanded(child: Text(message, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600))),
         ],
       ),
     );

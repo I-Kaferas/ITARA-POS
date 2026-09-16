@@ -32,6 +32,23 @@ class ExpenseController extends Controller
             $query->where('expense_category_id', $request->string('expense_category_id'));
         }
 
+        if ($request->filled('q')) {
+            $term = '%'.$request->string('q').'%';
+            $query->where(function ($builder) use ($term) {
+                $builder->where('description', 'like', $term)
+                    ->orWhere('notes', 'like', $term)
+                    ->orWhereHas('expenseCategory', fn ($category) => $category->where('name', 'like', $term));
+            });
+        }
+
+        if ($request->filled('from')) {
+            $query->whereDate('occurred_on', '>=', $request->date('from'));
+        }
+
+        if ($request->filled('to')) {
+            $query->whereDate('occurred_on', '<=', $request->date('to'));
+        }
+
         return response()->json(['data' => $query->limit(200)->get()]);
     }
 
@@ -90,12 +107,16 @@ class ExpenseController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'code' => ['nullable', 'string', 'max:40'],
+            'color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'description' => ['nullable', 'string', 'max:500'],
         ]);
 
         $category = ExpenseCategory::query()->create([
             'tenant_id' => app('tenant.id'),
             'name' => $data['name'],
             'code' => $data['code'] ?? str($data['name'])->slug('_')->limit(40, '')->toString(),
+            'color' => $data['color'] ?? '#6366F1',
+            'description' => $data['description'] ?? null,
             'is_active' => true,
             'sort_order' => 100,
         ]);
@@ -107,6 +128,8 @@ class ExpenseController extends Controller
     {
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
+            'color' => ['sometimes', 'nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
@@ -115,10 +138,24 @@ class ExpenseController extends Controller
         return response()->json(['data' => $expenseCategory]);
     }
 
-    public function dashboard(): JsonResponse
+    public function dashboard(Request $request): JsonResponse
     {
         $this->ensureCategories();
-        $rows = Expense::query()->with('expenseCategory')->get();
+        $query = Expense::query()->with('expenseCategory');
+
+        if ($request->filled('from')) {
+            $query->whereDate('occurred_on', '>=', $request->date('from'));
+        }
+
+        if ($request->filled('to')) {
+            $query->whereDate('occurred_on', '<=', $request->date('to'));
+        }
+
+        if ($request->filled('expense_category_id')) {
+            $query->where('expense_category_id', $request->string('expense_category_id'));
+        }
+
+        $rows = $query->get();
 
         return response()->json([
             'data' => [
@@ -136,7 +173,7 @@ class ExpenseController extends Controller
 
     public function report(Request $request): JsonResponse
     {
-        return $this->dashboard();
+        return $this->dashboard($request);
     }
 
     public function recurring(): JsonResponse

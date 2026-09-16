@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_typography.dart';
 
-enum StatusBadgeVariant { success, warning, danger, neutral }
+enum StatusBadgeVariant { success, warning, danger, neutral, info }
 
 class StatusBadge extends StatelessWidget {
   const StatusBadge({
@@ -26,26 +26,39 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (variant) {
-      StatusBadgeVariant.success => AppColors.success,
-      StatusBadgeVariant.warning => AppColors.warning,
-      StatusBadgeVariant.danger => AppColors.danger,
-      StatusBadgeVariant.neutral => AppColors.textSecondary,
+    final (bg, fg) = switch (variant) {
+      StatusBadgeVariant.success => (AppColors.successBg, AppColors.success),
+      StatusBadgeVariant.warning => (AppColors.warningBg, AppColors.warning),
+      StatusBadgeVariant.danger => (AppColors.dangerBg, AppColors.danger),
+      StatusBadgeVariant.info => (AppColors.infoBg, AppColors.info),
+      StatusBadgeVariant.neutral => (AppColors.fieldFill, AppColors.textSecondary),
     };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(99),
+        color: bg,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: fg.withValues(alpha: 0.18)),
       ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTypography.plex(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
       ),
     );
   }

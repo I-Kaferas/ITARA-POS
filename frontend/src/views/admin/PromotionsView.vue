@@ -6,8 +6,10 @@ import AdminLayout from '../../components/layout/AdminLayout.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 import type { Promotion, PromotionType } from '../../types'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../utils/listFilters'
 import { parseMoneyInput } from '../../utils/money'
 
 const { t, locale } = useI18n()
@@ -44,6 +46,18 @@ const defaultForm = () => ({
 })
 
 const form = ref(defaultForm())
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const typeOptions = computed(() =>
+  store.promotionTypes.map(type => ({
+    value: type.value,
+    label: locale.value === 'fr' ? type.label_fr : type.label,
+  })),
+)
+const filtered = computed(() => store.promotions.filter(promotion =>
+  matchesSearch(`${promotion.name} ${promotion.code ?? ''} ${typeLabel(promotion.type)}`, filters.value.search)
+  && matchesActive(promotion.is_active, filters.value.active)
+  && (!filters.value.status || promotion.type === filters.value.status),
+))
 
 const weekDays = [
   { value: 1, label: t('promotions.days.mon') },
@@ -222,6 +236,15 @@ function formatDate(value?: string | null) {
         </button>
       </div>
 
+      <ModuleFilters
+        v-model="filters"
+        :statuses="typeOptions"
+        :show-period="false"
+        show-search
+        show-active
+        show-status
+      />
+
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -236,7 +259,7 @@ function formatDate(value?: string | null) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="promotion in store.promotions" :key="promotion.id" class="hover:bg-slate-50">
+            <tr v-for="promotion in filtered" :key="promotion.id" class="hover:bg-slate-50">
               <td class="px-4 py-3">
                 <div class="font-medium">{{ promotion.name }}</div>
                 <div v-if="promotion.code" class="text-xs text-slate-500 font-mono">{{ promotion.code }}</div>
@@ -257,7 +280,7 @@ function formatDate(value?: string | null) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.promotions.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 

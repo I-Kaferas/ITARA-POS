@@ -95,22 +95,31 @@ const allStays = computed(() =>
 )
 
 function activeStayForRoom(room: Doc) {
+  const roomId = String(room.id ?? '')
   return allStays.value.find(s =>
-    s.room_id === room.id && (s.status === 'checked_in' || s.status === 'confirmed' || s.status === 'reserved'),
+    String(s.room_id ?? '') === roomId
+    && (s.status === 'checked_in' || s.status === 'confirmed' || s.status === 'reserved'),
   ) ?? null
 }
 
 function planTone(room: Doc): PlanTone {
   const hk = String(room.housekeeping_status || 'clean')
   if (hk === 'maintenance' || hk === 'out_of_service') return 'maintenance'
-  if (hk === 'dirty' || hk === 'cleaning') return 'dirty'
+
   const status = String(room.status || 'vacant')
-  if (status === 'occupied') return 'occupied'
-  if (status === 'reserved') return 'reserved'
   const stay = activeStayForRoom(room)
-  if (stay?.status === 'checked_in') return 'occupied'
-  if (stay) return 'reserved'
+  if (status === 'occupied' || stay?.status === 'checked_in') return 'occupied'
+  if (status === 'reserved' || stay) return 'reserved'
+  if (hk === 'dirty' || hk === 'cleaning') return 'dirty'
   return 'available'
+}
+
+function planToneLabel(tone: PlanTone) {
+  if (tone === 'occupied') return t('hotel.stays.board.planOccupied')
+  if (tone === 'reserved') return t('hotel.stays.board.planReserved')
+  if (tone === 'dirty') return t('hotel.stays.board.planDirty')
+  if (tone === 'maintenance') return t('hotel.stays.board.planMaintenance')
+  return t('hotel.stays.board.planAvailable')
 }
 
 function planRoomTypeName(room: Doc) {
@@ -1702,6 +1711,7 @@ function roomLabel(room: Doc) {
                     :class="`stay-plan__card--${item.tone}`"
                     @click="onPlanRoomClick(item.room, item.stay)"
                   >
+                    <span class="stay-plan__status">{{ planToneLabel(item.tone) }}</span>
                     <strong class="stay-plan__num">{{ item.room.number }}</strong>
                     <span class="stay-plan__type">{{ item.typeName }}</span>
                     <template v-if="item.guestName">
@@ -2835,7 +2845,7 @@ function roomLabel(room: Doc) {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  overflow: hidden;
+  overflow: auto;
   padding: 1.05rem 1.15rem 1.15rem;
   border: 1px solid #d7e2ea;
   border-radius: 0.9rem;
@@ -3088,12 +3098,12 @@ function roomLabel(room: Doc) {
 }
 .stay__placeholder p { margin: 0; font-size: 0.88rem; }
 .stay-plan {
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 16rem;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  overflow: hidden;
+  overflow: visible;
 }
 .stay-plan__legend {
   display: flex;
@@ -3116,23 +3126,47 @@ function roomLabel(room: Doc) {
   display: inline-block;
 }
 .stay-plan__dot--available,
-.stay-plan__card--available { --plan-bg: #ecfdf5; --plan-border: #6ee7b7; --plan-accent: #047857; }
+.stay-plan__card--available {
+  --plan-bg: #d1fae5;
+  --plan-border: #059669;
+  --plan-accent: #047857;
+  --plan-strip: #10b981;
+}
 .stay-plan__dot--occupied,
-.stay-plan__card--occupied { --plan-bg: #eff6ff; --plan-border: #93c5fd; --plan-accent: #1d4ed8; }
+.stay-plan__card--occupied {
+  --plan-bg: #fee2e2;
+  --plan-border: #dc2626;
+  --plan-accent: #b91c1c;
+  --plan-strip: #ef4444;
+}
 .stay-plan__dot--reserved,
-.stay-plan__card--reserved { --plan-bg: #fff7ed; --plan-border: #fdba74; --plan-accent: #c2410c; }
+.stay-plan__card--reserved {
+  --plan-bg: #ffedd5;
+  --plan-border: #ea580c;
+  --plan-accent: #c2410c;
+  --plan-strip: #f97316;
+}
 .stay-plan__dot--dirty,
-.stay-plan__card--dirty { --plan-bg: #fef3c7; --plan-border: #fcd34d; --plan-accent: #b45309; }
+.stay-plan__card--dirty {
+  --plan-bg: #fef3c7;
+  --plan-border: #d97706;
+  --plan-accent: #b45309;
+  --plan-strip: #f59e0b;
+}
 .stay-plan__dot--maintenance,
-.stay-plan__card--maintenance { --plan-bg: #f1f5f9; --plan-border: #cbd5e1; --plan-accent: #475569; }
+.stay-plan__card--maintenance {
+  --plan-bg: #e2e8f0;
+  --plan-border: #64748b;
+  --plan-accent: #475569;
+  --plan-strip: #94a3b8;
+}
 .stay-plan__dot {
   background: var(--plan-accent, #94a3b8);
 }
 .stay-plan__floors {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
+  flex: 1 1 auto;
+  min-height: 12rem;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -3161,27 +3195,44 @@ function roomLabel(room: Doc) {
   gap: 0.55rem;
 }
 .stay-plan__card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.15rem;
-  min-height: 5.5rem;
-  padding: 0.65rem 0.7rem;
-  border: 1px solid var(--plan-border, #d7e2ea);
+  min-height: 5.75rem;
+  padding: 0.55rem 0.7rem 0.65rem 0.85rem;
+  border: 1.5px solid var(--plan-border, #d7e2ea);
   border-radius: 0.7rem;
   background: var(--plan-bg, #fff);
+  box-shadow: inset 4px 0 0 var(--plan-strip, #94a3b8);
   text-align: left;
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 .stay-plan__card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  box-shadow:
+    inset 4px 0 0 var(--plan-strip, #94a3b8),
+    0 4px 12px rgba(15, 23, 42, 0.1);
+}
+.stay-plan__status {
+  align-self: flex-start;
+  margin-bottom: 0.1rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--plan-accent, #64748b) 14%, #fff);
+  color: var(--plan-accent, #475569);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.35;
 }
 .stay-plan__num {
   font-size: 1.05rem;
   font-weight: 750;
-  color: #0f172a;
+  color: var(--plan-accent, #0f172a);
   line-height: 1.1;
 }
 .stay-plan__type {

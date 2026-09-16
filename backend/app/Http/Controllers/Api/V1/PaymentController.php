@@ -60,7 +60,7 @@ class PaymentController extends Controller
         ]);
     }
 
-    public function validate(Request $request, Store $store): JsonResponse
+    public function validatePayment(Request $request, Store $store): JsonResponse
     {
         $data = $this->validatePayload($request);
 

@@ -170,7 +170,7 @@ class _Welcome extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           cashier,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.ibmPlexSans(
             fontSize: 28,
             fontWeight: FontWeight.w700,
             height: 1.15,
@@ -219,7 +219,7 @@ class _Pill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -262,12 +262,12 @@ class _OpenRegister extends StatelessWidget {
                   children: [
                     Text(
                       'Ouvrir la caisse',
-                      style: GoogleFonts.inter(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700),
+                      style: GoogleFonts.ibmPlexSans(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Encaisser rapidement, client et paiement.',
-                      style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.72), fontSize: 13),
+                      style: GoogleFonts.ibmPlexSans(color: Colors.white.withValues(alpha: 0.72), fontSize: 13),
                     ),
                   ],
                 ),
@@ -319,6 +319,7 @@ class _Shortcut extends StatelessWidget {
             border: Border.all(
               color: accent ? AppColors.accent.withValues(alpha: 0.45) : AppColors.border,
             ),
+            boxShadow: AppColors.elevationSm,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,7 +334,7 @@ class _Shortcut extends StatelessWidget {
                 child: Icon(icon, size: 18, color: accent ? AppColors.accent : AppColors.brandInk),
               ),
               const Spacer(),
-              Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
+              Text(title, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 14)),
               const SizedBox(height: 2),
               Text(
                 subtitle,

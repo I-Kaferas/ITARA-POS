@@ -25,6 +25,8 @@ class ExpenseCategory extends Model
         'tenant_id',
         'code',
         'name',
+        'color',
+        'description',
         'is_active',
         'sort_order',
     ];

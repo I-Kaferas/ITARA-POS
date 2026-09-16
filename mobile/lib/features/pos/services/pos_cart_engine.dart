@@ -15,21 +15,28 @@ class PosCartEngine extends ChangeNotifier {
   String? _activeHoldId;
   String? _activeHoldLabel;
   String? _pendingServerId;
+  int loyaltyPoints = 0;
+  String? tableId;
+  int? _serverSubtotal;
+  int? _serverTaxTotal;
+  int? _serverDiscountTotal;
+  int? _serverFeesTotal;
+  int? _serverTotal;
 
   List<PosCartLine> get lines => List.unmodifiable(_lines);
   List<PosHeldSale> get heldSales => List.unmodifiable(_heldSales);
   bool get isEmpty => _lines.isEmpty;
 
-  int get subtotal => _lines.fold(0, (sum, line) => sum + line.lineSubtotal);
+  int get subtotal => _serverSubtotal ?? _lines.fold(0, (sum, line) => sum + line.lineSubtotal);
 
-  int get taxTotal => _lines.fold(0, (sum, line) => sum + line.lineTax);
+  int get taxTotal => _serverTaxTotal ?? _lines.fold(0, (sum, line) => sum + line.lineTax);
 
   int get lineDiscountsTotal =>
       _lines.fold(0, (sum, line) => sum + line.lineDiscountFixed);
 
   int get globalDiscountTotal => discountTotal;
 
-  int get feesTotal => _fees.fold(0, (sum, fee) => sum + fee);
+  int get feesTotal => _serverFeesTotal ?? _fees.fold(0, (sum, fee) => sum + fee);
 
   bool get isEditingHold => _activeHoldId != null;
 
@@ -38,49 +45,126 @@ class PosCartEngine extends ChangeNotifier {
   String? get pendingServerId => _pendingServerId;
 
   int get discountTotal {
+    if (_serverDiscountTotal != null) return _serverDiscountTotal!;
     if (discountPercent > 0) {
       return (subtotal * discountPercent / 100).round();
     }
     return discountAmount.clamp(0, subtotal);
   }
 
-  int get total =>
-      (subtotal + taxTotal + feesTotal - discountTotal - lineDiscountsTotal).clamp(0, 1 << 31);
+  int get total {
+    if (_serverTotal != null) return _serverTotal!;
+    return (subtotal + taxTotal + feesTotal - discountTotal - lineDiscountsTotal).clamp(0, 1 << 31);
+  }
 
   int get itemCount => _lines.fold(0, (sum, line) => sum + line.quantity);
 
   bool get canSplit => itemCount >= 2;
 
-  void addProduct(PosProduct product, {int quantity = 1, PosVariant? variant}) {
+  void setLoyaltyPoints(int points) {
+    loyaltyPoints = points.clamp(0, 1 << 31);
+    notifyListeners();
+  }
+
+  void clearLoyalty() {
+    loyaltyPoints = 0;
+    notifyListeners();
+  }
+
+  void setTableId(String? id) {
+    final value = id?.trim();
+    tableId = (value == null || value.isEmpty) ? null : value;
+    notifyListeners();
+  }
+
+  void applyServerTotals({
+    int? subtotal,
+    int? taxTotal,
+    int? discountTotal,
+    int? feesTotal,
+    int? total,
+  }) {
+    _serverSubtotal = subtotal;
+    _serverTaxTotal = taxTotal;
+    _serverDiscountTotal = discountTotal;
+    _serverFeesTotal = feesTotal;
+    _serverTotal = total;
+    notifyListeners();
+  }
+
+  void clearServerTotals() {
+    _clearServerTotals(notify: true);
+  }
+
+  void _clearServerTotals({bool notify = false}) {
+    _serverSubtotal = null;
+    _serverTaxTotal = null;
+    _serverDiscountTotal = null;
+    _serverFeesTotal = null;
+    _serverTotal = null;
+    if (notify) notifyListeners();
+  }
+
+  void addProduct(PosProduct product, {int quantity = 1, PosVariant? variant, String? saleUnitId}) {
     final variantId = variant?.id;
     final existing = _lines.cast<PosCartLine?>().firstWhere(
           (line) =>
               line!.product.productId == product.productId &&
-              line.variantId == variantId,
+              line.variantId == variantId &&
+              line.saleUnitId == saleUnitId &&
+              !line.isAccompaniment,
           orElse: () => null,
         );
 
     if (existing != null) {
       existing.quantity += quantity;
     } else {
+      final unit = saleUnitId == null
+          ? null
+          : product.saleUnits.cast<PosSaleUnit?>().firstWhere(
+                (item) => item!.id == saleUnitId,
+                orElse: () => null,
+              );
       _lines.add(
         PosCartLine(
-          lineId: '${product.productId}-${variantId ?? 'base'}-${DateTime.now().microsecondsSinceEpoch}',
+          lineId: '${product.productId}-${saleUnitId ?? variantId ?? 'base'}-${DateTime.now().microsecondsSinceEpoch}',
           product: product,
-          unitPrice: variant?.price ?? product.price,
+          unitPrice: unit?.price ?? variant?.price ?? product.price,
           quantity: quantity,
           taxRate: product.taxRate,
           taxInclusive: product.taxInclusive,
           variantId: variantId,
           variantLabel: variant?.displayLabel,
+          saleUnitId: saleUnitId,
         ),
       );
     }
+    _clearServerTotals();
+    notifyListeners();
+  }
+
+  void addAccompaniments(PosCartLine parentLine, List<PosProduct> products) {
+    for (final product in products) {
+      _lines.add(
+        PosCartLine(
+          lineId: '${product.productId}-acc-${parentLine.lineId}-${DateTime.now().microsecondsSinceEpoch}',
+          product: product,
+          unitPrice: 0,
+          quantity: parentLine.quantity,
+          taxRate: product.taxRate,
+          taxInclusive: product.taxInclusive,
+          isAccompaniment: true,
+          parentLineId: parentLine.lineId,
+        ),
+      );
+    }
+    _clearServerTotals();
     notifyListeners();
   }
 
   void removeLine(String lineId) {
-    _lines.removeWhere((line) => line.lineId == lineId);
+    _lines.removeWhere((line) => line.lineId == lineId || line.parentLineId == lineId);
+    _clearServerTotals();
     notifyListeners();
   }
 
@@ -97,6 +181,10 @@ class PosCartEngine extends ChangeNotifier {
     }
 
     line.quantity = quantity;
+    for (final child in _lines.where((item) => item.parentLineId == lineId)) {
+      child.quantity = quantity;
+    }
+    _clearServerTotals();
     notifyListeners();
   }
 
@@ -112,6 +200,7 @@ class PosCartEngine extends ChangeNotifier {
 
   void setCustomer(PosCustomer? value) {
     customer = value;
+    loyaltyPoints = 0;
     notifyListeners();
   }
 
@@ -123,18 +212,24 @@ class PosCartEngine extends ChangeNotifier {
   void setDiscountAmount(int amount) {
     discountAmount = amount.clamp(0, subtotal);
     discountPercent = 0;
+    loyaltyPoints = 0;
+    _clearServerTotals();
     notifyListeners();
   }
 
   void setDiscountPercent(double percent) {
     discountPercent = percent.clamp(0, 100);
     discountAmount = 0;
+    loyaltyPoints = 0;
+    _clearServerTotals();
     notifyListeners();
   }
 
   void clearDiscount() {
     discountAmount = 0;
     discountPercent = 0;
+    loyaltyPoints = 0;
+    _clearServerTotals();
     notifyListeners();
   }
 
@@ -158,6 +253,7 @@ class PosCartEngine extends ChangeNotifier {
         note: note,
         discountAmount: discountAmount,
         discountPercent: discountPercent,
+        tableId: tableId,
       ),
     );
 
@@ -221,6 +317,7 @@ class PosCartEngine extends ChangeNotifier {
       discountAmount: held.discountAmount,
       discountPercent: held.discountPercent,
       fees: held.fees,
+      tableId: held.tableId,
     );
     notifyListeners();
   }
@@ -257,6 +354,7 @@ class PosCartEngine extends ChangeNotifier {
         heldAt: DateTime.now(),
         customer: customer,
         note: note,
+        tableId: tableId,
       ),
     );
     notifyListeners();
@@ -281,12 +379,14 @@ class PosCartEngine extends ChangeNotifier {
     note = held.note;
     discountAmount = held.discountAmount;
     discountPercent = held.discountPercent;
+    tableId = held.tableId;
     _fees
       ..clear()
       ..addAll(held.fees);
     _activeHoldId = held.id;
     _activeHoldLabel = held.label;
     _pendingServerId = held.serverId;
+    _clearServerTotals();
     notifyListeners();
   }
 
@@ -357,7 +457,10 @@ class PosCartEngine extends ChangeNotifier {
     note = null;
     discountAmount = 0;
     discountPercent = 0;
+    loyaltyPoints = 0;
+    tableId = null;
     _fees.clear();
+    _clearServerTotals();
     _activeHoldId = null;
     _activeHoldLabel = null;
     _pendingServerId = null;

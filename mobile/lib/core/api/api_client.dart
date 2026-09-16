@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../features/auth/data/pin_auth_service.dart';
 import '../config/app_config.dart';
 import '../config/terminal_config_repository.dart';
 
@@ -28,9 +29,17 @@ class ApiClient {
 
   String get storeId => _storeIdOverride ?? _repo.config.storeId;
 
+  static String normalizeBearer(String raw) {
+    var token = raw.trim();
+    if (token.toLowerCase().startsWith('bearer ')) {
+      token = token.substring(7).trim();
+    }
+    return token;
+  }
+
   Map<String, String> get headers {
     final config = _repo.config;
-    final authToken = _authTokenOverride ?? config.authToken;
+    final authToken = normalizeBearer(_authTokenOverride ?? config.authToken);
     final tenantId = _tenantIdOverride ?? config.tenantId;
     final storeId = _storeIdOverride ?? config.storeId;
     final deviceId = _deviceIdOverride ?? config.deviceId;
@@ -51,14 +60,16 @@ class ApiClient {
     final baseUrl = _repo.config.apiBaseUrl.isNotEmpty
         ? _repo.config.apiBaseUrl
         : AppConfig.apiBaseUrl;
-    return Uri.parse('$baseUrl$path').replace(queryParameters: query);
+    final base = baseUrl.replaceAll(RegExp(r'/$'), '');
+    final normalized = path.startsWith('/') ? path : '/$path';
+    return Uri.parse('$base$normalized').replace(queryParameters: query);
   }
 
   Future<Map<String, dynamic>> get(
     String path, {
     Map<String, String>? query,
   }) async {
-    final response = await _getWithRetry(_uri(path, query));
+    final response = await _sendWithAuth(() => _getWithRetry(_uri(path, query)));
     return _decode(response);
   }
 
@@ -91,13 +102,15 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
   }) async {
-    final response = await _client
-        .post(
-          _uri(path),
-          headers: headers,
-          body: body != null ? jsonEncode(body) : null,
-        )
-        .timeout(const Duration(seconds: 15));
+    final response = await _sendWithAuth(
+      () => _client
+          .post(
+            _uri(path),
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(const Duration(seconds: 15)),
+    );
 
     return _decode(response);
   }
@@ -106,15 +119,32 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
   }) async {
-    final response = await _client
-        .patch(
-          _uri(path),
-          headers: headers,
-          body: body != null ? jsonEncode(body) : null,
-        )
-        .timeout(const Duration(seconds: 15));
+    final response = await _sendWithAuth(
+      () => _client
+          .patch(
+            _uri(path),
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(const Duration(seconds: 15)),
+    );
 
     return _decode(response);
+  }
+
+  Future<http.Response> _sendWithAuth(
+    Future<http.Response> Function() send,
+  ) async {
+    // Skip refresh when an explicit token override is provided (one-off calls).
+    if (_authTokenOverride == null) {
+      await PinAuthService.refreshIfNeeded();
+    }
+    var response = await send();
+    if (response.statusCode != 401 || _authTokenOverride != null) return response;
+
+    final refreshed = await PinAuthService.refreshIfNeeded(force: true);
+    if (!refreshed) return response;
+    return send();
   }
 
   Map<String, dynamic> _decode(http.Response response) {
@@ -142,8 +172,12 @@ class ApiClient {
       }
     }
 
-    final message = body['message'] as String? ??
+    var message = body['message'] as String? ??
         'HTTP ${response.statusCode}: ${response.reasonPhrase}';
+    if (response.statusCode == 401) {
+      message =
+          'Session expirée ou token invalide. Copiez un token frais depuis Paramètres (accès + rafraîchissement) et utilisez l’URL http://127.0.0.1:8000/api/v1.';
+    }
     throw ApiException(message, response.statusCode);
   }
 }

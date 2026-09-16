@@ -12,6 +12,7 @@ type BusinessTab = 'margin' | 'tax' | 'discount' | 'change'
 const { t } = useI18n()
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
+const panel = ref<HTMLElement | null>(null)
 const mode = ref<Mode>('standard')
 const businessTab = ref<BusinessTab>('margin')
 const angle = ref<AngleMode>('deg')
@@ -85,7 +86,9 @@ const discountResult = computed(() => {
 const changeResult = computed(() => num(tendered.value) - num(due.value))
 
 function closeOnOutside(event: PointerEvent) {
-  if (!root.value?.contains(event.target as Node)) open.value = false
+  const target = event.target as Node
+  if (root.value?.contains(target) || panel.value?.contains(target)) return
+  open.value = false
 }
 
 function append(token: string) {
@@ -220,7 +223,26 @@ function toggle() {
 
 <template>
   <div ref="root" class="calc">
-    <div v-if="open" class="calc-panel" role="dialog" :aria-label="t('calculator.title')">
+    <button
+      type="button"
+      class="calc-btn"
+      :class="{ 'calc-btn--open': open }"
+      :aria-label="t('calculator.title')"
+      :title="t('calculator.title')"
+      @click="toggle"
+    >
+      <AppIcon name="calculator" :size="16" />
+    </button>
+  </div>
+
+  <Teleport to="body">
+    <div
+      v-if="open"
+      ref="panel"
+      class="calc-panel"
+      role="dialog"
+      :aria-label="t('calculator.title')"
+    >
       <div class="calc-panel__head">
         <p class="calc-panel__title">{{ t('calculator.title') }}</p>
         <button type="button" class="calc-panel__close" :aria-label="t('common.cancel')" @click="open = false">×</button>
@@ -355,18 +377,7 @@ function toggle() {
         </template>
       </div>
     </div>
-
-    <button
-      type="button"
-      class="calc-btn"
-      :class="{ 'calc-btn--open': open }"
-      :aria-label="t('calculator.title')"
-      :title="t('calculator.title')"
-      @click="toggle"
-    >
-      <AppIcon name="calculator" :size="16" />
-    </button>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -394,12 +405,17 @@ function toggle() {
   background: #e8f0f5;
   color: #3d5c73;
 }
+</style>
 
+<style>
+/* Unscoped: panel is teleported to body so it must pin to the viewport corner. */
 .calc-panel {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  z-index: 40;
+  position: fixed !important;
+  top: auto !important;
+  left: auto !important;
+  right: 16px !important;
+  bottom: 16px !important;
+  z-index: 9999 !important;
   width: min(22.5rem, calc(100vw - 2rem));
   max-height: min(78dvh, 40rem);
   overflow: auto;
@@ -407,6 +423,15 @@ function toggle() {
   border-radius: 1rem;
   background: #fff;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+@media (max-width: 480px) {
+  .calc-panel {
+    right: 12px !important;
+    bottom: 12px !important;
+    left: 12px !important;
+    width: auto;
+  }
 }
 
 .calc-panel__head {

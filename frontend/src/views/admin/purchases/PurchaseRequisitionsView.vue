@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { extractApiErrorMessage } from '../../../api/client'
@@ -7,10 +7,12 @@ import PurchasingLayout from '../../../components/purchasing/PurchasingLayout.vu
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, PurchaseRequisition, Supplier, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatMoney } from '../../../utils/format'
+import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -20,13 +22,42 @@ const rows = ref<PurchaseRequisition[]>([])
 const warehouses = ref<Warehouse[]>([])
 const suppliers = ref<Supplier[]>([])
 const products = ref<Product[]>([])
-const status = ref('')
+const filters = ref<ListFilters>(emptyListFilters())
 const saving = ref(false)
 const error = ref('')
 const showCreate = ref(false)
 const converting = ref<PurchaseRequisition | null>(null)
 const form = ref(emptyForm())
 const convertForm = ref({ target: 'purchase_order' as 'proforma' | 'purchase_order', supplier_id: '', warehouse_id: '' })
+
+const statusOptions = computed(() =>
+  (['draft', 'submitted', 'approved', 'rejected', 'converted'] as const).map(key => ({
+    value: key,
+    label: t(`purchases.hub.reqStatus.${key}`),
+  })),
+)
+
+const priorityOptions = computed(() =>
+  (['low', 'normal', 'high', 'urgent'] as const).map(key => ({
+    value: key,
+    label: t(`purchases.hub.priorities.${key}`),
+  })),
+)
+
+const warehouseOptions = computed(() =>
+  warehouses.value.map(w => ({ id: w.id, name: w.name })),
+)
+
+const filteredRows = computed(() =>
+  rows.value.filter((row) => {
+    const haystack = [row.number, row.warehouse?.name, row.supplier?.name, row.department, row.priority].filter(Boolean).join(' ')
+    if (!matchesSearch(haystack, filters.value.search)) return false
+    if (!inPeriod(row.created_at ?? row.needed_at, filters.value)) return false
+    if (filters.value.priority && row.priority !== filters.value.priority) return false
+    if (filters.value.warehouse_id && row.warehouse_id !== filters.value.warehouse_id && row.warehouse?.id !== filters.value.warehouse_id) return false
+    return true
+  }),
+)
 
 function emptyForm() {
   return {
@@ -50,7 +81,7 @@ onMounted(async () => {
 
 async function load() {
   error.value = ''
-  rows.value = await store.loadPurchaseRequisitions(status.value ? { status: status.value } : {})
+  rows.value = await store.loadPurchaseRequisitions(filters.value.status ? { status: filters.value.status } : {})
 }
 
 function statusVariant(value: string): 'success' | 'warning' | 'neutral' | 'brand' {
@@ -191,18 +222,25 @@ function openOrder(row: PurchaseRequisition) {
     <p class="mb-3 text-sm text-slate-500">{{ t('purchases.hub.cycleHint') }}</p>
     <p v-if="error" class="mb-3 text-sm text-red-600">{{ error }}</p>
 
+    <div class="mb-4">
+      <ModuleFilters
+        v-model="filters"
+        :statuses="statusOptions"
+        :priorities="priorityOptions"
+        :warehouses="warehouseOptions"
+        show-search
+        show-period
+        show-status
+        show-priority
+        show-warehouse
+        @apply="load"
+      />
+    </div>
+
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
         <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('purchases.hub.requisitions') }}</h3>
-        <div class="flex items-center gap-3">
-          <select v-model="status" class="field w-auto" @change="load">
-            <option value="">{{ t('filters.allStatuses') }}</option>
-            <option v-for="key in ['draft', 'submitted', 'approved', 'rejected', 'converted']" :key="key" :value="key">
-              {{ t(`purchases.hub.reqStatus.${key}`) }}
-            </option>
-          </select>
-          <button class="btn-primary-sm" @click="openCreate">+ {{ t('purchases.hub.newRequisition') }}</button>
-        </div>
+        <button class="btn-primary-sm" @click="openCreate">+ {{ t('purchases.hub.newRequisition') }}</button>
       </div>
 
       <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -219,7 +257,7 @@ function openOrder(row: PurchaseRequisition) {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in rows" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in filteredRows" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 font-mono">{{ row.number }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ t(`purchases.hub.priorities.${row.priority}`) }}</td>
@@ -241,7 +279,7 @@ function openOrder(row: PurchaseRequisition) {
           </tr>
         </tbody>
       </table>
-      <p v-if="!rows.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <p v-if="!filteredRows.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
     </div>
 
     <AppModal

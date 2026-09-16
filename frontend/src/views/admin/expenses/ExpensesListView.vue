@@ -4,8 +4,10 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '../../../components/layout/AdminLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatDate, formatMoney } from '../../../utils/format'
+import { emptyListFilters, listFilterParams, type ListFilters } from '../../../utils/listFilters'
 import { parseMoneyInput } from '../../../utils/money'
 
 type Category = { id: string; code: string; name: string }
@@ -27,6 +29,7 @@ const store = useBackofficeStore()
 const rows = ref<ExpenseRow[]>([])
 const categories = ref<Category[]>([])
 const sessions = ref<OpenSession[]>([])
+const filters = ref<ListFilters>(emptyListFilters('month'))
 const showModal = ref(false)
 const saving = ref(false)
 const form = ref({
@@ -39,15 +42,19 @@ const form = ref({
 })
 
 const categoryName = computed(() => (id: string) => categories.value.find(item => item.id === id)?.name ?? id)
+const categoryOptions = computed(() => categories.value.map(item => ({ id: item.id, name: item.name })))
 
-onMounted(load)
-
-async function load() {
+onMounted(async () => {
   await store.loadCompanies()
   if (store.companies[0]) await store.loadBranches(store.companies[0].id)
   await store.loadUsers()
   categories.value = (await store.loadExpenseCategories()) as Category[]
-  rows.value = (await store.loadExpenses()) as ExpenseRow[]
+  await load()
+})
+
+async function load() {
+  const params = listFilterParams(filters.value, { categoryKey: 'expense_category_id' })
+  rows.value = (await store.loadExpenses(params)) as ExpenseRow[]
 }
 
 async function onBranchChange() {
@@ -92,7 +99,7 @@ async function save() {
       amount,
     })
     showModal.value = false
-    rows.value = (await store.loadExpenses()) as ExpenseRow[]
+    await load()
   } finally {
     saving.value = false
   }
@@ -104,8 +111,20 @@ async function save() {
     <template #title>{{ t('nav.expenses') }}</template>
     <template #subtitle>{{ t('expenses.linksHint') }}</template>
 
-    <div class="mb-4 flex justify-end">
-      <button class="btn-primary" type="button" @click="openCreate">+ {{ t('expenses.new') }}</button>
+    <div class="mb-4 space-y-3">
+      <div class="flex justify-end">
+        <button class="btn-primary" type="button" @click="openCreate">+ {{ t('expenses.new') }}</button>
+      </div>
+      <ModuleFilters
+        v-model="filters"
+        :search-placeholder="t('expenses.search')"
+        :categories="categoryOptions"
+        :branches="store.branches"
+        show-category
+        show-branch
+        show-period
+        @apply="load"
+      />
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">

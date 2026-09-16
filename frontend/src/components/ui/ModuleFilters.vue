@@ -10,6 +10,7 @@ const props = withDefaults(defineProps<{
   searchPlaceholder?: string
   statuses?: { value: string; label: string }[]
   suppliers?: { id: string; name: string }[]
+  branches?: { id: string; name: string }[]
   warehouses?: { id: string; name: string }[]
   categories?: { id: string; name: string }[]
   methods?: { value: string; label: string }[]
@@ -19,6 +20,7 @@ const props = withDefaults(defineProps<{
   showPeriod?: boolean
   showStatus?: boolean
   showSupplier?: boolean
+  showBranch?: boolean
   showWarehouse?: boolean
   showCategory?: boolean
   showDepartment?: boolean
@@ -31,6 +33,7 @@ const props = withDefaults(defineProps<{
   searchPlaceholder: '',
   statuses: () => [],
   suppliers: () => [],
+  branches: () => [],
   warehouses: () => [],
   categories: () => [],
   methods: () => [],
@@ -40,6 +43,7 @@ const props = withDefaults(defineProps<{
   showPeriod: true,
   showStatus: false,
   showSupplier: false,
+  showBranch: false,
   showWarehouse: false,
   showCategory: false,
   showDepartment: false,
@@ -56,7 +60,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const open = ref(true)
+const open = ref(false)
 const liveApply = debounceFn(() => emit('apply'), 280)
 onBeforeUnmount(() => liveApply.cancel())
 
@@ -109,6 +113,10 @@ function reset() {
     <select v-if="showSupplier" :value="modelValue.supplier_id" class="field" @change="patch({ supplier_id: ($event.target as HTMLSelectElement).value })">
       <option value="">{{ t('purchases.hub.allSuppliers') }}</option>
       <option v-for="item in suppliers" :key="item.id" :value="item.id">{{ item.name }}</option>
+    </select>
+    <select v-if="showBranch" :value="modelValue.branch_id" class="field" @change="patch({ branch_id: ($event.target as HTMLSelectElement).value })">
+      <option value="">{{ t('filters.allBranches') }}</option>
+      <option v-for="item in branches" :key="item.id" :value="item.id">{{ item.name }}</option>
     </select>
     <select v-if="showWarehouse" :value="modelValue.warehouse_id" class="field" @change="patch({ warehouse_id: ($event.target as HTMLSelectElement).value })">
       <option value="">{{ t('purchases.hub.allWarehouses') }}</option>

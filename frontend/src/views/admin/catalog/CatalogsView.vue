@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
@@ -7,8 +7,10 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Catalog } from '../../../types'
+import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -18,6 +20,11 @@ const companyId = ref('')
 const showModal = ref(false)
 const editing = ref<Catalog | null>(null)
 const saving = ref(false)
+const filters = ref<ListFilters>(emptyListFilters('all'))
+const filtered = computed(() => store.catalogs.filter(catalog =>
+  matchesSearch(`${catalog.name} ${catalog.description ?? ''}`, filters.value.search)
+  && matchesActive(catalog.is_active, filters.value.active),
+))
 const form = ref({ name: '', description: '', is_default: false, is_active: true })
 
 onMounted(async () => {
@@ -75,6 +82,8 @@ async function remove(catalog: Catalog) {
         </button>
       </div>
 
+      <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
+
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -87,7 +96,7 @@ async function remove(catalog: Catalog) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="catalog in store.catalogs" :key="catalog.id" class="hover:bg-slate-50">
+            <tr v-for="catalog in filtered" :key="catalog.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ catalog.name }}</td>
               <td class="px-4 py-3 text-slate-500">{{ catalog.description || '—' }}</td>
               <td class="px-4 py-3">{{ catalog.is_default ? '★' : '—' }}</td>
@@ -99,7 +108,7 @@ async function remove(catalog: Catalog) {
             </tr>
           </tbody>
         </table>
-        <p v-if="!store.catalogs.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
 

@@ -42,6 +42,38 @@ const categories = computed(() => [
   'conference',
 ] as const)
 
+/** Icons available for amenity selection (must match AppIcon names). */
+const amenityIconOptions = [
+  // Room / hotel amenities
+  'wifi', 'tv', 'ac', 'minibar', 'safe', 'balcony', 'bathtub', 'shower', 'desk',
+  'kettle', 'hairdryer', 'projector', 'sound', 'stage', 'catering', 'bed', 'broom',
+  'key', 'floors', 'tables', 'parking', 'pool', 'gym', 'coffee', 'iron', 'fridge',
+  'microwave', 'laundry', 'elevator', 'wheelchair', 'pets', 'smoking', 'no-smoking',
+  'baby', 'towel', 'slippers', 'robe', 'lamp', 'fan', 'heater', 'window', 'garden',
+  'restaurant', 'bar', 'spa', 'luggage', 'clock', 'camera', 'music', 'game',
+  'water', 'fire', 'leaf', 'sun', 'moon', 'star', 'heart', 'umbrella',
+  'car', 'bus', 'plane', 'map', 'globe', 'power', 'plug', 'battery', 'speaker', 'headset',
+  // General app icons
+  'sparkles', 'lock', 'phone', 'bell', 'mail', 'calendar', 'building', 'package',
+  'card', 'coins', 'note', 'tag', 'pin', 'receipt', 'layers', 'check', 'info',
+  'alert', 'percent', 'pause', 'search', 'plus', 'import', 'upload', 'filter',
+  'adjust', 'transfer', 'shift', 'calculator', 'id-card', 'account', 'customers',
+  'organization', 'stores', 'store-pin', 'products', 'catalog', 'inventory',
+  'suppliers', 'purchases', 'sales', 'dashboard', 'menu',
+  'device-pos', 'device-printer', 'device-tablet', 'device-computer', 'device-other',
+  'conn-usb', 'conn-bluetooth',
+] as const
+
+const uniqueAmenityIcons = [...new Set(amenityIconOptions)]
+
+const iconChoices = computed(() => {
+  const current = form.value.icon_key.trim()
+  if (current && !uniqueAmenityIcons.includes(current)) {
+    return [current, ...uniqueAmenityIcons]
+  }
+  return uniqueAmenityIcons
+})
+
 const generatedCode = computed(() => {
   if (editingId.value && form.value.code) return form.value.code
   return slugFromName(form.value.name) || '—'
@@ -82,6 +114,14 @@ function slugFromName(name: string) {
 function categoryLabel(value?: string) {
   const key = value && categories.value.includes(value as typeof categories.value[number]) ? value : 'other'
   return t(`hotel.amenities.categories.${key}`)
+}
+
+function selectIcon(key: string) {
+  form.value.icon_key = key
+}
+
+function clearIcon() {
+  form.value.icon_key = ''
 }
 
 function resetForm() {
@@ -270,15 +310,29 @@ async function remove(row: Amenity) {
           </div>
           <div class="ui-field amenities__span">
             <FieldLabel icon="sparkles">{{ t('hotel.amenities.iconKey') }}</FieldLabel>
-            <div class="icon-field">
-              <input
-                v-model="form.icon_key"
-                class="ui-input"
-                :placeholder="t('hotel.amenities.iconPlaceholder')"
+            <div class="icon-picker" role="listbox" :aria-label="t('hotel.amenities.iconKey')">
+              <button
+                type="button"
+                class="icon-picker__item"
+                :class="{ 'icon-picker__item--active': !form.icon_key }"
+                :aria-selected="!form.icon_key"
+                :title="t('hotel.amenities.iconNone')"
+                @click="clearIcon"
               >
-              <span class="icon-field__preview" aria-hidden="true">
-                <AppIcon :name="form.icon_key.trim() || 'sparkles'" :size="16" />
-              </span>
+                <span class="icon-picker__none">—</span>
+              </button>
+              <button
+                v-for="icon in iconChoices"
+                :key="icon"
+                type="button"
+                class="icon-picker__item"
+                :class="{ 'icon-picker__item--active': form.icon_key === icon }"
+                :aria-selected="form.icon_key === icon"
+                :title="icon"
+                @click="selectIcon(icon)"
+              >
+                <AppIcon :name="icon" :size="18" />
+              </button>
             </div>
           </div>
           <label class="amenities__check">
@@ -381,21 +435,48 @@ async function remove(row: Amenity) {
   color: #3d5c73;
 }
 
-.icon-field {
-  position: relative;
+.icon-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.4rem, 1fr));
+  gap: 0.4rem;
+  padding: 0.55rem;
+  border: 1px solid #d7e0e7;
+  border-radius: 0.75rem;
+  background: #f8fafb;
+  max-height: 16rem;
+  overflow-y: auto;
 }
 
-.icon-field__preview {
-  position: absolute;
-  right: 0.7rem;
-  top: 50%;
-  transform: translateY(-50%);
+.icon-picker__item {
   display: inline-flex;
-  color: #5c7f96;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #4a6272;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
 
-.icon-field .ui-input {
-  padding-right: 2.2rem;
+.icon-picker__item:hover {
+  border-color: #b7c9d6;
+  color: #1a2833;
+}
+
+.icon-picker__item--active {
+  border-color: var(--color-brand-500, #2f6fed);
+  background: color-mix(in srgb, var(--color-brand-500, #2f6fed) 12%, #fff);
+  color: var(--color-brand-700, #1d4ed8);
+}
+
+.icon-picker__none {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  color: #8a9aa6;
 }
 
 .amenities__check {
