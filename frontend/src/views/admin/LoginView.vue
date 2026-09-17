@@ -16,6 +16,7 @@ const DEFAULT_SLUG = 'demo'
 const WELCOME_DURATION_MS = 4800
 const WELCOME_EXIT_MS = 380
 const ITARA_LOGO_URL = '/brand/itara-nexus-logo.png?v=2'
+const LOGIN_BACKGROUND_URL = '/brand/login-background.png'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -214,8 +215,8 @@ async function submit() {
     <aside class="login__brand">
       <div class="login__brand-bg" aria-hidden="true">
         <img
-          class="login__brand-logo"
-          :src="ITARA_LOGO_URL"
+          class="login__brand-photo"
+          :src="LOGIN_BACKGROUND_URL"
           alt=""
         />
       </div>
@@ -449,21 +450,27 @@ async function submit() {
   text-align: center;
 }
 
-.login__brand-logo {
-  width: min(88%, 22rem);
-  max-height: 78%;
-  object-fit: contain;
-  opacity: 0.18;
+.login__brand-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
   user-select: none;
 }
 
 .login__brand-bg {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
   pointer-events: none;
   z-index: 0;
+}
+
+.login__brand-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(10, 14, 20, 0.55) 0%, rgba(10, 14, 20, 0.35) 42%, rgba(10, 14, 20, 0.78) 100%);
 }
 
 .login__brand-top,

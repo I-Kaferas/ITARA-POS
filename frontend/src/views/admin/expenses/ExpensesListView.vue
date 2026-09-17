@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
@@ -107,7 +107,7 @@ async function save() {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.expenses') }}</template>
     <template #subtitle>{{ t('expenses.linksHint') }}</template>
 
@@ -198,7 +198,7 @@ async function save() {
         </div>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

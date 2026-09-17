@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppIcon from '../ui/AppIcon.vue'
 import LanguageSwitcher from '../ui/LanguageSwitcher.vue'
 import AppCalculator from './AppCalculator.vue'
@@ -11,6 +11,7 @@ import StockAlertBell from './StockAlertBell.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useBrandingStore } from '../../stores/branding'
 import { useContextStore } from '../../stores/context'
+import { usePageHeaderStore } from '../../stores/pageHeader'
 import { useRealtimeStore } from '../../stores/realtime'
 
 type NavChild = { name: string; to: string; label: string; icon: string; color?: string }
@@ -25,10 +26,12 @@ type NavItem = {
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const slots = useSlots()
 const auth = useAuthStore()
 const brandingStore = useBrandingStore()
 const context = useContextStore()
 const realtime = useRealtimeStore()
+const pageHeader = usePageHeaderStore()
 const moduleSearch = ref<InstanceType<typeof ModuleSearch> | null>(null)
 const userMenuOpen = ref(false)
 const userMenuTrigger = ref<HTMLElement | null>(null)
@@ -519,6 +522,14 @@ watch(userMenuOpen, async (open) => {
   await nextTick()
   placeUserMenu()
 })
+
+const HeaderTitle = computed(() => ({
+  setup: () => () => pageHeader.titleSlot?.() ?? slots.title?.() ?? null,
+}))
+const HeaderSubtitle = computed(() => ({
+  setup: () => () => pageHeader.subtitleSlot?.() ?? slots.subtitle?.() ?? null,
+}))
+const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subtitle))
 </script>
 
 <template>
@@ -639,10 +650,10 @@ watch(userMenuOpen, async (open) => {
           </button>
           <div class="app-topbar__heading">
             <h1 class="app-topbar__title">
-              <slot name="title" />
+              <component :is="HeaderTitle" />
             </h1>
-            <p v-if="$slots.subtitle" class="app-topbar__subtitle">
-              <slot name="subtitle" />
+            <p v-if="hasSubtitle" class="app-topbar__subtitle">
+              <component :is="HeaderSubtitle" />
             </p>
           </div>
         </div>
@@ -716,7 +727,7 @@ watch(userMenuOpen, async (open) => {
       <main class="app-content">
         <Transition name="page" mode="out-in">
           <div :key="route.path" class="page-stage">
-            <slot />
+            <RouterView />
           </div>
         </Transition>
       </main>

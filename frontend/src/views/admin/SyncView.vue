@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../api/client'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import { formatDateTime } from '../../utils/format'
 
 type Device = { id: string; name: string; code?: string; platform?: string | null; device_type?: string | null; status?: string | null; last_sync_at?: string | null; is_active?: boolean }
@@ -26,7 +26,7 @@ async function load() {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('desk.sync') }}</template>
     <template #subtitle>{{ t('desk.syncHint') }}</template>
 
@@ -66,5 +66,5 @@ async function load() {
         <p v-if="status && !status.events.length" class="px-4 py-6 text-sm text-slate-500">{{ t('desk.noEvents') }}</p>
       </section>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>

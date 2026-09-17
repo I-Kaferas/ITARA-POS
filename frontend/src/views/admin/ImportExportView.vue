@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
@@ -44,7 +44,7 @@ async function importFile() {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.importExport') }}</template>
     <template #subtitle>{{ t('importExport.subtitle') }}</template>
 
@@ -99,7 +99,7 @@ async function importFile() {
         </div>
       </div>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

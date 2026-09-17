@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useAuthStore } from '../../../stores/auth'
 
@@ -104,7 +104,7 @@ async function logoutAll() {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('account.title') }}</template>
 
     <p v-if="message" class="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">{{ message }}</p>
@@ -190,7 +190,7 @@ async function logoutAll() {
         </div>
       </section>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

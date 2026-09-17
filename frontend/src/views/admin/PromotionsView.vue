@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../composables/useConfirm'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
@@ -225,7 +225,7 @@ function formatDate(value?: string | null) {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('promotions.title') }}</template>
     <template #subtitle>{{ t('promotions.subtitle') }}</template>
 
@@ -428,7 +428,7 @@ function formatDate(value?: string | null) {
         </div>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

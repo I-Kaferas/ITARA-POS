@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
+import { hospitalitySnapshotPath, HOTEL_RESERVATION_KINDS } from '../../../api/hospitality'
 import { useConfirm } from '../../../composables/useConfirm'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -387,7 +388,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    docs.value = (await api.get<{ data: { docs: Doc[] } }>('/hospitality')).data.docs
+    docs.value = (await api.get<{ data: { docs: Doc[] } }>(hospitalitySnapshotPath([...HOTEL_RESERVATION_KINDS]))).data.docs
     if (!form.value.type_id) {
       form.value.type_id = typeOptions.value[0]?.id ?? ''
     }

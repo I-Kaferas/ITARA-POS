@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../api/client'
@@ -334,7 +334,7 @@ async function makePrimary(id: string) {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ isEdit ? t('products.edit') : t('products.new') }}</template>
 
     <nav class="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
@@ -601,7 +601,7 @@ async function makePrimary(id: string) {
         <button type="button" class="btn-secondary" @click="router.push({ name: 'products' })">{{ t('common.cancel') }}</button>
       </div>
     </form>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

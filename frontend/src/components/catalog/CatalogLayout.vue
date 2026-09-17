@@ -2,32 +2,10 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import AdminLayout from '../layout/AdminLayout.vue'
-import SubNav from '../ui/SubNav.vue'
+import PageFrame from '../layout/PageFrame.vue'
 
 const { t } = useI18n()
 const route = useRoute()
-
-const tabs = computed(() => [
-  { to: '/admin/catalog/catalogs', label: t('catalog.tabs.catalogs') },
-  { to: '/admin/catalog/categories', label: t('catalog.tabs.categories') },
-  { to: '/admin/catalog/brands', label: t('catalog.tabs.brands') },
-  { to: '/admin/catalog/units', label: t('catalog.tabs.units') },
-  { to: '/admin/catalog/attributes', label: t('catalog.tabs.attributes') },
-  { to: '/admin/catalog/taxes', label: t('catalog.tabs.taxes') },
-  { to: '/admin/products', label: t('nav.products') },
-  { to: '/admin/accompaniments', label: t('nav.accompaniments') },
-  { to: '/admin/catalog/options', label: t('nav.productOptions') },
-  { to: '/admin/catalog/beverages', label: t('nav.beverages') },
-  { to: '/admin/catalog/prices', label: t('nav.priceLists') },
-])
-
-function isActive(path: string) {
-  if (path === '/admin/products') return route.path.startsWith('/admin/products')
-  return route.path === path || route.path.startsWith(path + '/')
-}
-
-const navTabs = computed(() => tabs.value.map(tab => ({ ...tab, active: isActive(tab.to) })))
 
 const pageTitle = computed(() => {
   if (route.path.startsWith('/admin/catalog/brands')) return t('nav.brands')
@@ -45,11 +23,9 @@ const pageTitle = computed(() => {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ pageTitle }}</template>
     <template #subtitle>{{ t('catalog.subtitle') }}</template>
-
-    <SubNav :tabs="navTabs" />
     <slot />
-  </AdminLayout>
+  </PageFrame>
 </template>

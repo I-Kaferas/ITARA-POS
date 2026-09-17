@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -224,7 +224,7 @@ watch(
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.posReservations') }}</template>
     <template #subtitle>{{ t('pointOfSale.reservations.subtitle') }}</template>
 
@@ -431,5 +431,5 @@ watch(
         </div>
       </div>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>

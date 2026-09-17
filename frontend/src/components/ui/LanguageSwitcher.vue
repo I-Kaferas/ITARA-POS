@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { setAppLocale } from '../../i18n'
 import {
   LOCALE_META,
   SUPPORTED_LOCALES,
-  persistLocale,
   type AppLocale,
 } from '../../i18n/locales'
 import LanguageFlag from './LanguageFlag.vue'
@@ -23,13 +23,12 @@ const activeIndex = ref(0)
 const current = computed(() => (locale.value as AppLocale) in LOCALE_META ? locale.value as AppLocale : 'fr')
 const currentMeta = computed(() => LOCALE_META[current.value])
 
-function select(code: AppLocale) {
+async function select(code: AppLocale) {
   if (code === current.value) {
     open.value = false
     return
   }
-  locale.value = code
-  persistLocale(code)
+  await setAppLocale(code)
   open.value = false
 }
 

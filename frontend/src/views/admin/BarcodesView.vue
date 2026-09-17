@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage, getStoreId } from '../../api/client'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 
 type Hit = { id?: string; barcode: string; type?: string; product_id?: string; label?: string }
@@ -64,7 +64,7 @@ function printCode(value: string, label = '') {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('desk.barcodes') }}</template>
     <template #subtitle>{{ t('desk.barcodesHint') }}</template>
 
@@ -111,5 +111,5 @@ function printCode(value: string, label = '') {
         </table>
       </section>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>

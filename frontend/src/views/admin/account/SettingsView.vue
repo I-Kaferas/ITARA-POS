@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import { LOCALE_META, SUPPORTED_LOCALES, persistLocale, type AppLocale } from '../../../i18n/locales'
 import LanguageFlag from '../../../components/ui/LanguageFlag.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
@@ -84,7 +84,7 @@ function save() {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('auth.settings') }}</template>
     <template #subtitle>{{ t('settings.subtitle') }}</template>
 
@@ -206,7 +206,7 @@ function save() {
         </div>
       </form>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

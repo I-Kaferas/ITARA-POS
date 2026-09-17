@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney } from '../../../utils/format'
@@ -33,7 +33,7 @@ async function load() {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('expenses.tabs.dashboard') }}</template>
     <template #subtitle>{{ t('expenses.linksHint') }}</template>
     <div class="mb-4 space-y-3">
@@ -57,7 +57,7 @@ async function load() {
       </article>
     </div>
     <p v-if="!byCategory.length" class="text-sm text-slate-500">{{ t('org.empty') }}</p>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -116,7 +116,7 @@ watch([storeId, shiftId], load)
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('pointOfSale.shifts.detailTitle') }}</template>
     <template #subtitle>{{ shift?.cash_register?.name ?? t('pointOfSale.shifts.subtitle') }}</template>
 
@@ -222,5 +222,5 @@ watch([storeId, shiftId], load)
         </div>
       </div>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>

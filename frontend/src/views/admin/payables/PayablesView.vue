@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatDate, formatMoney } from '../../../utils/format'
@@ -97,7 +97,7 @@ function paymentMethodLabel(method: string): string {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('payables.title') }}</template>
     <template #subtitle>{{ t('payables.subtitle') }}</template>
 
@@ -231,7 +231,7 @@ function paymentMethodLabel(method: string): string {
         <p v-if="!filteredPayments.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

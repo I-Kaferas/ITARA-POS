@@ -2,12 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import Badge from '../../../components/ui/Badge.vue'
-import SubNav from '../../../components/ui/SubNav.vue'
 import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { extractApiErrorMessage } from '../../../api/client'
@@ -44,11 +43,6 @@ const filters = ref({
   from: '',
   to: '',
 })
-
-const tabs = computed(() => [
-  { to: '/admin/pos/orders', label: t('sales.tabs.list'), active: true },
-  { to: '/admin/sales/returns', label: t('sales.tabs.returns'), active: false },
-])
 
 const statusOptions = computed(() => [
   { value: '', label: t('pointOfSale.orders.filters.allStatuses') },
@@ -198,11 +192,9 @@ watch(
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.posOrders') }}</template>
     <template #subtitle>{{ t('pointOfSale.orders.subtitle') }}</template>
-
-    <SubNav :tabs="tabs" />
 
     <div v-if="!storeId" class="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
       {{ t('sales.selectStore') }}
@@ -380,5 +372,5 @@ watch(
       @close="showMerge = false"
       @merged="onMerged"
     />
-  </AdminLayout>
+  </PageFrame>
 </template>

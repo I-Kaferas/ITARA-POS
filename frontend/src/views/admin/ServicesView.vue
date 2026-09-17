@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '../../api/client'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../components/ui/ModuleFilters.vue'
@@ -94,7 +94,7 @@ function statusLabel(status: string) {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('services.title') }}</template>
     <template #subtitle>{{ t('services.subtitle') }}</template>
     <template #actions>
@@ -170,5 +170,5 @@ function statusLabel(status: string) {
         <button class="btn-primary" type="submit">{{ t('services.book') }}</button>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>

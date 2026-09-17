@@ -35,6 +35,8 @@ class SyncEngine extends ChangeNotifier {
   ConnectivityState connectivity = ConnectivityState.offline;
   String? lastError;
   DateTime? lastSyncAt;
+  /// Bumped only when local catalog rows actually change (POS should reload local cache).
+  int catalogRevision = 0;
   String? activeTarget;
   int pending = 0;
   int failed = 0;
@@ -78,9 +80,14 @@ class SyncEngine extends ChangeNotifier {
   void _arm() {
     if (!_started) return;
     _timer?.cancel();
-    final wait = pending > 0 && connectivity == ConnectivityState.offline
-        ? const Duration(seconds: 5)
-        : const Duration(seconds: 20);
+    final Duration wait;
+    if (pending > 0 && connectivity == ConnectivityState.offline) {
+      wait = const Duration(seconds: 8);
+    } else if (pending > 0) {
+      wait = const Duration(seconds: 20);
+    } else {
+      wait = const Duration(seconds: 45);
+    }
     _timer = Timer(wait, () async {
       if (!_started) return;
       await runCycle();
@@ -88,13 +95,22 @@ class SyncEngine extends ChangeNotifier {
     });
   }
 
-  Future<void> refreshCounts() async {
+  Future<void> refreshCounts({bool forceNotify = false}) async {
     final counts = await OfflineStore.instance.counts();
-    pending = counts['pending'] ?? 0;
-    failed = counts['failed'] ?? 0;
-    synced = counts['synced'] ?? 0;
-    conflicts = counts['conflicts'] ?? 0;
-    notifyListeners();
+    final nextPending = counts['pending'] ?? 0;
+    final nextFailed = counts['failed'] ?? 0;
+    final nextSynced = counts['synced'] ?? 0;
+    final nextConflicts = counts['conflicts'] ?? 0;
+    final changed = forceNotify ||
+        nextPending != pending ||
+        nextFailed != failed ||
+        nextSynced != synced ||
+        nextConflicts != conflicts;
+    pending = nextPending;
+    failed = nextFailed;
+    synced = nextSynced;
+    conflicts = nextConflicts;
+    if (changed) notifyListeners();
   }
 
   Future<SyncReport> syncNow() async {
@@ -238,8 +254,11 @@ class SyncEngine extends ChangeNotifier {
   Future<void> runCycle({bool forcePull = false, bool pushOutbound = true}) async {
     if (_running) return;
     _running = true;
-    connectivity = ConnectivityState.syncing;
-    notifyListeners();
+    final showBusy = forcePull || pending > 0;
+    if (showBusy) {
+      connectivity = ConnectivityState.syncing;
+      notifyListeners();
+    }
 
     var products = 0;
     var categories = 0;
@@ -252,6 +271,7 @@ class SyncEngine extends ChangeNotifier {
     var currencies = 0;
     var taxes = 0;
     var sent = 0;
+    var catalogChanged = false;
 
     try {
       final hadTarget = activeTarget != null;
@@ -260,7 +280,10 @@ class SyncEngine extends ChangeNotifier {
         await OfflineStore.instance.retryAllFailed();
       }
       if (activeTarget == null) {
-        connectivity = ConnectivityState.offline;
+        if (connectivity != ConnectivityState.offline) {
+          connectivity = ConnectivityState.offline;
+          notifyListeners();
+        }
         lastError = null;
         return;
       }
@@ -270,9 +293,10 @@ class SyncEngine extends ChangeNotifier {
       } catch (_) {}
       try {
         if (forcePull || await _shouldPull()) {
-          final catalog = await _pullCatalog();
+          final catalog = await _pullCatalog(replaceAll: forcePull);
           products = catalog.products;
           categories = catalog.categories;
+          catalogChanged = products > 0 || categories > 0;
         }
         if (forcePull || await _shouldPullReference()) {
           final refs = await _pullReferenceCounts();
@@ -294,15 +318,18 @@ class SyncEngine extends ChangeNotifier {
         await _pushLocalHolds();
         if (activeTarget == _internalBase) {
           try {
-            await _pullMasterStock();
+            final stockTouched = await _pullMasterStock();
+            catalogChanged = catalogChanged || stockTouched;
           } catch (_) {}
         }
       }
       lastSyncAt = DateTime.now();
       lastError = null;
-      connectivity = activeTarget == _internalBase
+      if (catalogChanged) catalogRevision++;
+      final nextConnectivity = activeTarget == _internalBase
           ? ConnectivityState.localAvailable
           : ConnectivityState.online;
+      connectivity = nextConnectivity;
       lastReport = SyncReport(
         message: 'Synchronisation terminée',
         products: products,
@@ -317,14 +344,16 @@ class SyncEngine extends ChangeNotifier {
         taxes: taxes,
         sent: sent,
       );
+      if (showBusy || catalogChanged || sent > 0) notifyListeners();
     } catch (error) {
       lastError = error.toString();
       connectivity = ConnectivityState.syncError;
       lastReport = SyncReport(ok: false, message: lastError!);
       await OfflineStore.instance.log('error', lastError!);
+      notifyListeners();
     } finally {
       _running = false;
-      await refreshCounts();
+      await refreshCounts(forceNotify: showBusy || catalogChanged || sent > 0);
     }
   }
 
@@ -405,7 +434,7 @@ class SyncEngine extends ChangeNotifier {
     if (last == null) return true;
     final parsed = DateTime.tryParse(last);
     if (parsed == null) return true;
-    return DateTime.now().difference(parsed) > const Duration(minutes: 5);
+    return DateTime.now().difference(parsed) > const Duration(minutes: 15);
   }
 
   Future<bool> _shouldPull() async {
@@ -413,10 +442,10 @@ class SyncEngine extends ChangeNotifier {
     if (last == null) return true;
     final parsed = DateTime.tryParse(last);
     if (parsed == null) return true;
-    return DateTime.now().difference(parsed) > const Duration(minutes: 5);
+    return DateTime.now().difference(parsed) > const Duration(minutes: 15);
   }
 
-  Future<({int products, int categories})> _pullCatalog() async {
+  Future<({int products, int categories})> _pullCatalog({bool replaceAll = false}) async {
     final target = activeTarget;
     final storeId = TerminalConfigRepository.instance.config.storeId;
     if (target == null || storeId.isEmpty) return (products: 0, categories: 0);
@@ -431,7 +460,11 @@ class SyncEngine extends ChangeNotifier {
     final data = body['data'] as Map<String, dynamic>? ?? body;
     final catalog = PosCatalog.fromJson(data);
     if (catalog.products.isNotEmpty || catalog.categories.isNotEmpty) {
-      await OfflineStore.instance.cacheCatalog(catalog);
+      if (replaceAll) {
+        await OfflineStore.instance.cacheCatalog(catalog);
+      } else {
+        await OfflineStore.instance.mergeCatalog(catalog);
+      }
     }
     final sequence = data['server_sequence']?.toString();
     if (sequence != null) {
@@ -936,22 +969,23 @@ class SyncEngine extends ChangeNotifier {
     await _applyStockBody(response.body);
   }
 
-  Future<void> _pullMasterStock() async {
+  Future<bool> _pullMasterStock() async {
     final target = activeTarget;
-    if (target == null || target != _internalBase) return;
+    if (target == null || target != _internalBase) return false;
     final response = await _client
         .get(Uri.parse('$target/sync/stock'), headers: _headers)
         .timeout(const Duration(seconds: 8));
-    if (response.statusCode != 200) return;
-    await _applyStockBody(response.body);
+    if (response.statusCode != 200) return false;
+    return _applyStockBody(response.body);
   }
 
-  Future<void> _applyStockBody(String raw) async {
+  Future<bool> _applyStockBody(String raw) async {
     final body = jsonDecode(raw) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>? ?? body;
     final stock = data['stock'];
-    if (stock is! List || stock.isEmpty) return;
+    if (stock is! List || stock.isEmpty) return false;
     await OfflineStore.instance.applyAuthoritativeStock(stock);
+    return true;
   }
 
   Future<PosCatalog?> cachedCatalog() {
@@ -963,6 +997,7 @@ class SyncEngine extends ChangeNotifier {
     final catalog = await api.fetchCatalog();
     await OfflineStore.instance.cacheCatalog(catalog);
     await OfflineStore.instance.setCheckpoint('catalog_synced_at', DateTime.now().toIso8601String());
+    catalogRevision++;
     notifyListeners();
     return (products: catalog.products.length, categories: catalog.categories.length);
   }

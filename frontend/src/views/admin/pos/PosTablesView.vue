@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
@@ -433,7 +433,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.posTables') }}</template>
     <template #subtitle>{{ t('pointOfSale.tables.subtitle') }}</template>
 
@@ -719,7 +719,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         <p v-if="!history.length" class="m-0 text-sm text-slate-500">{{ t('pointOfSale.tables.historyEmpty') }}</p>
       </div>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

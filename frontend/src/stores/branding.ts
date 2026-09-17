@@ -82,6 +82,10 @@ export const useBrandingStore = defineStore('branding', () => {
   }
 
   async function loadCurrent() {
+    if (branding.value) {
+      applyCss(branding.value)
+      return branding.value
+    }
     loading.value = true
     error.value = null
     try {

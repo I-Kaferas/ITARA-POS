@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../../api/client'
+import { hospitalitySnapshotPath, HOTEL_CALENDAR_KINDS } from '../../../api/hospitality'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -308,7 +309,7 @@ async function loadReservations() {
   loading.value = true
   error.value = ''
   try {
-    docs.value = (await api.get<{ data: { docs: Doc[] } }>('/hospitality')).data.docs
+    docs.value = (await api.get<{ data: { docs: Doc[] } }>(hospitalitySnapshotPath([...HOTEL_CALENDAR_KINDS]))).data.docs
   } catch (err) {
     error.value = extractApiErrorMessage(err)
   } finally {

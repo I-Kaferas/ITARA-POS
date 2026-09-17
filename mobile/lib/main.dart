@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -15,14 +17,19 @@ Future<void> main() async {
   await LocalDatabase.ensureInitialized();
   await TerminalConfigRepository.instance.ensureLoaded();
   await ThemeController.instance.load();
+  runApp(const PosApp());
+  // Defer background services so the first frame paints quickly.
+  unawaited(_bootBackgroundServices());
+}
+
+Future<void> _bootBackgroundServices() async {
   SyncEngine.instance.start();
   await LocalMasterServer.instance.startIfMaster();
   await LocalMasterDiscovery.instance.start();
   TerminalConfigRepository.instance.addListener(() {
-    LocalMasterServer.instance.startIfMaster();
+    unawaited(LocalMasterServer.instance.startIfMaster());
     ThemeController.instance.applyFromConfig();
   });
-  runApp(const PosApp());
 }
 
 class PosApp extends StatelessWidget {

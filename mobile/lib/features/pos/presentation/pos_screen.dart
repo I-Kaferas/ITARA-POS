@@ -58,12 +58,17 @@ class _PosScreenState extends State<PosScreen> {
   String? _error;
   String? _statusMessage;
   bool _cartOpen = false;
-  DateTime? _catalogSyncedAt;
   bool _requestPayment = false;
   bool _shiftOpen = false;
   bool _shiftLoading = false;
   List<PosGateRegister> _registers = [];
   Timer? _recalcTimer;
+  Timer? _searchDebounce;
+  int _catalogRevision = -1;
+  Map<String, int> _categoryCounts = const {};
+  List<PosProduct> _filteredCache = const [];
+  String? _filteredCategoryId;
+  String _filteredQuery = '';
 
   @override
   void initState() {
@@ -73,14 +78,15 @@ class _PosScreenState extends State<PosScreen> {
     SyncEngine.instance.addListener(_onSyncChanged);
     PosPendingIntent.notifier.addListener(_onPendingIntent);
     unawaited(_loadPendingOrders().then((_) => _consumePendingIntent()));
-    _catalogSyncedAt = SyncEngine.instance.lastSyncAt;
-    _loadCatalog();
+    _catalogRevision = SyncEngine.instance.catalogRevision;
+    _loadCatalog(forceNetwork: true);
     unawaited(_loadShiftSession());
   }
 
   @override
   void dispose() {
     _recalcTimer?.cancel();
+    _searchDebounce?.cancel();
     PosPendingIntent.notifier.removeListener(_onPendingIntent);
     SyncEngine.instance.removeListener(_onSyncChanged);
     _cart.removeListener(_onCartChanged);
@@ -214,27 +220,67 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   void _onSyncChanged() {
-    final syncedAt = SyncEngine.instance.lastSyncAt;
-    if (syncedAt == null || syncedAt == _catalogSyncedAt || !mounted) return;
-    _catalogSyncedAt = syncedAt;
-    _loadCatalog();
+    final revision = SyncEngine.instance.catalogRevision;
+    if (revision == _catalogRevision || !mounted) return;
+    _catalogRevision = revision;
+    unawaited(_loadCatalog(forceNetwork: false));
   }
 
-  Future<void> _loadCatalog() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  void _rebuildFilters({bool productsChanged = false}) {
+    if (productsChanged || _filteredCategoryId != _selectedCategoryId || _filteredQuery != _searchQuery) {
+      _filteredCategoryId = _selectedCategoryId;
+      _filteredQuery = _searchQuery;
+      var result = _products;
+      if (_selectedCategoryId != null) {
+        result = result.where((product) => product.categoryId == _selectedCategoryId).toList();
+      }
+      final query = _searchQuery.trim().toLowerCase();
+      if (query.isNotEmpty) {
+        result = result.where((product) {
+          return product.name.toLowerCase().contains(query) ||
+              product.sku.toLowerCase().contains(query) ||
+              (product.barcode?.toLowerCase().contains(query) ?? false);
+        }).toList();
+      }
+      _filteredCache = result;
+    }
+    if (productsChanged) {
+      final counts = <String, int>{};
+      for (final product in _products) {
+        final id = product.categoryId;
+        if (id == null || id.isEmpty) continue;
+        counts[id] = (counts[id] ?? 0) + 1;
+      }
+      _categoryCounts = counts;
+    }
+  }
 
+  Future<void> _loadCatalog({bool forceNetwork = false}) async {
     final storeId = _api.storeId;
+    final showSpinner = _products.isEmpty;
+    if (showSpinner && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
     final cached = storeId.isEmpty ? null : await OfflineStore.instance.loadCatalog(storeId);
     if (cached != null && mounted) {
       setState(() {
         _products = cached.products.where((p) => p.isAvailable).toList();
         _categories = cached.categories;
+        _rebuildFilters(productsChanged: true);
         _loading = false;
         _error = null;
       });
+    }
+
+    if (!forceNetwork) {
+      if (cached == null && mounted) {
+        setState(() => _loading = false);
+      }
+      return;
     }
 
     try {
@@ -244,6 +290,7 @@ class _PosScreenState extends State<PosScreen> {
       setState(() {
         _products = catalog.products.where((p) => p.isAvailable).toList();
         _categories = catalog.categories;
+        _rebuildFilters(productsChanged: true);
         _loading = false;
         _error = null;
       });
@@ -261,24 +308,8 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   List<PosProduct> get _filteredProducts {
-    var result = _products;
-
-    if (_selectedCategoryId != null) {
-      result = result
-          .where((product) => product.categoryId == _selectedCategoryId)
-          .toList();
-    }
-
-    final query = _searchQuery.trim().toLowerCase();
-    if (query.isNotEmpty) {
-      result = result.where((product) {
-        return product.name.toLowerCase().contains(query) ||
-            product.sku.toLowerCase().contains(query) ||
-            (product.barcode?.toLowerCase().contains(query) ?? false);
-      }).toList();
-    }
-
-    return result;
+    _rebuildFilters();
+    return _filteredCache;
   }
 
   void _showStatus(String message) {
@@ -534,7 +565,11 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   void _onSearchChanged(String value) {
-    setState(() => _searchQuery = value);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted || _searchQuery == value) return;
+      setState(() => _searchQuery = value);
+    });
   }
 
   void _onSearchSubmitted(String value) {
@@ -560,7 +595,7 @@ class _PosScreenState extends State<PosScreen> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                      ? _ErrorView(error: _error!, onRetry: _loadCatalog)
+                      ? _ErrorView(error: _error!, onRetry: () => _loadCatalog(forceNetwork: true))
                       : _PosWorkspace(
                           wide: MediaQuery.sizeOf(context).width >= 980,
                           cartOpen: _cartOpen,
@@ -569,12 +604,7 @@ class _PosScreenState extends State<PosScreen> {
                             categories: _categories,
                             selectedCategoryId: _selectedCategoryId,
                             totalCount: _products.length,
-                            counts: {
-                              for (final category in _categories)
-                                category.id: _products
-                                    .where((product) => product.categoryId == category.id)
-                                    .length,
-                            },
+                            counts: _categoryCounts,
                             onCategorySelected: (id) {
                               setState(() => _selectedCategoryId = id);
                             },
@@ -776,7 +806,7 @@ class _PosScreenState extends State<PosScreen> {
           ),
           IconButton(
             tooltip: 'Actualiser catalogue',
-            onPressed: _loading ? null : _loadCatalog,
+            onPressed: _loading ? null : () => _loadCatalog(forceNetwork: true),
             icon: const Icon(Icons.refresh),
           ),
         ],

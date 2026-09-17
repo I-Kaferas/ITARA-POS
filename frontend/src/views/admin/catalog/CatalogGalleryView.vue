@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -48,7 +48,7 @@ const galleryItems = computed(() =>
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.catalogGallery') }}</template>
     <template #subtitle>{{ t('catalog.gallerySubtitle') }}</template>
 
@@ -102,7 +102,7 @@ const galleryItems = computed(() =>
       :title="t('catalog.galleryEmpty')"
       :description="t('catalog.galleryEmptyHint')"
     />
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

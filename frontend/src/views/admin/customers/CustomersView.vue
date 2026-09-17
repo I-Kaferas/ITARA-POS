@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -174,7 +174,7 @@ async function remove(item: Customer) {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.customers') }}</template>
     <template #subtitle>{{ t('customers.subtitle') }}</template>
 
@@ -377,7 +377,7 @@ async function remove(item: Customer) {
         </div>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../api/client'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import Badge from '../../components/ui/Badge.vue'
@@ -245,7 +245,7 @@ function folioTotal(room: Doc) {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('desk.hospitality') }}</template>
     <template #subtitle>{{ t('desk.hospitalityHint') }}</template>
 
@@ -582,7 +582,7 @@ function folioTotal(room: Doc) {
         </div>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

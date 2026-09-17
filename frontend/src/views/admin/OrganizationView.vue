@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 
 const { t } = useI18n()
@@ -15,7 +15,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.organization') }}</template>
 
     <div class="space-y-6">
@@ -43,5 +43,5 @@ onMounted(async () => {
         </div>
       </div>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>

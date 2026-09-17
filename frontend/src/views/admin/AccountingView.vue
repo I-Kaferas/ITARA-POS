@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
@@ -74,7 +74,7 @@ watchLiveSearch([from, to], load, 0)
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.accounting') }}</template>
     <template #subtitle>{{ t('accounting.subtitle') }}</template>
 
@@ -175,7 +175,7 @@ watchLiveSearch([from, to], load, 0)
         </div>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

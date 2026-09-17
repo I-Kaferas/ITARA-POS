@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../../api/client'
+import { hospitalitySnapshotPath, HOTEL_HOUSEKEEPING_KINDS } from '../../../api/hospitality'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -238,7 +239,7 @@ async function load() {
   error.value = ''
   try {
     const [docsRes] = await Promise.all([
-      api.get<{ data: { docs: Doc[] } }>('/hospitality'),
+      api.get<{ data: { docs: Doc[] } }>(hospitalitySnapshotPath([...HOTEL_HOUSEKEEPING_KINDS])),
       office.users.length ? Promise.resolve(office.users) : office.loadUsers({ status: 'active' }).catch(() => []),
     ])
     docs.value = docsRes.data.docs

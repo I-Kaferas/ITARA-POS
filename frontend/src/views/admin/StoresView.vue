@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
@@ -163,7 +163,7 @@ async function savePriceOverride() {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('stores.title') }}</template>
     <template #subtitle>{{ t('stores.subtitle') }}</template>
 
@@ -413,7 +413,7 @@ async function savePriceOverride() {
         </div>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

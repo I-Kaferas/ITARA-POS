@@ -16,15 +16,24 @@ class HospitalityDesk
     public function __construct(private readonly RealtimePublisher $realtime) {}
 
     /** @return array{docs: list<array<string, mixed>>} */
-    public function snapshot(Store $store): array
+    public function snapshot(Store $store, ?array $kinds = null): array
     {
         $this->seed($store);
         $this->ensureAmenities($store);
         $this->ensureHotelSettings($store);
 
+        $allowed = ['zone', 'table', 'server', 'amenity', 'building', 'wing', 'floor', 'room_type', 'room', 'order', 'ticket', 'reservation', 'folio', 'hotel_settings', 'concierge_request', 'housekeeping_task'];
+        $filter = $allowed;
+        if (is_array($kinds) && $kinds !== []) {
+            $filter = array_values(array_intersect($allowed, array_map('strval', $kinds)));
+            if ($filter === []) {
+                $filter = $allowed;
+            }
+        }
+
         $docs = DeskDocument::query()
             ->where('store_id', $store->id)
-            ->whereIn('kind', ['zone', 'table', 'server', 'amenity', 'building', 'wing', 'floor', 'room_type', 'room', 'order', 'ticket', 'reservation', 'folio', 'hotel_settings', 'concierge_request', 'housekeeping_task'])
+            ->whereIn('kind', $filter)
             ->orderBy('kind')
             ->orderBy('updated_at')
             ->get()
@@ -106,7 +115,7 @@ class HospitalityDesk
             };
         });
 
-        return $this->snapshot($store);
+        return $this->snapshot($store, isset($action['kinds']) && is_array($action['kinds']) ? $action['kinds'] : null);
     }
 
     private function seed(Store $store): void

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { formatMoney } from '../../../utils/format'
@@ -108,7 +108,7 @@ onMounted(load)
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('platform.title') }}</template>
     <template #subtitle>{{ t('platform.subtitle') }}</template>
 
@@ -220,7 +220,7 @@ onMounted(load)
         <button v-if="ticket.status === 'open'" class="btn mt-2" type="button" @click="closeTicket(ticket.id)">{{ t('platform.close') }}</button>
       </article>
     </section>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

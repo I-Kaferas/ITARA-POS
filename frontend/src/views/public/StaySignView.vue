@@ -96,7 +96,7 @@ function hexToRgba(hex: string, alpha: number) {
 function applyLangFromQuery() {
   const raw = String(route.query.lang || '').toLowerCase().slice(0, 2)
   if (raw === 'en' || raw === 'fr' || raw === 'sw') {
-    setAppLocale(raw as AppLocale)
+    void setAppLocale(raw as AppLocale)
   }
 }
 

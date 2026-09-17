@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useRoute, useRouter } from 'vue-router'
 import { extractApiErrorMessage } from '../../../api/client'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -179,7 +179,7 @@ function transactionTypeLabel(type: string): string {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ customer?.name ?? t('customers.detail') }}</template>
     <template #subtitle>{{ customer?.code }}</template>
 
@@ -412,7 +412,7 @@ function transactionTypeLabel(type: string): string {
         </div>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import PosCartPanel from '../../../components/pos/PosCartPanel.vue'
 import PosCategorySidebar from '../../../components/pos/PosCategorySidebar.vue'
 import PosFooterPanel from '../../../components/pos/PosFooterPanel.vue'
@@ -515,7 +515,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.posTerminal') }}</template>
 
     <div class="pos-root">
@@ -805,7 +805,7 @@ onUnmounted(() => {
         </div>
       </template>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

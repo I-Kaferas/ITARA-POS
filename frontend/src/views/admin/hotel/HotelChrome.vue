@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import SubNav from '../../../components/ui/SubNav.vue'
 
 const props = withDefaults(defineProps<{
@@ -60,20 +60,19 @@ const title = computed(() => {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ title }}</template>
     <template #subtitle>{{ t('hotel.subtitle') }}</template>
 
     <div class="hotel-page" :class="{ 'hotel-page--scroll': allowScroll }">
-      <div class="hotel-navs">
-        <SubNav :tabs="tabs" />
-        <SubNav v-if="isRoomConfig" :tabs="roomConfigTabs" variant="secondary" />
+      <div v-if="isRoomConfig" class="hotel-navs">
+        <SubNav :tabs="roomConfigTabs" variant="secondary" />
       </div>
       <div class="hotel-page__body">
         <slot />
       </div>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

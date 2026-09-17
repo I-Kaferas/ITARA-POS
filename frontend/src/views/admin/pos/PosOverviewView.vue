@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import { extractApiErrorMessage } from '../../../api/client'
@@ -92,7 +92,7 @@ useRealtimeSync(realtimeTopics.posOverview, load)
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.posOverview') }}</template>
     <template #subtitle>{{ t('pointOfSale.overview.subtitle') }}</template>
 
@@ -279,7 +279,7 @@ useRealtimeSync(realtimeTopics.posOverview, load)
         </button>
       </div>
     </template>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -157,7 +157,7 @@ function onHand(productId?: string) {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ order?.order_number ?? t('purchases.orderDetail') }}</template>
     <template #subtitle>{{ order?.supplier?.name }}</template>
 
@@ -347,7 +347,7 @@ function onHand(productId?: string) {
         </div>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

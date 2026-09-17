@@ -32,6 +32,15 @@ class OfflineStore {
   Future<Database> get _db => LocalDatabase.instance.database;
 
   Future<void> cacheCatalog(PosCatalog catalog) async {
+    await _writeCatalog(catalog, replaceAll: true);
+  }
+
+  /// Upsert products/categories without wiping the rest of the store catalog.
+  Future<void> mergeCatalog(PosCatalog catalog) async {
+    await _writeCatalog(catalog, replaceAll: false);
+  }
+
+  Future<void> _writeCatalog(PosCatalog catalog, {required bool replaceAll}) async {
     final db = await _db;
     final products = <String, PosProduct>{};
     for (final product in catalog.products) {
@@ -53,15 +62,20 @@ class OfflineStore {
       }
     }
 
-    final localOnly = existingRows.where((row) {
-      final productId = row['product_id'] as String? ?? '';
-      final json = existingStock[productId];
-      return json?['local_production'] == true && !products.containsKey(productId);
-    }).toList();
+    final localOnly = replaceAll
+        ? existingRows.where((row) {
+            final productId = row['product_id'] as String? ?? '';
+            final json = existingStock[productId];
+            return json?['local_production'] == true && !products.containsKey(productId);
+          }).toList()
+        : const <Map<String, Object?>>[];
 
     await db.transaction((txn) async {
-      await txn.delete('products', where: 'store_id = ?', whereArgs: [catalog.storeId]);
-      await txn.delete('categories', where: 'store_id = ?', whereArgs: [catalog.storeId]);
+      if (replaceAll) {
+        await txn.delete('products', where: 'store_id = ?', whereArgs: [catalog.storeId]);
+        await txn.delete('categories', where: 'store_id = ?', whereArgs: [catalog.storeId]);
+      }
+      final batch = txn.batch();
       for (final product in products.values) {
         final json = _productToJson(product);
         final previous = existingStock[product.productId];
@@ -72,7 +86,7 @@ class OfflineStore {
           if (previous['stock_display'] != null) json['stock_display'] = previous['stock_display'];
         }
         if (previous?['local_production'] == true) json['local_production'] = true;
-        await txn.insert(
+        batch.insert(
           'products',
           {
             'product_id': product.productId,
@@ -88,10 +102,10 @@ class OfflineStore {
         );
       }
       for (final row in localOnly) {
-        await txn.insert('products', row, conflictAlgorithm: ConflictAlgorithm.replace);
+        batch.insert('products', row, conflictAlgorithm: ConflictAlgorithm.replace);
       }
       for (final category in categories.values) {
-        await txn.insert(
+        batch.insert(
           'categories',
           {
             'id': category.id,
@@ -108,6 +122,7 @@ class OfflineStore {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+      await batch.commit(noResult: true);
     });
     await setCheckpoint('catalog_synced_at', DateTime.now().toIso8601String());
   }
@@ -133,17 +148,27 @@ class OfflineStore {
     if (customers.isEmpty && !replaceSynced) return;
     final db = await _db;
     await db.transaction((txn) async {
+      final pendingIds = <String>{};
+      final pendingServerIds = <String>{};
       if (replaceSynced) {
+        final pendingRows = await txn.query(
+          'customers',
+          columns: ['id', 'server_id'],
+          where: "sync_status = 'pending'",
+        );
+        for (final row in pendingRows) {
+          final id = row['id']?.toString();
+          final serverId = row['server_id']?.toString();
+          if (id != null && id.isNotEmpty) pendingIds.add(id);
+          if (serverId != null && serverId.isNotEmpty) pendingServerIds.add(serverId);
+        }
         await txn.delete('customers', where: "sync_status = 'synced'");
       }
+      final batch = txn.batch();
       for (final customer in customers) {
         if (customer.id.isEmpty) continue;
-        final existing = await txn.query('customers', where: 'id = ? OR server_id = ?', whereArgs: [customer.id, customer.id], limit: 1);
-        if (existing.isNotEmpty) {
-          if (existing.first['sync_status'] == 'pending') continue;
-          if (existing.first['id'] != customer.id) continue;
-        }
-        await txn.insert(
+        if (pendingIds.contains(customer.id) || pendingServerIds.contains(customer.id)) continue;
+        batch.insert(
           'customers',
           {
             'id': customer.id,
@@ -159,6 +184,7 @@ class OfflineStore {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+      await batch.commit(noResult: true);
     });
     await setCheckpoint('customers_synced_at', DateTime.now().toIso8601String());
   }
@@ -1169,19 +1195,17 @@ class OfflineStore {
 
   Future<Map<String, int>> counts() async {
     final db = await _db;
-    Future<int> count(String status) async {
-      final rows = await db.rawQuery(
-        'SELECT COUNT(*) AS c FROM sync_queue WHERE status = ?',
-        [status],
-      );
-      return syncAsInt(rows.first['c']);
-    }
-
+    final rows = await db.rawQuery(
+      "SELECT status, COUNT(*) AS c FROM sync_queue GROUP BY status",
+    );
+    final byStatus = <String, int>{
+      for (final row in rows) (row['status']?.toString() ?? ''): syncAsInt(row['c']),
+    };
     return {
-      'pending': await count('pending') + await count('processing') + await count('retrying'),
-      'failed': await count('failed'),
-      'synced': await count('synced'),
-      'conflicts': await count('conflict'),
+      'pending': (byStatus['pending'] ?? 0) + (byStatus['processing'] ?? 0) + (byStatus['retrying'] ?? 0),
+      'failed': byStatus['failed'] ?? 0,
+      'synced': byStatus['synced'] ?? 0,
+      'conflicts': byStatus['conflict'] ?? 0,
     };
   }
 

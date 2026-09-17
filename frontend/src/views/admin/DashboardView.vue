@@ -2,7 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
-import AdminLayout from '../../components/layout/AdminLayout.vue'
+import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import StatCard from '../../components/ui/StatCard.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -48,7 +48,7 @@ const completedSteps = computed(() => checklist.value.filter(c => c.done).length
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.dashboard') }}</template>
     <template #subtitle>{{ t('dashboard.subtitle') }}</template>
 
@@ -148,7 +148,7 @@ const completedSteps = computed(() => checklist.value.filter(c => c.done).length
         {{ t('dashboard.systemOnline') }}
       </span>
     </div>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

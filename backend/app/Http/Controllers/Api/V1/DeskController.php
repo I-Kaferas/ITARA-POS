@@ -18,7 +18,15 @@ class DeskController extends Controller
 
     public function hospitality(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->hospitality->snapshot($this->store())]);
+        $kinds = $request->query('kinds');
+        $parsed = null;
+        if (is_string($kinds) && $kinds !== '') {
+            $parsed = array_values(array_filter(array_map('trim', explode(',', $kinds))));
+        } elseif (is_array($kinds)) {
+            $parsed = array_values(array_filter(array_map('strval', $kinds)));
+        }
+
+        return response()->json(['data' => $this->hospitality->snapshot($this->store(), $parsed)]);
     }
 
     public function hospitalityDocument(string $code): JsonResponse

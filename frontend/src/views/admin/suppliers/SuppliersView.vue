@@ -4,7 +4,7 @@ import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -103,7 +103,7 @@ async function remove(item: Supplier) {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.suppliers') }}</template>
     <template #subtitle>{{ t('suppliers.subtitle') }}</template>
 
@@ -204,7 +204,7 @@ async function remove(item: Supplier) {
         </div>
       </form>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

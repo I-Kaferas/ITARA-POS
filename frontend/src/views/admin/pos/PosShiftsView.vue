@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -129,7 +129,7 @@ function goDetail(id: string) {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ t('nav.posShifts') }}</template>
     <template #subtitle>{{ t('pointOfSale.shifts.subtitle') }}</template>
 
@@ -347,5 +347,5 @@ function goDetail(id: string) {
         </div>
       </div>
     </AppModal>
-  </AdminLayout>
+  </PageFrame>
 </template>

@@ -53,7 +53,7 @@ class LocalDatabase {
     final path = p.join(dir.path, 'pos_offline.sqlite');
     return openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -132,6 +132,7 @@ class LocalDatabase {
           )
         ''');
         await db.execute('CREATE INDEX idx_sync_queue_status ON sync_queue(status, priority, created_at)');
+        await _createCatalogIndexes(db);
         await _createCustomers(db);
         await _createPaymentMethods(db);
         await _createSaleLedger(db);
@@ -156,8 +157,17 @@ class LocalDatabase {
         if (oldVersion < 6) {
           await _createReferenceData(db);
         }
+        if (oldVersion < 7) {
+          await _createCatalogIndexes(db);
+        }
       },
     );
+  }
+
+  static Future<void> _createCatalogIndexes(Database db) async {
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_products_store ON products(store_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_products_store_category ON products(store_id, category_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_categories_store ON categories(store_id)');
   }
 
   static Future<void> _createCustomers(Database db) async {

@@ -2,36 +2,21 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import AdminLayout from '../layout/AdminLayout.vue'
-import SubNav from '../ui/SubNav.vue'
+import PageFrame from '../layout/PageFrame.vue'
 
 const { t } = useI18n()
 const route = useRoute()
 
-const tabs = computed(() => [
-  { to: '/admin/sales', label: t('sales.tabs.list') },
-  { to: '/admin/sales/returns', label: t('sales.tabs.returns') },
-])
-
-function isActive(path: string) {
-  if (path === '/admin/sales') {
-    return route.path === '/admin/sales' || (route.path.startsWith('/admin/sales/') && !route.path.includes('/returns'))
-  }
-  if (path === '/admin/sales/returns') {
-    return route.path === '/admin/sales/returns'
-  }
-  return route.path === path || route.path.startsWith(path + '/')
-}
-
-const navTabs = computed(() => tabs.value.map(tab => ({ ...tab, active: isActive(tab.to) })))
+const pageTitle = computed(() => {
+  if (route.path.includes('/returns')) return t('sales.tabs.returns')
+  return t('nav.sales')
+})
 </script>
 
 <template>
-  <AdminLayout>
-    <template #title>{{ t('nav.sales') }}</template>
+  <PageFrame>
+    <template #title>{{ pageTitle }}</template>
     <template #subtitle>{{ t('sales.subtitle') }}</template>
-
-    <SubNav :tabs="navTabs" />
     <slot />
-  </AdminLayout>
+  </PageFrame>
 </template>

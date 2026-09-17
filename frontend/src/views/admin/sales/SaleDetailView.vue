@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import AdminLayout from '../../../components/layout/AdminLayout.vue'
+import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import Badge from '../../../components/ui/Badge.vue'
@@ -257,7 +257,7 @@ async function printInvoice() {
 </script>
 
 <template>
-  <AdminLayout>
+  <PageFrame>
     <template #title>{{ sale?.reference ?? t('sales.detail') }}</template>
     <template #subtitle>{{ t('sales.invoiceTitle') }}</template>
 
@@ -732,7 +732,7 @@ async function printInvoice() {
       @close="showMerge = false"
       @merged="async () => { showMerge = false; await loadAll() }"
     />
-  </AdminLayout>
+  </PageFrame>
 </template>
 
 <style scoped>

@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
+import { hospitalitySnapshotPath, HOTEL_STAY_KINDS } from '../../../api/hospitality'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useRealtimeSync } from '../../../composables/useRealtimeSync'
 import AppIcon from '../../../components/ui/AppIcon.vue'
@@ -1010,7 +1011,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    docs.value = (await api.get<{ data: { docs: Doc[] } }>('/hospitality')).data.docs
+    docs.value = (await api.get<{ data: { docs: Doc[] } }>(hospitalitySnapshotPath([...HOTEL_STAY_KINDS]))).data.docs
     if (!form.value.type_id) form.value.type_id = typeOptions.value[0]?.id ?? ''
     if (!form.value.room_id) form.value.room_id = vacantRooms.value[0]?.id ?? ''
     if (!form.value.deposit.trim() && Number(hotelSettings.value.deposit_amount_cents || 0) > 0) {
@@ -1342,7 +1343,7 @@ function startSignPoll() {
 }
 
 async function refreshDocsQuiet() {
-  const next = (await api.get<{ data: { docs: Doc[] } }>('/hospitality')).data.docs
+  const next = (await api.get<{ data: { docs: Doc[] } }>(hospitalitySnapshotPath([...HOTEL_STAY_KINDS]))).data.docs
   docs.value = next
   return next
 }
