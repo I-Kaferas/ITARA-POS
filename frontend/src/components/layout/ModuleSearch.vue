@@ -24,9 +24,8 @@ const router = useRouter()
 const modules = computed<ModuleItem[]>(() => [
   { to: '/admin', label: t('nav.dashboard'), group: t('nav.section.main'), keywords: 'accueil tableau board' },
   { to: '/admin/pos/overview', label: t('nav.posOverview'), group: t('nav.group.posOps'), keywords: 'apercu caisse pos dashboard' },
-  { to: '/admin/pos/terminal', label: t('nav.posTerminal'), group: t('nav.group.posOps'), keywords: 'caisse encaissement vente terminal' },
   { to: '/admin/hospitality', label: t('nav.restaurant'), group: t('nav.group.posOps'), keywords: 'tables restaurant salle commande hospitality' },
-  { to: '/admin/pos/shifts', label: t('nav.posShifts'), group: t('nav.group.posOps'), keywords: 'shift caisse caissier' },
+  { to: '/admin/pos/shifts', label: t('nav.posShifts'), group: t('nav.group.posOps'), keywords: 'shift caisse caissier ouverture cloture' },
   { to: '/admin/pos/reservations', label: t('nav.posReservations'), group: t('nav.group.posOps'), keywords: 'reservation table' },
   { to: '/admin/pos/orders', label: t('nav.posOrders'), group: t('nav.group.posSales'), keywords: 'commandes ventes factures tickets' },
   { to: '/admin/sales/returns', label: t('sales.tabs.returns'), group: t('nav.group.posSales'), keywords: 'retours remboursement' },
@@ -87,9 +86,15 @@ const modules = computed<ModuleItem[]>(() => [
   { to: '/admin/promotions', label: t('nav.promotions'), group: t('nav.section.catalog'), keywords: 'promotions remises' },
   { to: '/admin/barcodes', label: t('nav.barcodes'), group: t('nav.section.catalog'), keywords: 'code barre scanner etiquette' },
   { to: '/admin/services', label: t('nav.services'), group: t('nav.section.catalog'), keywords: 'services salon garage reparation rendez-vous' },
+  { to: '/admin/reports/dashboard', label: t('reports.tabs.dashboard'), group: t('nav.reports'), keywords: 'rapports dashboard tableau bord' },
   { to: '/admin/reports/sales', label: t('reports.tabs.sales'), group: t('nav.reports'), keywords: 'rapports ventes' },
-  { to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), group: t('nav.reports'), keywords: 'rapport inventaire' },
-  { to: '/admin/reports/financial', label: t('reports.tabs.financial'), group: t('nav.reports'), keywords: 'rapport finance' },
+  { to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), group: t('nav.reports'), keywords: 'rapport inventaire stocks' },
+  { to: '/admin/reports/purchases', label: t('reports.tabs.purchases'), group: t('nav.reports'), keywords: 'rapports achats' },
+  { to: '/admin/reports/forecasts', label: t('reports.tabs.forecasts'), group: t('nav.reports'), keywords: 'previsions forecast' },
+  { to: '/admin/reports/financial', label: t('reports.tabs.revenue'), group: t('nav.reports'), keywords: 'rapport recette finance' },
+  { to: '/admin/reports/condensed', label: t('reports.tabs.condensed'), group: t('nav.reports'), keywords: 'rapport condense' },
+  { to: '/admin/reports/daily', label: t('reports.tabs.daily'), group: t('nav.reports'), keywords: 'rapport journalier daily' },
+  { to: '/admin/reports/user-performance', label: t('reports.tabs.userPerformance'), group: t('nav.reports'), keywords: 'performance utilisateur caissier' },
   { to: '/admin/accounting', label: t('nav.accounting'), group: t('nav.section.finance'), keywords: 'comptabilite' },
   { to: '/admin/import-export', label: t('nav.importExport'), group: t('nav.section.system'), keywords: 'import export csv' },
   { to: '/admin/sync', label: t('nav.sync'), group: t('nav.section.system'), keywords: 'synchronisation terminal mobile windows' },
@@ -158,7 +163,6 @@ watch(activeIndex, async () => {
 
 function iconFor(to: string): string {
   if (to === '/admin') return 'dashboard'
-  if (to.includes('/pos/terminal')) return 'device-pos'
   if (to.includes('/pos/shifts')) return 'shift'
   if (to.includes('/pos/reservations')) return 'calendar'
   if (to.includes('/pos/orders') || to.includes('/sales/returns')) return 'sales'

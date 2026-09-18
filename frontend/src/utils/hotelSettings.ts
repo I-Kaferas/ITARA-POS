@@ -1,3 +1,5 @@
+import { getAppCurrency } from './currency'
+
 export type HotelSettingsDoc = {
   kind?: string
   id?: string
@@ -65,8 +67,8 @@ export function defaultHotelSettings(): Required<Pick<HotelSettingsDoc,
     tc_enabled: true,
     tc_rate: 5,
     room_price_tax_inclusive: false,
-    currency_code: 'USD',
-    currency_symbol: '$',
+    currency_code: getAppCurrency(),
+    currency_symbol: getAppCurrency(),
     currency_symbol_position: 'before',
     allow_overbooking: false,
     auto_dirty_on_checkout: true,

@@ -1395,23 +1395,90 @@ export interface SalesReport {
   discount_total: number
   paid_amount: number
   outstanding_amount: number
+  average_order_value?: number
+  quote_conversion?: { converted: number; total: number; rate: number }
   returns_count: number
   returns_total: number
   by_day: { day: string; sales_count: number; revenue: number; tax_total: number; discount_total: number }[]
   by_week?: { label: string; sales_count: number; revenue: number }[]
   by_month?: { label: string; sales_count: number; revenue: number }[]
   by_year?: { label: string; sales_count: number; revenue: number }[]
-  by_product?: { label: string; sku?: string | null; quantity: number; revenue: number }[]
-  by_category?: { label: string | null; quantity: number; revenue: number }[]
+  by_weekday?: { weekday: number; label: string; sales_count: number; revenue: number }[]
+  aov_by_day?: { day: string; aov: number; sales_count: number; revenue: number }[]
+  monthly_revenue?: { label: string; collected: number; unpaid: number; revenue: number }[]
+  invoice_status?: { label: string; count: number }[]
+  order_status?: { label: string; count: number }[]
+  delivery?: { label: string; count: number }[]
+  returns_by_type?: { label: string; count: number; amount: number }[]
+  by_product?: {
+    label: string
+    sku?: string | null
+    category?: string | null
+    quantity: number
+    revenue: number
+    avg_price?: number
+    orders?: number
+  }[]
+  by_category?: {
+    label: string | null
+    quantity: number
+    revenue: number
+    avg_price?: number
+    orders?: number
+    share?: number
+  }[]
   by_cashier?: { label: string | null; sales_count: number; revenue: number }[]
+  by_customer?: {
+    label: string | null
+    location?: string | null
+    invoices?: number
+    sales_count: number
+    revenue: number
+    unpaid?: number
+    last_purchase?: string | null
+  }[]
+  by_location?: {
+    label: string | null
+    customers: number
+    revenue: number
+    unpaid: number
+    share?: number
+  }[]
+  customer_summary?: {
+    customers: number
+    revenue: number
+    unpaid: number
+    avg_revenue: number
+  }
 }
 
 export interface InventoryReport {
   skus_in_stock: number
+  total_articles?: number
   total_units: number
   total_available: number
   estimated_value: number
   open_alerts: number
+  healthy_count?: number
+  low_stock_count?: number
+  out_of_stock_count?: number
+  overstock_count?: number
+  stock_health?: { label: string; count: number }[]
+  by_category?: { label: string; quantity: number; value: number }[]
+  by_warehouse?: { label: string; quantity: number; value: number }[]
+  stock_levels?: {
+    product_id: string
+    sku?: string | null
+    name?: string | null
+    category?: string | null
+    warehouse?: string | null
+    quantity_on_hand: number
+    quantity_available: number
+    reorder_point: number
+    unit_cost: number
+    value: number
+    status: string
+  }[]
   top_items: {
     product_id: string
     sku?: string | null
@@ -1420,12 +1487,125 @@ export interface InventoryReport {
     quantity_on_hand: number
     quantity_available: number
   }[]
-  low_stock_count?: number
   low_stock?: { product_id: string; sku?: string | null; name?: string | null; warehouse?: string | null; quantity_on_hand: number; threshold: number }[]
   movements?: { occurred_at?: string | null; type: string; sku?: string | null; name?: string | null; warehouse?: string | null; quantity: number; amount: number }[]
   losses?: { occurred_at?: string | null; type: string; sku?: string | null; name?: string | null; warehouse?: string | null; quantity: number; amount: number }[]
   losses_value?: number
-  expiration?: { sku?: string | null; name?: string | null; warehouse?: string | null; batch?: string | null; expires_at?: string | null; quantity_on_hand: number; expired: boolean }[]
+  expiration?: {
+    sku?: string | null
+    name?: string | null
+    warehouse?: string | null
+    batch?: string | null
+    expires_at?: string | null
+    days_left?: number | null
+    quantity_on_hand: number
+    expired: boolean
+  }[]
+  aging?: { label: string; count: number; quantity: number }[]
+  turnover?: {
+    product_id: string
+    sku?: string | null
+    name?: string | null
+    category?: string | null
+    quantity_on_hand: number
+    sold_qty: number
+    turnover_rate: number
+    days_of_supply?: number | null
+    value: number
+  }[]
+}
+
+export interface PurchasesReport {
+  total_spend: number
+  orders_count: number
+  suppliers_count: number
+  months_span: number
+  average_order_value: number
+  monthly_spend: { label: string; orders_count: number; spend: number }[]
+  order_status: { label: string; count: number }[]
+  top_categories: { label: string | null; spend: number; quantity: number; share: number }[]
+  by_supplier: {
+    label: string | null
+    code?: string | null
+    location?: string | null
+    orders_count: number
+    avg_order: number
+    spend: number
+    share: number
+    last_order?: string | null
+  }[]
+  supplier_concentration: {
+    top_count: number
+    share: number
+    spend: number
+  }
+  receipt_summary: {
+    total_receipts: number
+    qty_ordered: number
+    qty_received: number
+    qty_accepted: number
+    qty_rejected: number
+    qty_quarantine: number
+    quantity_breakdown: { label: string; qty: number; share: number }[]
+    receipt_status: { label: string; count: number }[]
+    inspection_results: { label: string; count: number }[]
+  }
+  receipts: {
+    id: string
+    receipt_number: string
+    order_number?: string | null
+    supplier?: string | null
+    warehouse?: string | null
+    status: string
+    received_at?: string | null
+    qty_ordered: number
+    qty_received: number
+    qty_accepted: number
+    qty_rejected: number
+    qty_quarantine: number
+    inspection?: string | null
+    amount: number
+    items_count: number
+  }[]
+  receipts_count: number
+}
+
+export interface ForecastsReport {
+  next_month_forecast: number
+  six_month_forecast: number
+  avg_monthly_growth: number
+  confidence_level: number
+  confidence_band_pct: number
+  series: {
+    label: string
+    actual: number | null
+    forecast: number | null
+    lower: number | null
+    upper: number | null
+    kind: 'actual' | 'forecast' | string
+  }[]
+  monthly_growth: { label: string; rate: number; revenue: number }[]
+  growing_products: {
+    label: string
+    sku?: string | null
+    previous: number
+    current: number
+    growth: number
+  }[]
+  has_growth_data: boolean
+  forecast_table: {
+    label: string
+    forecast: number
+    lower: number
+    upper: number
+    range: number
+  }[]
+  insights: {
+    trajectory: 'stable' | 'growth' | 'decline' | string
+    demand_next_month: number
+    cashflow: 'hard' | 'moderate' | 'strong' | string
+    six_month_forecast: number
+  }
 }
 
 export interface FinancialReport {
@@ -1440,6 +1620,292 @@ export interface FinancialReport {
   debts?: number
   tax_liability: number
   by_account: { account_code: string | null; total_debit: number; total_credit: number; net: number }[]
+}
+
+export interface RevenueReport {
+  from?: string | null
+  to?: string | null
+  store_id?: string | null
+  total: number
+  subtotal: number
+  gross_profit: number
+  margin_pct: number
+  tax_total: number
+  discount_total: number
+  invoices_count: number
+  house_offer: number
+  products_count: number
+  sales_products_count: number
+  accompaniments_count: number
+  by_day: { day: string; sales_count: number; revenue: number }[]
+  by_category: { label: string | null; quantity: number; revenue: number; share: number }[]
+  by_product: {
+    label: string
+    sku?: string | null
+    category?: string | null
+    quantity: number
+    cost_price?: number | null
+    unit_price: number
+    revenue: number
+    cogs: number
+    gross_profit: number
+    margin_pct: number
+    tax_total: number
+    invoices: number
+    is_accompaniment: boolean
+  }[]
+}
+
+export interface CondensedReport {
+  total_billed: number
+  invoice_count: number
+  total_collected: number
+  total_credit: number
+  tax_collected: number
+  discount_total: number
+  by_payment_method: Array<{
+    payment_method: string
+    label: string
+    amount: number
+    count: number
+    share: number
+  }>
+  by_payment_status: Array<{
+    payment_status: string
+    amount: number
+    count: number
+    share: number
+  }>
+}
+
+export interface DailyReportDay {
+  day: string
+  revenue: number
+  net_revenue: number
+  collected: number
+  credit: number
+  tax_total: number
+  discount_total: number
+  house_offer: number
+  gross_profit: number
+  margin_pct: number
+  invoices_count: number
+}
+
+export interface DailyReportSummary {
+  revenue: number
+  net_revenue: number
+  collected: number
+  credit: number
+  tax_total: number
+  discount_total: number
+  house_offer: number
+  gross_profit: number
+  margin_pct: number
+  invoices_count: number
+}
+
+export interface DailyReport {
+  month: string
+  summary: DailyReportSummary
+  days: DailyReportDay[]
+}
+
+export interface DailyReportDetail {
+  date: string
+  summary: DailyReportSummary
+  by_payment_method: Array<{
+    payment_method: string
+    label: string
+    amount: number
+    count: number
+    share: number
+  }>
+  invoices: Array<{
+    id: string
+    invoice_number: string
+    reference: string
+    customer_name: string
+    status: string
+    payment_status: string
+    total: number
+    paid_amount: number
+    outstanding_amount: number
+    house_offer: number
+    completed_at?: string | null
+  }>
+  products: Array<{
+    label: string
+    sku?: string | null
+    quantity: number
+    unit_price: number
+    revenue: number
+    gross_profit: number
+    margin_pct: number
+  }>
+  payments: Array<{
+    id: string
+    payment_number?: string | null
+    sale_id: string
+    invoice_number?: string | null
+    payment_method: string
+    label: string
+    reference?: string | null
+    amount: number
+    completed_at?: string | null
+  }>
+}
+
+export interface UserPerformanceUser {
+  user_id: string
+  name: string
+  email: string
+  handle: string
+  role: string
+  role_name?: string | null
+  is_active?: boolean
+  invoices_count: number
+  invoiced_total: number
+  collected_total: number
+  credit_total: number
+  orders_count: number
+  purchase_orders_count: number
+  share: number
+}
+
+export interface UserPerformanceSession {
+  id: string
+  session_number: string
+  cashier_id: string
+  cashier_name?: string | null
+  cashier_email?: string | null
+  register_name?: string | null
+  register_code?: string | null
+  status: string
+  orders_count: number
+  sales_total: number
+  movement_total?: number
+  refunds_total?: number
+  expected_cash?: number
+  actual_cash?: number | null
+  variance?: number | null
+  duration_seconds: number
+  opened_at?: string | null
+  closed_at?: string | null
+}
+
+export interface UserPerformanceSessionDetail {
+  session: UserPerformanceSession
+  summary: {
+    orders_count: number
+    invoiced_total: number
+    collected_total: number
+    credit_total: number
+    products_count: number
+  }
+  orders: Array<{
+    id: string
+    order_number: string
+    invoice_number?: string | null
+    reference?: string | null
+    customer_name?: string | null
+    taken_by?: string | null
+    paid_by?: string | null
+    status: string
+    payment_status: string
+    payment_label: string
+    total: number
+    paid_amount: number
+    outstanding_amount: number
+    house_offer: number
+    completed_at?: string | null
+  }>
+  products: Array<{
+    label: string
+    sku?: string | null
+    quantity: number
+    credit_quantity?: number
+    house_offer_quantity?: number
+    is_house_offer?: boolean
+    unit_price: number
+    revenue: number
+    cost: number
+    gross_profit: number
+    margin_pct: number
+  }>
+}
+
+export interface UserPerformanceReport {
+  from: string
+  to: string
+  summary: {
+    active_users: number
+    invoices_count: number
+    invoiced_total: number
+    collected_total: number
+    credit_total: number
+    orders_count: number
+    purchase_orders_count: number
+    users_count: number
+    sessions_count: number
+  }
+  users: UserPerformanceUser[]
+  sessions: UserPerformanceSession[]
+  attribution_note?: string
+}
+
+export interface UserPerformanceDetail {
+  from: string
+  to: string
+  user: {
+    user_id: string
+    name: string
+    email: string
+    handle: string
+    role: string
+    role_name?: string | null
+  }
+  summary: {
+    invoices_count: number
+    invoiced_total: number
+    collected_total: number
+    credit_total: number
+    tax_total: number
+    discount_total: number
+    house_offer: number
+    orders_count: number
+    purchase_orders_count: number
+    products_count: number
+    customers_count: number
+  }
+  by_day: Array<{
+    day: string
+    invoiced_total: number
+    collected_total: number
+    invoices_count: number
+  }>
+  invoices: Array<{
+    id: string
+    invoice_number: string
+    reference: string
+    customer_name: string
+    status: string
+    payment_status: string
+    cashier_name?: string | null
+    total: number
+    paid_amount: number
+    outstanding_amount: number
+    house_offer: number
+    completed_at?: string | null
+  }>
+  products: DailyReportDetail['products']
+  customers: Array<{
+    label: string
+    invoices: number
+    revenue: number
+    unpaid: number
+  }>
+  payments: DailyReportDetail['payments']
 }
 
 export interface SerialNumber {

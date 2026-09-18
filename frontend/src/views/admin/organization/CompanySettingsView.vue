@@ -10,7 +10,7 @@ import { LOCALE_META, SUPPORTED_LOCALES, isAppLocale } from '../../../i18n/local
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import LanguageFlag from '../../../components/ui/LanguageFlag.vue'
-import { setAppCurrency } from '../../../utils/currency'
+import { setAppCurrency, getAppCurrency } from '../../../utils/currency'
 import { countryCode, countryOptions, timezones } from '../../../utils/geo'
 
 const { t, locale } = useI18n()
@@ -45,7 +45,7 @@ const form = ref({
   email: '',
   website: '',
   logo_url: '',
-  currency_code: 'FBU',
+  currency_code: getAppCurrency(),
   is_active: true,
   address: {
     street: '',
@@ -109,7 +109,7 @@ watch(companyId, async (id) => {
     email: company.email ?? '',
     website: company.website ?? '',
     logo_url: company.logo_url ?? '',
-    currency_code: company.currency_code || 'FBU',
+    currency_code: company.currency_code || getAppCurrency(),
     is_active: company.is_active,
     address: {
       street: company.address?.street ?? '',
@@ -250,14 +250,18 @@ async function save() {
 <template>
   <OrganizationLayout>
     <div class="mx-auto max-w-6xl space-y-5">
-      <div v-if="store.companies.length > 1" class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div v-if="savedFlash" class="ui-toast ui-toast--success">
+        {{ t('common.saved') }}
+      </div>
+
+      <div v-if="store.companies.length > 1" class="ui-card ui-card--compact">
         <FieldLabel icon="building">{{ t('org.company') }}</FieldLabel>
         <select v-model="companyId" class="field max-w-md">
           <option v-for="c in store.companies" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </div>
 
-      <form class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" @submit.prevent="save">
+      <form class="ui-card overflow-hidden" @submit.prevent="save">
         <div class="border-b border-slate-200 bg-slate-50/80 px-4 pt-3 sm:px-5">
           <nav class="flex flex-wrap gap-1" role="tablist">
             <button
@@ -648,25 +652,26 @@ async function save() {
 
 .company-tab {
   margin-bottom: -1px;
-  border-radius: 0.625rem 0.625rem 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   padding: 0.65rem 1rem;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-muted);
   border: 1px solid transparent;
   border-bottom: none;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color var(--motion-fast) ease, background var(--motion-fast) ease;
 }
 
 .company-tab:hover {
-  color: #0f172a;
+  color: var(--color-text-primary);
   background: rgba(255, 255, 255, 0.7);
 }
 
 .company-tab--active {
   color: var(--color-brand-700);
   background: white;
-  border-color: #e2e8f0;
+  border-color: var(--color-border);
+  box-shadow: inset 0 -2px 0 var(--color-accent);
 }
 
 .locale-picker {

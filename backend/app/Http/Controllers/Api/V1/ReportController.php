@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\PurchaseOrder;
 use App\Models\Sale;
 use App\Models\StockBalance;
 use App\Services\Reports\ReportService;
@@ -61,6 +62,137 @@ class ReportController extends Controller
         ]);
     }
 
+    public function revenue(Request $request): JsonResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        return response()->json([
+            'data' => $this->reports->revenueSummary(
+                $request->string('store_id')->toString() ?: null,
+                $from,
+                $to,
+            ),
+            'meta' => [
+                'from' => $from?->toDateTimeString(),
+                'to' => $to?->toDateTimeString(),
+            ],
+        ]);
+    }
+
+    public function condensed(Request $request): JsonResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        return response()->json([
+            'data' => $this->reports->condensedSummary(
+                $request->string('store_id')->toString() ?: null,
+                $from,
+                $to,
+            ),
+            'meta' => [
+                'from' => $from?->toDateString(),
+                'to' => $to?->toDateString(),
+            ],
+        ]);
+    }
+
+    public function daily(Request $request): JsonResponse
+    {
+        $monthInput = $request->string('month')->toString()
+            ?: ($request->string('from')->toString() ?: now()->format('Y-m'));
+        $month = Carbon::parse(strlen($monthInput) === 7 ? $monthInput.'-01' : $monthInput)->startOfMonth();
+
+        return response()->json([
+            'data' => $this->reports->dailyCalendar(
+                $request->string('store_id')->toString() ?: null,
+                $month,
+            ),
+            'meta' => [
+                'month' => $month->format('Y-m'),
+            ],
+        ]);
+    }
+
+    public function dailyDetail(Request $request): JsonResponse
+    {
+        $date = Carbon::parse($request->string('date')->toString() ?: now()->toDateString())->startOfDay();
+
+        return response()->json([
+            'data' => $this->reports->dailyDetail(
+                $request->string('store_id')->toString() ?: null,
+                $date,
+            ),
+            'meta' => [
+                'date' => $date->toDateString(),
+            ],
+        ]);
+    }
+
+    public function purchases(Request $request): JsonResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        return response()->json([
+            'data' => $this->reports->purchasesSummary($from, $to),
+            'meta' => [
+                'from' => $from?->toDateString(),
+                'to' => $to?->toDateString(),
+            ],
+        ]);
+    }
+
+    public function forecasts(Request $request): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->reports->forecastsSummary(
+                $request->string('store_id')->toString() ?: null,
+            ),
+        ]);
+    }
+
+    public function userPerformance(Request $request): JsonResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        return response()->json([
+            'data' => $this->reports->userPerformanceSummary(
+                $request->string('store_id')->toString() ?: null,
+                $from,
+                $to,
+            ),
+            'meta' => [
+                'from' => $from?->toDateTimeString(),
+                'to' => $to?->toDateTimeString(),
+            ],
+        ]);
+    }
+
+    public function userPerformanceSessionDetail(string $shift): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->reports->userPerformanceSessionDetail($shift),
+        ]);
+    }
+
+    public function userPerformanceDetail(Request $request, string $user): JsonResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        return response()->json([
+            'data' => $this->reports->userPerformanceDetail(
+                $user,
+                $request->string('store_id')->toString() ?: null,
+                $from,
+                $to,
+            ),
+            'meta' => [
+                'from' => $from?->toDateTimeString(),
+                'to' => $to?->toDateTimeString(),
+                'user_id' => $user,
+            ],
+        ]);
+    }
+
     public function exportSales(Request $request): StreamedResponse
     {
         [$from, $to] = $this->dateRange($request);
@@ -102,6 +234,40 @@ class ReportController extends Controller
         });
     }
 
+    public function exportRevenue(Request $request): StreamedResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+        $summary = $this->reports->revenueSummary(
+            $request->string('store_id')->toString() ?: null,
+            $from,
+            $to,
+        );
+
+        return $this->csvDownload('revenue-export.csv', [
+            '#', 'product', 'sku', 'category', 'qty', 'cost_price', 'unit_price', 'total', 'gross_profit', 'margin_pct', 'tax', 'invoices', 'type',
+        ], function () use ($summary) {
+            $i = 0;
+            foreach ($summary['by_product'] as $row) {
+                $i++;
+                yield [
+                    $i,
+                    $row['label'] ?? '',
+                    $row['sku'] ?? '',
+                    $row['category'] ?? '',
+                    $row['quantity'] ?? 0,
+                    $row['cost_price'] ?? '',
+                    $row['unit_price'] ?? 0,
+                    $row['revenue'] ?? 0,
+                    $row['gross_profit'] ?? 0,
+                    $row['margin_pct'] ?? 0,
+                    $row['tax_total'] ?? 0,
+                    $row['invoices'] ?? 0,
+                    ! empty($row['is_accompaniment']) ? 'accompaniment' : 'sale',
+                ];
+            }
+        });
+    }
+
     public function exportInventory(Request $request): StreamedResponse
     {
         $warehouseId = $request->string('warehouse_id')->toString() ?: null;
@@ -127,6 +293,40 @@ class ReportController extends Controller
                     $balance->quantity_available,
                     $cost,
                     $cost * (int) $balance->quantity_on_hand,
+                ];
+            }
+        });
+    }
+
+    public function exportPurchases(Request $request): StreamedResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        $query = PurchaseOrder::query()
+            ->with(['supplier:id,name,code', 'warehouse:id,name'])
+            ->orderByDesc('created_at');
+
+        if ($from) {
+            $query->where('created_at', '>=', $from->copy()->startOfDay());
+        }
+        if ($to) {
+            $query->where('created_at', '<=', $to->copy()->endOfDay());
+        }
+
+        return $this->csvDownload('purchases-export.csv', [
+            'order_number', 'supplier', 'warehouse', 'status', 'subtotal', 'tax', 'total', 'ordered_at', 'created_at',
+        ], function () use ($query) {
+            foreach ($query->cursor() as $order) {
+                yield [
+                    $order->order_number,
+                    $order->supplier?->name,
+                    $order->warehouse?->name,
+                    $order->status?->value ?? $order->status,
+                    $order->subtotal,
+                    $order->tax_total,
+                    $order->total,
+                    $order->ordered_at?->toIso8601String(),
+                    $order->created_at?->toIso8601String(),
                 ];
             }
         });

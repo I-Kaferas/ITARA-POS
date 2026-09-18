@@ -28,9 +28,9 @@ const filtered = computed(() => store.currencies.filter(currency =>
   && matchesActive(currency.is_active, filters.value.active),
 ))
 const form = ref({
-  code: 'FBU',
+  code: getAppCurrency(),
   name: '',
-  symbol: 'FBu',
+  symbol: getAppCurrency(),
   decimal_places: 0,
   exchange_rate: 1,
   is_default: false,
@@ -98,9 +98,9 @@ async function applyAppCurrency() {
 function openCreate() {
   editing.value = null
   form.value = {
-    code: 'FBU',
-    name: 'Franc Burundais',
-    symbol: 'FBu',
+    code: getAppCurrency(),
+    name: '',
+    symbol: getAppCurrency(),
     decimal_places: 0,
     exchange_rate: 1,
     is_default: !store.currencies.some(c => c.is_default),

@@ -1,13 +1,18 @@
 import { intlLocale } from '../i18n/locales'
-import { getAppCurrency } from './currency'
+import { resolveMoneyCurrency } from './currency'
 
 export function formatMoney(amount: number, currency?: string, locale = intlLocale()): string {
-  const code = (currency || getAppCurrency()).toUpperCase()
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: code,
-    currencyDisplay: 'symbol',
-  }).format(amount / 100)
+  const code = resolveMoneyCurrency(currency)
+  const value = (Number(amount) || 0) / 100
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'symbol',
+    }).format(value)
+  } catch {
+    return `${value.toLocaleString(locale, { maximumFractionDigits: 2 })} ${code}`
+  }
 }
 
 export function parseMoneyInput(value: string): number {

@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PurchasingLayout from '../../../components/purchasing/PurchasingLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import DataTableShell from '../../../components/ui/DataTableShell.vue'
+import KpiCard from '../../../components/ui/KpiCard.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Supplier, Warehouse } from '../../../types'
 import { formatMoney } from '../../../utils/money'
@@ -18,6 +20,7 @@ const suppliers = ref<Supplier[]>([])
 const warehouses = ref<Warehouse[]>([])
 const data = ref<Record<string, any>>({})
 const showFilters = ref(false)
+const loading = ref(false)
 
 function range() {
   const now = new Date()
@@ -32,13 +35,18 @@ function range() {
 }
 
 async function load() {
-  const dates = range()
-  data.value = await store.loadPurchaseOverview({
-    from: dates.from || undefined,
-    to: dates.to || undefined,
-    supplier_id: supplierId.value || undefined,
-    warehouse_id: warehouseId.value || undefined,
-  })
+  loading.value = true
+  try {
+    const dates = range()
+    data.value = await store.loadPurchaseOverview({
+      from: dates.from || undefined,
+      to: dates.to || undefined,
+      supplier_id: supplierId.value || undefined,
+      warehouse_id: warehouseId.value || undefined,
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(async () => {
@@ -47,18 +55,13 @@ onMounted(async () => {
   await load()
 })
 
-const cards = [
-  ['purchases_total', 'total'],
-  ['pending_purchases', 'pending'],
-  ['pending_requisitions', 'requisitions'],
-  ['pending_proformas', 'proformas'],
-  ['open_orders', 'orders'],
-  ['unpaid_invoices', 'unpaid'],
-  ['partial_invoices', 'partial'],
-  ['amount_due', 'due'],
-  ['payments_total', 'payments'],
-  ['returns_total', 'returns'],
-  ['month_purchases', 'month'],
+const primaryCards = [
+  { key: 'purchases_total', label: 'total', icon: 'purchases', accent: '#4a6d86', iconBg: '#e4edf2' },
+  { key: 'amount_due', label: 'due', icon: 'receipt', accent: '#dc2626', iconBg: '#fef2f2' },
+  { key: 'payments_total', label: 'payments', icon: 'card', accent: '#059669', iconBg: '#ecfdf5' },
+  { key: 'open_orders', label: 'orders', icon: 'package', accent: '#2563eb', iconBg: '#eff6ff' },
+  { key: 'unpaid_invoices', label: 'unpaid', icon: 'bell', accent: '#c4841d', iconBg: '#f8efdc' },
+  { key: 'pending_purchases', label: 'pending', icon: 'filter', accent: '#5c7f96', iconBg: '#f3f6f8' },
 ] as const
 
 function display(key: string) {
@@ -71,72 +74,74 @@ function display(key: string) {
 
 <template>
   <PurchasingLayout>
-    <div class="space-y-4">
-      <div class="filters-wrap">
-        <button type="button" class="toggle" @click="showFilters = !showFilters">
+    <div class="space-y-5">
+      <div class="ui-toolbar !mb-0">
+        <button type="button" class="ui-btn ui-btn--secondary" @click="showFilters = !showFilters">
           <AppIcon name="filter" :size="15" />
           {{ showFilters ? t('filters.hide') : t('filters.show') }}
         </button>
-      <div v-show="showFilters" class="filters">
-        <select v-model="period" class="field" @change="load">
-          <option value="today">{{ t('purchases.hub.today') }}</option>
-          <option value="week">{{ t('purchases.hub.week') }}</option>
-          <option value="month">{{ t('purchases.hub.month') }}</option>
-          <option value="quarter">{{ t('purchases.hub.quarter') }}</option>
-          <option value="year">{{ t('purchases.hub.year') }}</option>
-          <option value="custom">{{ t('purchases.hub.custom') }}</option>
-        </select>
-        <input v-if="period === 'custom'" v-model="from" type="date" class="field" />
-        <input v-if="period === 'custom'" v-model="to" type="date" class="field" />
-        <select v-model="supplierId" class="field" @change="load">
-          <option value="">{{ t('purchases.hub.allSuppliers') }}</option>
-          <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">{{ supplier.name }}</option>
-        </select>
-        <select v-model="warehouseId" class="field" @change="load">
-          <option value="">{{ t('purchases.hub.allWarehouses') }}</option>
-          <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">{{ warehouse.name }}</option>
-        </select>
-        <button class="btn" @click="load">{{ t('purchases.hub.refresh') }}</button>
-      </div>
-      </div>
-
-      <div class="kpis">
-        <div v-for="[key, label] in cards" :key="key" class="kpi">
-          <span>{{ t(`purchases.hub.kpi.${label}`) }}</span>
-          <strong>{{ display(key) }}</strong>
+        <div v-show="showFilters" class="flex w-full flex-wrap gap-2">
+          <select v-model="period" class="ui-select" @change="load">
+            <option value="today">{{ t('purchases.hub.today') }}</option>
+            <option value="week">{{ t('purchases.hub.week') }}</option>
+            <option value="month">{{ t('purchases.hub.month') }}</option>
+            <option value="quarter">{{ t('purchases.hub.quarter') }}</option>
+            <option value="year">{{ t('purchases.hub.year') }}</option>
+            <option value="custom">{{ t('purchases.hub.custom') }}</option>
+          </select>
+          <input v-if="period === 'custom'" v-model="from" type="date" class="ui-input" />
+          <input v-if="period === 'custom'" v-model="to" type="date" class="ui-input" />
+          <select v-model="supplierId" class="ui-select" @change="load">
+            <option value="">{{ t('purchases.hub.allSuppliers') }}</option>
+            <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">{{ supplier.name }}</option>
+          </select>
+          <select v-model="warehouseId" class="ui-select" @change="load">
+            <option value="">{{ t('purchases.hub.allWarehouses') }}</option>
+            <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">{{ warehouse.name }}</option>
+          </select>
+          <button type="button" class="ui-btn ui-btn--primary" :disabled="loading" @click="load">
+            {{ t('purchases.hub.refresh') }}
+          </button>
         </div>
       </div>
 
-      <div class="panel">
-        <h3>{{ t('purchases.hub.topSuppliers') }}</h3>
-        <table>
-          <thead><tr><th>{{ t('purchases.hub.supplier') }}</th><th>{{ t('purchases.hub.orderCount') }}</th><th>{{ t('purchases.hub.amount') }}</th></tr></thead>
+      <div class="hub-strip">
+        <KpiCard
+          v-for="card in primaryCards"
+          :key="card.key"
+          :label="t(`purchases.hub.kpi.${card.label}`)"
+          :value="display(card.key)"
+          :icon="card.icon"
+          :accent="card.accent"
+          :icon-bg="card.iconBg"
+        />
+      </div>
+
+      <DataTableShell
+        :title="t('purchases.hub.topSuppliers')"
+        :loading="loading"
+        :empty="!loading && !(data.top_suppliers || []).length"
+        :empty-title="t('org.empty')"
+        empty-icon="suppliers"
+        :loading-label="t('common.loading')"
+      >
+        <table class="ui-table">
+          <thead>
+            <tr>
+              <th>{{ t('purchases.hub.supplier') }}</th>
+              <th class="num">{{ t('purchases.hub.orderCount') }}</th>
+              <th class="num">{{ t('purchases.hub.amount') }}</th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="row in data.top_suppliers || []" :key="row.supplier_id">
-              <td>{{ row.name || '—' }}</td>
-              <td>{{ row.orders }}</td>
-              <td>{{ formatMoney(row.amount) }}</td>
+              <td class="font-medium">{{ row.name || '—' }}</td>
+              <td class="num">{{ row.orders }}</td>
+              <td class="num font-medium">{{ formatMoney(row.amount) }}</td>
             </tr>
           </tbody>
         </table>
-        <p v-if="!(data.top_suppliers || []).length" class="empty">{{ t('org.empty') }}</p>
-      </div>
+      </DataTableShell>
     </div>
   </PurchasingLayout>
 </template>
-
-<style scoped>
-.filters-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 0.55rem; width: 100%; }
-.toggle { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.4rem 0.8rem; background: white; color: #334155; font-size: 0.82rem; font-weight: 600; }
-.filters, .kpis { display: flex; flex-wrap: wrap; gap: 0.75rem; width: 100%; }
-.field { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.45rem 0.7rem; background: white; }
-.btn { border-radius: 0.5rem; padding: 0.45rem 0.9rem; color: white; background: #4a6d86; }
-.kpi { min-width: 11rem; flex: 1; background: white; border-radius: 0.75rem; padding: 0.85rem 1rem; box-shadow: 0 1px 2px rgb(15 23 42 / 0.05); }
-.kpi span { display: block; color: #64748b; font-size: 0.75rem; }
-.kpi strong { font-size: 1.15rem; }
-.panel { background: white; border-radius: 0.75rem; padding: 1rem; }
-.panel h3 { font-weight: 600; margin-bottom: 0.75rem; }
-table { width: 100%; font-size: 0.875rem; }
-th, td { text-align: left; padding: 0.55rem 0.4rem; border-top: 1px solid #f1f5f9; }
-.empty { color: #64748b; padding: 1rem 0; }
-</style>

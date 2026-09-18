@@ -63,6 +63,17 @@ export const usePosStore = defineStore('pos', () => {
   const currencyCode = ref(getAppCurrency())
   const currencies = computed(() => [{ code: currencyCode.value }])
 
+  watch(
+    () => getAppCurrency(),
+    (code) => {
+      if (currencyCode.value === code) return
+      currencyCode.value = code
+      if (!lines.value.length) {
+        totals.value = emptyTotals(code)
+      }
+    },
+  )
+
   let calculateTimer: ReturnType<typeof setTimeout> | null = null
   let calculateRequestId = 0
 

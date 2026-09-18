@@ -10,6 +10,7 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Catalog, Company, Currency } from '../../../types'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
+import { getAppCurrency } from '../../../utils/currency'
 
 type Tier = {
   amount: number
@@ -36,7 +37,7 @@ const company = ref<Company | null>(null)
 const catalog = ref<Catalog | null>(null)
 const rows = ref<Row[]>([])
 const currencies = ref<Currency[]>([])
-const defaultCurrency = ref('FBU')
+const defaultCurrency = ref(getAppCurrency())
 const drafts = ref<Record<string, Record<string, string>>>({})
 const currenciesByRow = ref<Record<string, string>>({})
 const savingId = ref('')

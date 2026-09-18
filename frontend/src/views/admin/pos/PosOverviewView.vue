@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import KpiCard from '../../../components/ui/KpiCard.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
@@ -32,11 +34,11 @@ const activeHours = computed(() =>
 
 const cards = computed(() => [
   {
-    key: 'terminal',
-    title: t('nav.posTerminal'),
-    description: t('pointOfSale.overview.terminalHint'),
-    to: '/admin/pos/terminal',
-    icon: 'store-pin',
+    key: 'shifts',
+    title: t('nav.posShifts'),
+    description: t('pointOfSale.overview.shiftsHint'),
+    to: '/admin/pos/shifts',
+    icon: 'account',
   },
   {
     key: 'tables',
@@ -51,13 +53,6 @@ const cards = computed(() => [
     description: t('pointOfSale.overview.ordersHint'),
     to: '/admin/pos/orders',
     icon: 'sales',
-  },
-  {
-    key: 'shifts',
-    title: t('nav.posShifts'),
-    description: t('pointOfSale.overview.shiftsHint'),
-    to: '/admin/pos/shifts',
-    icon: 'account',
   },
   {
     key: 'reservations',
@@ -108,31 +103,40 @@ useRealtimeSync(realtimeTopics.posOverview, load)
         <span>{{ t('pointOfSale.overview.connectionHint') }}</span>
       </button>
 
-      <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div class="stat-card">
-          <p class="stat-card__label">{{ t('pointOfSale.overview.todaySales') }}</p>
-          <p class="stat-card__value">{{ overview?.kpis.sales_count ?? 0 }}</p>
-        </div>
-        <div class="stat-card">
-          <p class="stat-card__label">{{ t('pointOfSale.overview.todayRevenue') }}</p>
-          <p class="stat-card__value">{{ formatMoney(overview?.kpis.revenue ?? 0) }}</p>
-        </div>
-        <div class="stat-card">
-          <p class="stat-card__label">{{ t('pointOfSale.overview.currentShift') }}</p>
-          <p class="stat-card__value" style="font-size: 1rem">
-            {{ store.currentCashierShift ? t('pointOfSale.shifts.open') : t('pointOfSale.shifts.closed') }}
-          </p>
-          <p v-if="store.currentCashierShift" class="stat-card__meta">
-            {{ formatDate(store.currentCashierShift.opened_at) }}
-          </p>
-        </div>
-        <div class="stat-card">
-          <p class="stat-card__label">{{ t('pointOfSale.overview.openShifts') }}</p>
-          <p class="stat-card__value">{{ openShifts.length }}</p>
-        </div>
+      <div class="hub-strip mb-6">
+        <KpiCard
+          :label="t('pointOfSale.overview.todaySales')"
+          :value="overview?.kpis.sales_count ?? 0"
+          icon="sales"
+          accent="#059669"
+          icon-bg="#ecfdf5"
+        />
+        <KpiCard
+          :label="t('pointOfSale.overview.todayRevenue')"
+          :value="formatMoney(overview?.kpis.revenue ?? 0)"
+          icon="receipt"
+          accent="#4a6d86"
+          icon-bg="#e4edf2"
+        />
+        <KpiCard
+          :label="t('pointOfSale.overview.currentShift')"
+          :value="store.currentCashierShift ? t('pointOfSale.shifts.open') : t('pointOfSale.shifts.closed')"
+          icon="shift"
+          accent="#2563eb"
+          icon-bg="#eff6ff"
+          :delta="store.currentCashierShift ? formatDate(store.currentCashierShift.opened_at) : null"
+          delta-tone="flat"
+        />
+        <KpiCard
+          :label="t('pointOfSale.overview.openShifts')"
+          :value="openShifts.length"
+          icon="account"
+          accent="#e39b2b"
+          icon-bg="#f8efdc"
+        />
       </div>
 
-      <div v-if="loading" class="mb-6 py-8 text-center text-sm text-slate-500">{{ t('common.loading') }}</div>
+      <LoadingBlock v-if="loading" :label="t('common.loading')" class="mb-6" />
 
       <div v-else class="mb-6 grid gap-4 xl:grid-cols-2">
         <!-- Articles les plus vendus -->

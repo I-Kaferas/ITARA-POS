@@ -88,7 +88,16 @@ import type {
   SalesReport,
   PosOverview,
   InventoryReport,
+  PurchasesReport,
+  ForecastsReport,
   FinancialReport,
+  RevenueReport,
+  CondensedReport,
+  DailyReport,
+  DailyReportDetail,
+  UserPerformanceReport,
+  UserPerformanceDetail,
+  UserPerformanceSessionDetail,
   SerialNumber,
   ProductBatch,
   ImportResult,
@@ -1635,6 +1644,72 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.get<ApiItemResponse<FinancialReport>>(`/reports/financial${suffix}`)).data
   }
 
+  async function loadRevenueReport(params: { store_id?: string; from?: string; to?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    return (await api.get<ApiItemResponse<RevenueReport>>(`/reports/revenue${suffix}`)).data
+  }
+
+  async function loadCondensedReport(params: { store_id?: string; from?: string; to?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    return api.get<{ data: CondensedReport; meta: { from?: string; to?: string } }>(`/reports/condensed${suffix}`)
+  }
+
+  async function loadDailyReport(params: { store_id?: string; month?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    return api.get<{ data: DailyReport; meta: { month?: string } }>(`/reports/daily${suffix}`)
+  }
+
+  async function loadDailyReportDetail(params: { store_id?: string; date: string }) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    return api.get<{ data: DailyReportDetail; meta: { date?: string } }>(`/reports/daily/detail${suffix}`)
+  }
+
+  async function loadUserPerformanceReport(params: { store_id?: string; from?: string; to?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    return api.get<{ data: UserPerformanceReport; meta: { from?: string; to?: string } }>(`/reports/user-performance${suffix}`)
+  }
+
+  async function loadUserPerformanceDetail(params: { user_id: string; store_id?: string; from?: string; to?: string }) {
+    const q = new URLSearchParams()
+    if (params.store_id) q.set('store_id', params.store_id)
+    if (params.from) q.set('from', params.from)
+    if (params.to) q.set('to', params.to)
+    const suffix = q.toString() ? `?${q}` : ''
+    return api.get<{ data: UserPerformanceDetail; meta: { from?: string; to?: string; user_id?: string } }>(
+      `/reports/user-performance/${encodeURIComponent(params.user_id)}${suffix}`,
+    )
+  }
+
+  async function loadUserPerformanceSessionDetail(shiftId: string) {
+    return api.get<{ data: UserPerformanceSessionDetail }>(
+      `/reports/user-performance/sessions/${encodeURIComponent(shiftId)}`,
+    )
+  }
+
+  async function loadPurchasesReport(params: { from?: string; to?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    return (await api.get<ApiItemResponse<PurchasesReport>>(`/reports/purchases${suffix}`)).data
+  }
+
+  async function loadForecastsReport(params: { store_id?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    return (await api.get<ApiItemResponse<ForecastsReport>>(`/reports/forecasts${suffix}`)).data
+  }
+
   async function exportSalesReport(params: { store_id?: string; from?: string; to?: string } = {}) {
     const q = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
@@ -1642,9 +1717,25 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     await api.download(`/reports/export/sales${suffix}`, 'sales-export.csv')
   }
 
-  async function exportInventoryReport(warehouseId?: string) {
-    const q = warehouseId ? `?warehouse_id=${warehouseId}` : ''
-    await api.download(`/reports/export/inventory${q}`, 'inventory-export.csv')
+  async function exportRevenueReport(params: { store_id?: string; from?: string; to?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    await api.download(`/reports/export/revenue${suffix}`, 'revenue-export.csv')
+  }
+
+  async function exportInventoryReport(params: { warehouse_id?: string; from?: string; to?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    await api.download(`/reports/export/inventory${suffix}`, 'inventory-export.csv')
+  }
+
+  async function exportPurchasesReport(params: { from?: string; to?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    await api.download(`/reports/export/purchases${suffix}`, 'purchases-export.csv')
   }
 
   // Serial numbers
@@ -1777,9 +1868,9 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     saveUser, deleteUser,
     loadAuditLogs,
     loadAccountingEntries, loadAccountingSummary, createAccountingEntry,
-    loadSalesReport, loadInventoryReport, loadFinancialReport,
+    loadSalesReport, loadInventoryReport, loadFinancialReport, loadRevenueReport, loadCondensedReport, loadDailyReport, loadDailyReportDetail, loadUserPerformanceReport, loadUserPerformanceDetail, loadUserPerformanceSessionDetail, loadPurchasesReport, loadForecastsReport,
+    exportSalesReport, exportRevenueReport, exportInventoryReport, exportPurchasesReport,
     loadPosOverview,
-    exportSalesReport, exportInventoryReport,
     loadSerialNumbers, saveSerialNumber, deleteSerialNumber,
     loadProductBatches, createProductBatch,
     exportProducts, downloadProductTemplate, importProducts,

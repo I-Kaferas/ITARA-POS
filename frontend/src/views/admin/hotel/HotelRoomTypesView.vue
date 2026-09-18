@@ -8,6 +8,7 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
+import { getAppCurrency } from '../../../utils/currency'
 import HotelChrome from './HotelChrome.vue'
 
 type DeskDoc = Record<string, any>
@@ -202,7 +203,7 @@ async function save() {
       code: form.code || generatedCode.value,
       space_kind: form.space_kind,
       base_price_cents: parseMoneyInput(form.base_price),
-      currency: 'USD',
+      currency: getAppCurrency(),
       max_adults: form.max_adults,
       bed_type: form.bed_type,
       bed_count: form.bed_count,
@@ -257,7 +258,7 @@ function togglePhoto(url: string) {
 }
 
 function priceLabel(row: DeskDoc) {
-  return formatMoney(Number(row.base_price_cents ?? row.rate ?? 0), String(row.currency ?? 'USD'))
+  return formatMoney(Number(row.base_price_cents ?? row.rate ?? 0))
 }
 
 function spaceLabel(row: DeskDoc) {

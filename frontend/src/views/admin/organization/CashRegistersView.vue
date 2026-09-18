@@ -14,6 +14,7 @@ import { intlLocale } from '../../../i18n/locales'
 import type { CashRegister, RegisterSummary } from '../../../types'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
+import { getAppCurrency } from '../../../utils/currency'
 import { openPrintWindow } from '../../../utils/printSaleDocument'
 import { printZReport } from '../../../utils/printZReport'
 
@@ -63,7 +64,7 @@ const closeForm = ref({
 
 const currency = computed(() => {
   const s = context.activeStores.find(st => st.id === storeId.value)
-  return s?.branch?.company?.currency_code ?? 'FBU'
+  return s?.branch?.company?.currency_code ?? context.currencyCode ?? getAppCurrency()
 })
 
 const movementTypes = [

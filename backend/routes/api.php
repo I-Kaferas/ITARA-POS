@@ -210,11 +210,33 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:reports.view');
         Route::get('/reports/inventory', [ReportController::class, 'inventory'])
             ->middleware('permission:reports.view');
+        Route::get('/reports/purchases', [ReportController::class, 'purchases'])
+            ->middleware('permission:reports.view');
+        Route::get('/reports/forecasts', [ReportController::class, 'forecasts'])
+            ->middleware('permission:reports.view');
         Route::get('/reports/financial', [ReportController::class, 'financial'])
+            ->middleware('permission:reports.view');
+        Route::get('/reports/revenue', [ReportController::class, 'revenue'])
+            ->middleware('permission:reports.view');
+        Route::get('/reports/condensed', [ReportController::class, 'condensed'])
+            ->middleware('permission:reports.view');
+        Route::get('/reports/daily', [ReportController::class, 'daily'])
+            ->middleware('permission:reports.view');
+        Route::get('/reports/daily/detail', [ReportController::class, 'dailyDetail'])
+            ->middleware('permission:reports.view');
+        Route::get('/reports/user-performance', [ReportController::class, 'userPerformance'])
+            ->middleware('permission:reports.view');
+        Route::get('/reports/user-performance/sessions/{shift}', [ReportController::class, 'userPerformanceSessionDetail'])
+            ->middleware('permission:reports.view');
+        Route::get('/reports/user-performance/{user}', [ReportController::class, 'userPerformanceDetail'])
             ->middleware('permission:reports.view');
         Route::get('/reports/export/sales', [ReportController::class, 'exportSales'])
             ->middleware('permission:reports.export');
+        Route::get('/reports/export/revenue', [ReportController::class, 'exportRevenue'])
+            ->middleware('permission:reports.export');
         Route::get('/reports/export/inventory', [ReportController::class, 'exportInventory'])
+            ->middleware('permission:reports.export');
+        Route::get('/reports/export/purchases', [ReportController::class, 'exportPurchases'])
             ->middleware('permission:reports.export');
 
         // Audit

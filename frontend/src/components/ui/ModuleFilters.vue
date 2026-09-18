@@ -145,8 +145,8 @@ function reset() {
     </select>
     <input v-if="showDepartment" :value="modelValue.department" class="field" :placeholder="t('expenses.department')" @input="patchLive({ department: ($event.target as HTMLInputElement).value })" />
     <input v-if="showCostCenter" :value="modelValue.cost_center" class="field" :placeholder="t('expenses.costCenter')" @input="patchLive({ cost_center: ($event.target as HTMLInputElement).value })" />
-    <button type="button" class="btn" @click="emit('apply')">{{ t('filters.apply') }}</button>
-    <button type="button" class="btn ghost" @click="reset">{{ t('filters.reset') }}</button>
+    <button type="button" class="ui-btn ui-btn--primary" @click="emit('apply')">{{ t('filters.apply') }}</button>
+    <button type="button" class="ui-btn ui-btn--secondary" @click="reset">{{ t('filters.reset') }}</button>
     </div>
   </div>
 </template>
@@ -161,7 +161,7 @@ function reset() {
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--color-surface);
   box-shadow: var(--shadow-xs);
 }
 .toggle {
@@ -173,15 +173,29 @@ function reset() {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 0 var(--space-3);
-  background: #f7f4ef;
-  color: #3d5c73;
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
   font-size: var(--text-sm);
   font-weight: 500;
   line-height: var(--line-sm);
+  cursor: pointer;
 }
 .filters { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; width: 100%; }
-.field { border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); height: var(--control-lg); min-height: var(--control-lg); padding: 0 var(--space-3); background: white; min-width: 9.5rem; font-size: var(--text-md); line-height: var(--line-sm); }
+.field {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  height: var(--control-lg);
+  min-height: var(--control-lg);
+  padding: 0 var(--space-3);
+  background: white;
+  min-width: 9.5rem;
+  font-size: var(--text-md);
+  line-height: var(--line-sm);
+}
+.field:focus {
+  outline: none;
+  border-color: var(--color-brand-400);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
 .grow { flex: 1; min-width: 14rem; }
-.btn { display: inline-flex; align-items: center; justify-content: center; height: var(--control-lg); min-height: var(--control-lg); border-radius: var(--radius-md); padding: 0 var(--space-4); color: white; background: var(--color-brand-600); font-size: var(--text-md); font-weight: 500; line-height: var(--line-sm); }
-.btn.ghost { background: white; color: #334155; border: 1px solid var(--color-border-strong); }
 </style>

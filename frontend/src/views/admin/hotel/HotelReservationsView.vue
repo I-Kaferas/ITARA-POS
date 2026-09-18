@@ -11,6 +11,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Customer } from '../../../types'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
+import { getAppCurrency } from '../../../utils/currency'
 import { computeStayTaxes, findHotelSettings, moneyFromSettingsCents } from '../../../utils/hotelSettings'
 import HotelChrome from './HotelChrome.vue'
 
@@ -242,7 +243,7 @@ function toDateInput(d: Date) {
 
 function typePriceLabel(type: Doc) {
   const cents = Number(type.base_price_cents ?? type.rate ?? 0)
-  const currency = String(type.currency ?? 'USD')
+  const currency = getAppCurrency()
   return `${type.name} — ${formatMoney(cents, currency)}/${t('hotel.rooms.perNight')}`
 }
 
@@ -315,7 +316,7 @@ function initials(name?: string) {
 }
 
 function rowCurrency(row: Doc) {
-  return String(row.type_currency || 'USD')
+  return getAppCurrency()
 }
 
 function rowTotalCents(row: Doc) {

@@ -1,3 +1,5 @@
+import { getAppCurrency } from './currency'
+
 export type HotelDoc = Record<string, any>
 
 export type DailyPoint = { date: string; cents: number }
@@ -148,8 +150,7 @@ export function buildHotelReport(docs: HotelDoc[], from: string, to: string): Ho
   const rooms = docs.filter(d => d.kind === 'room' && isActiveRoom(d))
   const reservations = docs.filter(d => d.kind === 'reservation')
   const folios = docs.filter(d => d.kind === 'folio')
-  const settings = docs.find(d => d.kind === 'hotel_settings')
-  const currency = String(settings?.currency_code || rooms[0]?.type_currency || 'USD').toUpperCase()
+  const currency = getAppCurrency()
 
   const types = docs.filter(d => d.kind === 'room_type')
   const stays = reservations.filter(isStay)

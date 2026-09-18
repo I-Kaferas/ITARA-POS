@@ -4,7 +4,9 @@ import { useI18n } from 'vue-i18n'
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import DataTableShell from '../../../components/ui/DataTableShell.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import KpiCard from '../../../components/ui/KpiCard.vue'
 import { api } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { InventoryMovement, Product, StockBalance, Warehouse } from '../../../types'
@@ -75,6 +77,19 @@ const rows = computed(() => {
 
   return [...store.stockBalances, ...extras]
 })
+
+const stockableRows = computed(() =>
+  rows.value.filter(row => !row.product || isStockableProduct({ product_type: row.product.product_type as Product['product_type'] })),
+)
+const lowStockCount = computed(() =>
+  stockableRows.value.filter(row => Number(row.quantity_on_hand) > 0 && Number(row.quantity_on_hand) <= 5).length,
+)
+const zeroStockCount = computed(() =>
+  stockableRows.value.filter(row => Number(row.quantity_on_hand) <= 0).length,
+)
+const stockValue = computed(() =>
+  stockableRows.value.reduce((sum, row) => sum + Number(row.quantity_on_hand || 0) * Number(row.product?.base_price || 0), 0),
+)
 
 onMounted(async () => {
   warehouses.value = await store.loadAllWarehouses()
@@ -200,42 +215,83 @@ function clearHistoryDates() {
       </div>
 
       <p class="m-0 text-xs text-slate-500">{{ t('inventory.movementRule') }}</p>
-      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
+
+      <div class="hub-strip">
+        <KpiCard
+          :label="t('inventory.onHand')"
+          :value="stockableRows.length"
+          icon="inventory"
+          accent="#4a6d86"
+          icon-bg="#e4edf2"
+        />
+        <KpiCard
+          :label="t('products.price')"
+          :value="formatMoney(stockValue)"
+          icon="tag"
+          accent="#059669"
+          icon-bg="#ecfdf5"
+        />
+        <KpiCard
+          :label="t('dashboard.stockAlerts')"
+          :value="lowStockCount"
+          icon="bell"
+          accent="#c4841d"
+          icon-bg="#f8efdc"
+          :delta="lowStockCount ? t('dashboard.alertsOpen') : t('dashboard.alertsClear')"
+          :delta-tone="lowStockCount ? 'down' : 'up'"
+        />
+        <KpiCard
+          :label="t('inventory.outOfStock')"
+          :value="zeroStockCount"
+          icon="package"
+          accent="#dc2626"
+          icon-bg="#fef2f2"
+        />
+      </div>
+
+      <DataTableShell
+        :title="t('nav.inventory')"
+        :meta="`${rows.length} ${t('products.name').toLowerCase()}`"
+        :empty="!rows.length"
+        :empty-title="t('org.empty')"
+        empty-icon="inventory"
+      >
+        <table class="ui-table">
+          <thead>
             <tr>
-              <th class="px-4 py-3 text-left font-medium">SKU</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('products.name') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.category') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.unit') }}</th>
-              <th class="px-4 py-3 text-right font-medium">{{ t('inventory.onHand') }}</th>
-              <th class="px-4 py-3 text-right font-medium">{{ t('products.price') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
-              <th class="px-4 py-3 text-right font-medium">{{ t('inventory.history') }}</th>
+              <th>SKU</th>
+              <th>{{ t('products.name') }}</th>
+              <th>{{ t('inventory.category') }}</th>
+              <th>{{ t('inventory.unit') }}</th>
+              <th class="num">{{ t('inventory.onHand') }}</th>
+              <th class="num">{{ t('products.price') }}</th>
+              <th>{{ t('products.status') }}</th>
+              <th class="num">{{ t('inventory.history') }}</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in rows" :key="row.id" class="cursor-pointer hover:bg-slate-50" @click="openHistory(row)">
-              <td class="px-4 py-3 font-mono text-slate-500">{{ row.product?.sku ?? '—' }}</td>
-              <td class="px-4 py-3 font-medium">{{ row.product?.name ?? '—' }}</td>
-              <td class="px-4 py-3 text-slate-600">{{ row.product?.category?.name ?? '—' }}</td>
-              <td class="px-4 py-3 text-slate-600">{{ unitLabel(row) }}</td>
-              <td class="px-4 py-3 text-right font-mono">{{ stockQty(row) }}</td>
-              <td class="px-4 py-3 text-right font-mono">{{ formatMoney(row.product?.base_price ?? 0) }}</td>
-              <td class="px-4 py-3">
+          <tbody>
+            <tr v-for="row in rows" :key="row.id" class="cursor-pointer" @click="openHistory(row)">
+              <td class="font-mono text-slate-500">{{ row.product?.sku ?? '—' }}</td>
+              <td class="font-medium">{{ row.product?.name ?? '—' }}</td>
+              <td>{{ row.product?.category?.name ?? '—' }}</td>
+              <td>{{ unitLabel(row) }}</td>
+              <td class="num font-mono">{{ stockQty(row) }}</td>
+              <td class="num font-mono">{{ formatMoney(row.product?.base_price ?? 0) }}</td>
+              <td>
                 <StatusBadge
                   :active="row.product?.is_active !== false"
                   :label="row.product?.is_active === false ? t('products.inactive') : t('products.active')"
                 />
               </td>
-              <td class="px-4 py-3 text-right" @click.stop>
-                <button class="text-sm text-brand-600" @click="openHistory(row)">{{ t('inventory.history') }}</button>
+              <td class="num" @click.stop>
+                <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="openHistory(row)">
+                  {{ t('inventory.history') }}
+                </button>
               </td>
             </tr>
           </tbody>
         </table>
-        <p v-if="!rows.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
-      </div>
+      </DataTableShell>
     </div>
 
     <AppModal

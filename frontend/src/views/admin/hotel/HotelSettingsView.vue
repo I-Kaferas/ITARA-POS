@@ -6,6 +6,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { computeStayTaxes } from '../../../utils/hotelSettings'
 import { formatDateTime } from '../../../utils/format'
+import { getAppCurrency } from '../../../utils/currency'
 import HotelChrome from './HotelChrome.vue'
 
 type HotelSettings = {
@@ -121,7 +122,7 @@ function emptySettings(): HotelSettings {
     room_price_tax_inclusive: false,
     occupancy_tax_enabled: false,
     service_fee_enabled: false,
-    currency_code: 'USD',
+    currency_code: getAppCurrency(),
     currency_symbol: '$',
     currency_symbol_position: 'before',
     allow_overbooking: false,
@@ -186,7 +187,7 @@ function applyDoc(doc: Record<string, any> | undefined) {
     room_price_tax_inclusive: Boolean(doc.room_price_tax_inclusive),
     occupancy_tax_enabled: Boolean(doc.occupancy_tax_enabled),
     service_fee_enabled: Boolean(doc.service_fee_enabled),
-    currency_code: String(doc.currency_code || 'USD').toUpperCase(),
+    currency_code: String(doc.currency_code || getAppCurrency()).toUpperCase(),
     currency_symbol: String(doc.currency_symbol || '$'),
     currency_symbol_position: doc.currency_symbol_position === 'after' ? 'after' : 'before',
     allow_overbooking: Boolean(doc.allow_overbooking),

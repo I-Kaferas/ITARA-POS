@@ -13,6 +13,7 @@ import { useAuthStore } from '../../../stores/auth'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Customer } from '../../../types'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
+import { getAppCurrency } from '../../../utils/currency'
 import { computeStayTaxes, findHotelSettings, moneyFromSettingsCents } from '../../../utils/hotelSettings'
 import HotelChrome from './HotelChrome.vue'
 
@@ -252,7 +253,7 @@ function stayBalanceCents(row: Doc) {
 }
 
 function stayCurrency(row: Doc) {
-  return String(row.type_currency || 'USD')
+  return getAppCurrency()
 }
 
 function stayRoomNumber(row: Doc) {
@@ -831,9 +832,7 @@ const typeRateCents = computed(() =>
   Number(selectedType.value?.base_price_cents ?? selectedType.value?.rate ?? selectedRoom.value?.price_override_cents ?? 0),
 )
 
-const currency = computed(() =>
-  String(selectedType.value?.currency ?? hotelSettings.value.currency_code ?? 'USD'),
-)
+const currency = computed(() => getAppCurrency())
 
 const roomSubtotalCents = computed(() => {
   if (form.value.special_price.trim()) return parseMoneyInput(form.value.special_price)
@@ -1611,7 +1610,7 @@ function payMethodLabel(method: string) {
 
 function typePriceLabel(type: Doc) {
   const cents = Number(type.base_price_cents ?? type.rate ?? 0)
-  const cur = String(type.currency ?? 'USD')
+  const cur = getAppCurrency()
   return `${type.name} — ${formatMoney(cents, cur)}/${t('hotel.rooms.perNight')}`
 }
 
@@ -1677,7 +1676,7 @@ function roomLabel(room: Doc) {
           </article>
           <article class="stay__stat stay__stat--money">
             <span>{{ t('hotel.stays.board.revenue') }}</span>
-            <strong>{{ formatMoney(stayStats.revenue, 'USD') }}</strong>
+            <strong>{{ formatMoney(stayStats.revenue) }}</strong>
           </article>
         </div>
 

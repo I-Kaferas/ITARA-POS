@@ -9,9 +9,6 @@ const { t } = useI18n()
 const route = useRoute()
 
 function isActive(path: string) {
-  if (path === '/admin/pos/terminal') {
-    return route.path === '/admin/pos/terminal' || route.path === '/admin/pos'
-  }
   if (path === '/admin/pos/orders') {
     return route.path.startsWith('/admin/pos/orders')
       || (route.path.startsWith('/admin/sales') && !route.path.startsWith('/admin/sales/returns'))
@@ -28,7 +25,6 @@ const tabGroups = computed(() => [
     label: t('nav.group.posOps'),
     tabs: [
       tab('/admin/pos/overview', t('nav.posOverview')),
-      tab('/admin/pos/terminal', t('nav.posTerminal')),
       tab('/admin/hospitality', t('nav.restaurant')),
       tab('/admin/pos/shifts', t('nav.posShifts')),
       tab('/admin/pos/reservations', t('nav.posReservations')),

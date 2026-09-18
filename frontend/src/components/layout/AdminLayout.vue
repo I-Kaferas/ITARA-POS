@@ -64,7 +64,6 @@ const navSections = computed(() => [
         icon: 'store-pin',
         children: [
           { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview'), icon: 'dashboard', color: '#64748b' },
-          { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal'), icon: 'device-pos', color: '#0f766e' },
           { name: 'pos-tables', to: '/admin/hospitality', label: t('nav.restaurant'), icon: 'tables', color: '#0f766e' },
           { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts'), icon: 'shift', color: '#2563eb' },
           { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations'), icon: 'calendar', color: '#d97706' },
@@ -244,13 +243,19 @@ const navSections = computed(() => [
       { name: 'accounting', to: '/admin/accounting', label: t('nav.accounting'), icon: 'sales' },
       {
         name: 'reports',
-        to: '/admin/reports/sales',
+        to: '/admin/reports/dashboard',
         label: t('nav.reports'),
         icon: 'dashboard',
         children: [
+          { name: 'reports-dashboard', to: '/admin/reports/dashboard', label: t('reports.tabs.dashboard'), icon: 'dashboard', color: '#64748b' },
           { name: 'reports-sales', to: '/admin/reports/sales', label: t('reports.tabs.sales'), icon: 'sales', color: '#059669' },
           { name: 'reports-inventory', to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), icon: 'inventory', color: '#0f766e' },
-          { name: 'reports-financial', to: '/admin/reports/financial', label: t('reports.tabs.financial'), icon: 'coins', color: '#b45309' },
+          { name: 'reports-purchases', to: '/admin/reports/purchases', label: t('reports.tabs.purchases'), icon: 'purchases', color: '#2563eb' },
+          { name: 'reports-forecasts', to: '/admin/reports/forecasts', label: t('reports.tabs.forecasts'), icon: 'sparkles', color: '#7c3aed' },
+          { name: 'reports-financial', to: '/admin/reports/financial', label: t('reports.tabs.revenue'), icon: 'coins', color: '#b45309' },
+          { name: 'reports-condensed', to: '/admin/reports/condensed', label: t('reports.tabs.condensed'), icon: 'layers', color: '#0e7490' },
+          { name: 'reports-daily', to: '/admin/reports/daily', label: t('reports.tabs.daily'), icon: 'calendar', color: '#d97706' },
+          { name: 'reports-user-performance', to: '/admin/reports/user-performance', label: t('reports.tabs.userPerformance'), icon: 'account', color: '#dc2626' },
         ],
       },
     ] as NavItem[],
@@ -344,7 +349,7 @@ const company = computed(() => {
 const companyName = computed(() => {
   const fromBranding = brandingStore.branding?.brand_name?.trim()
   if (fromBranding) return fromBranding
-  const name = company.value?.name?.trim() || company.value?.trade_name?.trim() || 'ITARA NEXUS'
+  const name = company.value?.name?.trim() || company.value?.trade_name?.trim() || 'ITARA NEXUS suite Business'
   return name
 })
 
@@ -381,9 +386,6 @@ function matchesChild(child: NavChild) {
   }
   if (child.to === '/admin/sales/returns') return route.path.startsWith('/admin/sales/returns')
   if (child.to === '/admin/pos/shifts') return route.path.startsWith('/admin/pos/shifts')
-  if (child.to === '/admin/pos/terminal') {
-    return route.path === '/admin/pos/terminal' || route.path === '/admin/pos'
-  }
   if (child.to === '/admin/expenses') {
     return route.path === '/admin/expenses'
   }

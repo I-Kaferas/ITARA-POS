@@ -133,8 +133,7 @@ const router = createRouter({
         {
               path: 'pos/terminal',
               name: 'pos',
-              component: () => import('../views/admin/pos/PosView.vue'),
-              meta: { requiresAuth: true },
+              redirect: '/admin/pos/shifts',
             },
         {
               path: 'pos/tables',
@@ -254,7 +253,13 @@ const router = createRouter({
             },
         {
               path: 'reports',
-              redirect: '/admin/reports/sales',
+              redirect: '/admin/reports/dashboard',
+            },
+        {
+              path: 'reports/dashboard',
+              name: 'reports-dashboard',
+              component: () => import('../views/admin/reports/ReportsDashboardView.vue'),
+              meta: { requiresAuth: true },
             },
         {
               path: 'reports/sales',
@@ -269,9 +274,45 @@ const router = createRouter({
               meta: { requiresAuth: true },
             },
         {
+              path: 'reports/purchases',
+              name: 'reports-purchases',
+              component: () => import('../views/admin/reports/PurchasesReportView.vue'),
+              meta: { requiresAuth: true },
+            },
+        {
+              path: 'reports/forecasts',
+              name: 'reports-forecasts',
+              component: () => import('../views/admin/reports/ForecastsReportView.vue'),
+              meta: { requiresAuth: true },
+            },
+        {
               path: 'reports/financial',
               name: 'reports-financial',
               component: () => import('../views/admin/reports/FinancialReportView.vue'),
+              meta: { requiresAuth: true },
+            },
+        {
+              path: 'reports/revenue',
+              name: 'reports-revenue',
+              component: () => import('../views/admin/reports/RevenueReportView.vue'),
+              meta: { requiresAuth: true },
+            },
+        {
+              path: 'reports/condensed',
+              name: 'reports-condensed',
+              component: () => import('../views/admin/reports/CondensedReportView.vue'),
+              meta: { requiresAuth: true },
+            },
+        {
+              path: 'reports/daily',
+              name: 'reports-daily',
+              component: () => import('../views/admin/reports/DailyReportView.vue'),
+              meta: { requiresAuth: true },
+            },
+        {
+              path: 'reports/user-performance',
+              name: 'reports-user-performance',
+              component: () => import('../views/admin/reports/UserPerformanceReportView.vue'),
               meta: { requiresAuth: true },
             },
         {

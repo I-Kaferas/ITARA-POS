@@ -136,7 +136,7 @@ function last30() {
 }
 
 function money(cents: number) {
-  return formatMoney(cents, report.value.currency)
+  return formatMoney(cents)
 }
 
 function dayLabel(iso: string) {

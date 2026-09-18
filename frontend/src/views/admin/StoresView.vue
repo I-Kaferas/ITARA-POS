@@ -193,8 +193,8 @@ async function savePriceOverride() {
           </p>
         </div>
         <div class="home-banner__actions">
-          <RouterLink v-if="currentStore" class="ui-btn ui-btn--primary" to="/admin/pos/terminal">
-            <AppIcon name="device-pos" :size="16" />
+          <RouterLink v-if="currentStore" class="ui-btn ui-btn--primary" to="/admin/pos/shifts">
+            <AppIcon name="shift" :size="16" />
             {{ t('stores.openPos') }}
           </RouterLink>
           <RouterLink class="ui-btn ui-btn--secondary" to="/admin/products">

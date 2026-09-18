@@ -244,7 +244,7 @@ async function remove(row: Amenity) {
               </td>
               <td class="font-mono">{{ row.code }}</td>
               <td>{{ categoryLabel(row.category) }}</td>
-              <td>{{ formatMoney(row.replacement_value_cents ?? 0, 'USD') }}</td>
+              <td>{{ formatMoney(row.replacement_value_cents ?? 0) }}</td>
               <td>{{ row.display_order ?? 0 }}</td>
               <td><StatusBadge :active="row.is_active !== false" /></td>
               <td class="amenities__row-actions">

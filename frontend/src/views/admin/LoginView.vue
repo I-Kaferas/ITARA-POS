@@ -44,7 +44,7 @@ const brandName = computed(() =>
   company.value?.trade_name?.trim()
   || company.value?.name?.trim()
   || branding.value?.brand_name?.trim()
-  || 'ITARA NEXUS',
+  || 'ITARA NEXUS SUITE Business',
 )
 const tenantSlug = computed(() => branding.value?.slug || resolveTenantSlug())
 const loginLogoUrl = computed(() =>
@@ -227,7 +227,7 @@ async function submit() {
             v-if="loginLogoUrl && !logoFailed"
             class="login__logo login__logo--wordmark"
             :src="loginLogoUrl"
-            alt="ITARA NEXUS"
+            alt="ITARA NEXUS SUITE Business"
             @error="logoFailed = true"
           />
           <template v-else>
@@ -374,7 +374,7 @@ async function submit() {
               v-if="welcomeLogoUrl"
               class="login-welcome__logo"
               :src="welcomeLogoUrl"
-              alt="ITARA NEXUS"
+              alt="ITARA NEXUS SUITE Business"
               @error="welcomeLogoFailed = true"
             />
             <span v-else class="login-welcome__mark">{{ initial }}</span>

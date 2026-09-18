@@ -10,6 +10,7 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
+import { getAppCurrency } from '../../../utils/currency'
 import HotelChrome from './HotelChrome.vue'
 
 type Doc = Record<string, any>
@@ -118,7 +119,7 @@ const typeOptions = computed(() => {
 const selectedType = computed(() => roomTypes.value.find(item => item.id === form.value.type_id) ?? null)
 
 const typeDefaultPrice = computed(() =>
-  formatMoney(Number(selectedType.value?.base_price_cents ?? selectedType.value?.rate ?? 0), String(selectedType.value?.currency ?? 'USD')),
+  formatMoney(Number(selectedType.value?.base_price_cents ?? selectedType.value?.rate ?? 0)),
 )
 
 const categories = computed(() => {
@@ -449,7 +450,7 @@ function priceLabel(row: Doc) {
   const cents = row.price_override_cents != null
     ? Number(row.price_override_cents)
     : Number(type?.base_price_cents ?? type?.rate ?? 0)
-  const currency = String(type?.currency ?? 'USD')
+  const currency = getAppCurrency()
   return `${formatMoney(cents, currency)}/${t('hotel.rooms.perNight')}`
 }
 

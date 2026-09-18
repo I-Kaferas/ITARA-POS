@@ -5,8 +5,9 @@ import { useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
-import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import Badge from '../../../components/ui/Badge.vue'
+import DataTableShell from '../../../components/ui/DataTableShell.vue'
+import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { extractApiErrorMessage } from '../../../api/client'
@@ -196,13 +197,13 @@ watch(
     <template #title>{{ t('nav.posOrders') }}</template>
     <template #subtitle>{{ t('pointOfSale.orders.subtitle') }}</template>
 
-    <div v-if="!storeId" class="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
+    <div v-if="!storeId" class="ui-toast ui-toast--warning mb-4">
       {{ t('sales.selectStore') }}
     </div>
 
     <template v-else>
-      <div class="mb-4 rounded-xl border border-slate-200 bg-white p-4">
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <div class="ui-toolbar">
+        <div class="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-6">
           <div class="xl:col-span-2">
             <FieldLabel icon="search">{{ t('common.search') }}</FieldLabel>
             <div class="relative">
@@ -246,7 +247,7 @@ watch(
           </div>
         </div>
 
-        <div class="mt-3 flex flex-wrap items-center gap-2">
+        <div class="flex w-full flex-wrap items-center gap-2">
           <button type="button" class="ui-btn ui-btn--primary" :disabled="store.loading" @click="load">
             {{ t('pointOfSale.orders.filters.apply') }}
           </button>
@@ -262,49 +263,50 @@ watch(
         </div>
       </div>
 
-      <p v-if="error" class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
+      <p v-if="error" class="ui-toast ui-toast--danger mb-4">{{ error }}</p>
 
-      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-        <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('pointOfSale.orders.listTitle') }}</h3>
-        </div>
-
-        <div v-if="store.loading" class="px-4 py-10 text-center text-sm text-slate-500">
-          {{ t('common.loading') }}
-        </div>
-
-        <table v-else-if="store.sales.length" class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
+      <DataTableShell
+        :title="t('pointOfSale.orders.listTitle')"
+        :meta="`${store.sales.length} ${t('pointOfSale.orders.results')}`"
+        :loading="store.loading"
+        :empty="!store.loading && !store.sales.length"
+        :empty-title="t('pointOfSale.orders.empty')"
+        :empty-description="t('pointOfSale.orders.subtitle')"
+        empty-icon="sales"
+        :loading-label="t('common.loading')"
+      >
+        <table class="ui-table">
+          <thead>
             <tr>
-              <th class="px-4 py-3 text-left font-medium">{{ t('sales.reference') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('nav.customers') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('sales.paymentStatus') }}</th>
-              <th class="px-4 py-3 text-right font-medium">{{ t('products.price') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
-              <th class="px-4 py-3 text-right font-medium">{{ t('pointOfSale.orders.documents') }}</th>
+              <th>{{ t('sales.reference') }}</th>
+              <th>{{ t('nav.customers') }}</th>
+              <th>{{ t('products.status') }}</th>
+              <th>{{ t('sales.paymentStatus') }}</th>
+              <th class="num">{{ t('products.price') }}</th>
+              <th>{{ t('inventory.date') }}</th>
+              <th class="num">{{ t('pointOfSale.orders.documents') }}</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in store.sales" :key="row.id" class="hover:bg-slate-50">
-              <td class="px-4 py-3 font-mono cursor-pointer" @click="router.push({ name: 'sale-detail', params: { id: row.id } })">
+          <tbody>
+            <tr v-for="row in store.sales" :key="row.id">
+              <td class="font-mono cursor-pointer" @click="router.push({ name: 'sale-detail', params: { id: row.id } })">
                 {{ row.reference }}
               </td>
-              <td class="px-4 py-3 cursor-pointer" @click="router.push({ name: 'sale-detail', params: { id: row.id } })">
+              <td class="cursor-pointer" @click="router.push({ name: 'sale-detail', params: { id: row.id } })">
                 {{ row.customer?.name ?? '—' }}
               </td>
-              <td class="px-4 py-3">
+              <td>
                 <Badge v-if="row.status === 'pending'" variant="warning">{{ statusLabel(row.status) }}</Badge>
                 <Badge v-else-if="row.status === 'merged'" variant="brand">{{ statusLabel(row.status) }}</Badge>
                 <StatusBadge v-else :active="row.status === 'completed'" :label="statusLabel(row.status)" />
               </td>
-              <td class="px-4 py-3">
+              <td>
                 <StatusBadge :active="paymentStatusActive(row.payment_status)" :label="paymentStatusLabel(row.payment_status)" />
               </td>
-              <td class="px-4 py-3 text-right font-medium">{{ formatMoney(row.total, row.currency) }}</td>
-              <td class="px-4 py-3 text-slate-500">{{ formatDate(row.completed_at ?? row.created_at) }}</td>
-              <td class="px-4 py-3">
-                <div class="flex flex-wrap items-center justify-end gap-1">
+              <td class="num font-medium">{{ formatMoney(row.total, row.currency) }}</td>
+              <td class="text-slate-500">{{ formatDate(row.completed_at ?? row.created_at) }}</td>
+              <td>
+                <div class="ui-table__actions">
                   <button
                     v-if="row.status === 'completed'"
                     type="button"
@@ -359,11 +361,7 @@ watch(
             </tr>
           </tbody>
         </table>
-
-        <p v-else class="px-4 py-8 text-center text-slate-500">
-          {{ t('pointOfSale.orders.empty') }}
-        </p>
-      </div>
+      </DataTableShell>
     </template>
 
     <MergeOrdersModal
