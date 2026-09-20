@@ -292,24 +292,36 @@ class Product extends Model
             ->amount;
     }
 
+    /**
+     * @param  array{category_id?: ?string, brand_id?: ?string, unit_id?: ?string, attributes?: list<array<string, mixed>>|null}  $taxonomy
+     */
     public function importToStore(
         Store $store,
         ?int $priceOverride = null,
         bool $isAvailable = true,
         ?string $importedBy = null,
+        array $taxonomy = [],
     ): StoreProduct {
+        $payload = [
+            'tenant_id' => $this->tenant_id,
+            'is_available' => $isAvailable,
+            'price_override' => $priceOverride,
+            'imported_at' => now(),
+            'imported_by' => $importedBy,
+        ];
+
+        foreach (['category_id', 'brand_id', 'unit_id', 'attributes'] as $key) {
+            if (array_key_exists($key, $taxonomy)) {
+                $payload[$key] = $taxonomy[$key] ?: null;
+            }
+        }
+
         return StoreProduct::query()->updateOrCreate(
             [
                 'store_id' => $store->id,
                 'product_id' => $this->id,
             ],
-            [
-                'tenant_id' => $this->tenant_id,
-                'is_available' => $isAvailable,
-                'price_override' => $priceOverride,
-                'imported_at' => now(),
-                'imported_by' => $importedBy,
-            ],
+            $payload,
         );
     }
 

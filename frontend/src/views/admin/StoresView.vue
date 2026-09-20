@@ -7,11 +7,12 @@ import AppIcon from '../../components/ui/AppIcon.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
+import { extractApiErrorMessage } from '../../api/client'
 import { useConfirm } from '../../composables/useConfirm'
 import { useAuthStore } from '../../stores/auth'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useContextStore } from '../../stores/context'
-import type { Product, StoreProductItem } from '../../types'
+import type { Brand, CatalogAttribute, Category, Product, StoreProductItem, Unit } from '../../types'
 import { formatMoney } from '../../utils/format'
 
 const { t } = useI18n()
@@ -27,8 +28,19 @@ const importing = ref(false)
 const loading = ref(true)
 const editingItem = ref<StoreProductItem | null>(null)
 const priceOverride = ref<number | null>(null)
+const editCategoryId = ref('')
+const editBrandId = ref('')
+const editUnitId = ref('')
 const catalogQuery = ref('')
 const storeQuery = ref('')
+const selectedImportedIds = ref<string[]>([])
+const classifyCategoryId = ref('')
+const classifyBrandId = ref('')
+const classifyUnitId = ref('')
+const classifyAttributes = ref<Record<string, string>>({})
+const applying = ref(false)
+const classifyError = ref('')
+const classifyNotice = ref('')
 
 const firstName = computed(() => auth.user?.name?.split(' ')[0] ?? '')
 const currentStore = computed(() => context.currentStore)
@@ -56,15 +68,25 @@ const filteredImported = computed(() =>
 )
 
 const selectedCount = computed(() => selectedIds.value.length)
+const selectedImportedCount = computed(() => selectedImportedIds.value.length)
 const waitingCount = computed(() => notImported.value.length)
 const inStoreCount = computed(() => store.storeProducts.length)
+const hasClassifyValues = computed(() =>
+  Boolean(classifyCategoryId.value || classifyBrandId.value || classifyUnitId.value || attributePayload().length),
+)
 
 onMounted(loadPage)
 
 watch(() => context.currentStoreId, async (id) => {
   selectedIds.value = []
+  selectedImportedIds.value = []
   storeQuery.value = ''
-  if (id) await store.loadStoreProducts(id)
+  resetClassify()
+  if (!id) return
+  await Promise.all([
+    store.loadStoreProducts(id),
+    loadTaxonomies(id),
+  ])
 })
 
 async function loadPage() {
@@ -81,11 +103,87 @@ async function loadPage() {
     }
 
     if (context.currentStoreId) {
-      await store.loadStoreProducts(context.currentStoreId)
+      await Promise.all([
+        store.loadStoreProducts(context.currentStoreId),
+        loadTaxonomies(context.currentStoreId),
+      ])
     }
   } finally {
     loading.value = false
   }
+}
+
+function flattenCategories(items: Category[] | undefined, prefix = '', seen = new Set<string>()): Category[] {
+  const result: Category[] = []
+  for (const item of items ?? []) {
+    if (!item?.id || seen.has(item.id)) continue
+    seen.add(item.id)
+    result.push({ ...item, name: prefix ? `${prefix} / ${item.name}` : item.name })
+    if (item.children?.length) {
+      result.push(...flattenCategories(item.children, prefix ? `${prefix} / ${item.name}` : item.name, seen))
+    }
+  }
+  return result
+}
+
+const categoryOptions = computed(() => flattenCategories(store.categories))
+const brandOptions = computed(() => store.brands.filter((item: Brand) => item.is_active !== false))
+const unitOptions = computed(() => store.units.filter((item: Unit) => item.is_active !== false))
+const attributeOptions = computed(() => store.catalogAttributes.filter((item: CatalogAttribute) => item.is_active !== false))
+
+async function loadTaxonomies(storeId: string) {
+  await Promise.all([
+    store.loadBrands(storeId).catch(() => store.brands),
+    store.loadUnits(false, storeId).catch(() => store.units),
+    store.loadCatalogAttributes(false, storeId).catch(() => store.catalogAttributes),
+    catalogId.value
+      ? store.loadCategories(catalogId.value, storeId).catch(() => store.categories)
+      : Promise.resolve(),
+  ])
+  pruneAttributeValues()
+}
+
+function pruneAttributeValues() {
+  const allowed = new Set(attributeOptions.value.map(item => item.id))
+  const next: Record<string, string> = {}
+  for (const [id, value] of Object.entries(classifyAttributes.value)) {
+    if (allowed.has(id) && value) next[id] = value
+  }
+  classifyAttributes.value = next
+}
+
+function resetClassify() {
+  classifyCategoryId.value = ''
+  classifyBrandId.value = ''
+  classifyUnitId.value = ''
+  classifyAttributes.value = {}
+  classifyError.value = ''
+  classifyNotice.value = ''
+}
+
+function attributePayload() {
+  return attributeOptions.value
+    .map(attribute => ({
+      attribute_id: attribute.id,
+      value: (classifyAttributes.value[attribute.id] ?? '').trim(),
+    }))
+    .filter(row => row.value)
+}
+
+function taxonomyPayload() {
+  return {
+    category_id: classifyCategoryId.value || null,
+    brand_id: classifyBrandId.value || null,
+    unit_id: classifyUnitId.value || null,
+    attributes: attributePayload(),
+  }
+}
+
+function taxonomyLabel(item: StoreProductItem) {
+  const attributes = (item.attributes ?? []).map(row => `${row.name}: ${row.value}`)
+  return [item.category?.name, item.brand?.name, item.unit ? `${item.unit.name} (${item.unit.code})` : '', ...attributes]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 function matchesProduct(product: Product, query: string) {
@@ -101,6 +199,11 @@ function matchesProduct(product: Product, query: string) {
     .join(' ')
     .toLowerCase()
   return haystack.includes(needle)
+}
+
+function setClassifyAttribute(id: string, event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  classifyAttributes.value = { ...classifyAttributes.value, [id]: value }
 }
 
 function productImage(product?: Product | null) {
@@ -122,16 +225,56 @@ function clearSelection() {
   selectedIds.value = []
 }
 
+function toggleImported(id: string) {
+  selectedImportedIds.value = selectedImportedIds.value.includes(id)
+    ? selectedImportedIds.value.filter(item => item !== id)
+    : [...selectedImportedIds.value, id]
+}
+
+function selectVisibleImported() {
+  const visible = filteredImported.value.map(item => item.product_id)
+  selectedImportedIds.value = [...new Set([...selectedImportedIds.value, ...visible])]
+}
+
+function clearImportedSelection() {
+  selectedImportedIds.value = []
+}
+
 async function importSelected() {
   if (!context.currentStoreId || !selectedIds.value.length) return
   importing.value = true
+  classifyError.value = ''
+  classifyNotice.value = ''
   try {
-    await store.importToStore(context.currentStoreId, selectedIds.value)
+    const count = selectedIds.value.length
+    await store.importToStore(context.currentStoreId, selectedIds.value, taxonomyPayload())
     selectedIds.value = []
     catalogQuery.value = ''
+    classifyNotice.value = t('stores.importedWithClassify', { count })
     await store.loadStoreProducts(context.currentStoreId)
   } finally {
     importing.value = false
+  }
+}
+
+async function applyToImported() {
+  if (!context.currentStoreId || !selectedImportedIds.value.length) return
+  if (!hasClassifyValues.value) {
+    classifyError.value = t('stores.classifyRequired')
+    return
+  }
+  applying.value = true
+  classifyError.value = ''
+  classifyNotice.value = ''
+  try {
+    await store.classifyStoreProducts(context.currentStoreId, selectedImportedIds.value, taxonomyPayload())
+    classifyNotice.value = t('stores.classifyApplied', { count: selectedImportedIds.value.length })
+    selectedImportedIds.value = []
+    await store.loadStoreProducts(context.currentStoreId)
+  } catch (error) {
+    classifyError.value = extractApiErrorMessage(error, t('stores.classifyRequired'))
+  } finally {
+    applying.value = false
   }
 }
 
@@ -150,12 +293,18 @@ async function remove(item: StoreProductItem) {
 function openPriceEdit(item: StoreProductItem) {
   editingItem.value = item
   priceOverride.value = item.price_override != null ? item.price_override / 100 : null
+  editCategoryId.value = item.category_id ?? ''
+  editBrandId.value = item.brand_id ?? ''
+  editUnitId.value = item.unit_id ?? ''
 }
 
 async function savePriceOverride() {
   if (!context.currentStoreId || !editingItem.value) return
   await store.updateStoreProduct(context.currentStoreId, editingItem.value.product_id, {
     price_override: priceOverride.value != null ? Math.round(priceOverride.value * 100) : null,
+    category_id: editCategoryId.value || null,
+    brand_id: editBrandId.value || null,
+    unit_id: editUnitId.value || null,
   })
   editingItem.value = null
   await store.loadStoreProducts(context.currentStoreId)
@@ -221,7 +370,78 @@ async function savePriceOverride() {
           <strong>{{ selectedCount }}</strong>
           <span>{{ t('stores.selected') }}</span>
         </div>
+        <div class="home-chip" :class="{ 'home-chip--active': selectedImportedCount }">
+          <AppIcon name="stores" :size="16" />
+          <strong>{{ selectedImportedCount }}</strong>
+          <span>{{ t('stores.selectedInStore') }}</span>
+        </div>
       </div>
+
+      <section v-if="currentStore" class="classify-card">
+        <div class="classify-card__intro">
+          <h3>{{ t('stores.classifyTitle') }}</h3>
+          <p>{{ t('stores.classifyHint') }}</p>
+        </div>
+        <div class="taxonomy-grid">
+          <div>
+            <FieldLabel icon="layers">{{ t('catalog.tabs.categories') }}</FieldLabel>
+            <select v-model="classifyCategoryId" class="ui-input">
+              <option value="">—</option>
+              <option v-for="cat in categoryOptions" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+            </select>
+          </div>
+          <div>
+            <FieldLabel icon="catalog">{{ t('catalog.tabs.brands') }}</FieldLabel>
+            <select v-model="classifyBrandId" class="ui-input">
+              <option value="">—</option>
+              <option v-for="brand in brandOptions" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
+            </select>
+          </div>
+          <div>
+            <FieldLabel icon="package">{{ t('nav.units') }}</FieldLabel>
+            <select v-model="classifyUnitId" class="ui-input">
+              <option value="">—</option>
+              <option v-for="unit in unitOptions" :key="unit.id" :value="unit.id">{{ unit.name }} ({{ unit.code }})</option>
+            </select>
+          </div>
+        </div>
+        <div v-if="attributeOptions.length" class="taxonomy-grid">
+          <div v-for="attribute in attributeOptions" :key="attribute.id">
+            <FieldLabel icon="sparkles">{{ attribute.name }}</FieldLabel>
+            <select
+              class="ui-input"
+              :value="classifyAttributes[attribute.id] ?? ''"
+              @change="setClassifyAttribute(attribute.id, $event)"
+            >
+              <option value="">—</option>
+              <option v-for="value in attribute.values" :key="`${attribute.id}-${value}`" :value="value">{{ value }}</option>
+            </select>
+          </div>
+        </div>
+        <p class="m-0 text-xs text-slate-500">{{ t('stores.taxonomyHint') }}</p>
+        <p v-if="classifyError" class="m-0 text-sm text-red-600">{{ classifyError }}</p>
+        <p v-else-if="classifyNotice" class="m-0 text-sm text-teal-700">{{ classifyNotice }}</p>
+        <div class="classify-card__actions">
+          <button
+            type="button"
+            class="ui-btn ui-btn--primary"
+            :disabled="!selectedCount || importing"
+            @click="importSelected"
+          >
+            <AppIcon name="import" :size="16" />
+            {{ importing ? t('common.loading') : `${t('stores.importSelected')}${selectedCount ? ` (${selectedCount})` : ''}` }}
+          </button>
+          <button
+            type="button"
+            class="ui-btn ui-btn--secondary"
+            :disabled="!selectedImportedCount || applying"
+            @click="applyToImported"
+          >
+            <AppIcon name="check" :size="16" />
+            {{ applying ? t('common.loading') : `${t('stores.applyToImported')}${selectedImportedCount ? ` (${selectedImportedCount})` : ''}` }}
+          </button>
+        </div>
+      </section>
 
       <EmptyState
         v-if="!currentStore"
@@ -341,8 +561,28 @@ async function savePriceOverride() {
               />
             </div>
 
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" :disabled="!filteredImported.length" @click="selectVisibleImported">
+                {{ t('stores.selectVisible') }}
+              </button>
+              <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" :disabled="!selectedImportedCount" @click="clearImportedSelection">
+                {{ t('stores.clearSelection') }}
+              </button>
+            </div>
+
             <div class="product-list">
-              <div v-for="item in filteredImported" :key="item.id" class="product-row product-row--home">
+              <label
+                v-for="item in filteredImported"
+                :key="item.id"
+                class="product-row"
+                :class="{ 'product-row--selected': selectedImportedIds.includes(item.product_id) }"
+              >
+                <input
+                  class="product-row__check"
+                  type="checkbox"
+                  :checked="selectedImportedIds.includes(item.product_id)"
+                  @change="toggleImported(item.product_id)"
+                />
                 <img
                   v-if="productImage(item.product)"
                   :src="productImage(item.product)"
@@ -359,16 +599,17 @@ async function savePriceOverride() {
                     <span v-if="item.price_override" class="price-tag">{{ t('stores.override') }}</span>
                     <span v-else class="text-slate-400"> · {{ t('stores.catalogPrice') }}</span>
                   </p>
+                  <p v-if="taxonomyLabel(item)" class="product-row__meta">{{ taxonomyLabel(item) }}</p>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
-                  <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="openPriceEdit(item)">
-                    {{ t('products.price') }}
+                  <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click.prevent="openPriceEdit(item)">
+                    {{ t('common.edit') }}
                   </button>
-                  <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm text-red-600" @click="remove(item)">
+                  <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm text-red-600" @click.prevent="remove(item)">
                     {{ t('stores.remove') }}
                   </button>
                 </div>
-              </div>
+              </label>
 
               <EmptyState
                 v-if="!store.storeProducts.length"
@@ -386,10 +627,10 @@ async function savePriceOverride() {
 
     <AppModal
       :open="!!editingItem"
-      :title="t('stores.priceOverride')"
-      icon="coins"
+      :title="t('stores.itemSettings')"
+      icon="stores"
       tone="accent"
-      size="sm"
+      size="md"
       @close="editingItem = null"
     >
       <form class="space-y-3" @submit.prevent="savePriceOverride">
@@ -398,6 +639,29 @@ async function savePriceOverride() {
           {{ t('stores.catalogPrice') }} :
           {{ editingItem ? formatMoney(editingItem.product.base_price) : '—' }}
         </p>
+        <div class="taxonomy-grid">
+          <div>
+            <FieldLabel icon="layers">{{ t('catalog.tabs.categories') }}</FieldLabel>
+            <select v-model="editCategoryId" class="ui-input">
+              <option value="">—</option>
+              <option v-for="cat in categoryOptions" :key="`edit-cat-${cat.id}`" :value="cat.id">{{ cat.name }}</option>
+            </select>
+          </div>
+          <div>
+            <FieldLabel icon="catalog">{{ t('catalog.tabs.brands') }}</FieldLabel>
+            <select v-model="editBrandId" class="ui-input">
+              <option value="">—</option>
+              <option v-for="brand in brandOptions" :key="`edit-brand-${brand.id}`" :value="brand.id">{{ brand.name }}</option>
+            </select>
+          </div>
+          <div>
+            <FieldLabel icon="package">{{ t('nav.units') }}</FieldLabel>
+            <select v-model="editUnitId" class="ui-input">
+              <option value="">—</option>
+              <option v-for="unit in unitOptions" :key="`edit-unit-${unit.id}`" :value="unit.id">{{ unit.name }} ({{ unit.code }})</option>
+            </select>
+          </div>
+        </div>
         <FieldLabel icon="coins">{{ t('stores.storePrice') }}</FieldLabel>
         <input
           v-model.number="priceOverride"
@@ -712,6 +976,48 @@ async function savePriceOverride() {
   color: #94a3b8;
   font-size: 0.875rem;
   text-align: center;
+}
+
+.classify-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+
+.classify-card__intro h3 {
+  margin: 0;
+  color: #1a2833;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.classify-card__intro p {
+  margin: 0.2rem 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.classify-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.taxonomy-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .taxonomy-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .text-red-600 { color: #dc2626; }

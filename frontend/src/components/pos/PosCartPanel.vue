@@ -201,7 +201,7 @@ async function createCustomerQuick() {
             <div class="min-w-0">
               <p class="pos-cart__name">
                 {{ line.product.name }}
-                <span class="pos-cart__times">x{{ line.quantity }}</span>
+                <span v-if="needsSaleQuantity(line.product) && !line.isAccompaniment" class="pos-cart__times">x{{ line.quantity }}</span>
                 <span v-if="line.isAccompaniment" class="pos-cart__free">{{ t('accompaniments.priceFree') }}</span>
               </p>
               <p class="pos-cart__sku">
@@ -222,7 +222,6 @@ async function createCustomerQuick() {
               />
               <button type="button" @click="emit('increment', line.lineId)">+</button>
             </div>
-            <span v-else class="pos-cart__no-qty">{{ t('pos.noQuantity') }}</span>
             <span class="pos-cart__amount">
               {{ formatMoney(lineTotals?.[line.lineId] ?? line.product.price * line.quantity, currency) }}
             </span>
@@ -579,6 +578,7 @@ async function createCustomerQuick() {
 }
 
 .pos-cart__amount {
+  margin-left: auto;
   font-size: 0.9rem;
   font-weight: 750;
   color: var(--color-text-primary);

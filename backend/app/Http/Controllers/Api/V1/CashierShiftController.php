@@ -59,6 +59,16 @@ class CashierShiftController extends Controller
         ]);
     }
 
+    public function showShift(CashierShift $cashierShift): JsonResponse
+    {
+        $cashierShift->load(['cashier', 'cashRegister.store', 'registerSession', 'movements.performedBy']);
+
+        return response()->json([
+            'data' => $cashierShift,
+            'summary' => $this->shiftService->summary($cashierShift),
+        ]);
+    }
+
     public function currentOnRegister(CashRegister $cashRegister): JsonResponse
     {
         $shift = $this->shiftService->currentShiftOnRegister($cashRegister);

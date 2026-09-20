@@ -175,7 +175,7 @@ const productCount = computed(() => store.products.length)
             <td class="!font-medium">{{ formatPrice(product.base_price) }}</td>
             <td>{{ formatPrice(product.cost_price ?? 0) }}</td>
             <td class="text-slate-600">{{ product.tax ? `${product.tax.code ?? product.tax.name}` : '—' }}</td>
-            <td>{{ isStockableProduct(product) ? (product.stock ?? 0) : '—' }}</td>
+            <td>{{ isStockableProduct(product) ? (product.stock ?? 0) : '' }}</td>
             <td>
               <Badge :variant="product.is_active ? 'success' : 'neutral'">
                 {{ product.is_active ? t('products.active') : t('products.inactive') }}

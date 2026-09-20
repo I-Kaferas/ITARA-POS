@@ -7,8 +7,7 @@ import AppIcon from '../../components/ui/AppIcon.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
-import { useContextStore } from '../../stores/context'
-import type { Barcode, BarcodeType, Brand, Category, Price, Product, ProductBundleItem, ProductImage, ProductType, ProductVariant, Tax, Unit } from '../../types'
+import type { Barcode, BarcodeType, Price, Product, ProductBundleItem, ProductImage, ProductType, ProductVariant, Tax } from '../../types'
 import { getAppCurrency } from '../../utils/currency'
 import { taxQuote } from '../../utils/taxQuote'
 import { isStockableProduct } from '../../utils/product'
@@ -20,7 +19,6 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const store = useBackofficeStore()
-const context = useContextStore()
 
 const isEdit = computed(() => Boolean(route.params.id))
 const saveError = ref('')
@@ -35,10 +33,7 @@ const form = ref({
   name: '',
   description: '',
   product_type: 'simple' as ProductType,
-  brand_id: '' as string | null,
-  unit_id: '' as string | null,
   tax_id: '' as string | null,
-  category_id: '' as string | null,
   barcode: '',
   base_price: 0,
   cost_price: 0,
@@ -57,8 +52,6 @@ const prices = ref<Partial<Price>[]>([])
 const product = ref<Product | null>(null)
 const images = ref<ProductImage[]>([])
 const allProducts = ref<Product[]>([])
-const brandOptions = ref<Brand[]>([])
-const unitOptions = ref<Unit[]>([])
 const taxOptions = ref<Tax[]>([])
 
 const selectedTax = computed(() => taxOptions.value.find(tax => tax.id === form.value.tax_id) ?? null)
@@ -81,31 +74,6 @@ function setNature(kind: 'quantifiable' | 'service') {
   }
 }
 
-const categoryOptions = computed(() => {
-  const result: Category[] = []
-  const seen = new Set<string>()
-
-  function walk(items: Category[] | undefined, prefix = '') {
-    for (const item of items ?? []) {
-      if (!item?.id || seen.has(item.id)) continue
-      seen.add(item.id)
-      result.push({ ...item, name: prefix ? `${prefix} / ${item.name}` : item.name })
-      if (item.children?.length) {
-        walk(item.children, prefix ? `${prefix} / ${item.name}` : item.name)
-      }
-    }
-  }
-
-  walk(store.categories)
-
-  const current = product.value?.category
-  if (current?.id && !seen.has(current.id)) {
-    result.unshift(current)
-  }
-
-  return result
-})
-
 const tabs = computed(() => {
   const base = [
     { id: 'general', label: t('products.tabs.general') },
@@ -123,14 +91,10 @@ function asList<T>(value: unknown): T[] {
 }
 
 async function loadLookups() {
-  const [brands, units, taxes] = await Promise.all([
-    store.loadBrands(context.currentStoreId).catch(() => store.brands),
-    store.loadUnits(false, context.currentStoreId).catch(() => store.units),
+  const [taxes] = await Promise.all([
     store.loadTaxes(true).catch(() => store.taxes),
     store.loadCurrencies(true).catch(() => store.currencies),
   ])
-  brandOptions.value = asList<Brand>(brands)
-  unitOptions.value = asList<Unit>(units)
   taxOptions.value = asList<Tax>(taxes).filter(tax => tax.is_active !== false)
 }
 
@@ -147,14 +111,12 @@ onMounted(async () => {
   await loadLookups()
 
   if (catalogId.value) {
-    await store.loadCategories(catalogId.value, context.currentStoreId)
     allProducts.value = await store.loadProducts(catalogId.value)
   }
 
   if (isEdit.value) {
     product.value = await store.loadProduct(route.params.id as string)
     catalogId.value = product.value.catalog_id
-    await store.loadCategories(catalogId.value, context.currentStoreId)
     allProducts.value = await store.loadProducts(catalogId.value)
 
     form.value = {
@@ -162,10 +124,7 @@ onMounted(async () => {
       name: product.value.name,
       description: product.value.description ?? '',
       product_type: product.value.product_type ?? 'simple',
-      brand_id: product.value.brand_id || '',
-      unit_id: product.value.unit_id || '',
       tax_id: product.value.tax_id ?? '',
-      category_id: product.value.category_id || '',
       barcode: product.value.barcode ?? '',
       base_price: product.value.base_price / 100,
       cost_price: product.value.cost_price / 100,
@@ -238,10 +197,7 @@ function toCents(value: unknown): number {
 function buildPayload() {
   const payload: Record<string, unknown> = {
     ...form.value,
-    brand_id: form.value.brand_id || null,
-    unit_id: form.value.unit_id || null,
     tax_id: form.value.tax_id || null,
-    category_id: form.value.category_id || null,
     base_price: toCents(form.value.base_price),
     cost_price: toCents(form.value.cost_price),
     is_serialized: isQuantifiable.value ? form.value.is_serialized : false,
@@ -301,7 +257,6 @@ async function save() {
     prices.value = (saved.prices ?? []).map(p => ({ ...p, amount: p.amount / 100 }))
     barcodes.value = saved.barcodes ?? []
     product.value = saved
-    form.value.category_id = saved.category_id || ''
     images.value = saved.images ?? []
     saveNotice.value = t('common.saved')
 
@@ -398,65 +353,18 @@ async function makePrimary(id: string) {
             </label>
           </div>
         </div>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <div class="mb-1 flex items-center justify-between gap-2">
-              <FieldLabel icon="layers" class="!mb-0">{{ t('catalog.tabs.categories') }}</FieldLabel>
-              <button type="button" class="text-xs font-medium text-brand-600" @click="router.push({ name: 'catalog-categories' })">
-                {{ t('catalog.manageCategories') }}
-              </button>
-            </div>
-            <select
-              v-model="form.category_id"
-              class="field"
-              :key="`categories-${categoryOptions.map(cat => cat.id).join('|')}`"
-            >
-              <option value="">—</option>
-              <option v-for="cat in categoryOptions" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-            </select>
-            <p v-if="!categoryOptions.length" class="mt-1 text-xs text-slate-500">{{ t('catalog.emptyCategories') }}</p>
+        <div>
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <FieldLabel icon="percent" class="!mb-0">{{ t('catalog.tabs.taxes') }}</FieldLabel>
+            <button type="button" class="text-xs font-medium text-brand-600" @click="router.push({ name: 'catalog-taxes' })">
+              {{ t('catalog.manageTaxes') }}
+            </button>
           </div>
-          <div>
-            <div class="mb-1 flex items-center justify-between gap-2">
-              <FieldLabel icon="catalog" class="!mb-0">{{ t('catalog.tabs.brands') }}</FieldLabel>
-              <button type="button" class="text-xs font-medium text-brand-600" @click="router.push({ name: 'catalog-brands' })">
-                {{ t('catalog.manageBrands') }}
-              </button>
-            </div>
-            <select v-model="form.brand_id" class="field" :key="`brands-${brandOptions.map(b => b.id).join('|')}`">
-              <option value="">—</option>
-              <option v-for="b in brandOptions" :key="b.id" :value="b.id">{{ b.name }}</option>
-            </select>
-            <p v-if="!brandOptions.length" class="mt-1 text-xs text-slate-500">{{ t('catalog.emptyBrands') }}</p>
-          </div>
-        </div>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <div class="mb-1 flex items-center justify-between gap-2">
-              <FieldLabel icon="package" class="!mb-0">{{ t('nav.units') }}</FieldLabel>
-              <button type="button" class="text-xs font-medium text-brand-600" @click="router.push({ name: 'catalog-units' })">
-                {{ t('catalog.manageUnits') }}
-              </button>
-            </div>
-            <select v-model="form.unit_id" class="field" :key="`units-${unitOptions.map(u => u.id).join('|')}`">
-              <option value="">—</option>
-              <option v-for="u in unitOptions" :key="u.id" :value="u.id">{{ u.name }} ({{ u.code }})</option>
-            </select>
-            <p v-if="!unitOptions.length" class="mt-1 text-xs text-slate-500">{{ t('catalog.emptyUnits') }}</p>
-          </div>
-          <div>
-            <div class="mb-1 flex items-center justify-between gap-2">
-              <FieldLabel icon="percent" class="!mb-0">{{ t('catalog.tabs.taxes') }}</FieldLabel>
-              <button type="button" class="text-xs font-medium text-brand-600" @click="router.push({ name: 'catalog-taxes' })">
-                {{ t('catalog.manageTaxes') }}
-              </button>
-            </div>
-            <select v-model="form.tax_id" class="field" :key="`taxes-${taxOptions.map(tx => tx.id).join('|')}`">
-              <option value="">—</option>
-              <option v-for="tx in taxOptions" :key="tx.id" :value="tx.id">{{ tx.name }} ({{ tx.rate }}%)</option>
-            </select>
-            <p v-if="!taxOptions.length" class="mt-1 text-xs text-slate-500">{{ t('catalog.emptyTaxes') }}</p>
-          </div>
+          <select v-model="form.tax_id" class="field max-w-md" :key="`taxes-${taxOptions.map(tx => tx.id).join('|')}`">
+            <option value="">—</option>
+            <option v-for="tx in taxOptions" :key="tx.id" :value="tx.id">{{ tx.name }} ({{ tx.rate }}%)</option>
+          </select>
+          <p v-if="!taxOptions.length" class="mt-1 text-xs text-slate-500">{{ t('catalog.emptyTaxes') }}</p>
         </div>
         <div v-if="isQuantifiable" class="grid gap-4 sm:grid-cols-3">
           <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="tag" :size="14" /></span><input v-model="form.is_serialized" type="checkbox" class="rounded" />{{ t('products.serialized') }}</label>

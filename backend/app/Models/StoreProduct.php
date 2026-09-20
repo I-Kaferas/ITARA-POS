@@ -20,6 +20,10 @@ class StoreProduct extends Pivot
         'tenant_id',
         'store_id',
         'product_id',
+        'category_id',
+        'brand_id',
+        'unit_id',
+        'attributes',
         'is_available',
         'price_override',
         'imported_at',
@@ -32,6 +36,7 @@ class StoreProduct extends Pivot
             'is_available' => 'boolean',
             'price_override' => 'integer',
             'imported_at' => 'datetime',
+            'attributes' => 'array',
         ];
     }
 
@@ -43,6 +48,21 @@ class StoreProduct extends Pivot
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class);
     }
 
     public function importedByUser(): BelongsTo
@@ -89,7 +109,7 @@ class StoreProduct extends Pivot
             'store_product_id' => $this->id,
             'store_id' => $this->store_id,
             'product_id' => $product->id,
-            'category_id' => $product->category_id,
+            'category_id' => $this->category_id ?: $product->category_id,
             'sku' => $product->sku,
             'name' => $product->name,
             'description' => $product->description,
@@ -99,7 +119,7 @@ class StoreProduct extends Pivot
                 'type' => $b->type,
                 'is_primary' => $b->is_primary,
             ])->values()->all(),
-            'unit' => $product->unitModel?->code ?? $product->unit,
+            'unit' => $this->unit?->code ?? $product->unitModel?->code ?? $product->unit,
             'product_type' => $product->product_type,
             'requires_stock' => $product->requiresStock(),
             'is_weighable' => $product->isWeighable(),

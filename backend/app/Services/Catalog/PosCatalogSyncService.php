@@ -35,6 +35,7 @@ class PosCatalogSyncService
         $storeProducts = StoreProduct::query()
             ->where('store_id', $store->id)
             ->where('is_available', true)
+            ->with(['category:id,name', 'brand:id,name', 'unit:id,name,code,symbol'])
             ->get()
             ->keyBy('product_id');
 
@@ -70,8 +71,8 @@ class PosCatalogSyncService
                     ? $storeProduct->toPosSyncArray()
                     : $this->productPayload($product, $store);
 
-                $payload['category_id'] = $product->category_id;
-                $payload['category_name'] = $product->category?->name;
+                $payload['category_id'] = $storeProduct?->category_id ?: $product->category_id;
+                $payload['category_name'] = $storeProduct?->category?->name ?? $product->category?->name;
                 $payload['low_stock_threshold'] = $product->effectiveLowStockThreshold();
                 $payload['cost_price'] = (int) ($product->cost_price ?? 0);
                 $payload['track_expiration'] = $product->tracksExpiration();
@@ -174,7 +175,16 @@ class PosCatalogSyncService
             ->whereNotNull('category_id')
             ->whereHas('storeProducts', fn ($q) => $q->where('store_id', $store->id)->where('is_available', true))
             ->distinct()
-            ->pluck('category_id');
+            ->pluck('category_id')
+            ->merge(
+                StoreProduct::query()
+                    ->where('store_id', $store->id)
+                    ->where('is_available', true)
+                    ->whereNotNull('category_id')
+                    ->pluck('category_id')
+            )
+            ->unique()
+            ->values();
 
         $byId = $categories->keyBy('id');
         $included = collect();

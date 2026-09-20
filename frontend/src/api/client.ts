@@ -36,7 +36,7 @@ export function extractApiErrorMessage(error: unknown, fallback = connectionErro
     }
   }
 
-  return payload?.message ?? error.message ?? fallback
+  return payload?.message || error.message || fallback
 }
 
 export function getToken(): string | null {

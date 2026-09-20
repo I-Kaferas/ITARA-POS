@@ -9,6 +9,7 @@ import ModuleSearch from './ModuleSearch.vue'
 import RealtimeIndicator from './RealtimeIndicator.vue'
 import StockAlertBell from './StockAlertBell.vue'
 import { useAuthStore } from '../../stores/auth'
+import { useBackofficeStore } from '../../stores/backoffice'
 import { useBrandingStore } from '../../stores/branding'
 import { useContextStore } from '../../stores/context'
 import { usePageHeaderStore } from '../../stores/pageHeader'
@@ -30,6 +31,7 @@ const slots = useSlots()
 const auth = useAuthStore()
 const brandingStore = useBrandingStore()
 const context = useContextStore()
+const backoffice = useBackofficeStore()
 const realtime = useRealtimeStore()
 const pageHeader = usePageHeaderStore()
 const moduleSearch = ref<InstanceType<typeof ModuleSearch> | null>(null)
@@ -520,9 +522,10 @@ watch(() => route.path, () => {
   drawerOpen.value = false
 })
 
-watch(() => context.currentStoreId, () => {
+watch(() => context.currentStoreId, (storeId) => {
   realtime.resubscribe()
-})
+  void backoffice.loadStoreTaxonomies(storeId, company.value?.id)
+}, { immediate: true })
 
 watch(userMenuOpen, async (open) => {
   if (!open) return

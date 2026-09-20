@@ -219,6 +219,7 @@ export interface CashRegister {
   id: string
   tenant_id: string
   store_id: string
+  store?: { id: string; name: string } | null
   device_id?: string | null
   name: string
   code: string
@@ -655,6 +656,13 @@ export interface StoreProductItem {
   price_override?: number | null
   effective_price: number
   imported_at: string
+  category_id?: string | null
+  brand_id?: string | null
+  unit_id?: string | null
+  attributes?: { attribute_id: string; name: string; code: string; value: string }[]
+  category?: Category | null
+  brand?: Brand | null
+  unit?: Unit | null
   product: Product
 }
 

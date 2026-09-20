@@ -56,7 +56,6 @@ function unitLabel(product: PosProduct) {
 }
 
 function stockCaption(product: PosProduct) {
-  if (!needsSaleQuantity(product)) return t('pos.noQuantity')
   const available = availableOnHand(product)
   if (available === null) return product.stock_display || '—'
   if (available <= 0) return t('pos.zeroAvailable')
@@ -109,6 +108,7 @@ function onSelect(product: PosProduct) {
           </p>
           <p v-if="product.category_name" class="pos-products__cat">{{ product.category_name }}</p>
           <p
+            v-if="needsSaleQuantity(product)"
             class="pos-products__stock"
             :class="{ 'pos-products__stock--out': isSoldOut(product) }"
           >

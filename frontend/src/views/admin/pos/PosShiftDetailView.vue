@@ -5,10 +5,10 @@ import { useRoute, useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import EmptyState from '../../../components/ui/EmptyState.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
-import { useContextStore } from '../../../stores/context'
 import type { CashierShift, ShiftSummary } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
 
@@ -16,9 +16,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const store = useBackofficeStore()
-const context = useContextStore()
 
-const storeId = computed(() => context.currentStoreId)
 const shiftId = computed(() => route.params.id as string)
 const shift = ref<CashierShift | null>(null)
 const summary = ref<ShiftSummary | null>(null)
@@ -51,17 +49,18 @@ const kpiCards = computed(() => {
 })
 
 async function load() {
-  if (!storeId.value || !shiftId.value) return
+  if (!shiftId.value) return
   loading.value = true
   error.value = ''
   try {
     await store.loadCurrentCashierShift()
-    const res = await store.loadCashierShiftDetail(storeId.value, shiftId.value)
+    const res = await store.loadCashierShiftDetail(shiftId.value)
     shift.value = res.data
     summary.value = res.summary
   } catch (e) {
     error.value = extractApiErrorMessage(e, t('pointOfSale.shifts.detailError'))
     shift.value = null
+    summary.value = null
   } finally {
     loading.value = false
   }
@@ -112,7 +111,7 @@ function movementLabel(type: string) {
 }
 
 onMounted(load)
-watch([storeId, shiftId], load)
+watch(shiftId, load)
 </script>
 
 <template>
@@ -134,7 +133,7 @@ watch([storeId, shiftId], load)
       </button>
     </div>
 
-    <p v-if="error" class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
+    <p v-if="error && shift" class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
     <div v-if="loading" class="py-10 text-center text-sm text-slate-500">{{ t('common.loading') }}</div>
 
     <template v-else-if="shift">
@@ -152,6 +151,7 @@ watch([storeId, shiftId], load)
             </p>
             <p class="m-0 mt-1 text-sm text-slate-600">
               <strong>{{ t('pointOfSale.shifts.register') }}:</strong> {{ shift.cash_register?.name ?? shift.cash_register_id }}
+              <span v-if="shift.cash_register?.store?.name"> · {{ shift.cash_register.store.name }}</span>
             </p>
             <p class="m-0 mt-1 text-sm text-slate-500">
               {{ t('pointOfSale.shifts.openedAt') }} {{ formatDate(shift.opened_at) }}
@@ -199,6 +199,17 @@ watch([storeId, shiftId], load)
         <p v-else class="px-4 py-8 text-center text-slate-500">{{ t('pointOfSale.shifts.noMovements') }}</p>
       </div>
     </template>
+
+    <EmptyState
+      v-else
+      icon="shift"
+      :title="t('pointOfSale.shifts.notFound')"
+      :description="error || t('pointOfSale.shifts.notFoundHint')"
+    >
+      <button type="button" class="ui-btn ui-btn--secondary mt-4" @click="router.push({ name: 'pos-shifts' })">
+        ← {{ t('nav.posShifts') }}
+      </button>
+    </EmptyState>
 
     <AppModal :open="showClose" :title="t('pointOfSale.shifts.closeAction')" @close="showClose = false">
       <div class="space-y-3">

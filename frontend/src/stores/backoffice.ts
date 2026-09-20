@@ -357,10 +357,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return cashierShifts.value
   }
 
-  async function loadCashierShiftDetail(storeId: string, shiftId: string) {
-    return api.get<{ data: CashierShift; summary: ShiftSummary }>(
-      `/stores/${storeId}/cashier-shifts/${shiftId}`,
-    )
+  async function loadCashierShiftDetail(shiftId: string, storeId?: string | null) {
+    if (storeId) {
+      return api.get<{ data: CashierShift; summary: ShiftSummary }>(
+        `/stores/${storeId}/cashier-shifts/${shiftId}`,
+      )
+    }
+    return api.get<{ data: CashierShift; summary: ShiftSummary }>(`/cashier-shifts/${shiftId}`)
   }
 
   async function loadCurrentCashierShift() {
@@ -598,6 +601,31 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return catalogAttributes.value
   }
 
+  async function loadStoreTaxonomies(storeId?: string | null, companyId?: string | null) {
+    await Promise.all([
+      loadBrands(storeId).catch(() => brands.value),
+      loadUnits(false, storeId).catch(() => units.value),
+      loadCatalogAttributes(false, storeId).catch(() => catalogAttributes.value),
+    ])
+
+    const cid = companyId ?? companies.value[0]?.id ?? null
+    let catalogList = catalogs.value
+    if (cid) {
+      catalogList = await loadCatalogs(cid, storeId).catch(() => catalogs.value)
+    }
+    const catalog = catalogList.find(item => item.is_default) ?? catalogList[0]
+    if (catalog) {
+      await loadCategories(catalog.id, storeId).catch(() => categories.value)
+    }
+
+    return {
+      categories: categories.value,
+      brands: brands.value,
+      units: units.value,
+      attributes: catalogAttributes.value,
+    }
+  }
+
   async function saveCatalogAttribute(payload: Partial<CatalogAttribute> & { store_id?: string; store_ids?: string[] }, id?: string) {
     if (id) return (await api.patch<ApiItemResponse<CatalogAttribute>>(`/catalog-attributes/${id}`, payload)).data
     return (await api.post<ApiItemResponse<CatalogAttribute>>('/catalog-attributes', payload)).data
@@ -784,11 +812,55 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return storeProducts.value
   }
 
-  async function importToStore(storeId: string, productIds: string[]) {
-    await api.post(`/stores/${storeId}/products/import`, { product_ids: productIds })
+  async function importToStore(
+    storeId: string,
+    productIds: string[],
+    taxonomy: {
+      category_id?: string | null
+      brand_id?: string | null
+      unit_id?: string | null
+      attributes?: { attribute_id: string; value: string }[]
+    } = {},
+  ) {
+    await api.post(`/stores/${storeId}/products/import`, {
+      product_ids: productIds,
+      category_id: taxonomy.category_id || null,
+      brand_id: taxonomy.brand_id || null,
+      unit_id: taxonomy.unit_id || null,
+      attributes: taxonomy.attributes ?? [],
+    })
   }
 
-  async function updateStoreProduct(storeId: string, productId: string, payload: { is_available?: boolean; price_override?: number | null }) {
+  async function classifyStoreProducts(
+    storeId: string,
+    productIds: string[],
+    taxonomy: {
+      category_id?: string | null
+      brand_id?: string | null
+      unit_id?: string | null
+      attributes?: { attribute_id: string; value: string }[]
+    },
+  ) {
+    const payload: Record<string, unknown> = { product_ids: productIds }
+    if (taxonomy.category_id) payload.category_id = taxonomy.category_id
+    if (taxonomy.brand_id) payload.brand_id = taxonomy.brand_id
+    if (taxonomy.unit_id) payload.unit_id = taxonomy.unit_id
+    if (taxonomy.attributes?.length) payload.attributes = taxonomy.attributes
+    return (await api.post<ApiListResponse<StoreProductItem>>(`/stores/${storeId}/products/classify`, payload)).data
+  }
+
+  async function updateStoreProduct(
+    storeId: string,
+    productId: string,
+    payload: {
+      is_available?: boolean
+      price_override?: number | null
+      category_id?: string | null
+      brand_id?: string | null
+      unit_id?: string | null
+      attributes?: { attribute_id: string; value: string }[]
+    },
+  ) {
     return (await api.patch<ApiItemResponse<StoreProductItem>>(`/stores/${storeId}/products/${productId}`, payload)).data
   }
 
@@ -1851,13 +1923,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadUsers, loadUserSessions, resetUserPassword, setUserActive, revokeUserSessions, loadRoles, loadPermissions, saveRole, deleteRole, assignUserRole, assignUserStore, removeUserRole,
     loadCatalogs, saveCatalog, deleteCatalog, loadCategories, saveCategory, deleteCategory,
     loadBrands, saveBrand, deleteBrand, loadUnits, saveUnit, deleteUnit,
-    loadCatalogAttributes, saveCatalogAttribute, deleteCatalogAttribute,
+    loadCatalogAttributes, saveCatalogAttribute, deleteCatalogAttribute, loadStoreTaxonomies,
     loadTaxes, saveTax, deleteTax,
     loadPromotionTypes, loadPromotions, savePromotion, deletePromotion,
     loadProducts, loadPriceList, loadProduct, saveProduct, deleteProduct, transformProductOptions,
     generateBarcode, printBarcode,
     uploadProductImage, deleteProductImage, setPrimaryImage,
-    loadStoreProducts, importToStore, updateStoreProduct, removeFromStore,
+    loadStoreProducts, importToStore, classifyStoreProducts, updateStoreProduct, removeFromStore,
     loadAllWarehouses,
     loadSuppliers, saveSupplier, deleteSupplier,
     loadPayablesSummary, loadPayablesSchedule, loadRecentSupplierPayments,

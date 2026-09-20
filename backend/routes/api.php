@@ -459,6 +459,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:catalog.products.view');
         Route::post('stores/{store}/products/import', [StoreProductController::class, 'import'])
             ->middleware('permission:catalog.products.manage');
+        Route::post('stores/{store}/products/classify', [StoreProductController::class, 'classify'])
+            ->middleware('permission:catalog.products.manage');
         Route::patch('stores/{store}/products/{product}', [StoreProductController::class, 'update'])
             ->middleware('permission:catalog.products.manage');
         Route::delete('stores/{store}/products/{product}', [StoreProductController::class, 'destroy'])
@@ -630,6 +632,8 @@ Route::prefix('v1')->group(function () {
 
         // Cashier shifts (Phase 21 — MOD-SHIFT)
         Route::get('me/cashier-shifts/current', [CashierShiftController::class, 'currentForUser'])
+            ->middleware('permission:shifts.view,shifts.manage');
+        Route::get('cashier-shifts/{cashierShift}', [CashierShiftController::class, 'showShift'])
             ->middleware('permission:shifts.view,shifts.manage');
         Route::get('stores/{store}/cashier-shifts', [CashierShiftController::class, 'indexForStore'])
             ->middleware('permission:shifts.view,shifts.manage');

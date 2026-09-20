@@ -46,8 +46,6 @@ const unitQty = ref(1)
 const optionProduct = ref<PosProduct | null>(null)
 const variantId = ref('')
 const optionQty = ref(1)
-const qtyProduct = ref<PosProduct | null>(null)
-const saleQty = ref(1)
 const accompanimentHost = ref<{ product: PosProduct; lineId: string } | null>(null)
 const selectedAccompanimentIds = ref<string[]>([])
 const cartOpen = ref(false)
@@ -308,20 +306,7 @@ function onAddProduct(product: PosProduct) {
     unitQty.value = 1
     return
   }
-  if (needsSaleQuantity(product)) {
-    qtyProduct.value = product
-    saleQty.value = 1
-    return
-  }
   addHostProduct(product, 1)
-}
-
-function confirmQtySale() {
-  if (!qtyProduct.value) return
-  const quantity = Math.max(1, Math.trunc(Number(saleQty.value) || 0))
-  const product = qtyProduct.value
-  qtyProduct.value = null
-  addHostProduct(product, quantity)
 }
 
 function confirmOptionSale() {
@@ -720,27 +705,6 @@ onUnmounted(() => {
         </div>
 
         <AppModal
-          :open="Boolean(qtyProduct)"
-          :title="qtyProduct?.name ?? t('pos.quantityTitle')"
-          icon="products"
-          tone="info"
-          size="sm"
-          @close="qtyProduct = null"
-        >
-          <form class="space-y-3" @submit.prevent="confirmQtySale">
-            <p class="text-sm text-slate-500">{{ t('pos.quantityHint') }}</p>
-            <div>
-              <FieldLabel icon="package">{{ t('beverages.quantity') }}</FieldLabel>
-              <input v-model.number="saleQty" type="number" min="1" required class="w-full rounded-lg border border-slate-300 px-3 py-2" />
-            </div>
-            <div class="flex justify-end gap-2">
-              <button type="button" class="rounded-lg border border-slate-300 px-4 py-2" @click="qtyProduct = null">{{ t('common.cancel') }}</button>
-              <button type="submit" class="rounded-lg bg-[var(--color-brand-600)] px-4 py-2 text-white">{{ t('beverages.add') }}</button>
-            </div>
-          </form>
-        </AppModal>
-
-        <AppModal
           :open="Boolean(optionProduct)"
           :title="optionProduct ? `${t('pos.chooseOption')} · ${optionProduct.name}` : t('pos.chooseOption')"
           icon="products"
@@ -811,7 +775,6 @@ onUnmounted(() => {
               <FieldLabel icon="package">{{ t('beverages.quantity') }}</FieldLabel>
               <input v-model.number="unitQty" type="number" min="1" class="w-full rounded-lg border border-slate-300 px-3 py-2" />
             </div>
-            <p v-else class="text-sm text-slate-500">{{ t('pos.noQuantity') }}</p>
             <div class="flex justify-end gap-2">
               <button type="button" class="rounded-lg border border-slate-300 px-4 py-2" @click="unitProduct = null">{{ t('common.cancel') }}</button>
               <button type="submit" class="rounded-lg bg-[var(--color-brand-600)] px-4 py-2 text-white">{{ t('beverages.add') }}</button>
