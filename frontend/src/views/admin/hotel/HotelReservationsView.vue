@@ -1123,7 +1123,7 @@ async function remove(row: Doc) {
 
 .rsv__block { margin-top: 1.2rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .rsv__block h3 { font-size: 0.92rem; }
-.rsv__block h3 :deep(svg) { color: var(--color-brand-600, #4a6d86); }
+.rsv__block h3 :deep(svg) { color: var(--color-brand-600, var(--color-brand-600)); }
 .rsv__label {
   margin: 0;
   font-size: 0.78rem;
@@ -1133,7 +1133,7 @@ async function remove(row: Doc) {
   letter-spacing: 0.03em;
 }
 .rsv__hint { margin: 0; font-size: 0.72rem; color: #94a3b8; }
-.rsv__link { color: var(--color-brand-600, #4a6d86); font-weight: 600; text-decoration: none; }
+.rsv__link { color: var(--color-brand-600, var(--color-brand-600)); font-weight: 600; text-decoration: none; }
 .rsv__grid { display: grid; gap: 0.85rem 1rem; grid-template-columns: 1fr; }
 @media (min-width: 720px) {
   .rsv__grid { grid-template-columns: 1fr 1fr; }
@@ -1163,7 +1163,7 @@ async function remove(row: Doc) {
 .rsv__space--on { border-color: var(--color-brand-500); background: #f3f6f8; }
 .rsv__space-icon {
   display: inline-flex; width: 1.6rem; height: 1.6rem; align-items: center; justify-content: center;
-  border-radius: 0.4rem; background: #eef4f8; color: var(--color-brand-600, #4a6d86); margin-bottom: 0.15rem;
+  border-radius: 0.4rem; background: #eef4f8; color: var(--color-brand-600, var(--color-brand-600)); margin-bottom: 0.15rem;
 }
 
 .rsv__money { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.4rem; }
@@ -1204,7 +1204,7 @@ async function remove(row: Doc) {
   flex-shrink: 0;
 }
 .rsv__filters-toggle--on {
-  border-color: var(--color-brand-500, #4a6d86);
+  border-color: var(--color-brand-500, var(--color-brand-600));
   background: #f3f6f8;
 }
 .rsv__filters-caret {
@@ -1224,7 +1224,7 @@ async function remove(row: Doc) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-brand-600, #4a6d86);
+  background: var(--color-brand-600, var(--color-brand-600));
   color: #fff;
   font-size: 0.7rem;
 }
@@ -1275,7 +1275,7 @@ async function remove(row: Doc) {
   cursor: pointer;
 }
 .rsv__chip--on {
-  border-color: var(--color-brand-500, #4a6d86);
+  border-color: var(--color-brand-500, var(--color-brand-600));
   background: #eef4f8;
   color: #1c2830;
   font-weight: 650;
@@ -1296,7 +1296,7 @@ async function remove(row: Doc) {
   padding: 1.15rem 1.2rem 0.85rem; flex-shrink: 0;
 }
 .rsv__list-head h3 { font-size: 1rem; }
-.rsv__list-head h3 :deep(svg) { color: var(--color-brand-600, #4a6d86); }
+.rsv__list-head h3 :deep(svg) { color: var(--color-brand-600, var(--color-brand-600)); }
 .rsv__list-head p { margin: 0.25rem 0 0; font-size: 0.8rem; color: #7b8d9a; }
 
 .rsv__table-wrap {
@@ -1349,7 +1349,7 @@ async function remove(row: Doc) {
   height: 2rem;
   border-radius: 999px;
   background: #eef4f8;
-  color: var(--color-brand-600, #4a6d86);
+  color: var(--color-brand-600, var(--color-brand-600));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1394,7 +1394,7 @@ async function remove(row: Doc) {
 .rsv__detail-btn {
   border: 0;
   background: none;
-  color: var(--color-brand-600, #4a6d86);
+  color: var(--color-brand-600, var(--color-brand-600));
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;

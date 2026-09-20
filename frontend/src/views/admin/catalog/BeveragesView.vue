@@ -7,6 +7,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { api } from '../../../api/client'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import { formatMoney } from '../../../utils/money'
 import type { Product, Warehouse } from '../../../types'
 
@@ -30,6 +31,7 @@ type Dashboard = {
 
 const { t } = useI18n()
 const store = useBackofficeStore()
+const context = useContextStore()
 const { confirm: confirmDialog } = useConfirm()
 
 const warehouses = ref<Warehouse[]>([])
@@ -52,7 +54,7 @@ onMounted(async () => {
   await store.loadCompanies()
   const companyId = store.companies[0]?.id
   if (companyId) {
-    const catalogs = await store.loadCatalogs(companyId)
+    const catalogs = await store.loadCatalogs(companyId, context.currentStoreId)
     const catalogId = catalogs.find(item => item.is_default)?.id ?? catalogs[0]?.id
     if (catalogId) products.value = await store.loadProducts(catalogId)
   }
@@ -147,7 +149,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
           <select v-model="warehouseId" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" @change="refresh">
             <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">{{ warehouse.name }}</option>
           </select>
-          <button class="rounded-lg bg-[#4a6d86] px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('beverages.configure') }}</button>
+          <button class="rounded-lg bg-[var(--color-brand-600)] px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('beverages.configure') }}</button>
         </div>
       </div>
 
@@ -262,11 +264,11 @@ async function removeBeverage(row: Dashboard['products'][number]) {
             <button v-if="units.length > 1" type="button" class="text-sm text-red-600" @click="units.splice(index, 1)">{{ t('common.delete') }}</button>
           </div>
         </div>
-        <button type="button" class="text-sm text-[#4a6d86]" @click="addUnit">+ {{ t('beverages.addUnit') }}</button>
+        <button type="button" class="text-sm text-[var(--color-brand-600)]" @click="addUnit">+ {{ t('beverages.addUnit') }}</button>
         <p class="text-xs text-slate-500">{{ t('beverages.yieldHint', { count: bottleVolume && units[1] ? Math.floor(bottleVolume / (units[1].volume_ml || 1)) : 0 }) }}</p>
         <div class="flex justify-end gap-2">
           <button type="button" class="rounded-lg border border-slate-300 px-4 py-2" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="rounded-lg bg-[#4a6d86] px-4 py-2 text-white" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="rounded-lg bg-[var(--color-brand-600)] px-4 py-2 text-white" :disabled="saving">{{ t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -311,7 +313,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
 }
 
 .stat__accent {
-  color: #4a6d86;
+  color: var(--color-brand-600);
 }
 
 .list,
@@ -375,7 +377,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
   flex-shrink: 0;
   border-radius: 0.7rem;
   background: #e7eef3;
-  color: #4a6d86;
+  color: var(--color-brand-600);
   font-weight: 700;
 }
 
@@ -480,7 +482,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
 .drink__price {
   font-family: var(--font-mono);
   font-weight: 650;
-  color: #4a6d86;
+  color: var(--color-brand-600);
 }
 
 .drink__profit {
@@ -523,7 +525,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
   height: 1.35rem;
   border-radius: 999px;
   background: #e7eef3;
-  color: #4a6d86;
+  color: var(--color-brand-600);
   font-size: 0.68rem;
   font-weight: 700;
 }

@@ -133,7 +133,8 @@ const router = createRouter({
         {
               path: 'pos/terminal',
               name: 'pos',
-              redirect: '/admin/pos/shifts',
+              component: () => import('../views/admin/pos/PosView.vue'),
+              meta: { requiresAuth: true },
             },
         {
               path: 'pos/tables',
@@ -267,10 +268,16 @@ const router = createRouter({
               component: () => import('../views/admin/reports/SalesReportView.vue'),
               meta: { requiresAuth: true },
             },
-        {
+            {
               path: 'reports/inventory',
               name: 'reports-inventory',
               component: () => import('../views/admin/reports/InventoryReportView.vue'),
+              meta: { requiresAuth: true },
+            },
+            {
+              path: 'reports/store-stock',
+              name: 'reports-store-stock',
+              component: () => import('../views/admin/reports/StoreStockReportView.vue'),
               meta: { requiresAuth: true },
             },
         {

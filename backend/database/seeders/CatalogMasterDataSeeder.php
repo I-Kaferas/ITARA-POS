@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Models\Brand;
+use App\Models\Store;
 use App\Models\Tax;
 use App\Models\Tenant;
-use App\Models\Unit;
+use App\Services\Catalog\StoreCatalogService;
 use Illuminate\Database\Seeder;
 
 class CatalogMasterDataSeeder extends Seeder
@@ -16,21 +16,6 @@ class CatalogMasterDataSeeder extends Seeder
 
         if (! $tenant) {
             return;
-        }
-
-        $units = [
-            ['code' => 'piece', 'name' => 'Pièce', 'symbol' => 'pc', 'is_fractional' => false],
-            ['code' => 'kg', 'name' => 'Kilogramme', 'symbol' => 'kg', 'is_fractional' => true],
-            ['code' => 'g', 'name' => 'Gramme', 'symbol' => 'g', 'is_fractional' => true],
-            ['code' => 'L', 'name' => 'Litre', 'symbol' => 'L', 'is_fractional' => true],
-            ['code' => 'h', 'name' => 'Heure', 'symbol' => 'h', 'is_fractional' => true],
-        ];
-
-        foreach ($units as $unit) {
-            Unit::query()->firstOrCreate(
-                ['tenant_id' => $tenant->id, 'code' => $unit['code']],
-                [...$unit, 'tenant_id' => $tenant->id, 'is_active' => true],
-            );
         }
 
         Tax::query()->firstOrCreate(
@@ -44,14 +29,10 @@ class CatalogMasterDataSeeder extends Seeder
             ],
         );
 
-        Brand::query()->firstOrCreate(
-            ['tenant_id' => $tenant->id, 'slug' => 'generique'],
-            [
-                'tenant_id' => $tenant->id,
-                'name' => 'Générique',
-                'description' => 'Marque par défaut',
-                'is_active' => true,
-            ],
-        );
+        $bootstrap = app(StoreCatalogService::class);
+        Store::query()
+            ->where('tenant_id', $tenant->id)
+            ->get()
+            ->each(fn (Store $store) => $bootstrap->bootstrap($store));
     }
 }

@@ -156,5 +156,5 @@ watchLiveSearch(reference, search)
 .sheet__line span:first-child { flex: 1; min-width: 0; }
 input, select, button { border: 1px solid #cbd5e1; border-radius: 0.45rem; padding: 0.4rem 0.55rem; }
 .sheet__line input { width: 4.5rem; }
-button { background: #4a6d86; color: white; border: 0; font-weight: 650; cursor: pointer; }
+button { background: var(--color-brand-600); color: white; border: 0; font-weight: 650; cursor: pointer; }
 </style>

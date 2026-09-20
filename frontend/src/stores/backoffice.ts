@@ -88,6 +88,7 @@ import type {
   SalesReport,
   PosOverview,
   InventoryReport,
+  StoreStockReport,
   PurchasesReport,
   ForecastsReport,
   FinancialReport,
@@ -523,8 +524,9 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   }
 
   // Catalogs
-  async function loadCatalogs(companyId: string) {
-    catalogs.value = (await api.get<ApiListResponse<Catalog>>(`/companies/${companyId}/catalogs`)).data
+  async function loadCatalogs(companyId: string, storeId?: string | null) {
+    const q = storeId ? `?store_id=${encodeURIComponent(storeId)}` : ''
+    catalogs.value = (await api.get<ApiListResponse<Catalog>>(`/companies/${companyId}/catalogs${q}`)).data
     return catalogs.value
   }
 
@@ -538,12 +540,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   }
 
   // Categories
-  async function loadCategories(catalogId: string) {
-    categories.value = (await api.get<ApiListResponse<Category>>(`/catalogs/${catalogId}/categories`)).data
+  async function loadCategories(catalogId: string, storeId?: string | null) {
+    const q = storeId ? `?store_id=${encodeURIComponent(storeId)}` : ''
+    categories.value = (await api.get<ApiListResponse<Category>>(`/catalogs/${catalogId}/categories${q}`)).data
     return categories.value
   }
 
-  async function saveCategory(catalogId: string, payload: Partial<Category>, id?: string) {
+  async function saveCategory(catalogId: string, payload: Partial<Category> & { store_id?: string; store_ids?: string[] }, id?: string) {
     if (id) return (await api.patch<ApiItemResponse<Category>>(`/categories/${id}`, payload)).data
     return (await api.post<ApiItemResponse<Category>>(`/catalogs/${catalogId}/categories`, payload)).data
   }
@@ -553,12 +556,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   }
 
   // Brands, units, taxes
-  async function loadBrands() {
-    brands.value = (await api.get<ApiListResponse<Brand>>('/brands')).data
+  async function loadBrands(storeId?: string | null) {
+    const q = storeId ? `?store_id=${encodeURIComponent(storeId)}` : ''
+    brands.value = (await api.get<ApiListResponse<Brand>>(`/brands${q}`)).data
     return brands.value
   }
 
-  async function saveBrand(payload: Partial<Brand>, id?: string) {
+  async function saveBrand(payload: Partial<Brand> & { store_id?: string; store_ids?: string[] }, id?: string) {
     if (id) return (await api.patch<ApiItemResponse<Brand>>(`/brands/${id}`, payload)).data
     return (await api.post<ApiItemResponse<Brand>>('/brands', payload)).data
   }
@@ -567,13 +571,16 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     await api.delete(`/brands/${id}`)
   }
 
-  async function loadUnits(activeOnly = false) {
-    const q = activeOnly ? '?active_only=1' : ''
+  async function loadUnits(activeOnly = false, storeId?: string | null) {
+    const params = new URLSearchParams()
+    if (activeOnly) params.set('active_only', '1')
+    if (storeId) params.set('store_id', storeId)
+    const q = params.toString() ? `?${params}` : ''
     units.value = (await api.get<ApiListResponse<Unit>>(`/units${q}`)).data
     return units.value
   }
 
-  async function saveUnit(payload: Partial<Unit>, id?: string) {
+  async function saveUnit(payload: Partial<Unit> & { store_id?: string; store_ids?: string[] }, id?: string) {
     if (id) return (await api.patch<ApiItemResponse<Unit>>(`/units/${id}`, payload)).data
     return (await api.post<ApiItemResponse<Unit>>('/units', payload)).data
   }
@@ -582,13 +589,16 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     await api.delete(`/units/${id}`)
   }
 
-  async function loadCatalogAttributes(ensureDefaults = false) {
-    const q = ensureDefaults ? '?ensure_defaults=1' : ''
+  async function loadCatalogAttributes(ensureDefaults = false, storeId?: string | null) {
+    const params = new URLSearchParams()
+    if (ensureDefaults) params.set('ensure_defaults', '1')
+    if (storeId) params.set('store_id', storeId)
+    const q = params.toString() ? `?${params}` : ''
     catalogAttributes.value = (await api.get<ApiListResponse<CatalogAttribute>>(`/catalog-attributes${q}`)).data
     return catalogAttributes.value
   }
 
-  async function saveCatalogAttribute(payload: Partial<CatalogAttribute>, id?: string) {
+  async function saveCatalogAttribute(payload: Partial<CatalogAttribute> & { store_id?: string; store_ids?: string[] }, id?: string) {
     if (id) return (await api.patch<ApiItemResponse<CatalogAttribute>>(`/catalog-attributes/${id}`, payload)).data
     return (await api.post<ApiItemResponse<CatalogAttribute>>('/catalog-attributes', payload)).data
   }
@@ -1389,8 +1399,9 @@ export const useBackofficeStore = defineStore('backoffice', () => {
 
   async function loadAllProducts(): Promise<Product[]> {
     await loadCompanies()
+    const storeId = localStorage.getItem('pos_store_id')
     for (const company of companies.value) {
-      const cats = await loadCatalogs(company.id)
+      const cats = await loadCatalogs(company.id, storeId)
       if (cats.length) {
         await loadProducts(cats[0].id)
         return products.value
@@ -1636,6 +1647,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.get<ApiItemResponse<InventoryReport>>(`/reports/inventory${suffix}`)).data
   }
 
+  async function loadStoreStockReport(params: { store_id?: string; from?: string; to?: string; idle_days?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    return (await api.get<ApiItemResponse<StoreStockReport>>(`/reports/store-stock${suffix}`)).data
+  }
+
   async function loadFinancialReport(from?: string, to?: string) {
     const q = new URLSearchParams()
     if (from) q.set('from', from)
@@ -1729,6 +1747,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
     const suffix = q.toString() ? `?${q}` : ''
     await api.download(`/reports/export/inventory${suffix}`, 'inventory-export.csv')
+  }
+
+  async function exportStoreStockReport(params: { store_id?: string; from?: string; to?: string; idle_days?: string } = {}) {
+    const q = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+    const suffix = q.toString() ? `?${q}` : ''
+    await api.download(`/reports/export/store-stock${suffix}`, 'stock-boutique.csv')
   }
 
   async function exportPurchasesReport(params: { from?: string; to?: string } = {}) {
@@ -1868,8 +1893,8 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     saveUser, deleteUser,
     loadAuditLogs,
     loadAccountingEntries, loadAccountingSummary, createAccountingEntry,
-    loadSalesReport, loadInventoryReport, loadFinancialReport, loadRevenueReport, loadCondensedReport, loadDailyReport, loadDailyReportDetail, loadUserPerformanceReport, loadUserPerformanceDetail, loadUserPerformanceSessionDetail, loadPurchasesReport, loadForecastsReport,
-    exportSalesReport, exportRevenueReport, exportInventoryReport, exportPurchasesReport,
+    loadSalesReport, loadInventoryReport, loadStoreStockReport, loadFinancialReport, loadRevenueReport, loadCondensedReport, loadDailyReport, loadDailyReportDetail, loadUserPerformanceReport, loadUserPerformanceDetail, loadUserPerformanceSessionDetail, loadPurchasesReport, loadForecastsReport,
+    exportSalesReport, exportRevenueReport, exportInventoryReport, exportStoreStockReport, exportPurchasesReport,
     loadPosOverview,
     loadSerialNumbers, saveSerialNumber, deleteSerialNumber,
     loadProductBatches, createProductBatch,

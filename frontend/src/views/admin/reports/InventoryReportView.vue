@@ -537,7 +537,7 @@ onMounted(async () => {
   padding: 0.28rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.95rem;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  background: #f8fafc;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   overflow-x: auto;
   max-width: 100%;
@@ -889,7 +889,7 @@ onMounted(async () => {
 
 .warehouse__fill {
   width: 100%;
-  background: linear-gradient(180deg, #14b8a6, #0f766e);
+  background: #0f766e;
   border-radius: 0.5rem 0.5rem 0 0;
 }
 

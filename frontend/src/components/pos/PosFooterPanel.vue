@@ -16,6 +16,10 @@ const props = defineProps<{
   isEmpty: boolean
   calculating?: boolean
   paymentMethods?: PosPaymentMethod[]
+  /** Compact column layout for the Current Order sidebar */
+  compact?: boolean
+  /** Hide customer chip when customer UI lives in the cart panel */
+  hideCustomerChip?: boolean
   labels: {
     customer: string
     discount: string
@@ -77,7 +81,7 @@ const emit = defineEmits<{
   retrieve: [id: string, options?: { openPayment?: boolean }]
   deleteHeld: [id: string]
   cancel: []
-  pay: [payments: PosPaymentLine[]]
+  pay: [payments: PosPaymentLine[], done: (result: { success: boolean; message?: string }) => void]
 }>()
 
 const { locale } = useI18n()
@@ -88,6 +92,7 @@ const showDiscount = ref(false)
 const showNote = ref(false)
 const showHeld = ref(false)
 const showPayment = ref(false)
+const paying = ref(false)
 
 const customerQuery = ref('')
 const customerResults = ref<PosCustomerOption[]>([])
@@ -162,10 +167,15 @@ function money(amount: number) {
 
 function openPaymentModal() {
   if (props.isEmpty) return
+  if (!props.customer) {
+    paymentError.value = props.labels.customerRequired || 'Sélectionnez un client'
+    showCustomer.value = true
+    return
+  }
   showPayment.value = true
 }
 
-defineExpose({ openPaymentModal })
+defineExpose({ openPaymentModal, openCustomerModal, openCreateCustomer })
 
 function amountInputFromCents(amount: number) {
   const major = Math.max(0, amount) / 100
@@ -215,6 +225,7 @@ function openCreateCustomer() {
     phone: '',
     email: '',
   }
+  showCustomer.value = true
 }
 
 async function submitCreateCustomer() {
@@ -299,6 +310,10 @@ function defaultMixedLines() {
 
 function openPayment() {
   paymentError.value = ''
+  if (!props.customer) {
+    showCustomer.value = true
+    return
+  }
   paymentMode.value = 'single'
   const first = firstAvailableMethod()
   paymentMethod.value = first?.value ?? 'cash'
@@ -345,6 +360,13 @@ function fillRemaining(index: number) {
 
 function confirmPayment() {
   paymentError.value = ''
+  if (paying.value) return
+  if (!props.customer) {
+    paymentError.value = props.labels.customerRequired || 'Sélectionnez un client'
+    showPayment.value = false
+    showCustomer.value = true
+    return
+  }
 
   if (paymentMode.value === 'single') {
     const method = selectedMethod.value
@@ -363,12 +385,19 @@ function confirmPayment() {
       paymentError.value = 'Montant insuffisant'
       return
     }
+    paying.value = true
     emit('pay', [{
       method: paymentMethod.value,
       amount: props.totals.grand_total,
       tendered: supportsChange.value ? tendered : undefined,
-    }])
-    showPayment.value = false
+    }], (result) => {
+      paying.value = false
+      if (!result.success) {
+        paymentError.value = result.message || 'Paiement refusé'
+        return
+      }
+      showPayment.value = false
+    })
     return
   }
 
@@ -405,8 +434,15 @@ function confirmPayment() {
     return
   }
 
-  emit('pay', payments)
-  showPayment.value = false
+  paying.value = true
+  emit('pay', payments, (result) => {
+    paying.value = false
+    if (!result.success) {
+      paymentError.value = result.message || 'Paiement refusé'
+      return
+    }
+    showPayment.value = false
+  })
 }
 
 const promoNames = computed(() => {
@@ -421,9 +457,9 @@ const discountLabel = () => {
 </script>
 
 <template>
-  <footer class="pos-footer">
+  <footer class="pos-footer" :class="{ 'pos-footer--compact': compact }">
     <div class="pos-footer__actions">
-      <button type="button" class="pos-chip" @click="openCustomerModal">
+      <button v-if="!hideCustomerChip" type="button" class="pos-chip" @click="openCustomerModal">
         {{ customer?.name ?? labels.customer }}
       </button>
       <button type="button" class="pos-chip" @click="openDiscount">
@@ -465,7 +501,7 @@ const discountLabel = () => {
       <button type="button" class="pos-btn pos-btn--outline" :disabled="isEmpty" @click="emit('cancel')">
         {{ labels.cancel }}
       </button>
-      <button type="button" class="pos-btn pos-btn--pay" :disabled="isEmpty || calculating" @click="openPayment">
+      <button type="button" class="pos-btn pos-btn--pay" :disabled="isEmpty || calculating || !customer" @click="openPayment">
         {{ labels.pay }}
       </button>
     </div>
@@ -756,14 +792,14 @@ const discountLabel = () => {
 
         <p v-if="paymentError" class="pos-payment-error">{{ paymentError }}</p>
         <div class="pos-modal__actions">
-          <button type="button" class="pos-btn pos-btn--outline" @click="showPayment = false">{{ labels.cancel }}</button>
+          <button type="button" class="pos-btn pos-btn--outline" :disabled="paying" @click="showPayment = false">{{ labels.cancel }}</button>
           <button
             type="button"
             class="pos-btn pos-btn--pay"
-            :disabled="!methods.length || (paymentMode === 'mixed' && mixedRemaining !== 0)"
+            :disabled="paying || !methods.length || (paymentMode === 'mixed' && mixedRemaining !== 0)"
             @click="confirmPayment"
           >
-            {{ labels.pay }}
+            {{ paying ? '…' : labels.pay }}
           </button>
         </div>
       </div>
@@ -782,6 +818,31 @@ const discountLabel = () => {
   border-top: 1px solid #e7edf3;
   padding: 0.7rem 0.9rem;
   box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.05);
+}
+.pos-footer--compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 1rem 1rem;
+  box-shadow: none;
+}
+.pos-footer--compact .pos-footer__actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.pos-footer--compact .pos-chip {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pos-footer--compact .pos-footer__summary {
+  padding: 0;
+}
+.pos-footer--compact .pos-footer__buttons {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.pos-footer--compact .pos-btn--pay {
+  grid-column: 1 / -1;
 }
 .pos-footer__actions {
   display: flex;
@@ -804,7 +865,7 @@ const discountLabel = () => {
   text-overflow: ellipsis;
 }
 .pos-chip:hover {
-  border-color: color-mix(in srgb, var(--color-brand-500, #5c7f96) 40%, white);
+  border-color: color-mix(in srgb, var(--color-brand-500, var(--color-brand-500)) 40%, white);
   background: #fff;
 }
 .pos-footer__summary {
@@ -873,7 +934,7 @@ const discountLabel = () => {
 .pos-btn--pay {
   grid-column: 1 / -1;
   min-height: 3rem;
-  background: var(--color-brand-600, #4a6d86);
+  background: var(--color-brand-600, var(--color-brand-600));
   color: white;
   font-size: 1rem;
   letter-spacing: 0.04em;
@@ -973,7 +1034,7 @@ const discountLabel = () => {
 }
 .pos-modal__item span { font-size: 0.75rem; color: #64748b; }
 .pos-modal__item--danger { color: #dc2626; border-color: #fecaca; }
-.pos-modal__item--create { color: var(--color-brand-600, #4a6d86); border-color: #c5d4df; font-weight: 600; }
+.pos-modal__item--create { color: var(--color-brand-600, var(--color-brand-600)); border-color: #c5d4df; font-weight: 600; }
 .pos-modal__tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
 .pos-modal__tab {
   flex: 1;
@@ -985,9 +1046,9 @@ const discountLabel = () => {
   cursor: pointer;
 }
 .pos-modal__tab--active {
-  background: var(--color-brand-600, #4a6d86);
+  background: var(--color-brand-600, var(--color-brand-600));
   color: white;
-  border-color: var(--color-brand-600, #4a6d86);
+  border-color: var(--color-brand-600, var(--color-brand-600));
 }
 .pos-modal__empty { color: #94a3b8; text-align: center; padding: 1rem; }
 .pos-modal__row { display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.875rem; }
@@ -1009,7 +1070,7 @@ const discountLabel = () => {
 }
 .pos-held__date { margin: 0.125rem 0 0; font-size: 0.75rem; color: #94a3b8; }
 .pos-held__meta { margin: 0.2rem 0 0; font-size: 0.75rem; color: #64748b; }
-.pos-held__total { font-weight: 700; color: #4a6d86; white-space: nowrap; }
+.pos-held__total { font-weight: 700; color: var(--color-brand-600); white-space: nowrap; }
 .pos-held__items {
   display: flex;
   flex-direction: column;
@@ -1045,7 +1106,7 @@ const discountLabel = () => {
   font-weight: 700;
   text-align: center;
   margin: 0 0 1rem;
-  color: var(--color-brand-600, #4a6d86);
+  color: var(--color-brand-600, var(--color-brand-600));
 }
 .pos-label { display: block; font-size: 0.8125rem; margin-bottom: 0.25rem; }
 .pos-change { font-size: 0.875rem; color: #16a34a; margin-top: 0.25rem; }
@@ -1067,7 +1128,7 @@ const discountLabel = () => {
   font-size: 0.875rem;
 }
 .pos-method--active {
-  border-color: var(--color-brand-600, #4a6d86);
+  border-color: var(--color-brand-600, var(--color-brand-600));
   background: #e4edf2;
 }
 .pos-method--disabled {

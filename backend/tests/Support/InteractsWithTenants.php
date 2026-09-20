@@ -98,6 +98,8 @@ trait InteractsWithTenants
             'is_active' => true,
         ]);
 
+        app(\App\Services\Catalog\StoreCatalogService::class)->ensureUnits($store);
+
         $warehouse = Warehouse::create([
             'tenant_id' => $tenant->id,
             'branch_id' => $branch->id,

@@ -37,6 +37,13 @@ const links = [
     color: '#0f766e',
   },
   {
+    to: '/admin/reports/store-stock',
+    titleKey: 'reports.explore.storeStock.title',
+    descKey: 'reports.explore.storeStock.desc',
+    icon: 'stores',
+    color: '#0e7490',
+  },
+  {
     to: '/admin/reports/financial',
     titleKey: 'reports.explore.financial.title',
     descKey: 'reports.explore.financial.desc',
@@ -490,7 +497,7 @@ onMounted(load)
   width: 70%;
   max-width: 1.4rem;
   border-radius: 0.35rem 0.35rem 0.15rem 0.15rem;
-  background: linear-gradient(180deg, #0f766e, #059669);
+  background: #0f766e;
   min-height: 4px;
 }
 

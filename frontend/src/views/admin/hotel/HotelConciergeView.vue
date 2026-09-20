@@ -979,8 +979,8 @@ onMounted(load)
 }
 
 .cg__chip--on {
-  border-color: var(--cat, var(--color-brand-600, #4a6d86));
-  background: color-mix(in srgb, var(--cat, #4a6d86) 12%, #fff);
+  border-color: var(--cat, var(--color-brand-600, var(--color-brand-600)));
+  background: color-mix(in srgb, var(--cat, var(--color-brand-600)) 12%, #fff);
   color: #1c2830;
 }
 
@@ -1004,7 +1004,7 @@ onMounted(load)
 }
 
 .cg__filters-toggle--on {
-  border-color: var(--color-brand-600, #4a6d86);
+  border-color: var(--color-brand-600, var(--color-brand-600));
   color: var(--color-brand-700, #3a586e);
 }
 
@@ -1073,7 +1073,7 @@ onMounted(load)
   height: 2rem;
   border-radius: 999px;
   background: #e8f0f5;
-  color: #4a6d86;
+  color: var(--color-brand-600);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1124,7 +1124,7 @@ onMounted(load)
 .cg__view {
   border: 0;
   background: transparent;
-  color: var(--color-brand-600, #4a6d86);
+  color: var(--color-brand-600, var(--color-brand-600));
   font-weight: 700;
   font-size: 0.82rem;
   cursor: pointer;
@@ -1202,9 +1202,9 @@ onMounted(load)
   cursor: pointer;
 }
 
-.cg-form__mode input { accent-color: var(--color-brand-600, #4a6d86); }
+.cg-form__mode input { accent-color: var(--color-brand-600, var(--color-brand-600)); }
 .cg-form__mode--on {
-  border-color: var(--color-brand-600, #4a6d86);
+  border-color: var(--color-brand-600, var(--color-brand-600));
   background: #eef4f7;
   color: #1c2830;
 }

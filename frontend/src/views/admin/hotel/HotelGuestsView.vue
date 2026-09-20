@@ -451,7 +451,7 @@ onMounted(load)
 .hg-pill--off { background: #f1f5f9; color: #64748b; }
 
 .hg__link {
-  color: var(--color-brand-600, #4a6d86);
+  color: var(--color-brand-600, var(--color-brand-600));
   font-weight: 700;
   font-size: 0.78rem;
   text-decoration: none;

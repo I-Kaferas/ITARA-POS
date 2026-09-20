@@ -55,6 +55,13 @@ const wings = computed(() => docs.value.filter(d => d.kind === 'wing'))
 const floors = computed(() => docs.value.filter(d => d.kind === 'floor'))
 const roomTypes = computed(() => docs.value.filter(d => d.kind === 'room_type'))
 const rooms = computed(() => docs.value.filter(d => d.kind === 'room'))
+const amenities = computed(() =>
+  docs.value
+    .filter(d => d.kind === 'amenity' && d.is_active !== false && d.status !== 'inactive')
+    .slice()
+    .sort((a, b) => Number(a.display_order ?? 0) - Number(b.display_order ?? 0)
+      || String(a.name ?? '').localeCompare(String(b.name ?? ''), undefined, { sensitivity: 'base' })),
+)
 
 const activeBuildings = computed(() =>
   buildings.value
@@ -231,6 +238,7 @@ function blankForm() {
     max_children_override: '',
     photo_urls: [] as string[],
     notes: '',
+    amenity_ids: [] as string[],
   }
 }
 
@@ -306,6 +314,7 @@ function openEdit(row: Doc) {
     max_children_override: row.max_children_override != null ? String(row.max_children_override) : '',
     photo_urls: Array.isArray(row.photo_urls) ? [...row.photo_urls] : [],
     notes: String(row.notes ?? ''),
+    amenity_ids: Array.isArray(row.amenity_ids) ? [...row.amenity_ids] : [],
   }
   error.value = ''
   formOpen.value = true
@@ -337,6 +346,7 @@ async function save() {
       max_children_override: form.value.max_children_override === '' ? null : Number(form.value.max_children_override),
       photo_urls: form.value.photo_urls,
       notes: form.value.notes.trim(),
+      amenity_ids: form.value.amenity_ids,
     }
     docs.value = (await api.post<{ data: { docs: Doc[] } }>('/hospitality/actions', payload)).data.docs
     closeForm()
@@ -457,6 +467,44 @@ function priceLabel(row: Doc) {
 function descriptionOf(row: Doc) {
   const type = roomTypeOf(row)
   return String(type?.description ?? '').trim()
+}
+
+const amenityQuery = ref('')
+
+const selectedTypeAmenityIds = computed(() =>
+  Array.isArray(selectedType.value?.amenity_ids) ? selectedType.value.amenity_ids.map(String) : [],
+)
+
+const typeAmenities = computed(() =>
+  selectedTypeAmenityIds.value
+    .map(id => amenities.value.find(item => item.id === id))
+    .filter((item): item is Doc => Boolean(item)),
+)
+
+const extraAmenityOptions = computed(() => {
+  const q = amenityQuery.value.trim().toLowerCase()
+  return amenities.value.filter((item) => {
+    if (selectedTypeAmenityIds.value.includes(String(item.id))) return false
+    if (!q) return true
+    return String(item.name ?? '').toLowerCase().includes(q)
+      || String(item.code ?? '').toLowerCase().includes(q)
+  })
+})
+
+function toggleExtraAmenity(id: string) {
+  const idx = form.value.amenity_ids.indexOf(id)
+  if (idx >= 0) form.value.amenity_ids.splice(idx, 1)
+  else form.value.amenity_ids.push(id)
+}
+
+function amenitiesOf(row: Doc) {
+  const type = roomTypeOf(row)
+  const typeIds = Array.isArray(type?.amenity_ids) ? type.amenity_ids.map(String) : []
+  const extraIds = Array.isArray(row.amenity_ids) ? row.amenity_ids.map(String) : []
+  const ids = [...new Set([...typeIds, ...extraIds])]
+  return ids
+    .map(id => amenities.value.find(item => item.id === id))
+    .filter((item): item is Doc => Boolean(item))
 }
 
 function selectCategory(id: string | null) {
@@ -598,6 +646,20 @@ function selectCategory(id: string | null) {
                     </p>
                     <p v-if="descriptionOf(row)">{{ descriptionOf(row) }}</p>
                     <p v-else class="room-card__desc-empty">{{ t('hotel.rooms.noDescription') }}</p>
+                  </div>
+
+                  <div class="room-card__amenities">
+                    <p class="room-card__desc-label">
+                      <AppIcon name="sparkles" :size="11" />
+                      {{ t('hotel.rooms.amenities') }}
+                    </p>
+                    <div v-if="amenitiesOf(row).length" class="room-card__amenity-list">
+                      <span v-for="item in amenitiesOf(row)" :key="item.id" class="room-card__amenity">
+                        <AppIcon :name="item.icon_key || 'sparkles'" :size="11" />
+                        {{ item.name }}
+                      </span>
+                    </div>
+                    <p v-else class="room-card__desc-empty">{{ t('hotel.rooms.amenitiesNone') }}</p>
                   </div>
 
                   <div class="room-card__actions">
@@ -799,6 +861,57 @@ function selectCategory(id: string | null) {
         </section>
 
         <section class="rooms__block">
+          <div class="rooms__section-head">
+            <div>
+              <h3>
+                <AppIcon name="sparkles" :size="15" />
+                {{ t('hotel.rooms.amenities') }}
+              </h3>
+              <p>{{ t('hotel.rooms.amenitiesHint') }}</p>
+            </div>
+            <RouterLink to="/admin/hotel/room-config/amenities" class="room-card__type-link">
+              {{ t('hotel.roomConfig.amenities') }}
+            </RouterLink>
+          </div>
+
+          <div v-if="typeAmenities.length">
+            <p class="rooms__label">{{ t('hotel.rooms.amenitiesFromType') }}</p>
+            <div class="rooms__amenities">
+              <span v-for="item in typeAmenities" :key="item.id" class="rooms__amenity rooms__amenity--type">
+                <AppIcon :name="item.icon_key || 'sparkles'" :size="12" />
+                {{ item.name }}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <p class="rooms__label">{{ t('hotel.rooms.amenitiesExtra') }}</p>
+            <input
+              v-model="amenityQuery"
+              class="field"
+              :placeholder="t('hotel.rooms.amenitiesSearch')"
+            >
+            <div v-if="extraAmenityOptions.length" class="rooms__amenities">
+              <label
+                v-for="item in extraAmenityOptions"
+                :key="item.id"
+                class="rooms__amenity"
+                :class="{ 'rooms__amenity--on': form.amenity_ids.includes(item.id) }"
+              >
+                <input
+                  type="checkbox"
+                  :checked="form.amenity_ids.includes(item.id)"
+                  @change="toggleExtraAmenity(item.id)"
+                >
+                <AppIcon :name="item.icon_key || 'sparkles'" :size="12" />
+                {{ item.name }}
+              </label>
+            </div>
+            <p v-else-if="!typeAmenities.length" class="rooms__hint">{{ t('hotel.rooms.amenitiesEmpty') }}</p>
+          </div>
+        </section>
+
+        <section class="rooms__block">
           <h3><AppIcon name="note" :size="15" /> {{ t('hotel.rooms.notes') }}</h3>
           <textarea v-model="form.notes" class="field" rows="3" :placeholder="t('hotel.rooms.notesPh')" />
         </section>
@@ -896,7 +1009,7 @@ function selectCategory(id: string | null) {
 }
 
 .rooms__browse-head h3 :deep(svg) {
-  color: var(--color-brand-600, #4a6d86);
+  color: var(--color-brand-600, var(--color-brand-600));
 }
 
 .rooms__browse-head p {
@@ -936,7 +1049,7 @@ function selectCategory(id: string | null) {
   height: 3.4rem;
   border-radius: 0.65rem;
   overflow: hidden;
-  background: linear-gradient(145deg, #eef4f8, #dce7ef);
+  background: #eef4f8;
   display: grid;
   place-items: center;
   color: #3d5c73;
@@ -1166,7 +1279,7 @@ function selectCategory(id: string | null) {
 }
 
 .room-card__facts :deep(svg) {
-  color: var(--color-brand-600, #4a6d86);
+  color: var(--color-brand-600, var(--color-brand-600));
 }
 
 .room-card__desc-label {
@@ -1251,7 +1364,7 @@ function selectCategory(id: string | null) {
 }
 
 .rooms__block h3 :deep(svg) {
-  color: var(--color-brand-600, #4a6d86);
+  color: var(--color-brand-600, var(--color-brand-600));
 }
 
 .rooms__hk-picks {
@@ -1348,7 +1461,7 @@ textarea.field { min-height: 5rem; resize: vertical; }
   content: ""; position: absolute; top: 0.15rem; left: 0.15rem;
   width: 0.9rem; height: 0.9rem; border-radius: 50%; background: #fff; transition: transform 0.15s ease;
 }
-.rooms-switch input:checked + .rooms-switch__track { background: var(--color-brand-600, #4a6d86); }
+.rooms-switch input:checked + .rooms-switch__track { background: var(--color-brand-600, var(--color-brand-600)); }
 .rooms-switch input:checked + .rooms-switch__track::after { transform: translateX(1rem); }
 .rooms__section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
 .rooms__section-head p { margin: 0.25rem 0 0; color: #7b8d9a; font-size: 0.8rem; }
@@ -1366,6 +1479,36 @@ textarea.field { min-height: 5rem; resize: vertical; }
 .rooms__empty-photos { padding: 0.9rem; border: 1px dashed #d7e2ea; border-radius: 0.75rem; background: #f8fafc; }
 .rooms__empty-photos p { margin: 0; font-weight: 600; color: #1c2830; }
 .rooms__empty-photos small { color: #7b8d9a; }
+.room-card__amenity-list,
+.rooms__amenities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.room-card__amenity,
+.rooms__amenity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid #d7e2ea;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  background: #fff;
+  color: #334155;
+}
+
+.rooms__amenity { cursor: pointer; }
+.rooms__amenity input { accent-color: var(--color-brand-600); }
+.rooms__amenity--on,
+.rooms__amenity--type {
+  border-color: var(--color-brand-500, #7d9aaf);
+  background: #f3f6f8;
+  color: #2c4556;
+}
+
 .rooms__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.1rem; }
 .rooms__row-actions { text-align: right; white-space: nowrap; }
 .rooms__row-actions button + button { margin-left: 0.7rem; }
@@ -1381,7 +1524,7 @@ textarea.field { min-height: 5rem; resize: vertical; }
 .btn-primary, .btn-secondary {
   border-radius: 0.5rem; padding: 0.45rem 0.85rem; font-weight: 600; font-size: 0.8125rem; cursor: pointer;
 }
-.btn-primary { border: 0; color: #fff; background: var(--color-brand-600, #4a6d86); }
+.btn-primary { border: 0; color: #fff; background: var(--color-brand-600, var(--color-brand-600)); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { border: 1px solid #d7e2ea; background: #fff; color: #334155; }
 .font-semibold { font-weight: 600; }

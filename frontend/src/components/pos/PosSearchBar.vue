@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import AppIcon from '../ui/AppIcon.vue'
 
 const query = defineModel<string>({ default: '' })
 
@@ -30,6 +31,7 @@ defineExpose({ focus })
 
 <template>
   <form class="pos-search" @submit.prevent="onSubmit">
+    <AppIcon name="search" :size="18" class="pos-search__icon" />
     <input
       ref="input"
       v-model="query"
@@ -41,52 +43,42 @@ defineExpose({ focus })
       enterkeyhint="search"
       :placeholder="placeholder"
     />
-    <button type="submit" class="pos-search__btn">OK</button>
-    <p v-if="hint" class="pos-search__hint">{{ hint }}</p>
   </form>
 </template>
 
 <style scoped>
 .pos-search {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.45rem;
+  position: relative;
+  display: flex;
   align-items: center;
   min-width: 0;
+  flex: 1;
 }
+
+.pos-search__icon {
+  position: absolute;
+  left: 0.9rem;
+  color: var(--color-text-faint);
+  pointer-events: none;
+}
+
 .pos-search__input {
   width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.65rem;
-  padding: 0.7rem 0.85rem;
-  font-size: 1rem;
-  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: 0.85rem;
+  padding: 0.78rem 1rem 0.78rem 2.55rem;
+  font-size: 0.95rem;
+  background: #fff;
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-xs);
 }
+
 .pos-search__input:focus {
-  outline: 2px solid #4a6d86;
-  border-color: #4a6d86;
+  outline: 2px solid color-mix(in srgb, var(--color-brand-600) 35%, transparent);
+  border-color: var(--color-brand-400, var(--color-brand-600));
 }
-.pos-search__btn {
-  border: 0;
-  border-radius: 0.65rem;
-  padding: 0.7rem 1rem;
-  font-weight: 700;
-  color: white;
-  background: #4a6d86;
-}
-.pos-search__hint {
-  grid-column: 1 / -1;
-  margin: 0;
-  font-size: 0.72rem;
-  color: #64748b;
-}
-@media (max-width: 900px) {
-  .pos-search__hint {
-    display: none;
-  }
-  .pos-search__input,
-  .pos-search__btn {
-    padding: 0.58rem 0.75rem;
-  }
+
+.pos-search__input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
 }
 </style>

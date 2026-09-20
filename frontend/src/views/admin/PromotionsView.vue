@@ -8,6 +8,7 @@ import AppModal from '../../components/ui/AppModal.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
+import { useContextStore } from '../../stores/context'
 import type { Promotion, PromotionType } from '../../types'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../utils/listFilters'
 import { parseMoneyInput } from '../../utils/money'
@@ -15,6 +16,7 @@ import { parseMoneyInput } from '../../utils/money'
 const { t, locale } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
 const store = useBackofficeStore()
+const context = useContextStore()
 
 const showModal = ref(false)
 const editing = ref<Promotion | null>(null)
@@ -85,7 +87,7 @@ onMounted(async () => {
   }
   if (store.catalogs[0]) {
     await Promise.all([
-      store.loadCategories(store.catalogs[0].id),
+      store.loadCategories(store.catalogs[0].id, context.currentStoreId),
       store.loadProducts(store.catalogs[0].id),
     ])
   }

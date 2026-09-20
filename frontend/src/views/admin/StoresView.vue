@@ -607,7 +607,7 @@ async function savePriceOverride() {
   padding: 0 0.5rem;
   border-radius: 999px;
   background: #e4edf2;
-  color: #4a6d86;
+  color: var(--color-brand-600);
   font-size: 0.75rem;
   font-weight: 700;
 }

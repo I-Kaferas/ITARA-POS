@@ -1,7 +1,7 @@
 {
     "name": "itara/pos",
     "type": "project",
-    "description": "ITARA NEXUS SUITE Business API",
+    "description": "ITARA NEXUS Business CORE API",
     "require": {
         "php": "^8.2",
         "laravel/framework": "^12.0",

@@ -64,6 +64,7 @@ const navSections = computed(() => [
         icon: 'store-pin',
         children: [
           { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview'), icon: 'dashboard', color: '#64748b' },
+          { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal'), icon: 'device-pos', color: '#0f766e' },
           { name: 'pos-tables', to: '/admin/hospitality', label: t('nav.restaurant'), icon: 'tables', color: '#0f766e' },
           { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts'), icon: 'shift', color: '#2563eb' },
           { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations'), icon: 'calendar', color: '#d97706' },
@@ -85,7 +86,7 @@ const navSections = computed(() => [
         label: t('nav.hotel'),
         icon: 'building',
         children: [
-          { name: 'hotel-room-config', to: '/admin/hotel/room-config', label: t('hotel.tabs.roomConfig'), icon: 'layers', color: '#5c7f96' },
+          { name: 'hotel-room-config', to: '/admin/hotel/room-config', label: t('hotel.tabs.roomConfig'), icon: 'layers', color: 'var(--color-brand-500)' },
           { name: 'hotel-rooms', to: '/admin/hotel/rooms', label: t('hotel.tabs.rooms'), icon: 'bed', color: '#0f766e' },
           { name: 'hotel-reservations', to: '/admin/hotel/reservations', label: t('hotel.tabs.reservations'), icon: 'calendar', color: '#2563eb' },
           { name: 'hotel-stays', to: '/admin/hotel/stays', label: t('hotel.tabs.stays'), icon: 'key', color: '#b45309' },
@@ -113,7 +114,7 @@ const navSections = computed(() => [
         children: [
           { name: 'product-catalog', to: '/admin/products', label: t('nav.productCatalog'), icon: 'products', color: '#0f766e' },
           { name: 'product-accompaniments', to: '/admin/accompaniments', label: t('nav.accompaniments'), icon: 'sparkles', color: '#d97706' },
-          { name: 'product-options', to: '/admin/catalog/options', label: t('nav.productOptions'), icon: 'layers', color: '#5c7f96' },
+          { name: 'product-options', to: '/admin/catalog/options', label: t('nav.productOptions'), icon: 'layers', color: 'var(--color-brand-500)' },
           { name: 'beverages', to: '/admin/catalog/beverages', label: t('nav.beverages'), icon: 'sparkles', color: '#b45309' },
           { name: 'catalog-gallery', to: '/admin/catalog/gallery', label: t('nav.catalogGallery'), icon: 'catalog', color: '#7c3aed' },
         ],
@@ -250,6 +251,7 @@ const navSections = computed(() => [
           { name: 'reports-dashboard', to: '/admin/reports/dashboard', label: t('reports.tabs.dashboard'), icon: 'dashboard', color: '#64748b' },
           { name: 'reports-sales', to: '/admin/reports/sales', label: t('reports.tabs.sales'), icon: 'sales', color: '#059669' },
           { name: 'reports-inventory', to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), icon: 'inventory', color: '#0f766e' },
+          { name: 'reports-store-stock', to: '/admin/reports/store-stock', label: t('reports.tabs.storeStock'), icon: 'stores', color: '#0e7490' },
           { name: 'reports-purchases', to: '/admin/reports/purchases', label: t('reports.tabs.purchases'), icon: 'purchases', color: '#2563eb' },
           { name: 'reports-forecasts', to: '/admin/reports/forecasts', label: t('reports.tabs.forecasts'), icon: 'sparkles', color: '#7c3aed' },
           { name: 'reports-financial', to: '/admin/reports/financial', label: t('reports.tabs.revenue'), icon: 'coins', color: '#b45309' },
@@ -269,7 +271,7 @@ const navSections = computed(() => [
         label: t('nav.group.company'),
         icon: 'organization',
         children: [
-          { name: 'org-company-page', to: '/admin/organization/company', label: t('org.tabs.company'), icon: 'organization', color: '#5c7f96' },
+          { name: 'org-company-page', to: '/admin/organization/company', label: t('org.tabs.company'), icon: 'organization', color: 'var(--color-brand-500)' },
           { name: 'org-branding', to: '/admin/organization/branding', label: t('org.tabs.branding'), icon: 'sparkles', color: '#7c3aed' },
           { name: 'org-currencies', to: '/admin/organization/currencies', label: t('org.tabs.currencies'), icon: 'coins', color: '#d97706' },
           { name: 'org-payments', to: '/admin/organization/payment-methods', label: t('org.tabs.paymentMethods'), icon: 'card', color: '#059669' },
@@ -349,7 +351,7 @@ const company = computed(() => {
 const companyName = computed(() => {
   const fromBranding = brandingStore.branding?.brand_name?.trim()
   if (fromBranding) return fromBranding
-  const name = company.value?.name?.trim() || company.value?.trade_name?.trim() || 'ITARA NEXUS suite Business'
+  const name = company.value?.name?.trim() || company.value?.trade_name?.trim() || 'ITARA NEXUS Business CORE'
   return name
 })
 
@@ -359,7 +361,7 @@ const brandLines = computed(() => {
   return { primary: parts[0], secondary: parts.slice(1).join(' ') }
 })
 
-const accentColor = computed(() => brandingStore.branding?.accent_color || '#e39b2b')
+const accentColor = computed(() => brandingStore.branding?.accent_color || 'var(--color-brand-500)')
 
 const logoFailed = ref(false)
 const companyLogo = computed(() =>
@@ -386,6 +388,9 @@ function matchesChild(child: NavChild) {
   }
   if (child.to === '/admin/sales/returns') return route.path.startsWith('/admin/sales/returns')
   if (child.to === '/admin/pos/shifts') return route.path.startsWith('/admin/pos/shifts')
+  if (child.to === '/admin/pos/terminal') {
+    return route.path === '/admin/pos/terminal' || route.path === '/admin/pos'
+  }
   if (child.to === '/admin/expenses') {
     return route.path === '/admin/expenses'
   }
@@ -559,12 +564,12 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
           <img v-else src="/brand-mark.svg" :alt="companyName" />
         </div>
         <div class="app-sidebar__brand-text min-w-0 flex-1">
-          <p class="font-brand m-0 text-sm font-bold tracking-[0.08em] text-white">{{ brandLines.primary }}</p>
+          <p class="font-brand m-0 text-sm font-bold tracking-[0.04em] text-slate-900">{{ brandLines.primary }}</p>
           <p
             v-if="brandLines.secondary"
-            class="font-brand m-0 text-[0.6875rem] tracking-[0.16em]"
-            :style="{ color: accentColor }"
+            class="font-brand m-0 text-[0.6875rem] tracking-[0.12em] text-slate-500"
           >{{ brandLines.secondary }}</p>
+          <p class="m-0 mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Admin Panel</p>
         </div>
         <button
           type="button"
@@ -760,26 +765,30 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
   height: var(--control-lg);
   width: calc(100% - var(--space-6));
   margin: var(--space-3) var(--space-3) var(--space-2);
-  border: 1px solid rgba(227, 155, 43, 0.35);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.16);
-  color: #ffffff;
+  background: var(--color-canvas);
+  color: var(--color-text-muted);
   padding: 0 var(--space-3);
   font-size: var(--text-md);
   font-weight: 500;
   line-height: var(--line-sm);
   cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
 }
 
 .module-search-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(227, 155, 43, 0.55);
-  color: #fff;
+  background: var(--color-brand-50);
+  border-color: var(--color-brand-200);
+  color: var(--color-brand-700);
 }
 
 .module-search-btn svg {
   flex-shrink: 0;
-  color: #ffffff;
+  color: inherit;
 }
 
 .module-search-btn span {
@@ -788,13 +797,13 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
 }
 
 .module-search-btn kbd {
-  border: 1px solid rgba(227, 155, 43, 0.35);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: rgba(227, 155, 43, 0.12);
+  background: white;
   padding: 2px var(--space-2);
   font-size: var(--text-xs);
-  line-height: var(--line-xs);
-  color: #e39b2b;
+  color: var(--color-text-faint);
+  font-family: var(--font-sans);
 }
 
 .user-menu__trigger {
@@ -817,8 +826,8 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
 }
 
 .user-menu__trigger--open {
-  border-color: #4a6d86;
-  box-shadow: 0 0 0 3px rgba(74, 109, 134, 0.12);
+  border-color: var(--color-brand-600);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
 .user-menu__identity {

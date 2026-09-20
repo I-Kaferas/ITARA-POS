@@ -306,7 +306,7 @@ class HospitalityDesk
         $id = $this->required($action, 'id');
         $inUse = DeskDocument::query()
             ->where('store_id', $store->id)
-            ->where('kind', 'room_type')
+            ->whereIn('kind', ['room_type', 'room'])
             ->get()
             ->contains(function (DeskDocument $doc) use ($id) {
                 $ids = $doc->payload['amenity_ids'] ?? [];
@@ -314,7 +314,7 @@ class HospitalityDesk
                 return is_array($ids) && in_array($id, $ids, true);
             });
         if ($inUse) {
-            throw ValidationException::withMessages(['id' => ['Cet équipement est utilisé par au moins un type de chambre.']]);
+            throw ValidationException::withMessages(['id' => ['Cet équipement est utilisé par au moins un type ou une chambre.']]);
         }
         DeskDocument::query()->where('store_id', $store->id)->where('code', $id)->where('kind', 'amenity')->delete();
     }
@@ -333,6 +333,168 @@ class HospitalityDesk
             ->where('code', '!=', $exceptId)
             ->get()
             ->contains(fn (DeskDocument $doc) => strtoupper((string) ($doc->payload['code'] ?? '')) === $code);
+    }
+
+    /** @return list<string> */
+    private function normalizeAmenityIds(mixed $value): array
+    {
+        return collect(is_array($value) ? $value : [])
+            ->filter(fn ($id) => is_string($id) && $id !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Type amenities + extras attached to the room.
+     *
+     * @param  array<string, mixed>  $room
+     * @return list<string>
+     */
+    private function resolveRoomAmenityIds(Store $store, array $room): array
+    {
+        $typeIds = [];
+        $typeId = (string) ($room['type_id'] ?? '');
+        if ($typeId !== '') {
+            $type = DeskDocument::query()
+                ->where('store_id', $store->id)
+                ->where('kind', 'room_type')
+                ->where('code', $typeId)
+                ->first();
+            if ($type !== null) {
+                $typeIds = $this->normalizeAmenityIds($type->payload['amenity_ids'] ?? []);
+            }
+        }
+
+        return array_values(array_unique(array_merge(
+            $typeIds,
+            $this->normalizeAmenityIds($room['amenity_ids'] ?? []),
+        )));
+    }
+
+    /**
+     * @param  array<string, mixed>  $room
+     * @return list<array<string, mixed>>
+     */
+    private function snapshotRoomInventory(Store $store, array $room): array
+    {
+        $ids = $this->resolveRoomAmenityIds($store, $room);
+        if ($ids === []) {
+            return [];
+        }
+
+        $docs = DeskDocument::query()
+            ->where('store_id', $store->id)
+            ->where('kind', 'amenity')
+            ->whereIn('code', $ids)
+            ->get()
+            ->keyBy('code');
+
+        $inventory = [];
+        foreach ($ids as $id) {
+            $payload = $docs->get($id)?->payload ?? [];
+            $inventory[] = [
+                'id' => $id,
+                'name' => (string) ($payload['name'] ?? $id),
+                'code' => (string) ($payload['code'] ?? ''),
+                'icon_key' => (string) ($payload['icon_key'] ?? ''),
+                'replacement_value_cents' => max(0, (int) ($payload['replacement_value_cents'] ?? 0)),
+            ];
+        }
+
+        return $inventory;
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $reservation
+     * @param  array<string, mixed>  $folio
+     * @return list<array<string, mixed>>
+     */
+    private function chargeMissingAmenities(Store $store, array $action, array $reservation, array &$folio): array
+    {
+        $items = $action['missing_items'] ?? [];
+        if (! is_array($items) || $items === []) {
+            return [];
+        }
+
+        $inventory = collect($reservation['inventory_amenities'] ?? [])
+            ->filter(fn ($item) => is_array($item))
+            ->keyBy(fn ($item) => (string) ($item['id'] ?? ''));
+
+        $lines = $folio['lines'] ?? [];
+        $added = 0;
+        $recorded = [];
+
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $amenityId = trim((string) ($item['amenity_id'] ?? $item['id'] ?? ''));
+            if ($amenityId === '') {
+                continue;
+            }
+            $condition = strtolower(trim((string) ($item['condition'] ?? 'missing')));
+            if (! in_array($condition, ['missing', 'damaged'], true)) {
+                $condition = 'missing';
+            }
+
+            $fromInventory = $inventory->get($amenityId);
+            $name = is_array($fromInventory) ? (string) ($fromInventory['name'] ?? $amenityId) : $amenityId;
+            $defaultAmount = is_array($fromInventory)
+                ? max(0, (int) ($fromInventory['replacement_value_cents'] ?? 0))
+                : 0;
+
+            if (! is_array($fromInventory)) {
+                $amenity = DeskDocument::query()
+                    ->where('store_id', $store->id)
+                    ->where('kind', 'amenity')
+                    ->where('code', $amenityId)
+                    ->first();
+                if ($amenity !== null) {
+                    $name = (string) ($amenity->payload['name'] ?? $name);
+                    $defaultAmount = max(0, (int) ($amenity->payload['replacement_value_cents'] ?? 0));
+                }
+            }
+
+            $amount = array_key_exists('amount_cents', $item) && $item['amount_cents'] !== null && $item['amount_cents'] !== ''
+                ? max(0, (int) $item['amount_cents'])
+                : $defaultAmount;
+
+            $kind = $condition === 'damaged' ? 'damaged_amenity' : 'missing_amenity';
+            $description = $condition === 'damaged'
+                ? 'Équipement endommagé — '.$name
+                : 'Équipement manquant — '.$name;
+
+            $recorded[] = [
+                'amenity_id' => $amenityId,
+                'name' => $name,
+                'condition' => $condition,
+                'amount_cents' => $amount,
+            ];
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $lines[] = [
+                'id' => (string) Str::uuid(),
+                'kind' => $kind,
+                'description' => $description,
+                'amount' => $amount,
+                'created_at' => now()->toIso8601String(),
+                'amenity_id' => $amenityId,
+                'condition' => $condition,
+            ];
+            $added += $amount;
+        }
+
+        $folio['lines'] = $lines;
+        if ($added > 0) {
+            $folio['amount_due_cents'] = (int) ($folio['amount_due_cents'] ?? 0) + $added;
+        }
+
+        return $recorded;
     }
 
     /** @param  array<string, mixed>  $action */
@@ -797,9 +959,12 @@ class HospitalityDesk
                 'max_children_override' => $maxChildrenOverride,
                 'photo_urls' => $photoUrls,
                 'notes' => $notes,
+                'amenity_ids' => $this->normalizeAmenityIds($action['amenity_ids'] ?? ($existing?->payload['amenity_ids'] ?? [])),
                 'hk_priority' => (string) ($existing?->payload['hk_priority'] ?? 'low'),
                 'hk_assignee_id' => $existing?->payload['hk_assignee_id'] ?? null,
                 'hk_assignee_name' => $existing?->payload['hk_assignee_name'] ?? null,
+                'guest_name' => $existing?->payload['guest_name'] ?? null,
+                'folio_id' => $existing?->payload['folio_id'] ?? null,
                 'status' => $status,
             ], $floorId, $status);
         }
@@ -2327,6 +2492,7 @@ class HospitalityDesk
         if (empty($reservation['deposit_cents'])) {
             $reservation['deposit_cents'] = (int) ($settings['deposit_amount_cents'] ?? 0);
         }
+        $reservation['inventory_amenities'] = $this->snapshotRoomInventory($store, $room);
         $this->save($store, 'reservation', (string) $reservation['id'], $reservation, (string) $room['id'], 'checked_in');
         $room['status'] = 'occupied';
         $room['guest_name'] = $reservation['guest_name'] ?? '';
@@ -2474,6 +2640,7 @@ class HospitalityDesk
             'check_out_time' => (string) ($settings['check_out_time'] ?? '12:00'),
             'checked_in_at' => now()->toIso8601String(),
             'folio_id' => $folioId,
+            'inventory_amenities' => $this->snapshotRoomInventory($store, $room),
             'status' => 'checked_in',
         ];
 
@@ -2762,6 +2929,7 @@ class HospitalityDesk
         }
         $folio = $this->doc($store, (string) $reservation['folio_id']);
         $settings = $this->hotelSettings($store);
+        $reservation['checkout_inventory'] = $this->chargeMissingAmenities($store, $action, $reservation, $folio);
         $lateFee = $this->maybeLateDepartureFeeCents($settings);
         $lines = $folio['lines'] ?? [];
         if ($lateFee > 0) {
@@ -2856,6 +3024,7 @@ class HospitalityDesk
             $reservation['type_id'] = $newRoom['type_id'];
             $reservation['type_name'] = $newRoom['type_name'] ?? ($reservation['type_name'] ?? '');
         }
+        $reservation['inventory_amenities'] = $this->snapshotRoomInventory($store, $newRoom);
         $this->save($store, 'reservation', (string) $reservation['id'], $reservation, (string) $newRoom['id'], 'checked_in');
     }
 

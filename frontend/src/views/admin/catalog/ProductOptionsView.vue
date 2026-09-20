@@ -5,65 +5,44 @@ import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { Product } from '../../../types'
 import { formatMoney } from '../../../utils/format'
 
-type OptionValue = { value: string; extra: number }
-type OptionGroup = { name: string; values: OptionValue[]; draft: string }
+type OptionGroup = { name: string; values: string[]; draft: string }
 
 const { t } = useI18n()
 const store = useBackofficeStore()
+const context = useContextStore()
 
 const products = ref<Product[]>([])
 const showModal = ref(false)
 const saving = ref(false)
 const productId = ref('')
 const groups = ref<OptionGroup[]>([{ name: '', values: [], draft: '' }])
-const priceOverrides = ref<Record<string, number>>({})
 
 const eligible = computed(() => products.value.filter(product => !['service', 'digital', 'bundle'].includes(product.product_type ?? '')))
 const transformed = computed(() => products.value.filter(product => (product.metadata?.option_groups?.length ?? 0) > 0 || product.product_type === 'variant'))
 const selectedProduct = computed(() => products.value.find(product => product.id === productId.value) ?? null)
-const basePrice = computed(() => (selectedProduct.value?.base_price ?? 0) / 100)
-
-function extraOf(group: OptionGroup, value: string) {
-  return group.values.find(item => item.value === value)?.extra ?? 0
-}
-
-function signature(options: Record<string, string>) {
-  return JSON.stringify(Object.fromEntries(Object.entries(options).sort(([a], [b]) => a.localeCompare(b))))
-}
-
-function computedPrice(options: Record<string, string>) {
-  const extras = groups.value.reduce((sum, group) => {
-    const chosen = options[group.name.trim()]
-    return sum + (chosen ? extraOf(group, chosen) : 0)
-  }, 0)
-  return Math.max(0, Number((basePrice.value + extras).toFixed(2)))
-}
 
 const preview = computed(() => {
   const ready = groups.value
-    .map(group => ({ name: group.name.trim(), values: group.values.map(item => item.value).filter(Boolean) }))
+    .map(group => ({ name: group.name.trim(), values: group.values.filter(Boolean) }))
     .filter(group => group.name && group.values.length)
   if (!ready.length) return []
   let rows: Record<string, string>[] = [{}]
   for (const group of ready) {
     rows = rows.flatMap(current => group.values.map(value => ({ ...current, [group.name]: value })))
   }
-  return rows.slice(0, 100).map(options => {
-    const key = signature(options)
-    return {
-      key,
-      options,
-      label: Object.values(options).join(' / '),
-      price: priceOverrides.value[key] ?? computedPrice(options),
-    }
-  })
+  return rows.slice(0, 100).map(options => ({
+    key: JSON.stringify(Object.fromEntries(Object.entries(options).sort(([a], [b]) => a.localeCompare(b)))),
+    options,
+    label: Object.values(options).join(' / '),
+  }))
 })
 
 onMounted(async () => {
-  await store.loadCatalogAttributes(true)
+  await store.loadCatalogAttributes(true, context.currentStoreId)
   await load()
 })
 
@@ -71,7 +50,7 @@ async function load() {
   await store.loadCompanies()
   const companyId = store.companies[0]?.id
   if (!companyId) return
-  const catalogs = await store.loadCatalogs(companyId)
+  const catalogs = await store.loadCatalogs(companyId, context.currentStoreId)
   const catalogId = catalogs.find(item => item.is_default)?.id ?? catalogs[0]?.id
   if (!catalogId) return
   products.value = await store.loadProducts(catalogId)
@@ -80,12 +59,7 @@ async function load() {
 function openCreate() {
   productId.value = ''
   groups.value = [{ name: '', values: [], draft: '' }]
-  priceOverrides.value = {}
   showModal.value = true
-}
-
-function extraFromCents(cents?: number) {
-  return Math.max(0, Number(((cents ?? 0) / 100).toFixed(2)))
 }
 
 function openEdit(product: Product) {
@@ -96,23 +70,10 @@ function openEdit(product: Product) {
   groups.value = source.length
     ? source.map(group => ({
       name: group.name,
-      values: group.values.map(value => ({
-        value,
-        extra: extraFromCents(group.value_prices?.[value]),
-      })),
+      values: [...group.values],
       draft: '',
     }))
     : [{ name: '', values: [], draft: '' }]
-  priceOverrides.value = {}
-  for (const variant of product.variants ?? []) {
-    if (variant.is_active === false) continue
-    const options = variant.attributes?.options ?? {}
-    if (!Object.keys(options).length) continue
-    const actual = extraFromCents(variant.base_price)
-    if (actual !== computedPrice(options)) {
-      priceOverrides.value[signature(options)] = actual
-    }
-  }
   showModal.value = true
 }
 
@@ -141,7 +102,7 @@ function useAttribute(code: string, index: number) {
   if (!attribute) return
   groups.value[index] = {
     name: attribute.name,
-    values: attribute.values.map(value => ({ value, extra: 0 })),
+    values: [...attribute.values],
     draft: '',
   }
 }
@@ -154,8 +115,8 @@ function addGroup() {
 function commitDraft(group: OptionGroup) {
   const parts = group.draft.split(',').map(value => value.trim()).filter(Boolean)
   for (const value of parts) {
-    if (!group.values.some(item => item.value === value) && group.values.length < 20) {
-      group.values.push({ value, extra: 0 })
+    if (!group.values.includes(value) && group.values.length < 20) {
+      group.values.push(value)
     }
   }
   group.draft = ''
@@ -171,36 +132,17 @@ async function apply() {
   const payload = groups.value
     .map(group => ({
       name: group.name.trim(),
-      values: group.values.map(item => item.value).filter(Boolean),
-      value_prices: Object.fromEntries(
-        group.values
-          .filter(item => item.value)
-          .map(item => [item.value, Math.round(Number(item.extra || 0) * 100)]),
-      ),
+      values: group.values.filter(Boolean),
     }))
     .filter(group => group.name && group.values.length)
   if (!productId.value || !payload.length) return
   saving.value = true
   try {
-    await store.transformProductOptions(
-      productId.value,
-      payload,
-      preview.value.map(row => ({
-        options: row.options,
-        price: Math.round(Number(row.price || 0) * 100),
-      })),
-    )
+    await store.transformProductOptions(productId.value, payload, [])
     showModal.value = false
     await load()
   } finally {
     saving.value = false
-  }
-}
-
-function setPreviewPrice(key: string, value: number | string) {
-  priceOverrides.value = {
-    ...priceOverrides.value,
-    [key]: Math.max(0, Number(value) || 0),
   }
 }
 
@@ -277,6 +219,7 @@ function priceLabel(product: Product) {
           <p v-if="selectedProduct" class="mt-1 text-xs text-slate-500">
             {{ t('catalog.options.basePrice') }} : {{ formatMoney(selectedProduct.base_price) }}
           </p>
+          <p class="mt-1 text-xs text-slate-500">{{ t('catalog.options.createHint') }}</p>
         </div>
 
         <div v-for="(group, index) in groups" :key="index" class="rounded-lg border border-slate-200 p-3 space-y-2">
@@ -293,18 +236,9 @@ function priceLabel(product: Product) {
           <input v-model="group.name" class="field" :placeholder="t('catalog.options.groupName')" />
           <div>
             <FieldLabel icon="layers">{{ t('catalog.options.values') }}</FieldLabel>
-            <p class="mb-2 text-xs text-slate-500">{{ t('catalog.options.extraHint') }}</p>
             <div class="flex flex-wrap gap-2">
-              <span v-for="(item, valueIndex) in group.values" :key="item.value" class="option-chip">
-                {{ item.value }}
-                <input
-                  v-model.number="item.extra"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  class="option-chip__price"
-                  :aria-label="t('catalog.options.extraPrice')"
-                />
+              <span v-for="(value, valueIndex) in group.values" :key="value" class="option-chip">
+                {{ value }}
                 <button type="button" @click="group.values.splice(valueIndex, 1)">×</button>
               </span>
             </div>
@@ -324,16 +258,7 @@ function priceLabel(product: Product) {
           <p class="mb-2 text-sm font-medium">{{ t('catalog.options.preview') }} ({{ preview.length }})</p>
           <ul class="m-0 max-h-48 space-y-1 overflow-auto p-0 text-sm text-slate-600">
             <li v-for="row in preview" :key="row.key" class="preview-row">
-              <span>{{ row.label }}</span>
-              <input
-                :value="row.price"
-                type="number"
-                min="0"
-                step="0.01"
-                class="preview-price"
-                :aria-label="t('catalog.options.price')"
-                @input="setPreviewPrice(row.key, ($event.target as HTMLInputElement).value)"
-              />
+              {{ row.label }}
             </li>
           </ul>
         </div>
@@ -352,31 +277,9 @@ function priceLabel(product: Product) {
 .btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }
-.option-chip { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; background: #4a6d86; color: #fff; padding: 0.15rem 0.45rem 0.15rem 0.55rem; font-size: 0.75rem; }
+.option-chip { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; background: var(--color-brand-600); color: #fff; padding: 0.15rem 0.45rem 0.15rem 0.55rem; font-size: 0.75rem; }
 .option-chip button { color: #fff; line-height: 1; }
-.option-chip__price {
-  width: 4.5rem;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
-  padding: 0.1rem 0.35rem;
-  font-size: 0.75rem;
-}
-.option-chip__price:focus { outline: 1px solid #fff; }
 .preview-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
   list-style: none;
-}
-.preview-price {
-  width: 7rem;
-  border-radius: 0.45rem;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  padding: 0.3rem 0.45rem;
-  text-align: right;
 }
 </style>

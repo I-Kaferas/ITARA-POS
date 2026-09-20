@@ -596,7 +596,7 @@ onMounted(() => {
 .insight {
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
-  background: linear-gradient(180deg, #faf5ff 0%, #ffffff 70%);
+  background: #ffffff;
   padding: 0.9rem 1rem;
 }
 

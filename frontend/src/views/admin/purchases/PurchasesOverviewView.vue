@@ -56,12 +56,12 @@ onMounted(async () => {
 })
 
 const primaryCards = [
-  { key: 'purchases_total', label: 'total', icon: 'purchases', accent: '#4a6d86', iconBg: '#e4edf2' },
+  { key: 'purchases_total', label: 'total', icon: 'purchases', accent: 'var(--color-brand-600)', iconBg: '#e4edf2' },
   { key: 'amount_due', label: 'due', icon: 'receipt', accent: '#dc2626', iconBg: '#fef2f2' },
   { key: 'payments_total', label: 'payments', icon: 'card', accent: '#059669', iconBg: '#ecfdf5' },
   { key: 'open_orders', label: 'orders', icon: 'package', accent: '#2563eb', iconBg: '#eff6ff' },
   { key: 'unpaid_invoices', label: 'unpaid', icon: 'bell', accent: '#c4841d', iconBg: '#f8efdc' },
-  { key: 'pending_purchases', label: 'pending', icon: 'filter', accent: '#5c7f96', iconBg: '#f3f6f8' },
+  { key: 'pending_purchases', label: 'pending', icon: 'filter', accent: 'var(--color-brand-500)', iconBg: '#f3f6f8' },
 ] as const
 
 function display(key: string) {
@@ -76,7 +76,7 @@ function display(key: string) {
   <PurchasingLayout>
     <div class="space-y-5">
       <div class="ui-toolbar !mb-0">
-        <button type="button" class="ui-btn ui-btn--secondary" @click="showFilters = !showFilters">
+        <button type="button" class="ui-btn ui-btn--secondary ml-auto" @click="showFilters = !showFilters">
           <AppIcon name="filter" :size="15" />
           {{ showFilters ? t('filters.hide') : t('filters.show') }}
         </button>

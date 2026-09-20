@@ -1,20 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
+import StoreMultiSelect from '../../../components/catalog/StoreMultiSelect.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { CatalogAttribute } from '../../../types'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
 const store = useBackofficeStore()
+const context = useContextStore()
 const showModal = ref(false)
 const editing = ref<CatalogAttribute | null>(null)
 const saving = ref(false)
@@ -24,12 +27,28 @@ const filtered = computed(() => store.catalogAttributes.filter(attribute =>
   && matchesActive(attribute.is_active, filters.value.active),
 ))
 const form = ref({ name: '', code: '', valuesText: '', is_active: true })
+const storeIds = ref<string[]>([])
 
-onMounted(() => store.loadCatalogAttributes(true))
+function defaultStoreIds() {
+  return context.currentStoreId ? [context.currentStoreId] : context.activeStores.map(store => store.id)
+}
+
+async function refreshAttributes() {
+  if (!context.currentStoreId) return
+  await store.loadCatalogAttributes(true, context.currentStoreId)
+}
+
+onMounted(async () => {
+  await context.loadStores()
+  await refreshAttributes()
+})
+
+watch(() => context.currentStoreId, () => { void refreshAttributes() })
 
 function openCreate() {
   editing.value = null
   form.value = { name: '', code: '', valuesText: '', is_active: true }
+  storeIds.value = defaultStoreIds()
   showModal.value = true
 }
 
@@ -41,6 +60,7 @@ function openEdit(attribute: CatalogAttribute) {
     valuesText: (attribute.values ?? []).join(', '),
     is_active: attribute.is_active,
   }
+  storeIds.value = attribute.store_id ? [attribute.store_id] : defaultStoreIds()
   showModal.value = true
 }
 
@@ -49,6 +69,7 @@ function valuesFromText(text: string) {
 }
 
 async function save() {
+  if (!storeIds.value.length) return
   const values = valuesFromText(form.value.valuesText)
   if (!values.length) return
   saving.value = true
@@ -58,8 +79,9 @@ async function save() {
       code: form.value.code || undefined,
       values,
       is_active: form.value.is_active,
+      store_ids: storeIds.value,
     }, editing.value?.id)
-    await store.loadCatalogAttributes()
+    await refreshAttributes()
     showModal.value = false
   } finally {
     saving.value = false
@@ -69,7 +91,7 @@ async function save() {
 async function remove(attribute: CatalogAttribute) {
   if (!(await confirmDialog(t('org.confirmDelete')))) return
   await store.deleteCatalogAttribute(attribute.id)
-  await store.loadCatalogAttributes()
+  await refreshAttributes()
 }
 </script>
 
@@ -77,8 +99,8 @@ async function remove(attribute: CatalogAttribute) {
   <CatalogLayout>
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <p class="m-0 max-w-2xl text-sm text-slate-500">{{ t('catalog.attributesHint') }}</p>
-        <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('catalog.addAttribute') }}</button>
+        <p class="m-0 max-w-2xl text-sm text-slate-500">{{ t('catalog.attributesHint') }} · {{ t('catalog.storeScopedHint') }}</p>
+        <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" :disabled="!context.activeStores.length" @click="openCreate">+ {{ t('catalog.addAttribute') }}</button>
       </div>
       <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -125,9 +147,11 @@ async function remove(attribute: CatalogAttribute) {
           <input v-model="form.valuesText" required class="field" :placeholder="t('catalog.attributeValuesHint')" />
         </div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
+        <StoreMultiSelect v-model="storeIds" />
+        <p v-if="!storeIds.length" class="m-0 text-xs text-red-600">{{ t('catalog.selectStoresRequired') }}</p>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :disabled="saving || !storeIds.length">{{ t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

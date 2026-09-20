@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -14,6 +15,7 @@ class Unit extends Model
 
     protected $fillable = [
         'tenant_id',
+        'store_id',
         'code',
         'name',
         'symbol',
@@ -27,6 +29,11 @@ class Unit extends Model
             'is_fractional' => 'boolean',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 
     public function products(): HasMany

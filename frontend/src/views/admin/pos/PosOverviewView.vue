@@ -115,7 +115,7 @@ useRealtimeSync(realtimeTopics.posOverview, load)
           :label="t('pointOfSale.overview.todayRevenue')"
           :value="formatMoney(overview?.kpis.revenue ?? 0)"
           icon="receipt"
-          accent="#4a6d86"
+          accent="var(--color-brand-600)"
           icon-bg="#e4edf2"
         />
         <KpiCard
@@ -436,7 +436,7 @@ useRealtimeSync(realtimeTopics.posOverview, load)
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: #4a6d86;
+  background: var(--color-brand-600);
 }
 
 .hour-chart {
@@ -462,7 +462,7 @@ useRealtimeSync(realtimeTopics.posOverview, load)
 .hour-col__bar {
   width: 100%;
   border-radius: 0.3rem 0.3rem 0 0;
-  background: #4a6d86;
+  background: var(--color-brand-600);
   min-height: 2px;
 }
 .hour-col__label {

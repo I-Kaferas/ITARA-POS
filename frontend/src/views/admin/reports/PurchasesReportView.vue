@@ -567,7 +567,7 @@ onMounted(() => {
   gap: 0.25rem;
   padding: 0.28rem;
   border-radius: 0.95rem;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  background: #f8fafc;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   overflow-x: auto;
   max-width: 100%;
@@ -771,7 +771,7 @@ onMounted(() => {
 
 .panel--soft {
   min-height: auto;
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  background: #ffffff;
 }
 
 .panel--table {
@@ -867,7 +867,7 @@ onMounted(() => {
 .concentration__fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #0f766e, #14b8a6);
+  background: #0f766e;
 }
 
 .legend {

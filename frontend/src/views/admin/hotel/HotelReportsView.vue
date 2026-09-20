@@ -502,8 +502,8 @@ function exportCsv() {
 .bars__plot { display: flex; align-items: stretch; gap: 0.12rem; border-bottom: 1px solid #e8eef3; padding-bottom: 0.2rem; }
 .bars--hk .bars__plot { gap: 0.55rem; padding: 0 0.6rem; }
 .bars__col { flex: 1; display: flex; }
-.bars__track { flex: 1; display: flex; align-items: flex-end; background: linear-gradient(to top, #f8fafc, transparent); }
-.bars__fill { width: 100%; background: #4a6d86; border-radius: 0.2rem 0.2rem 0 0; min-height: 0; }
+.bars__track { flex: 1; display: flex; align-items: flex-end; background: #f8fafc; }
+.bars__fill { width: 100%; background: var(--color-brand-600); border-radius: 0.2rem 0.2rem 0 0; min-height: 0; }
 .bars__fill--clean { background: #059669; }
 .bars__fill--inspected { background: #2563eb; }
 .bars__fill--dirty { background: #d97706; }
@@ -522,7 +522,7 @@ function exportCsv() {
 .swatch { width: 0.7rem; height: 0.7rem; border-radius: 999px; display: inline-block; }
 .swatch--occ { background: #0f766e; }
 .swatch--avail { background: #cbd5e1; }
-.swatch--rev { background: #4a6d86; }
+.swatch--rev { background: var(--color-brand-600); }
 .swatch--occ-line { background: #d97706; }
 
 .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
@@ -540,7 +540,7 @@ function exportCsv() {
 .trend__plot { position: relative; display: flex; align-items: stretch; gap: 0.45rem; min-height: 11rem; border-bottom: 1px solid #e8eef3; }
 .trend__col { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .trend__track { width: 100%; flex: 1; display: flex; align-items: flex-end; background: #f8fafc; border-radius: 0.3rem 0.3rem 0 0; }
-.trend__fill { width: 70%; margin: 0 auto; background: #4a6d86; border-radius: 0.25rem 0.25rem 0 0; min-height: 0; }
+.trend__fill { width: 70%; margin: 0 auto; background: var(--color-brand-600); border-radius: 0.25rem 0.25rem 0 0; min-height: 0; }
 .trend__line { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .trend__x { display: flex; margin: 0.35rem 2.6rem 0 4.4rem; font-size: 0.7rem; color: #7b8d9a; }
 .trend__x span { flex: 1; text-align: center; }

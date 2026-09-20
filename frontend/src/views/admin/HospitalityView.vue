@@ -691,7 +691,7 @@ function folioTotal(room: Doc) {
   width: 92px;
   height: 92px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #fff, #e2e8f0);
+  background: #fff;
   border: 2px solid #cbd5e1;
   box-shadow: inset 0 1px 0 #fff, 0 8px 16px rgb(15 23 42 / 0.08);
   color: #0f172a;

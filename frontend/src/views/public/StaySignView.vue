@@ -349,9 +349,7 @@ async function submit() {
   --sign-brand-soft: rgba(109, 40, 217, 0.12);
   min-height: 100dvh;
   padding: 1.25rem 1rem 2rem;
-  background:
-    radial-gradient(120% 70% at 50% -10%, var(--sign-brand-soft), transparent 55%),
-    linear-gradient(180deg, #f7f5fb 0%, #f3f4f6 42%, #eef0f4 100%);
+  background: #f3f4f6;
   color: #111827;
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }

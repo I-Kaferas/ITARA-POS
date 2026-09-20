@@ -18,7 +18,10 @@ return [
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
                 'path' => env('REVERB_SERVER_PATH', ''),
             ],
-            'client_options' => [],
+            'client_options' => [
+                'timeout' => 1.5,
+                'connect_timeout' => 0.5,
+            ],
         ],
 
         'log' => [

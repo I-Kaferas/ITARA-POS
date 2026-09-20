@@ -9,6 +9,7 @@ const route = useRoute()
 
 const pageTitle = computed(() => {
   if (route.path.startsWith('/admin/reports/dashboard')) return t('reports.tabs.dashboard')
+  if (route.path.startsWith('/admin/reports/store-stock')) return t('reports.tabs.storeStock')
   if (route.path.startsWith('/admin/reports/inventory')) return t('reports.tabs.inventory')
   if (route.path.startsWith('/admin/reports/purchases')) return t('reports.explore.purchases.title')
   if (route.path.startsWith('/admin/reports/forecasts')) return t('reports.explore.forecasts.title')
@@ -24,6 +25,7 @@ const pageTitle = computed(() => {
 const pageSubtitle = computed(() => {
   if (route.path.startsWith('/admin/reports/dashboard')) return t('reports.analytics.subtitle')
   if (route.path.startsWith('/admin/reports/sales')) return t('reports.salesAnalytics.subtitle')
+  if (route.path.startsWith('/admin/reports/store-stock')) return t('reports.storeStock.subtitle')
   if (route.path.startsWith('/admin/reports/inventory')) return t('reports.inventoryAnalytics.subtitle')
   if (route.path.startsWith('/admin/reports/purchases')) return t('reports.purchaseAnalytics.subtitle')
   if (route.path.startsWith('/admin/reports/forecasts')) return t('reports.forecastAnalytics.subtitle')

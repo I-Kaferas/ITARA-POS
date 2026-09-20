@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
@@ -7,6 +7,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { Catalog, Company, Currency } from '../../../types'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
@@ -33,6 +34,7 @@ const TYPES = ['retail', 'wholesale', 'vip', 'special'] as const
 
 const { t } = useI18n()
 const store = useBackofficeStore()
+const context = useContextStore()
 const company = ref<Company | null>(null)
 const catalog = ref<Catalog | null>(null)
 const rows = ref<Row[]>([])
@@ -50,14 +52,19 @@ const filteredRows = computed(() =>
 )
 
 onMounted(async () => {
+  await context.loadStores()
   await store.loadCompanies()
   company.value = store.companies[0] ?? null
   if (company.value) await selectCompany(company.value.id)
 })
 
+watch(() => context.currentStoreId, async () => {
+  if (company.value) await selectCompany(company.value.id)
+})
+
 async function selectCompany(id: string) {
   company.value = store.companies.find(item => item.id === id) ?? null
-  const loaded = await store.loadCatalogs(id)
+  const loaded = await store.loadCatalogs(id, context.currentStoreId)
   catalog.value = loaded.find(item => item.is_default) ?? loaded[0] ?? null
   if (catalog.value) await load()
 }

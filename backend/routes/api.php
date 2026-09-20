@@ -210,6 +210,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:reports.view');
         Route::get('/reports/inventory', [ReportController::class, 'inventory'])
             ->middleware('permission:reports.view');
+        Route::get('/reports/store-stock', [ReportController::class, 'storeStock'])
+            ->middleware('permission:reports.view');
         Route::get('/reports/purchases', [ReportController::class, 'purchases'])
             ->middleware('permission:reports.view');
         Route::get('/reports/forecasts', [ReportController::class, 'forecasts'])
@@ -235,6 +237,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/reports/export/revenue', [ReportController::class, 'exportRevenue'])
             ->middleware('permission:reports.export');
         Route::get('/reports/export/inventory', [ReportController::class, 'exportInventory'])
+            ->middleware('permission:reports.export');
+        Route::get('/reports/export/store-stock', [ReportController::class, 'exportStoreStock'])
             ->middleware('permission:reports.export');
         Route::get('/reports/export/purchases', [ReportController::class, 'exportPurchases'])
             ->middleware('permission:reports.export');

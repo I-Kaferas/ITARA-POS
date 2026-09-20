@@ -167,7 +167,7 @@ function reset() {
 .toggle {
   display: inline-flex;
   align-items: center;
-  align-self: flex-start;
+  align-self: flex-end;
   gap: var(--space-2);
   height: var(--control-sm);
   border: 1px solid var(--color-border);

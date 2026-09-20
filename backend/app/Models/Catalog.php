@@ -16,6 +16,7 @@ class Catalog extends Model
     protected $fillable = [
         'tenant_id',
         'company_id',
+        'store_id',
         'name',
         'description',
         'is_default',
@@ -33,6 +34,11 @@ class Catalog extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 
     public function categories(): HasMany

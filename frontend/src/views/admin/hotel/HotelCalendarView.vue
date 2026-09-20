@@ -43,7 +43,7 @@ const categories: { id: EventCategory; color: string }[] = [
   { id: 'meeting', color: '#7c3aed' },
   { id: 'maintenance', color: '#d97706' },
   { id: 'housekeeping', color: '#059669' },
-  { id: 'reservation', color: '#4a6d86' },
+  { id: 'reservation', color: 'var(--color-brand-600)' },
 ]
 
 const form = ref(blankForm())
@@ -163,6 +163,17 @@ const filteredEvents = computed(() =>
 const monthLabel = computed(() =>
   cursor.value.toLocaleDateString(locale.value || undefined, { month: 'long', year: 'numeric' }),
 )
+
+const selectedDayLabel = computed(() => {
+  const d = parseDate(selectedDate.value)
+  return d.toLocaleDateString(locale.value || undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+})
+
+const selectedDayEvents = computed(() => eventsOnDay(selectedDate.value))
 
 const weekdayLabels = computed(() => {
   const base = startOfWeek(new Date(2024, 0, 7)) // Sunday
@@ -458,124 +469,163 @@ watch(() => ctx.currentStoreId, () => {
 <template>
   <HotelChrome scroll-body>
     <div class="cal" @mouseup="endResize">
-      <header class="cal__header">
-        <div>
+      <header class="cal__top">
+        <div class="cal__intro">
           <h2>{{ t('hotel.calendar.title') }}</h2>
           <p>{{ t('hotel.calendar.subtitle') }}</p>
         </div>
-        <button type="button" class="btn-primary" @click="openCreate()">
-          <AppIcon name="plus" :size="14" />
-          {{ t('hotel.calendar.addEvent') }}
-        </button>
+        <div class="cal__top-actions">
+          <button type="button" class="btn-secondary" :disabled="loading" @click="loadReservations">
+            {{ t('common.refresh') }}
+          </button>
+          <button type="button" class="btn-primary" @click="openCreate()">
+            <AppIcon name="plus" :size="14" />
+            {{ t('hotel.calendar.addEvent') }}
+          </button>
+        </div>
       </header>
 
       <p v-if="error && !formOpen" class="cal__error">{{ error }}</p>
 
-      <section class="cal__categories">
-        <span class="cal__cat-label">{{ t('hotel.calendar.categoriesLabel') }}</span>
-        <button
-          type="button"
-          class="cal__cat"
-          :class="{ 'cal__cat--on': activeCategory === 'all' }"
-          @click="activeCategory = 'all'"
-        >
-          {{ t('hotel.calendar.all') }}
-          <em>{{ events.length }}</em>
-        </button>
-        <button
-          v-for="cat in categories"
-          :key="cat.id"
-          type="button"
-          class="cal__cat"
-          :class="{ 'cal__cat--on': activeCategory === cat.id }"
-          :style="{ '--cat': cat.color }"
-          @click="activeCategory = activeCategory === cat.id ? 'all' : cat.id"
-        >
-          <i />
-          {{ categoryLabel(cat.id) }}
-          <em>({{ categoryCounts[cat.id] }})</em>
-        </button>
-      </section>
-
-      <section class="cal__toolbar">
-        <div class="cal__nav">
-          <button type="button" class="btn-secondary" @click="goToday">{{ t('hotel.calendar.today') }}</button>
-          <button type="button" class="btn-secondary cal__period-btn" @click="prevPeriod">{{ t('hotel.calendar.prevShort') }}</button>
-          <button type="button" class="btn-secondary cal__period-btn" @click="nextPeriod">{{ t('hotel.calendar.nextShort') }}</button>
-          <strong class="cal__month">{{ monthLabel }}</strong>
-        </div>
-        <div class="cal__controls">
-          <label class="cal__field">
-            <span>{{ t('hotel.calendar.view') }}</span>
-            <select class="field" disabled>
-              <option>{{ t('hotel.calendar.month') }}</option>
-            </select>
-          </label>
-          <label class="cal__field">
-            <span>{{ t('hotel.calendar.date') }}</span>
-            <input
-              class="field"
-              type="date"
-              :value="selectedDate"
-              @change="onDateInput(($event.target as HTMLInputElement).value)"
-            >
-          </label>
-        </div>
-      </section>
-
-      <p v-if="loading" class="cal__muted">{{ t('common.loading') }}</p>
-
-      <div class="cal__board">
-        <div class="cal__weekdays">
-          <span v-for="label in weekdayLabels" :key="label">{{ label }}</span>
-        </div>
-        <div class="cal__grid">
-          <button
-            v-for="cell in calendarCells"
-            :key="cell.iso"
-            type="button"
-            class="cal__day"
-            :class="{
-              'cal__day--out': !cell.inMonth,
-              'cal__day--today': cell.isToday,
-              'cal__day--selected': cell.isSelected,
-            }"
-            @click="selectDay(cell.iso)"
-            @dblclick="openCreate(cell.iso)"
-            @dragover="onDayDragOver"
-            @drop="onDayDrop(cell.iso, $event)"
-            @mouseenter="onDayEnterDuringResize(cell.iso)"
-          >
-            <span class="cal__day-num">{{ cell.date.getDate() }}</span>
-            <div class="cal__events">
-              <article
-                v-for="ev in cell.events.slice(0, 4)"
-                :key="`${cell.iso}-${ev.id}`"
-                class="cal__event"
-                :class="{
-                  'cal__event--locked': ev.source === 'reservation',
-                  'cal__event--start': normalizeDay(ev.start) === cell.iso,
-                }"
-                :style="{ '--cat': categoryColor(ev.category) }"
-                :title="`${ev.title} · ${normalizeDay(ev.start)}${normalizeDay(ev.end) !== normalizeDay(ev.start) ? ` → ${normalizeDay(ev.end)}` : ''}`"
-                :draggable="ev.source !== 'reservation'"
-                @click.stop="openEdit(ev)"
-                @dragstart="onEventDragStart(ev, $event)"
-              >
-                <strong>{{ ev.title }}</strong>
-                <span
-                  v-if="ev.source !== 'reservation'"
-                  class="cal__resize"
-                  title="resize"
-                  @mousedown="beginResize(ev, $event)"
-                />
-              </article>
-              <span v-if="cell.events.length > 4" class="cal__more">
-                +{{ cell.events.length - 4 }}
-              </span>
+      <div class="cal__shell">
+        <section class="cal__main">
+          <div class="cal__toolbar">
+            <div class="cal__nav">
+              <button type="button" class="cal__nav-btn" :title="t('hotel.calendar.prev')" @click="prevPeriod">‹</button>
+              <button type="button" class="cal__nav-btn" :title="t('hotel.calendar.next')" @click="nextPeriod">›</button>
+              <strong class="cal__month">{{ monthLabel }}</strong>
+              <button type="button" class="cal__today" @click="goToday">{{ t('hotel.calendar.today') }}</button>
             </div>
-          </button>
-        </div>
+            <div class="cal__filters">
+              <button
+                type="button"
+                class="cal__chip"
+                :class="{ 'cal__chip--on': activeCategory === 'all' }"
+                @click="activeCategory = 'all'"
+              >
+                {{ t('hotel.calendar.all') }}
+                <em>{{ events.length }}</em>
+              </button>
+              <button
+                v-for="cat in categories"
+                :key="cat.id"
+                type="button"
+                class="cal__chip"
+                :class="{ 'cal__chip--on': activeCategory === cat.id }"
+                :style="{ '--cat': cat.color }"
+                @click="activeCategory = activeCategory === cat.id ? 'all' : cat.id"
+              >
+                <i />
+                {{ categoryLabel(cat.id) }}
+                <em>{{ categoryCounts[cat.id] }}</em>
+              </button>
+            </div>
+          </div>
+
+          <p v-if="loading" class="cal__muted">{{ t('common.loading') }}</p>
+
+          <div class="cal__board">
+            <div class="cal__weekdays">
+              <span v-for="label in weekdayLabels" :key="label">{{ label }}</span>
+            </div>
+            <div class="cal__grid">
+              <button
+                v-for="cell in calendarCells"
+                :key="cell.iso"
+                type="button"
+                class="cal__day"
+                :class="{
+                  'cal__day--out': !cell.inMonth,
+                  'cal__day--today': cell.isToday,
+                  'cal__day--selected': cell.isSelected,
+                  'cal__day--busy': cell.events.length > 0,
+                }"
+                @click="selectDay(cell.iso)"
+                @dblclick="openCreate(cell.iso)"
+                @dragover="onDayDragOver"
+                @drop="onDayDrop(cell.iso, $event)"
+                @mouseenter="onDayEnterDuringResize(cell.iso)"
+              >
+                <header class="cal__day-head">
+                  <span class="cal__day-num">{{ cell.date.getDate() }}</span>
+                  <span v-if="cell.events.length" class="cal__day-count">{{ cell.events.length }}</span>
+                </header>
+                <div class="cal__events">
+                  <article
+                    v-for="ev in cell.events.slice(0, 3)"
+                    :key="`${cell.iso}-${ev.id}`"
+                    class="cal__event"
+                    :class="{
+                      'cal__event--locked': ev.source === 'reservation',
+                      'cal__event--start': normalizeDay(ev.start) === cell.iso,
+                      'cal__event--span': normalizeDay(ev.start) !== cell.iso,
+                    }"
+                    :style="{ '--cat': categoryColor(ev.category) }"
+                    :title="`${ev.title} · ${normalizeDay(ev.start)}${normalizeDay(ev.end) !== normalizeDay(ev.start) ? ` → ${normalizeDay(ev.end)}` : ''}`"
+                    :draggable="ev.source !== 'reservation'"
+                    @click.stop="openEdit(ev)"
+                    @dragstart="onEventDragStart(ev, $event)"
+                  >
+                    <strong>{{ ev.title }}</strong>
+                    <span
+                      v-if="ev.source !== 'reservation'"
+                      class="cal__resize"
+                      :title="t('hotel.calendar.resize')"
+                      @mousedown="beginResize(ev, $event)"
+                    />
+                  </article>
+                  <span v-if="cell.events.length > 3" class="cal__more">
+                    +{{ cell.events.length - 3 }} {{ t('hotel.calendar.more') }}
+                  </span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="cal__agenda">
+          <div class="cal__agenda-head">
+            <div>
+              <p class="cal__agenda-kicker">{{ t('hotel.calendar.agenda') }}</p>
+              <h3>{{ selectedDayLabel }}</h3>
+            </div>
+            <button type="button" class="cal__agenda-add" :title="t('hotel.calendar.addEvent')" @click="openCreate(selectedDate)">
+              <AppIcon name="plus" :size="16" />
+            </button>
+          </div>
+
+          <div v-if="!selectedDayEvents.length" class="cal__agenda-empty">
+            <AppIcon name="calendar" :size="28" />
+            <p>{{ t('hotel.calendar.emptyDay') }}</p>
+            <button type="button" class="btn-secondary" @click="openCreate(selectedDate)">
+              {{ t('hotel.calendar.addEvent') }}
+            </button>
+          </div>
+
+          <ul v-else class="cal__agenda-list">
+            <li
+              v-for="ev in selectedDayEvents"
+              :key="ev.id"
+              class="cal__agenda-item"
+              :style="{ '--cat': categoryColor(ev.category) }"
+              @click="openEdit(ev)"
+            >
+              <span class="cal__agenda-dot" />
+              <div class="cal__agenda-body">
+                <strong>{{ ev.title }}</strong>
+                <p>
+                  <span class="cal__agenda-cat">{{ categoryLabel(ev.category) }}</span>
+                  <span v-if="normalizeDay(ev.end) !== normalizeDay(ev.start)">
+                    · {{ normalizeDay(ev.start) }} → {{ normalizeDay(ev.end) }}
+                  </span>
+                  <span v-else-if="ev.source === 'reservation'">· {{ t('hotel.calendar.categories.reservation') }}</span>
+                </p>
+                <p v-if="ev.notes" class="cal__agenda-notes">{{ ev.notes }}</p>
+              </div>
+              <span v-if="ev.source === 'reservation'" class="cal__agenda-lock">{{ t('hotel.calendar.locked') }}</span>
+            </li>
+          </ul>
+        </aside>
       </div>
     </div>
 
@@ -630,33 +680,38 @@ watch(() => ctx.currentStoreId, () => {
   flex-direction: column;
   gap: 0.85rem;
   width: 100%;
+  min-height: 0;
 }
 
-.cal__header {
+.cal__top {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
   flex-wrap: wrap;
-  padding: 1rem 1.1rem;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.9rem;
-  background: #fff;
 }
 
-.cal__header h2 {
+.cal__intro h2 {
   margin: 0;
-  font-size: 1.2rem;
-  color: #1c2830;
+  font-size: 1.15rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary, #1c2830);
 }
 
-.cal__header p {
-  margin: 0.3rem 0 0;
-  font-size: 0.875rem;
-  color: #66727c;
+.cal__intro p {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #66727c);
 }
 
-.cal__header .btn-primary {
+.cal__top-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cal__top-actions .btn-primary {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -671,67 +726,30 @@ watch(() => ctx.currentStoreId, () => {
   font-size: 0.85rem;
 }
 
-.cal__categories {
+.cal__shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
+  gap: 0.85rem;
+  align-items: start;
+  min-height: 0;
+}
+
+.cal__main {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.9rem;
-  background: #fff;
-}
-
-.cal__cat-label {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #64748b;
-  margin-right: 0.25rem;
-}
-
-.cal__cat {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border: 1px solid #d7e2ea;
-  border-radius: 999px;
-  background: #fff;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.8rem;
-  font-weight: 650;
-  color: #334155;
-  cursor: pointer;
-}
-
-.cal__cat i {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 999px;
-  background: var(--cat, #94a3b8);
-}
-
-.cal__cat em {
-  font-style: normal;
-  color: #7b8d9a;
-  font-weight: 700;
-}
-
-.cal__cat--on {
-  border-color: var(--cat, #4a6d86);
-  background: #f3f6f8;
-  color: #1c2830;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .cal__toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1rem;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.9rem;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 1rem;
   background: #fff;
+  box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));
 }
 
 .cal__nav {
@@ -742,69 +760,110 @@ watch(() => ctx.currentStoreId, () => {
 }
 
 .cal__nav-btn {
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.55rem;
+  width: 2.15rem;
+  height: 2.15rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 0.65rem;
   background: #fff;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
-  color: #334155;
+  color: var(--color-text-secondary, #334155);
 }
 
-.cal__period-btn {
-  font-size: 0.8rem;
-  padding: 0.35rem 0.65rem;
+.cal__nav-btn:hover {
+  border-color: var(--color-brand-300, #c4b5fd);
+  color: var(--color-brand-700);
 }
 
 .cal__month {
-  margin-left: 0.35rem;
-  font-size: 1rem;
-  color: #1c2830;
+  margin: 0 0.35rem 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 750;
+  color: var(--color-text-primary, #1c2830);
   text-transform: capitalize;
 }
 
-.cal__controls {
+.cal__today {
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-secondary, #475569);
+  cursor: pointer;
+}
+
+.cal__today:hover {
+  border-color: var(--color-brand-400);
+  color: var(--color-brand-700);
+  background: var(--color-brand-50, #f5f3ff);
+}
+
+.cal__filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.4rem;
 }
 
-.cal__field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.72rem;
+.cal__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: #eef1f5;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
   font-weight: 650;
-  color: #7b8d9a;
+  color: var(--color-text-secondary, #334155);
+  cursor: pointer;
 }
 
-.cal__field .field {
-  min-width: 9rem;
+.cal__chip i {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--cat, #94a3b8);
+}
+
+.cal__chip em {
+  font-style: normal;
+  opacity: 0.7;
+  font-weight: 700;
+}
+
+.cal__chip--on {
+  background: color-mix(in srgb, var(--cat, var(--color-brand-600)) 14%, #fff);
+  border-color: color-mix(in srgb, var(--cat, var(--color-brand-600)) 40%, #fff);
+  color: color-mix(in srgb, var(--cat, var(--color-brand-700)) 75%, #0f172a);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cat, var(--color-brand-600)) 18%, transparent);
 }
 
 .cal__board {
-  border: 1px solid #d7e2ea;
-  border-radius: 0.9rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 1rem;
   background: #fff;
   overflow: hidden;
+  box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));
 }
 
 .cal__weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   background: #f8fafc;
-  border-bottom: 1px solid #e4e8ec;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
 }
 
 .cal__weekdays span {
-  padding: 0.65rem 0.4rem;
+  padding: 0.7rem 0.35rem;
   text-align: center;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #64748b;
-  text-transform: capitalize;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #64748b);
 }
 
 .cal__grid {
@@ -814,87 +873,120 @@ watch(() => ctx.currentStoreId, () => {
 
 .cal__day {
   position: relative;
-  min-height: 8.25rem;
-  height: 100%;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  min-height: 7.5rem;
   border: 0;
   border-right: 1px solid #eef2f6;
   border-bottom: 1px solid #eef2f6;
   background: #fff;
-  padding: 0.45rem 0.35rem;
-  text-align: center;
+  padding: 0.4rem 0.35rem 0.45rem;
+  text-align: left;
   cursor: pointer;
   overflow: hidden;
+  transition: background var(--motion-fast, 120ms) ease;
 }
 
 .cal__day:nth-child(7n) { border-right: 0; }
-.cal__day--out { background: #fafbfc; color: #94a3b8; }
-.cal__day--today .cal__day-num {
-  background: var(--color-brand-600, #4a6d86);
-  color: #fff;
+
+.cal__day:hover {
+  background: #fafbff;
 }
+
+.cal__day--out {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.cal__day--out:hover {
+  background: #f1f5f9;
+}
+
+.cal__day--today .cal__day-num {
+  background: var(--color-brand-600);
+  color: #fff;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--color-brand-600) 35%, transparent);
+}
+
 .cal__day--selected {
-  background: #f3f6f8;
-  box-shadow: inset 0 0 0 2px rgba(74, 109, 134, 0.25);
+  background: color-mix(in srgb, var(--color-brand-600) 7%, #fff);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-brand-600) 45%, transparent);
+  z-index: 1;
+}
+
+.cal__day--busy .cal__day-count {
+  opacity: 1;
+}
+
+.cal__day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .cal__day-num {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.7rem;
-  height: 1.7rem;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  padding: 0 0.3rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 750;
+  color: inherit;
+}
+
+.cal__day-count {
+  font-size: 0.65rem;
   font-weight: 700;
-  z-index: 1;
-  pointer-events: none;
+  color: var(--color-text-faint, #94a3b8);
+  opacity: 0.85;
 }
 
 .cal__events {
-  position: absolute;
-  left: 0.35rem;
-  right: 0.35rem;
-  bottom: 0.35rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  max-height: calc(50% - 0.35rem);
+  gap: 0.2rem;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
-  z-index: 2;
-}
-
-.cal__day:not(:has(.cal__event)) .cal__events {
-  display: none;
 }
 
 .cal__event {
   position: relative;
   border-radius: 0.4rem;
-  padding: 0.22rem 0.4rem 0.22rem 0.45rem;
-  background: color-mix(in srgb, var(--cat) 18%, #fff);
-  border: 1px solid color-mix(in srgb, var(--cat) 35%, #fff);
+  padding: 0.18rem 0.4rem 0.18rem 0.45rem;
+  background: color-mix(in srgb, var(--cat) 16%, #fff);
+  border: 1px solid color-mix(in srgb, var(--cat) 28%, #fff);
   border-left: 3px solid var(--cat);
   cursor: grab;
   flex-shrink: 0;
 }
 
 .cal__event--start {
-  background: color-mix(in srgb, var(--cat) 28%, #fff);
-  border-color: color-mix(in srgb, var(--cat) 45%, #fff);
-  font-weight: 700;
+  background: color-mix(in srgb, var(--cat) 26%, #fff);
 }
 
-.cal__event--locked { cursor: pointer; }
+.cal__event--span {
+  opacity: 0.88;
+  border-left-style: dashed;
+}
+
+.cal__event--locked {
+  cursor: pointer;
+}
+
 .cal__event strong {
   display: block;
   font-size: 0.68rem;
   font-weight: 700;
-  color: color-mix(in srgb, var(--cat) 72%, #0f172a);
+  line-height: 1.25;
+  color: color-mix(in srgb, var(--cat) 70%, #0f172a);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -904,24 +996,174 @@ watch(() => ctx.currentStoreId, () => {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 0.55rem;
-  height: 0.55rem;
+  width: 0.5rem;
+  height: 0.5rem;
   cursor: ew-resize;
   background: var(--cat);
-  border-top-left-radius: 0.25rem;
-  opacity: 0.85;
+  border-top-left-radius: 0.2rem;
+  opacity: 0.8;
 }
 
 .cal__more {
-  font-size: 0.68rem;
-  color: #7b8d9a;
+  font-size: 0.65rem;
+  color: var(--color-text-muted, #7b8d9a);
   font-weight: 650;
+  padding: 0 0.15rem;
 }
 
 .cal__muted {
   margin: 0;
-  color: #7b8d9a;
+  color: var(--color-text-muted, #7b8d9a);
   font-size: 0.85rem;
+}
+
+.cal__agenda {
+  position: sticky;
+  top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 22rem;
+  max-height: calc(100vh - 10rem);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));
+  overflow: hidden;
+}
+
+.cal__agenda-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.85rem;
+  border-bottom: 1px solid var(--color-border, #eef2f6);
+}
+
+.cal__agenda-kicker {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-brand-600);
+}
+
+.cal__agenda-head h3 {
+  margin: 0.2rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: var(--color-text-primary, #1c2830);
+  text-transform: capitalize;
+  line-height: 1.3;
+}
+
+.cal__agenda-add {
+  width: 2.15rem;
+  height: 2.15rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0.7rem;
+  background: var(--color-brand-600);
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cal__agenda-add:hover {
+  filter: brightness(1.05);
+}
+
+.cal__agenda-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 1.5rem 1rem;
+  color: var(--color-text-faint, #94a3b8);
+  text-align: center;
+}
+
+.cal__agenda-empty p {
+  margin: 0;
+  font-size: 0.85rem;
+  max-width: 12rem;
+  line-height: 1.4;
+}
+
+.cal__agenda-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.65rem;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.cal__agenda-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.55rem;
+  align-items: start;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--cat) 22%, #e2e8f0);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--cat) 8%, #fff);
+  cursor: pointer;
+  transition: transform var(--motion-fast, 120ms) ease;
+}
+
+.cal__agenda-item:hover {
+  transform: translateY(-1px);
+}
+
+.cal__agenda-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.3rem;
+  border-radius: 999px;
+  background: var(--cat);
+}
+
+.cal__agenda-body strong {
+  display: block;
+  font-size: 0.84rem;
+  font-weight: 750;
+  color: var(--color-text-primary, #0f172a);
+  line-height: 1.25;
+}
+
+.cal__agenda-body p {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: var(--color-text-muted, #64748b);
+}
+
+.cal__agenda-cat {
+  font-weight: 650;
+  color: color-mix(in srgb, var(--cat) 65%, #334155);
+}
+
+.cal__agenda-notes {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cal__agenda-lock {
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-brand-700, #6d28d9);
+  background: var(--color-brand-50, #f5f3ff);
+  border-radius: 999px;
+  padding: 0.15rem 0.4rem;
 }
 
 .cal__form {
@@ -946,8 +1188,21 @@ watch(() => ctx.currentStoreId, () => {
   margin-left: auto;
 }
 
+@media (max-width: 1100px) {
+  .cal__shell {
+    grid-template-columns: 1fr;
+  }
+
+  .cal__agenda {
+    position: static;
+    max-height: none;
+    min-height: 0;
+  }
+}
+
 @media (max-width: 720px) {
-  .cal__day { min-height: 5.5rem; }
+  .cal__day { min-height: 5.75rem; }
   .cal__form { grid-template-columns: 1fr; }
+  .cal__event:nth-child(n + 3) { display: none; }
 }
 </style>

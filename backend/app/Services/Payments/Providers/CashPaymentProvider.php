@@ -10,7 +10,6 @@ use App\Enums\CashMovementType;
 use App\Enums\SalePaymentMethod;
 use App\Models\PaymentTransaction;
 use App\Services\Registers\CashRegisterSessionService;
-use Illuminate\Validation\ValidationException;
 
 class CashPaymentProvider extends AbstractPaymentProvider
 {
@@ -23,21 +22,6 @@ class CashPaymentProvider extends AbstractPaymentProvider
         return SalePaymentMethod::Cash;
     }
 
-    public function validate(PaymentLineInput $line, PaymentContext $context): void
-    {
-        parent::validate($line, $context);
-
-        if ($context->cashRegister !== null) {
-            $session = $context->cashRegister->openSession()->first();
-
-            if ($session === null) {
-                throw ValidationException::withMessages([
-                    'cash_register_id' => ['Cash register has no open session.'],
-                ]);
-            }
-        }
-    }
-
     public function initiate(
         PaymentLineInput $line,
         PaymentContext $context,
@@ -48,19 +32,21 @@ class CashPaymentProvider extends AbstractPaymentProvider
         $change = max(0, $tendered - $line->amount);
 
         if ($context->cashRegister !== null && $context->processedBy !== null) {
-            $session = $context->cashRegister->openSession()->firstOrFail();
+            $session = $context->cashRegister->openSession()->first();
 
-            $this->cashRegisterSessions->recordMovement(
-                register: $context->cashRegister,
-                session: $session,
-                type: CashMovementType::Sale,
-                amount: $line->amount,
-                user: $context->processedBy,
-                description: "Payment {$context->transactionNumber}",
-                reference: $context->transactionNumber,
-                referenceType: PaymentTransaction::class,
-                referenceId: $transaction->id,
-            );
+            if ($session !== null) {
+                $this->cashRegisterSessions->recordMovement(
+                    register: $context->cashRegister,
+                    session: $session,
+                    type: CashMovementType::Sale,
+                    amount: $line->amount,
+                    user: $context->processedBy,
+                    description: "Payment {$context->transactionNumber}",
+                    reference: $context->transactionNumber,
+                    referenceType: PaymentTransaction::class,
+                    referenceId: $transaction->id,
+                );
+            }
         }
 
         return $this->complete(

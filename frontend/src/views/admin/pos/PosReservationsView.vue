@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -15,6 +16,15 @@ import { formatDateTime } from '../../../utils/format'
 
 type ReservationStatus = 'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show'
 
+interface PosTableOption {
+  id: string
+  name: string
+  code?: string
+  capacity: number
+  status: string
+  is_active: boolean
+}
+
 interface PosReservation {
   id: string
   reference: string
@@ -23,6 +33,7 @@ interface PosReservation {
   party_size: number
   reserved_at: string
   table_label?: string | null
+  table_id?: string | null
   status: ReservationStatus
   notes?: string | null
   customer_id?: string | null
@@ -32,14 +43,18 @@ interface PosReservation {
 const STATUSES: ReservationStatus[] = ['pending', 'confirmed', 'seated', 'completed', 'cancelled', 'no_show']
 
 const { t } = useI18n()
+const router = useRouter()
 const store = useBackofficeStore()
 const context = useContextStore()
 
 const storeId = computed(() => context.currentStoreId)
 const loading = ref(false)
 const saving = ref(false)
+const actionId = ref<string | null>(null)
 const error = ref('')
+const notice = ref('')
 const reservations = ref<PosReservation[]>([])
+const tables = ref<PosTableOption[]>([])
 const showForm = ref(false)
 const editingId = ref<string | null>(null)
 const statusSavingId = ref<string | null>(null)
@@ -58,6 +73,7 @@ const form = ref({
   phone: '',
   party_size: '2',
   reserved_at: '',
+  table_id: '',
   table_label: '',
   status: 'pending' as ReservationStatus,
   notes: '',
@@ -74,6 +90,10 @@ const statusOptions = computed(() => [
   ...STATUSES.map(value => ({ value, label: statusLabel(value) })),
 ])
 
+const selectableTables = computed(() =>
+  tables.value.filter(table => table.is_active !== false && table.status !== 'inactive'),
+)
+
 function statusLabel(status: string): string {
   const key = `pointOfSale.reservations.status.${status}`
   const label = t(key)
@@ -83,7 +103,7 @@ function statusLabel(status: string): string {
 function statusVariant(status: string): 'success' | 'neutral' | 'brand' | 'warning' {
   if (status === 'confirmed' || status === 'seated') return 'brand'
   if (status === 'completed') return 'success'
-  if (status === 'cancelled') return 'neutral'
+  if (status === 'cancelled' || status === 'no_show') return 'neutral'
   return 'warning'
 }
 
@@ -112,12 +132,23 @@ function queryString(): string {
   return qs ? `?${qs}` : ''
 }
 
+async function loadTables() {
+  if (!storeId.value) return
+  try {
+    const res = await api.get<{ data: { tables: PosTableOption[] } }>(`/stores/${storeId.value}/pos/tables`)
+    tables.value = res.data?.tables ?? []
+  } catch {
+    tables.value = []
+  }
+}
+
 async function load() {
   if (!storeId.value) return
   loading.value = true
   error.value = ''
   try {
     if (!store.customers.length) await store.loadCustomers()
+    await loadTables()
     reservations.value = (await api.get<{ data: PosReservation[] }>(
       `/stores/${storeId.value}/pos/reservations${queryString()}`,
     )).data
@@ -142,6 +173,7 @@ function openCreate() {
     phone: '',
     party_size: '2',
     reserved_at: defaultReservedAt(),
+    table_id: '',
     table_label: '',
     status: 'pending',
     notes: '',
@@ -158,6 +190,7 @@ function openEdit(item: PosReservation) {
     phone: item.phone ?? '',
     party_size: String(item.party_size),
     reserved_at: toLocalInput(item.reserved_at),
+    table_id: item.table_id ?? '',
     table_label: item.table_label ?? '',
     status: item.status,
     notes: item.notes ?? '',
@@ -165,15 +198,22 @@ function openEdit(item: PosReservation) {
   showForm.value = true
 }
 
+function onTableSelected() {
+  const table = tables.value.find(item => item.id === form.value.table_id)
+  if (table) form.value.table_label = table.name
+}
+
 function payload() {
   const partySize = Number(form.value.party_size)
+  const table = tables.value.find(item => item.id === form.value.table_id)
   return {
     customer_id: form.value.mode === 'customer' && form.value.customer_id ? form.value.customer_id : null,
     guest_name: form.value.guest_name.trim() || null,
     phone: form.value.phone.trim() || null,
     party_size: Number.isFinite(partySize) ? partySize : 1,
     reserved_at: new Date(form.value.reserved_at).toISOString(),
-    table_label: form.value.table_label.trim() || null,
+    table_id: form.value.table_id || null,
+    table_label: form.value.table_label.trim() || table?.name || null,
     status: form.value.status,
     notes: form.value.notes.trim() || null,
   }
@@ -203,14 +243,58 @@ async function changeStatus(item: PosReservation, status: ReservationStatus) {
   if (item.status === status) return
   statusSavingId.value = item.id
   error.value = ''
+  notice.value = ''
   try {
     await api.patch(`/pos-reservations/${item.id}/status`, { status })
     item.status = status
+    notice.value = t('pointOfSale.reservations.statusUpdated')
   } catch (e) {
     error.value = extractApiErrorMessage(e, t('pointOfSale.reservations.saveError'))
     await load()
   } finally {
     statusSavingId.value = null
+  }
+}
+
+function canConfirm(item: PosReservation) {
+  return item.status === 'pending'
+}
+
+function canSeat(item: PosReservation) {
+  return (item.status === 'pending' || item.status === 'confirmed') && Boolean(item.table_id)
+}
+
+function canComplete(item: PosReservation) {
+  return item.status === 'seated' || item.status === 'confirmed'
+}
+
+function canCancel(item: PosReservation) {
+  return !['completed', 'cancelled', 'no_show'].includes(item.status)
+}
+
+async function seatReservation(item: PosReservation) {
+  if (!storeId.value || !item.table_id) {
+    error.value = t('pointOfSale.reservations.needTable')
+    return
+  }
+  actionId.value = item.id
+  error.value = ''
+  notice.value = ''
+  try {
+    if (item.status === 'pending') {
+      await api.patch(`/pos-reservations/${item.id}/status`, { status: 'confirmed' })
+    }
+    const res = await api.post<{ data: { sale: { id: string } } }>(
+      `/stores/${storeId.value}/pos/tables/${item.table_id}/open`,
+      { confirm_reserved: true },
+    )
+    const saleId = res.data.sale.id
+    await router.push({ name: 'pos', query: { sale: saleId, table: item.table_id } })
+  } catch (e) {
+    error.value = extractApiErrorMessage(e, t('pointOfSale.reservations.seatError'))
+    await load()
+  } finally {
+    actionId.value = null
   }
 }
 
@@ -234,10 +318,18 @@ watch(
 
     <template v-else>
       <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <p class="m-0 max-w-2xl text-sm text-slate-500">{{ t('pointOfSale.reservations.intro') }}</p>
-        <button type="button" class="ui-btn ui-btn--primary" @click="openCreate">
-          {{ t('pointOfSale.reservations.add') }}
-        </button>
+        <div class="max-w-2xl space-y-1">
+          <p class="m-0 text-sm text-slate-500">{{ t('pointOfSale.reservations.intro') }}</p>
+          <p class="m-0 text-xs text-slate-400">{{ t('pointOfSale.reservations.flowHint') }}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="ui-btn ui-btn--secondary" @click="router.push({ name: 'pos-tables' })">
+            {{ t('pointOfSale.reservations.openFloor') }}
+          </button>
+          <button type="button" class="ui-btn ui-btn--primary" @click="openCreate">
+            {{ t('pointOfSale.reservations.add') }}
+          </button>
+        </div>
       </div>
 
       <div class="mb-4 rounded-xl border border-slate-200 bg-white p-4">
@@ -280,6 +372,7 @@ watch(
       </div>
 
       <p v-if="error" class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
+      <p v-if="notice" class="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ notice }}</p>
 
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <div class="border-b border-slate-100 px-4 py-3">
@@ -299,7 +392,7 @@ watch(
               <th class="px-4 py-3 text-right font-medium">{{ t('pointOfSale.reservations.party') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('pointOfSale.reservations.table') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('pointOfSale.reservations.statusLabel') }}</th>
-              <th class="px-4 py-3 text-right font-medium">{{ t('common.edit') }}</th>
+              <th class="px-4 py-3 text-right font-medium">{{ t('pointOfSale.reservations.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -313,22 +406,59 @@ watch(
               <td class="px-4 py-3 text-right">{{ item.party_size }}</td>
               <td class="px-4 py-3">{{ item.table_label || '—' }}</td>
               <td class="px-4 py-3">
-                <div class="flex flex-wrap items-center gap-2">
-                  <Badge :variant="statusVariant(item.status)">{{ statusLabel(item.status) }}</Badge>
-                  <select
-                    class="ui-select"
-                    :value="item.status"
-                    :disabled="statusSavingId === item.id"
-                    @change="changeStatus(item, ($event.target as HTMLSelectElement).value as ReservationStatus)"
-                  >
-                    <option v-for="status in STATUSES" :key="status" :value="status">{{ statusLabel(status) }}</option>
-                  </select>
-                </div>
+                <Badge :variant="statusVariant(item.status)">{{ statusLabel(item.status) }}</Badge>
               </td>
-              <td class="px-4 py-3 text-right">
-                <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="openEdit(item)">
-                  {{ t('common.edit') }}
-                </button>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap justify-end gap-1.5">
+                  <button
+                    v-if="canConfirm(item)"
+                    type="button"
+                    class="ui-btn ui-btn--secondary ui-btn--sm"
+                    :disabled="statusSavingId === item.id"
+                    @click="changeStatus(item, 'confirmed')"
+                  >
+                    {{ t('pointOfSale.reservations.confirm') }}
+                  </button>
+                  <button
+                    v-if="canSeat(item)"
+                    type="button"
+                    class="ui-btn ui-btn--primary ui-btn--sm"
+                    :disabled="actionId === item.id"
+                    @click="seatReservation(item)"
+                  >
+                    {{ actionId === item.id ? '…' : t('pointOfSale.reservations.seat') }}
+                  </button>
+                  <button
+                    v-if="canComplete(item)"
+                    type="button"
+                    class="ui-btn ui-btn--ghost ui-btn--sm"
+                    :disabled="statusSavingId === item.id"
+                    @click="changeStatus(item, 'completed')"
+                  >
+                    {{ t('pointOfSale.reservations.complete') }}
+                  </button>
+                  <button
+                    v-if="canCancel(item)"
+                    type="button"
+                    class="ui-btn ui-btn--ghost ui-btn--sm"
+                    :disabled="statusSavingId === item.id"
+                    @click="changeStatus(item, 'cancelled')"
+                  >
+                    {{ t('pointOfSale.reservations.cancel') }}
+                  </button>
+                  <button
+                    v-if="canCancel(item)"
+                    type="button"
+                    class="ui-btn ui-btn--ghost ui-btn--sm"
+                    :disabled="statusSavingId === item.id"
+                    @click="changeStatus(item, 'no_show')"
+                  >
+                    {{ t('pointOfSale.reservations.noShow') }}
+                  </button>
+                  <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="openEdit(item)">
+                    {{ t('common.edit') }}
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -402,8 +532,14 @@ watch(
             <input v-model="form.party_size" type="number" min="1" max="200" class="ui-input w-full" />
           </div>
           <div>
-            <FieldLabel icon="pin">{{ t('pointOfSale.reservations.table') }}</FieldLabel>
-            <input v-model="form.table_label" type="text" class="ui-input w-full" />
+            <FieldLabel icon="tables">{{ t('pointOfSale.reservations.table') }}</FieldLabel>
+            <select v-model="form.table_id" class="ui-select w-full" @change="onTableSelected">
+              <option value="">{{ t('pointOfSale.reservations.noTable') }}</option>
+              <option v-for="table in selectableTables" :key="table.id" :value="table.id">
+                {{ table.name }} · {{ table.capacity }} {{ t('pointOfSale.reservations.seats') }}
+                <template v-if="table.status !== 'available'"> ({{ table.status }})</template>
+              </option>
+            </select>
           </div>
           <div>
             <FieldLabel icon="filter">{{ t('pointOfSale.reservations.statusLabel') }}</FieldLabel>

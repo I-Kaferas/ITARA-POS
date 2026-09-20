@@ -35,11 +35,33 @@ class StockBalanceService
         ?string $productVariantId = null,
         ?string $batchId = null,
     ): int {
+        // Option-style variants share one product stock pool (no per-variant inventory).
+        $variantId = $product->isVariantProduct() ? null : $productVariantId;
+
+        // When no specific batch is requested, sum every balance row for the SKU
+        // (null-batch + batch rows) so availability matches POS/catalog stock display.
+        if ($batchId === null) {
+            $rows = StockBalance::query()
+                ->where('tenant_id', $warehouse->tenant_id)
+                ->where('warehouse_id', $warehouse->id)
+                ->where('product_id', $product->id)
+                ->when(
+                    $product->isVariantProduct(),
+                    fn ($q) => $q,
+                    fn ($q) => $variantId
+                        ? $q->where('product_variant_id', $variantId)
+                        : $q->whereNull('product_variant_id'),
+                )
+                ->get();
+
+            return (int) $rows->sum(fn (StockBalance $balance) => $balance->quantityAvailable());
+        }
+
         $balance = $this->findBalance(
             tenantId: $warehouse->tenant_id,
             warehouseId: $warehouse->id,
             productId: $product->id,
-            productVariantId: $productVariantId,
+            productVariantId: $variantId,
             batchId: $batchId,
         );
 
@@ -52,11 +74,19 @@ class StockBalanceService
         ?string $productVariantId = null,
         ?string $batchId = null,
     ): int {
+        if ($product->isVariantProduct() && $batchId === null) {
+            return (int) StockBalance::query()
+                ->where('tenant_id', $warehouse->tenant_id)
+                ->where('warehouse_id', $warehouse->id)
+                ->where('product_id', $product->id)
+                ->sum('quantity_on_hand');
+        }
+
         $balance = $this->findBalance(
             tenantId: $warehouse->tenant_id,
             warehouseId: $warehouse->id,
             productId: $product->id,
-            productVariantId: $productVariantId,
+            productVariantId: $product->isVariantProduct() ? null : $productVariantId,
             batchId: $batchId,
         );
 

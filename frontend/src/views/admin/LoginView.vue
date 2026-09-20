@@ -44,7 +44,7 @@ const brandName = computed(() =>
   company.value?.trade_name?.trim()
   || company.value?.name?.trim()
   || branding.value?.brand_name?.trim()
-  || 'ITARA NEXUS SUITE Business',
+  || 'ITARA NEXUS Business CORE',
 )
 const tenantSlug = computed(() => branding.value?.slug || resolveTenantSlug())
 const loginLogoUrl = computed(() =>
@@ -227,7 +227,7 @@ async function submit() {
             v-if="loginLogoUrl && !logoFailed"
             class="login__logo login__logo--wordmark"
             :src="loginLogoUrl"
-            alt="ITARA NEXUS SUITE Business"
+            alt="ITARA NEXUS Business CORE"
             @error="logoFailed = true"
           />
           <template v-else>
@@ -374,7 +374,7 @@ async function submit() {
               v-if="welcomeLogoUrl"
               class="login-welcome__logo"
               :src="welcomeLogoUrl"
-              alt="ITARA NEXUS SUITE Business"
+              alt="ITARA NEXUS Business CORE"
               @error="welcomeLogoFailed = true"
             />
             <span v-else class="login-welcome__mark">{{ initial }}</span>
@@ -469,8 +469,7 @@ async function submit() {
   content: '';
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgba(10, 14, 20, 0.55) 0%, rgba(10, 14, 20, 0.35) 42%, rgba(10, 14, 20, 0.78) 100%);
+  background: rgba(10, 14, 20, 0.58);
 }
 
 .login__brand-top,
@@ -644,10 +643,7 @@ async function submit() {
   min-height: 100%;
   overflow: auto;
   padding: 0;
-  background:
-    radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--login-accent) 9%, #fff), transparent 26%),
-    radial-gradient(circle at 6% 94%, color-mix(in srgb, var(--login-primary) 8%, #fff), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #f7f9fb 100%);
+  background: #ffffff;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -656,11 +652,7 @@ async function submit() {
 .login__form-accent {
   flex-shrink: 0;
   height: 5px;
-  background: linear-gradient(
-    90deg,
-    var(--login-primary),
-    var(--login-accent)
-  );
+  background: var(--login-primary);
 }
 
 .login__form-head {
@@ -827,11 +819,7 @@ async function submit() {
   font-size: 1rem;
   font-weight: 650;
   letter-spacing: 0.01em;
-  background: linear-gradient(
-    135deg,
-    var(--login-primary) 0%,
-    color-mix(in srgb, var(--login-primary) 78%, #1a2833) 100%
-  );
+  background: var(--login-primary);
   box-shadow: 0 12px 24px color-mix(in srgb, var(--login-primary) 26%, transparent);
   transition: transform 0.15s ease, filter 0.15s ease;
 }
@@ -898,9 +886,7 @@ async function submit() {
 .login-welcome__bg {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse 60% 45% at 50% 38%, color-mix(in srgb, var(--login-primary) 14%, transparent), transparent 72%),
-    linear-gradient(180deg, #0e141b 0%, #0c1218 55%, #0a0f14 100%);
+  background: #0c1218;
 }
 
 .login-welcome__orb {
@@ -1031,11 +1017,7 @@ async function submit() {
   height: 100%;
   width: 0;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--login-primary) 75%, #1a2833),
-    color-mix(in srgb, var(--login-accent) 70%, #8a6a2e)
-  );
+  background: var(--login-accent);
   animation: login-welcome-progress var(--welcome-duration, 4.8s) linear both;
 }
 

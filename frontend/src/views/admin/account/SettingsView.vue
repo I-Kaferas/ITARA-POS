@@ -249,7 +249,7 @@ function save() {
 .locale-card--active {
   border-color: #e39b2b;
   background: #f8efdc;
-  box-shadow: inset 0 0 0 1px #4a6d86;
+  box-shadow: inset 0 0 0 1px var(--color-brand-600);
 }
 .check { display: flex; align-items: center; gap: 0.55rem; color: #1c2830; font-size: 0.86rem; font-weight: 600; }
 .shortcut {
@@ -262,7 +262,7 @@ function save() {
   color: #1c2830;
   text-decoration: none;
 }
-.shortcut:hover { border-color: #4a6d86; background: #f3f6f8; }
+.shortcut:hover { border-color: var(--color-brand-600); background: #f3f6f8; }
 .shortcut span { color: #64748b; font-size: 0.75rem; }
 .hub { display: flex; flex-direction: column; gap: 0.5rem; grid-column: 1 / -1; }
 .terminal-card { grid-column: 1 / -1; }
@@ -303,7 +303,7 @@ function save() {
   cursor: pointer;
 }
 .cred__btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.cred__btn:not(:disabled):hover { border-color: #4a6d86; color: #1c2830; }
+.cred__btn:not(:disabled):hover { border-color: var(--color-brand-600); color: #1c2830; }
 .settings-actions { display: flex; justify-content: flex-end; }
 @media (min-width: 860px) {
   .settings-grid { grid-template-columns: 1fr 1fr; }

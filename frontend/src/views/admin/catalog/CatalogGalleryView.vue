@@ -1,30 +1,37 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { Catalog, Company, Product } from '../../../types'
 
 const { t } = useI18n()
 const router = useRouter()
 const store = useBackofficeStore()
+const context = useContextStore()
 
 const selectedCompany = ref<Company | null>(null)
 const selectedCatalog = ref<Catalog | null>(null)
 
 onMounted(async () => {
+  await context.loadStores()
   await store.loadCompanies()
   if (store.companies.length) {
     await selectCompany(store.companies[0].id)
   }
 })
 
+watch(() => context.currentStoreId, async () => {
+  if (selectedCompany.value) await selectCompany(selectedCompany.value.id)
+})
+
 async function selectCompany(companyId: string) {
   selectedCompany.value = store.companies.find(c => c.id === companyId) ?? null
-  const catalogs = await store.loadCatalogs(companyId)
+  const catalogs = await store.loadCatalogs(companyId, context.currentStoreId)
   selectedCatalog.value = catalogs.find(c => c.is_default) ?? catalogs[0] ?? null
   if (selectedCatalog.value) {
     await store.loadProducts(selectedCatalog.value.id)

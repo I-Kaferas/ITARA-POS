@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
+import StoreMultiSelect from '../../../components/catalog/StoreMultiSelect.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { Unit } from '../../../types'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
+const context = useContextStore()
 const showModal = ref(false)
 const editing = ref<Unit | null>(null)
 const saving = ref(false)
@@ -22,26 +25,46 @@ const filtered = computed(() => store.units.filter(unit =>
   && matchesActive(unit.is_active, filters.value.active),
 ))
 const form = ref({ code: '', name: '', symbol: '', is_fractional: false, is_active: true })
+const storeIds = ref<string[]>([])
 
-onMounted(() => store.loadUnits())
+function defaultStoreIds() {
+  return context.currentStoreId ? [context.currentStoreId] : context.activeStores.map(store => store.id)
+}
+
+async function refreshUnits() {
+  await store.loadUnits(false, context.currentStoreId)
+}
+
+onMounted(async () => {
+  await context.loadStores()
+  await refreshUnits()
+})
+
+watch(() => context.currentStoreId, () => { void refreshUnits() })
 
 function openCreate() {
   editing.value = null
   form.value = { code: '', name: '', symbol: '', is_fractional: false, is_active: true }
+  storeIds.value = defaultStoreIds()
   showModal.value = true
 }
 
 function openEdit(unit: Unit) {
   editing.value = unit
   form.value = { code: unit.code, name: unit.name, symbol: unit.symbol ?? '', is_fractional: unit.is_fractional, is_active: unit.is_active }
+  storeIds.value = unit.store_id ? [unit.store_id] : defaultStoreIds()
   showModal.value = true
 }
 
 async function save() {
+  if (!storeIds.value.length) return
   saving.value = true
   try {
-    await store.saveUnit(form.value, editing.value?.id)
-    await store.loadUnits()
+    await store.saveUnit({
+      ...form.value,
+      store_ids: storeIds.value,
+    }, editing.value?.id)
+    await refreshUnits()
     showModal.value = false
   } finally {
     saving.value = false
@@ -51,7 +74,7 @@ async function save() {
 async function remove(unit: Unit) {
   if (!confirm(t('org.confirmDelete'))) return
   await store.deleteUnit(unit.id)
-  await store.loadUnits()
+  await refreshUnits()
 }
 </script>
 
@@ -59,8 +82,8 @@ async function remove(unit: Unit) {
   <CatalogLayout>
     <div class="space-y-4">
       <div class="flex items-center justify-between gap-3">
-        <p class="m-0 text-sm text-slate-500">{{ t('catalog.unitsHint') }}</p>
-        <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('catalog.addUnit') }}</button>
+        <p class="m-0 text-sm text-slate-500">{{ t('catalog.unitsHint') }} · {{ t('catalog.storeScopedHint') }}</p>
+        <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" :disabled="!context.activeStores.length" @click="openCreate">+ {{ t('catalog.addUnit') }}</button>
       </div>
       <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -106,9 +129,11 @@ async function remove(unit: Unit) {
         <div><FieldLabel icon="account">{{ t('org.name') }}</FieldLabel><input v-model="form.name" required class="field" /></div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_fractional" type="checkbox" class="rounded" />{{ t('catalog.fractional') }}</label>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
+        <StoreMultiSelect v-model="storeIds" />
+        <p v-if="!storeIds.length" class="m-0 text-xs text-red-600">{{ t('catalog.selectStoresRequired') }}</p>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :disabled="saving || !storeIds.length">{{ t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

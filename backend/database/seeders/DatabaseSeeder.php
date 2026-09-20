@@ -29,6 +29,7 @@ use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierTransactionType;
 use App\Services\Inventory\InventoryMovementService;
 use App\Services\Catalog\ProductImageService;
+use App\Services\Catalog\StoreCatalogService;
 use App\Services\Supplier\SupplierLedgerService;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
@@ -176,13 +177,17 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        Store::create([
+        $storeNord = Store::create([
             'tenant_id' => $tenant->id,
             'branch_id' => $branch->id,
             'name' => 'Magasin Nord',
             'code' => 'MN01',
             'is_active' => true,
         ]);
+
+        $storeCatalogs = app(StoreCatalogService::class);
+        $catalog = $storeCatalogs->bootstrap($store);
+        $storeCatalogs->bootstrap($storeNord);
 
         $category = Category::create([
             'tenant_id' => $tenant->id,

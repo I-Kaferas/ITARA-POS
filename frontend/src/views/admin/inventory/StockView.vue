@@ -221,7 +221,7 @@ function clearHistoryDates() {
           :label="t('inventory.onHand')"
           :value="stockableRows.length"
           icon="inventory"
-          accent="#4a6d86"
+          accent="var(--color-brand-600)"
           icon-bg="#e4edf2"
         />
         <KpiCard

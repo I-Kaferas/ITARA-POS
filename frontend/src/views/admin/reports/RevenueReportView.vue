@@ -426,7 +426,7 @@ onMounted(() => {
 
 .kpi--hero {
   border-color: #99f6e4;
-  background: linear-gradient(180deg, #f0fdfa 0%, #fff 100%);
+  background: #f0fdfa;
 }
 
 .kpi__label {
@@ -524,7 +524,7 @@ onMounted(() => {
   width: 70%;
   max-width: 2rem;
   border-radius: 0.35rem 0.35rem 0 0;
-  background: linear-gradient(180deg, #14b8a6 0%, #0f766e 100%);
+  background: #0f766e;
 }
 
 .bars__label {

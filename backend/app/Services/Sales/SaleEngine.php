@@ -888,11 +888,13 @@ class SaleEngine
                 continue;
             }
 
-            $key = $line->productId.'|'.($line->productVariantId ?? '');
-            $demand[$key]['product_id'] = $line->productId;
-            $demand[$key]['variant_id'] = $line->productVariantId;
-            $demand[$key]['name'] = $line->name;
-            $demand[$key]['quantity'] = ($demand[$key]['quantity'] ?? 0) + $line->stockQuantity();
+            foreach ($this->stockDemandForLine($line) as $row) {
+                $key = $row['product_id'].'|'.($row['variant_id'] ?? '');
+                $demand[$key]['product_id'] = $row['product_id'];
+                $demand[$key]['variant_id'] = $row['variant_id'];
+                $demand[$key]['name'] = $row['name'];
+                $demand[$key]['quantity'] = ($demand[$key]['quantity'] ?? 0) + $row['quantity'];
+            }
         }
 
         foreach ($demand as $row) {
@@ -914,6 +916,58 @@ class SaleEngine
                 ]);
             }
         }
+    }
+
+    /**
+     * Build stock demand for a cart line.
+     * - Normal SKUs: deduct the sold product
+     * - Bundle kits: deduct components × qty (not the virtual bundle SKU)
+     * - Recipe products (simple + components): deduct the finished SKU only;
+     *   ingredients are consumed via Production, then the finished good is sold.
+     *
+     * @return list<array{product_id: string, variant_id: ?string, name: string, quantity: int}>
+     */
+    private function stockDemandForLine(\App\DTOs\Cart\CalculatedCartLine $line): array
+    {
+        $product = Product::query()->with('bundleItems.componentProduct')->find($line->productId);
+        if ($product === null) {
+            return [];
+        }
+
+        $qty = $line->stockQuantity();
+        $demands = [];
+
+        if ($product->isBundle()) {
+            foreach ($product->bundleItems as $item) {
+                $component = $item->componentProduct;
+                if ($component === null || ! $component->requiresStock()) {
+                    continue;
+                }
+                $componentQty = (int) max(1, (int) round(((float) $item->quantity) * $qty));
+                $demands[] = [
+                    'product_id' => $component->id,
+                    'variant_id' => $item->component_variant_id,
+                    'name' => $component->name,
+                    'quantity' => $componentQty,
+                ];
+            }
+
+            return $demands;
+        }
+
+        if (! $product->requiresStock()) {
+            return [];
+        }
+
+        // Option-style variants (e.g. grilled / minced) share the parent product stock.
+        $demands[] = [
+            'product_id' => $product->id,
+            'variant_id' => $product->isVariantProduct() ? null : $line->productVariantId,
+            'name' => $line->name ?? $product->name,
+            'quantity' => $qty,
+        ];
+
+        return $demands;
     }
 
     /**
@@ -1192,28 +1246,31 @@ class SaleEngine
                 continue;
             }
 
-            $product = Product::query()->find($line->productId);
-
-            if ($product === null || ! $product->requiresStock()) {
-                continue;
-            }
-
+            $soldProduct = Product::query()->find($line->productId);
             $volumeMl = $line->volumeMl && $line->volumeMl > 0 ? $line->volumeMl : null;
-            $unitCost = $volumeMl && (int) $product->bottle_volume_ml > 0
-                ? intdiv((int) $product->cost_price, (int) $product->bottle_volume_ml)
-                : $product->cost_price;
 
-            $this->movementService->record([
-                'warehouse' => $warehouse,
-                'product' => $product,
-                'movement_type' => InventoryMovementType::Sale,
-                'quantity' => $line->stockQuantity(),
-                'product_variant_id' => $line->productVariantId,
-                'unit_cost' => $unitCost,
-                'reference' => $sale,
-                'performed_by' => $user->id,
-                'notes' => "Sale {$sale->reference}",
-            ]);
+            foreach ($this->stockDemandForLine($line) as $demand) {
+                $product = Product::query()->find($demand['product_id']);
+                if ($product === null || ! $product->requiresStock()) {
+                    continue;
+                }
+
+                $unitCost = $soldProduct && $product->is($soldProduct) && $volumeMl && (int) $product->bottle_volume_ml > 0
+                    ? intdiv((int) $product->cost_price, (int) $product->bottle_volume_ml)
+                    : $product->cost_price;
+
+                $this->movementService->record([
+                    'warehouse' => $warehouse,
+                    'product' => $product,
+                    'movement_type' => InventoryMovementType::Sale,
+                    'quantity' => $demand['quantity'],
+                    'product_variant_id' => $demand['variant_id'],
+                    'unit_cost' => $unitCost,
+                    'reference' => $sale,
+                    'performed_by' => $user->id,
+                    'notes' => "Sale {$sale->reference}",
+                ]);
+            }
         }
     }
 

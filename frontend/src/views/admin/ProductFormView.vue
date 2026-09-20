@@ -7,6 +7,7 @@ import AppIcon from '../../components/ui/AppIcon.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
+import { useContextStore } from '../../stores/context'
 import type { Barcode, BarcodeType, Brand, Category, Price, Product, ProductBundleItem, ProductImage, ProductType, ProductVariant, Tax, Unit } from '../../types'
 import { getAppCurrency } from '../../utils/currency'
 import { taxQuote } from '../../utils/taxQuote'
@@ -19,6 +20,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const store = useBackofficeStore()
+const context = useContextStore()
 
 const isEdit = computed(() => Boolean(route.params.id))
 const saveError = ref('')
@@ -122,8 +124,8 @@ function asList<T>(value: unknown): T[] {
 
 async function loadLookups() {
   const [brands, units, taxes] = await Promise.all([
-    store.loadBrands().catch(() => store.brands),
-    store.loadUnits(false).catch(() => store.units),
+    store.loadBrands(context.currentStoreId).catch(() => store.brands),
+    store.loadUnits(false, context.currentStoreId).catch(() => store.units),
     store.loadTaxes(true).catch(() => store.taxes),
     store.loadCurrencies(true).catch(() => store.currencies),
   ])
@@ -145,14 +147,14 @@ onMounted(async () => {
   await loadLookups()
 
   if (catalogId.value) {
-    await store.loadCategories(catalogId.value)
+    await store.loadCategories(catalogId.value, context.currentStoreId)
     allProducts.value = await store.loadProducts(catalogId.value)
   }
 
   if (isEdit.value) {
     product.value = await store.loadProduct(route.params.id as string)
     catalogId.value = product.value.catalog_id
-    await store.loadCategories(catalogId.value)
+    await store.loadCategories(catalogId.value, context.currentStoreId)
     allProducts.value = await store.loadProducts(catalogId.value)
 
     form.value = {
@@ -187,7 +189,15 @@ onMounted(async () => {
 })
 
 function addVariant() {
-  variants.value.push({ sku: '', name: '', size: '', color: '', base_price: 0, cost_price: 0, is_active: true })
+  variants.value.push({
+    sku: '',
+    name: '',
+    size: '',
+    color: '',
+    base_price: form.value.base_price,
+    cost_price: form.value.cost_price,
+    is_active: true,
+  })
 }
 
 function addBundleItem() {
@@ -252,10 +262,12 @@ function buildPayload() {
   }
 
   if (form.value.product_type === 'variant') {
+    const inheritedPrice = toCents(form.value.base_price)
+    const inheritedCost = toCents(form.value.cost_price)
     payload.variants = variants.value.map(v => ({
       ...v,
-      base_price: Math.round(v.base_price * 100),
-      cost_price: Math.round((v.cost_price ?? 0) * 100),
+      base_price: inheritedPrice,
+      cost_price: inheritedCost,
     }))
   }
 
@@ -465,6 +477,9 @@ async function makePrimary(id: string) {
         <p v-if="product && isQuantifiable" class="text-sm text-slate-600">
           {{ t('products.stock') }} : <span class="font-medium">{{ product.stock ?? 0 }}</span>
         </p>
+        <p v-if="product && form.product_type === 'variant'" class="m-0 text-xs text-slate-500">
+          {{ t('products.variantStockHint') }}
+        </p>
       </div>
 
       <!-- Pricing -->
@@ -525,19 +540,18 @@ async function makePrimary(id: string) {
 
       <!-- Variants -->
       <div v-show="activeTab === 'variants'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-4">
-        <div class="flex justify-between">
-          <h3 class="font-medium">{{ t('products.tabs.variants') }}</h3>
-          <button type="button" class="text-sm text-brand-600" @click="addVariant">+ {{ t('products.addVariant') }}</button>
+        <div class="flex justify-between gap-3">
+          <div>
+            <h3 class="font-medium">{{ t('products.tabs.variants') }}</h3>
+            <p class="m-0 mt-1 text-xs text-slate-500">{{ t('products.variantsHint') }}</p>
+          </div>
+          <button type="button" class="shrink-0 text-sm text-brand-600" @click="addVariant">+ {{ t('products.addVariant') }}</button>
         </div>
         <div v-for="(v, i) in variants" :key="i" class="rounded-lg border border-slate-200 p-4 space-y-3">
           <div class="grid gap-3 sm:grid-cols-3">
             <input v-model="v.sku" class="field" placeholder="SKU" required />
             <input v-model="v.size" class="field" :placeholder="t('products.size')" />
             <input v-model="v.color" class="field" :placeholder="t('products.color')" />
-          </div>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <input v-model.number="v.base_price" type="number" step="0.01" class="field" :placeholder="t('products.price')" />
-            <input v-model.number="v.cost_price" type="number" step="0.01" class="field" :placeholder="t('products.cost')" />
           </div>
           <div v-if="v.barcodes?.length" class="space-y-2">
             <p class="text-sm font-medium text-slate-600">{{ t('products.variantBarcodes') }}</p>
@@ -636,14 +650,14 @@ async function makePrimary(id: string) {
   line-height: 1.2;
 }
 
-.product-type-card--stock { border-color: #4a6d86; color: #4a6d86; background: #eef3f6; }
+.product-type-card--stock { border-color: var(--color-brand-600); color: var(--color-brand-600); background: #eef3f6; }
 .product-type-card--service { border-color: #e39b2b; color: #9a6412; background: #fdf6ea; }
 .product-type-card--simple { border-color: #3d7a6a; color: #2f6256; background: #eef6f3; }
 .product-type-card--variant { border-color: #6b5b95; color: #534678; background: #f3f0f8; }
 .product-type-card--batch { border-color: #c46b4a; color: #9a4e32; background: #fbf1ec; }
 .product-type-card--bundle { border-color: #12181e; color: #12181e; background: #f3f4f6; }
 
-.product-type-card--stock.product-type-card--active { background: #4a6d86; color: #fff; }
+.product-type-card--stock.product-type-card--active { background: var(--color-brand-600); color: #fff; }
 .product-type-card--service.product-type-card--active { background: #e39b2b; color: #12181e; }
 .product-type-card--simple.product-type-card--active { background: #3d7a6a; color: #fff; }
 .product-type-card--variant.product-type-card--active { background: #6b5b95; color: #fff; }

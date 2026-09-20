@@ -698,7 +698,7 @@ onMounted(() => {
   padding: 0.28rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.95rem;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  background: #f8fafc;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   overflow-x: auto;
   max-width: 100%;
@@ -1121,12 +1121,12 @@ onMounted(() => {
   width: 70%;
   max-width: 1.2rem;
   border-radius: 0.3rem 0.3rem 0.1rem 0.1rem;
-  background: linear-gradient(180deg, #0f766e, #059669);
+  background: #0f766e;
   min-height: 4px;
 }
 
 .trend__bar--blue {
-  background: linear-gradient(180deg, #1d4ed8, #2563eb);
+  background: #2563eb;
 }
 
 .trend__label {
@@ -1145,10 +1145,7 @@ onMounted(() => {
 .line-chart__svg {
   width: 100%;
   height: 140px;
-  background:
-    linear-gradient(to top, transparent 24.5%, #f1f5f9 25%, transparent 25.5%),
-    linear-gradient(to top, transparent 49.5%, #f1f5f9 50%, transparent 50.5%),
-    linear-gradient(to top, transparent 74.5%, #f1f5f9 75%, transparent 75.5%);
+  background: #fff;
   border-bottom: 1px solid #e2e8f0;
 }
 

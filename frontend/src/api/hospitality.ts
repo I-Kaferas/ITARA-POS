@@ -30,6 +30,7 @@ export const HOTEL_RESERVATION_KINDS = [
 export const HOTEL_ROOM_KINDS = [
   'room',
   'room_type',
+  'amenity',
   'building',
   'wing',
   'floor',

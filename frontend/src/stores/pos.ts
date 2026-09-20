@@ -13,7 +13,7 @@ import type {
 } from '../types/pos'
 import type { CashierShift, CashRegister, ShiftSummary } from '../types'
 import { getAppCurrency } from '../utils/currency'
-import { needsSaleQuantity } from '../utils/product'
+import { needsSaleQuantity, cartLineStockUnits, catalogOnHand } from '../utils/product'
 import type { SaleDocPayload } from '../utils/printSaleDocument'
 
 function emptyTotals(currency = getAppCurrency()): CartCalculation {
@@ -126,28 +126,61 @@ export const usePosStore = defineStore('pos', () => {
     }
   }
 
+  async function fetchCatalog(storeId: string) {
+    const res = await api.get<ApiItemResponse<{
+      products: PosProduct[]
+      categories: PosCategory[]
+      registers?: Array<{ id: string; name: string; code?: string }>
+    }>>(
+      `/stores/${storeId}/pos/catalog`,
+    )
+    products.value = res.data.products ?? []
+    categories.value = res.data.categories ?? []
+    const catalogRegisters = res.data.registers
+    if (Array.isArray(catalogRegisters) && catalogRegisters.length) {
+      registers.value = catalogRegisters.map(item => ({
+        id: item.id,
+        name: item.name,
+        code: item.code,
+      }))
+    }
+  }
+
+  function applyLocalStockDelta(soldLines: PosCartLine[]) {
+    const deltas = new Map<string, number>()
+    for (const line of soldLines) {
+      if (line.isAccompaniment) continue
+      if (line.product.requires_stock === false) continue
+      if (!needsSaleQuantity(line.product)) continue
+      const saleUnit = line.product.sale_units?.find(unit => unit.id === line.saleUnitId)
+      const unit = saleUnit?.volume_ml && saleUnit.volume_ml > 0 ? saleUnit.volume_ml : 1
+      deltas.set(line.product.product_id, (deltas.get(line.product.product_id) ?? 0) + line.quantity * unit)
+    }
+    if (!deltas.size) return
+
+    products.value = products.value.map((product) => {
+      const delta = deltas.get(product.product_id)
+      if (!delta) return product
+      const current = Number(product.quantity_on_hand)
+      if (!Number.isFinite(current)) return product
+      const next = Math.max(0, current - delta)
+      const unitLabel = typeof product.stock_display === 'string'
+        ? product.stock_display.replace(/^\d+(\.\d+)?\s*/, '').trim()
+        : ''
+      return {
+        ...product,
+        quantity_on_hand: next,
+        stock_display: unitLabel ? `${next} ${unitLabel}` : String(next),
+      }
+    })
+  }
+
   async function loadCatalog(storeId: string) {
     currentStoreId.value = storeId
     loading.value = true
     error.value = null
     try {
-      const res = await api.get<ApiItemResponse<{
-        products: PosProduct[]
-        categories: PosCategory[]
-        registers?: Array<{ id: string; name: string; code?: string }>
-      }>>(
-        `/stores/${storeId}/pos/catalog`,
-      )
-      products.value = res.data.products ?? []
-      categories.value = res.data.categories ?? []
-      const catalogRegisters = res.data.registers
-      if (Array.isArray(catalogRegisters) && catalogRegisters.length) {
-        registers.value = catalogRegisters.map(item => ({
-          id: item.id,
-          name: item.name,
-          code: item.code,
-        }))
-      }
+      await fetchCatalog(storeId)
       await Promise.all([loadActiveRegister(storeId), loadPaymentMethods(storeId), loadSession(storeId)])
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur catalogue'
@@ -207,6 +240,31 @@ export const usePosStore = defineStore('pos', () => {
     options?: { isAccompaniment?: boolean; parentLineId?: string },
   ) {
     const qty = needsSaleQuantity(product) ? Math.max(1, Math.trunc(quantity) || 1) : 1
+    const catalogProduct = products.value.find(item => item.product_id === product.product_id) ?? product
+
+    if (needsSaleQuantity(catalogProduct) && !options?.isAccompaniment) {
+      const onHand = catalogOnHand(catalogProduct)
+      if (onHand !== null) {
+        const existingLine = lines.value.find(line =>
+          line.product.product_id === product.product_id
+          && line.saleUnitId === saleUnitId
+          && line.variantId === variantId
+          && !line.isAccompaniment
+          && (line.parentLineId ?? '') === (options?.parentLineId ?? ''),
+        )
+        const lineUnits = existingLine
+          ? cartLineStockUnits(existingLine.product, existingLine.quantity, existingLine.saleUnitId)
+          : 0
+        const reserved = cartReservedByProductId.value[product.product_id] ?? 0
+        const free = onHand - (reserved - lineUnits)
+        const nextUnits = lineUnits + cartLineStockUnits(catalogProduct, qty, saleUnitId)
+        if (free <= 0 || nextUnits > free) {
+          setStatus(free <= 0 ? 'Stock insuffisant — article en rupture' : `Stock insuffisant (disponible: ${Math.max(0, free)})`, true)
+          return null
+        }
+      }
+    }
+
     const unit = product.sale_units?.find(item => item.id === saleUnitId)
     const variant = product.variants?.find(item => item.variant_id === variantId)
     const isAccompaniment = Boolean(options?.isAccompaniment)
@@ -225,7 +283,14 @@ export const usePosStore = defineStore('pos', () => {
       && (line.parentLineId ?? '') === (options?.parentLineId ?? ''),
     )
     if (existing) {
-      if (needsSaleQuantity(product)) existing.quantity += qty
+      if (needsSaleQuantity(product)) {
+        const nextQty = existing.quantity + qty
+        lines.value = lines.value.map(line =>
+          line.lineId === existing.lineId ? { ...line, quantity: nextQty } : line,
+        )
+        scheduleCalculate()
+        return lines.value.find(line => line.lineId === existing.lineId) ?? existing
+      }
       scheduleCalculate()
       return existing
     }
@@ -238,7 +303,7 @@ export const usePosStore = defineStore('pos', () => {
       isAccompaniment,
       parentLineId: options?.parentLineId,
     }
-    lines.value.push(line)
+    lines.value = [...lines.value, line]
     scheduleCalculate()
     return line
   }
@@ -263,15 +328,27 @@ export const usePosStore = defineStore('pos', () => {
     const line = lines.value.find(l => l.lineId === lineId)
     if (!line) return
     if (!needsSaleQuantity(line.product)) return
-    if (quantity < 1) {
-      line.quantity = 1
-      scheduleCalculate()
-      return
+    const nextQty = quantity < 1 ? 1 : Math.trunc(quantity)
+    if (!line.isAccompaniment) {
+      const catalogProduct = products.value.find(item => item.product_id === line.product.product_id) ?? line.product
+      const onHand = catalogOnHand(catalogProduct)
+      if (onHand !== null) {
+        const lineUnits = cartLineStockUnits(line.product, line.quantity, line.saleUnitId)
+        const reserved = cartReservedByProductId.value[line.product.product_id] ?? 0
+        const free = onHand - (reserved - lineUnits)
+        const nextUnits = cartLineStockUnits(line.product, nextQty, line.saleUnitId)
+        if (nextUnits > free) {
+          setStatus(`Stock insuffisant (disponible: ${Math.max(0, free)})`, true)
+          return
+        }
+      }
     }
-    line.quantity = quantity
-    for (const child of lines.value.filter(item => item.parentLineId === lineId)) {
-      child.quantity = quantity
-    }
+    lines.value = lines.value.map(item => {
+      if (item.lineId === lineId || item.parentLineId === lineId) {
+        return { ...item, quantity: nextQty }
+      }
+      return item
+    })
     scheduleCalculate()
   }
 
@@ -326,12 +403,17 @@ export const usePosStore = defineStore('pos', () => {
   async function recalculate(storeId?: string) {
     const activeStoreId = storeId ?? currentStoreId.value
     if (!activeStoreId) return
+
+    const requestId = ++calculateRequestId
+
     if (lines.value.length === 0) {
-      totals.value = emptyTotals(getAppCurrency())
+      if (requestId === calculateRequestId) {
+        totals.value = emptyTotals(currencyCode.value || getAppCurrency())
+        calculating.value = false
+      }
       return
     }
 
-    const requestId = ++calculateRequestId
     calculating.value = true
 
     try {
@@ -609,6 +691,10 @@ export const usePosStore = defineStore('pos', () => {
       return { success: false, message: 'Le panier est vide', change: 0 }
     }
 
+    if (!customer.value?.id) {
+      return { success: false, message: 'Sélectionnez un client pour encaisser', change: 0 }
+    }
+
     const storeId = currentStoreId.value
     if (!storeId) {
       return { success: false, message: 'Aucun magasin sélectionné', change: 0 }
@@ -657,6 +743,7 @@ export const usePosStore = defineStore('pos', () => {
 
     let saleId: string | undefined
     let receipt: SaleDocPayload | null = null
+    let loyalty: { earned: number; redeemed: number; points: number } | null = null
     try {
       const created = await api.post<ApiItemResponse<{
         sale: { id: string }
@@ -664,7 +751,7 @@ export const usePosStore = defineStore('pos', () => {
         loyalty?: { earned: number; redeemed: number; points: number } | null
       }>>(`/stores/${storeId}/sales`, {
         customer_id: customer.value?.id ?? undefined,
-        cash_register_id: activeRegisterId.value ?? shift.value?.cash_register_id ?? undefined,
+        cash_register_id: shift.value?.cash_register_id ?? activeRegisterId.value ?? undefined,
         cashier_shift_id: shift.value?.id ?? undefined,
         notes: note.value ?? undefined,
         apply_promotions: true,
@@ -698,15 +785,29 @@ export const usePosStore = defineStore('pos', () => {
       })
       saleId = created.data.sale.id
       receipt = created.data.receipt ?? null
-      const loyalty = created.data.loyalty ?? null
+      loyalty = created.data.loyalty ?? null
     } catch (e) {
       return { success: false, message: extractApiErrorMessage(e, 'Paiement refusé'), change: 0 }
     }
 
+    const soldLines = [...lines.value]
+    applyLocalStockDelta(soldLines)
     pendingSaleId.value = null
     activeTable.value = null
-    clearCurrentSale()
-    if (currentStoreId.value) void refreshHeldSales(currentStoreId.value)
+    if (calculateTimer) {
+      clearTimeout(calculateTimer)
+      calculateTimer = null
+    }
+    calculateRequestId += 1
+    clearCurrentSale(false)
+    lines.value = []
+    totals.value = emptyTotals(currencyCode.value || getAppCurrency())
+    if (currentStoreId.value) {
+      void refreshHeldSales(currentStoreId.value)
+      void fetchCatalog(currentStoreId.value).catch(() => {
+        /* keep optimistic stock if silent refresh fails */
+      })
+    }
     return { success: true, message: 'Paiement accepté', change, saleId, receipt, loyalty }
   }
 
@@ -741,6 +842,21 @@ export const usePosStore = defineStore('pos', () => {
     },
   )
 
+  /** Quantities currently held in the cart, in the same units as quantity_on_hand. */
+  const cartReservedByProductId = computed(() => {
+    const reserved: Record<string, number> = {}
+    for (const line of lines.value) {
+      if (line.isAccompaniment) continue
+      if (line.product.requires_stock === false) continue
+      if (!needsSaleQuantity(line.product)) continue
+      const saleUnit = line.product.sale_units?.find(unit => unit.id === line.saleUnitId)
+      const unit = saleUnit?.volume_ml && saleUnit.volume_ml > 0 ? saleUnit.volume_ml : 1
+      const productId = line.product.product_id
+      reserved[productId] = (reserved[productId] ?? 0) + line.quantity * unit
+    }
+    return reserved
+  })
+
   return {
     products,
     categories,
@@ -766,6 +882,7 @@ export const usePosStore = defineStore('pos', () => {
     priceMode,
     currencyCode,
     currencies,
+    cartReservedByProductId,
     loadSession,
     openShiftWithPin,
     closeShiftWithPin,

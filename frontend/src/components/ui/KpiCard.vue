@@ -12,8 +12,8 @@ withDefaults(defineProps<{
   spark?: number[]
 }>(), {
   icon: 'dashboard',
-  accent: '#4a6d86',
-  iconBg: '#e4edf2',
+  accent: 'var(--color-brand-600)',
+  iconBg: 'var(--color-brand-50)',
   delta: null,
   deltaTone: 'flat',
   spark: () => [],

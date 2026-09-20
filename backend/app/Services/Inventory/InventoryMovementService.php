@@ -50,6 +50,10 @@ class InventoryMovementService
         $movementType = $data['movement_type'];
         $product = $data['product'];
         $product->assertStockable();
+        // Option-style variants share parent stock — never key balances by variant.
+        if ($product->isVariantProduct()) {
+            $data['product_variant_id'] = null;
+        }
         $this->assertWarehouseNotLocked($data['warehouse'], $movementType);
         $autoAllocate = $data['auto_allocate'] ?? true;
 

@@ -32,6 +32,7 @@ class ProductCatalogPhase9Test extends TestCase
         $create = $this->postJson('/api/v1/brands', [
             'name' => 'Nike',
             'slug' => 'nike',
+            'store_id' => $this->fixture['store']->id,
         ], $headers);
 
         $create->assertCreated()->assertJsonPath('data.name', 'Nike');
@@ -55,6 +56,7 @@ class ProductCatalogPhase9Test extends TestCase
             'name' => 'Kilogramme',
             'symbol' => 'kg',
             'is_fractional' => true,
+            'store_id' => $this->fixture['store']->id,
         ], $headers)->assertCreated();
 
         $tax = $this->postJson('/api/v1/taxes', [
@@ -75,12 +77,14 @@ class ProductCatalogPhase9Test extends TestCase
         $parent = $this->postJson("/api/v1/catalogs/{$catalog->id}/categories", [
             'name' => 'Vêtements',
             'slug' => 'vetements',
+            'store_id' => $this->fixture['store']->id,
         ], $headers)->assertCreated()->json('data');
 
         $child = $this->postJson("/api/v1/catalogs/{$catalog->id}/categories", [
             'name' => 'T-shirts',
             'slug' => 't-shirts',
             'parent_id' => $parent['id'],
+            'store_id' => $this->fixture['store']->id,
         ], $headers)->assertCreated();
 
         $this->getJson("/api/v1/categories/{$child->json('data.id')}", $headers)

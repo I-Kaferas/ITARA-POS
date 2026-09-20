@@ -11,7 +11,7 @@ class RealtimePublisher
 {
     /**
      * Notify connected clients after the current database transaction commits.
-     * Failures are swallowed so the POS HTTP flow never depends on WebSocket.
+     * Broadcast runs after the HTTP response so POS sales never wait on Reverb/Pusher.
      */
     public function notify(
         string $type,
@@ -36,19 +36,21 @@ class RealtimePublisher
         ], fn ($value) => $value !== null && $value !== '');
 
         $send = function () use ($payload): void {
-            try {
-                $driver = (string) config('broadcasting.default', 'null');
-                if ($driver === '' || $driver === 'null') {
-                    return;
-                }
+            dispatch(static function () use ($payload): void {
+                try {
+                    $driver = (string) config('broadcasting.default', 'null');
+                    if ($driver === '' || $driver === 'null') {
+                        return;
+                    }
 
-                broadcast(new RealtimeEvent($payload));
-            } catch (Throwable $e) {
-                Log::debug('Realtime broadcast skipped', [
-                    'type' => $payload['type'] ?? null,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+                    broadcast(new RealtimeEvent($payload));
+                } catch (Throwable $e) {
+                    Log::debug('Realtime broadcast skipped', [
+                        'type' => $payload['type'] ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            })->afterResponse();
         };
 
         try {

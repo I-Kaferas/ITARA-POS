@@ -4,12 +4,18 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Catalog;
 use App\Models\Store;
+use App\Services\Catalog\StoreCatalogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StoreController extends Controller
 {
+    public function __construct(
+        private readonly StoreCatalogService $storeCatalogs,
+    ) {}
+
     public function index(Branch $branch): JsonResponse
     {
         return response()->json([
@@ -43,7 +49,9 @@ class StoreController extends Controller
             'is_active' => $data['is_active'] ?? true,
         ]);
 
-        return response()->json(['data' => $store], 201);
+        $this->storeCatalogs->bootstrap($store);
+
+        return response()->json(['data' => $store->load('branch.company')], 201);
     }
 
     public function show(Store $store): JsonResponse

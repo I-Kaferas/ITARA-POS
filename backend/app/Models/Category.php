@@ -16,6 +16,7 @@ class Category extends Model
     protected $fillable = [
         'tenant_id',
         'catalog_id',
+        'store_id',
         'parent_id',
         'name',
         'slug',
@@ -34,6 +35,11 @@ class Category extends Model
     public function catalog(): BelongsTo
     {
         return $this->belongsTo(Catalog::class);
+    }
+
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 
     public function parent(): BelongsTo

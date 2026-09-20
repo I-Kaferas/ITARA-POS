@@ -3,12 +3,14 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '../ui/AppIcon.vue'
 import { formatMoney } from '../../utils/money'
+import { availableStock, needsSaleQuantity } from '../../utils/product'
 import type { PosProduct } from '../../types/pos'
 
 const props = defineProps<{
   sections: Array<{ id: string; name: string; depth?: number; products: PosProduct[] }>
   currency?: string
   emptyLabel: string
+  reservedByProductId?: Record<string, number>
 }>()
 
 const emit = defineEmits<{
@@ -17,25 +19,48 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const productCount = computed(() => props.sections.reduce((sum, section) => sum + section.products.length, 0))
+const products = computed(() => {
+  const seen = new Set<string>()
+  const list: PosProduct[] = []
+  for (const section of props.sections) {
+    for (const product of section.products) {
+      if (seen.has(product.product_id)) continue
+      seen.add(product.product_id)
+      list.push(product)
+    }
+  }
+  return list
+})
 
-const products = computed(() => props.sections.flatMap(section => section.products))
+function availableOnHand(product: PosProduct): number | null {
+  return availableStock(product, props.reservedByProductId)
+}
 
-function initial(name: string) {
-  return name.trim().charAt(0).toUpperCase() || '?'
+function isSoldOut(product: PosProduct) {
+  if (product.is_available === false) return true
+  if (!needsSaleQuantity(product)) return false
+  const available = availableOnHand(product)
+  return available !== null && available <= 0
 }
 
 function hasOptions(product: PosProduct) {
   return (product.variants?.length ?? 0) > 0 || (product.option_groups?.length ?? 0) > 0 || (product.sale_units?.length ?? 0) > 1
 }
 
-function quantityLabel(product: PosProduct) {
-  if (product.stock_display) return product.stock_display
-  if (typeof product.quantity_on_hand === 'number') return String(product.quantity_on_hand)
-  if (product.requires_stock === false || product.product_type === 'service' || product.product_type === 'digital') {
-    return '—'
-  }
-  return '0'
+function unitLabel(product: PosProduct) {
+  const base = product.sale_units?.find(item => item.is_base) ?? product.sale_units?.[0]
+  if (base?.name) return `/${base.name}`
+  const unit = product.unit?.trim()
+  if (unit && unit.length <= 16) return `/${unit}`
+  return ''
+}
+
+function stockCaption(product: PosProduct) {
+  if (!needsSaleQuantity(product)) return t('pos.noQuantity')
+  const available = availableOnHand(product)
+  if (available === null) return product.stock_display || '—'
+  if (available <= 0) return t('pos.zeroAvailable')
+  return `${available} ${t('pos.available')}`
 }
 
 function imageSrc(product: PosProduct) {
@@ -49,36 +74,46 @@ function imageSrc(product: PosProduct) {
   }
   return raw
 }
+
+function onSelect(product: PosProduct) {
+  if (isSoldOut(product)) return
+  emit('select', product)
+}
 </script>
 
 <template>
   <section class="pos-products">
-    <div class="pos-products__toolbar">
-      <p class="pos-products__count">{{ productCount }} {{ t('pos.articles') }}</p>
-    </div>
-
     <div v-if="products.length" class="pos-products__grid">
       <button
         v-for="product in products"
         :key="product.product_id"
+        type="button"
         class="pos-products__card"
-        :class="{ 'pos-products__card--off': product.is_available === false }"
-        :disabled="product.is_available === false"
-        @click="emit('select', product)"
+        :class="{ 'pos-products__card--off': isSoldOut(product) }"
+        :disabled="isSoldOut(product)"
+        @click="onSelect(product)"
       >
         <div class="pos-products__photo">
           <img v-if="imageSrc(product)" :src="imageSrc(product)" :alt="product.name" />
           <span v-else class="pos-products__nophoto">
-            <AppIcon name="products" :size="28" />
-            <span>{{ initial(product.name) }}</span>
+            <AppIcon name="products" :size="32" />
           </span>
-          <span class="pos-products__stock">{{ quantityLabel(product) }}</span>
-          <span v-if="product.is_available === false" class="pos-products__off">{{ t('pos.outOfStock') }}</span>
+          <span v-if="isSoldOut(product)" class="pos-products__badge pos-products__badge--out">{{ t('pos.outShort') }}</span>
+          <span v-else-if="hasOptions(product)" class="pos-products__badge pos-products__badge--opt">{{ t('pos.optionsShort') }}</span>
         </div>
         <div class="pos-products__body">
           <p class="pos-products__name">{{ product.name }}</p>
-          <p class="pos-products__price">{{ formatMoney(product.price || 0, currency) }}</p>
-          <p v-if="hasOptions(product)" class="pos-products__sku">{{ t('pos.chooseOption') }}</p>
+          <p class="pos-products__price">
+            {{ formatMoney(product.price || 0, currency) }}
+            <span class="pos-products__unit">{{ unitLabel(product) }}</span>
+          </p>
+          <p v-if="product.category_name" class="pos-products__cat">{{ product.category_name }}</p>
+          <p
+            class="pos-products__stock"
+            :class="{ 'pos-products__stock--out': isSoldOut(product) }"
+          >
+            {{ stockCaption(product) }}
+          </p>
         </div>
       </button>
     </div>
@@ -95,127 +130,49 @@ function imageSrc(product: PosProduct) {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: #f4f7fa;
-  container-type: size;
-  container-name: pos-products;
-}
-
-.pos-products__sections {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-bottom: 1rem;
-}
-
-.pos-products__section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.85rem 0.85rem 0.15rem;
-}
-
-.pos-products__section-head h3 {
-  margin: 0;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #1c2830;
-}
-
-.pos-products__section-head span {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #64748b;
-  background: #e4edf2;
-  border-radius: 999px;
-  padding: 0.1rem 0.45rem;
-}
-
-.pos-products__section-empty {
-  margin: 0.35rem 0.85rem 0.2rem;
-  font-size: 0.75rem;
-  color: #94a3b8;
-}
-
-.pos-products__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.7rem 0.9rem 0.15rem;
-}
-
-.pos-products__count {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 650;
-  color: #64748b;
+  overflow: auto;
+  padding: 0.25rem 0.15rem 1rem;
 }
 
 .pos-products__grid {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
-  grid-auto-rows: max-content;
-  align-items: start;
-  gap: 0.7rem;
-  width: 100%;
-  padding: 0.55rem 0.75rem 1rem;
-  align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+  gap: 0.85rem;
 }
 
 .pos-products__card {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  min-width: 0;
-  height: auto;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.85rem;
-  overflow: hidden;
-  background: #fff;
-  cursor: pointer;
   text-align: left;
-  padding: 0;
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-  touch-action: manipulation;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
 }
 
 .pos-products__card:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: var(--color-brand-400, #7d9aaf);
-  box-shadow: 0 8px 18px rgba(61, 92, 115, 0.12);
-}
-
-.pos-products__card:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(-2px);
+  border-color: var(--color-brand-200);
+  box-shadow: var(--shadow-sm);
 }
 
 .pos-products__card--off {
+  opacity: 0.72;
   cursor: not-allowed;
-}
-
-.pos-products__card--off .pos-products__photo img {
-  filter: grayscale(0.7);
-  opacity: 0.55;
 }
 
 .pos-products__photo {
   position: relative;
-  flex: 0 0 auto;
-  aspect-ratio: 5 / 4;
-  width: 100%;
-  height: auto;
-  max-height: 10.5rem;
-  min-height: 5.5rem;
-  background: #e8eef3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  aspect-ratio: 1.15 / 1;
+  background: var(--color-canvas);
+  display: grid;
+  place-items: center;
   overflow: hidden;
 }
 
@@ -223,158 +180,94 @@ function imageSrc(product: PosProduct) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
 
 .pos-products__nophoto {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  color: #7d93a3;
-  font-size: 0.85rem;
-  font-weight: 750;
+  color: var(--color-text-faint);
 }
 
-.pos-products__stock {
+.pos-products__badge {
   position: absolute;
-  left: 0.4rem;
-  bottom: 0.4rem;
-  max-width: calc(100% - 0.8rem);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0.12rem 0.4rem;
+  top: 0.55rem;
+  right: 0.55rem;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.72);
+  padding: 0.15rem 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
 }
 
-.pos-products__off {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
-  padding: 0.12rem 0.4rem;
-  border-radius: 999px;
-  background: #fee2e2;
-  color: #b91c1c;
-  font-size: 0.65rem;
-  font-weight: 700;
+.pos-products__badge--out {
+  background: #ef4444;
+}
+
+.pos-products__badge--opt {
+  background: var(--color-brand-600);
 }
 
 .pos-products__body {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
-  gap: 0.25rem;
-  padding: 0.55rem 0.6rem 0.65rem;
-  min-height: 0;
+  gap: 0.2rem;
+  padding: 0.75rem 0.8rem 0.9rem;
 }
 
 .pos-products__name {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   font-weight: 700;
-  color: #1c2830;
+  color: var(--color-text-primary);
   line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.05em;
 }
 
 .pos-products__price {
-  margin: 0;
-  font-size: 0.92rem;
-  font-weight: 750;
-  color: #1c2830;
-  letter-spacing: -0.02em;
+  margin: 0.15rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-brand-600);
 }
 
-.pos-products__sku {
+.pos-products__unit {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.pos-products__cat {
   margin: 0;
-  font-size: 0.68rem;
-  color: var(--color-brand-700, #3d5c73);
-  font-weight: 650;
+  font-size: 0.72rem;
+  color: var(--color-text-faint);
+}
+
+.pos-products__stock {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.pos-products__stock--out {
+  color: #dc2626;
 }
 
 .pos-products__empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  color: #94a3b8;
-  text-align: center;
-  padding: 2rem;
-}
-
-.pos-products__empty p {
-  margin: 0;
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  min-height: 12rem;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
-@container pos-products (max-width: 520px) {
-  .pos-products__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-    padding: 0.45rem 0.55rem 0.9rem;
-  }
-
-  .pos-products__photo {
-    aspect-ratio: 1.1 / 1;
-    min-height: 5.5rem;
-    max-height: 8rem;
-  }
-
-  .pos-products__name {
-    font-size: 0.76rem;
-    min-height: 1.9em;
-  }
-
-  .pos-products__price {
-    font-size: 0.84rem;
-  }
-}
-
-@container pos-products (max-height: 28rem) {
-  .pos-products__toolbar {
-    padding: 0.4rem 0.75rem 0.05rem;
-  }
-
-  .pos-products__photo {
-    max-height: 7rem;
-    min-height: 4.75rem;
-    aspect-ratio: 16 / 10;
-  }
-
-  .pos-products__name {
-    min-height: 0;
-    -webkit-line-clamp: 1;
-  }
-}
-
-@container pos-products (max-width: 280px) {
-  .pos-products__grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 1279px) {
-  .pos-products {
-    min-width: 0;
-    min-height: 0;
-  }
-}
-
 @media (max-width: 900px) {
-  .pos-products {
-    width: 100%;
-    min-height: 0;
+  .pos-products__grid {
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
   }
 }
 </style>

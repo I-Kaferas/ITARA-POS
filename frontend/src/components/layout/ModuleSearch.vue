@@ -24,6 +24,7 @@ const router = useRouter()
 const modules = computed<ModuleItem[]>(() => [
   { to: '/admin', label: t('nav.dashboard'), group: t('nav.section.main'), keywords: 'accueil tableau board' },
   { to: '/admin/pos/overview', label: t('nav.posOverview'), group: t('nav.group.posOps'), keywords: 'apercu caisse pos dashboard' },
+  { to: '/admin/pos/terminal', label: t('nav.posTerminal'), group: t('nav.group.posOps'), keywords: 'caisse terminal vente encaisser pos' },
   { to: '/admin/hospitality', label: t('nav.restaurant'), group: t('nav.group.posOps'), keywords: 'tables restaurant salle commande hospitality' },
   { to: '/admin/pos/shifts', label: t('nav.posShifts'), group: t('nav.group.posOps'), keywords: 'shift caisse caissier ouverture cloture' },
   { to: '/admin/pos/reservations', label: t('nav.posReservations'), group: t('nav.group.posOps'), keywords: 'reservation table' },
@@ -89,6 +90,7 @@ const modules = computed<ModuleItem[]>(() => [
   { to: '/admin/reports/dashboard', label: t('reports.tabs.dashboard'), group: t('nav.reports'), keywords: 'rapports dashboard tableau bord' },
   { to: '/admin/reports/sales', label: t('reports.tabs.sales'), group: t('nav.reports'), keywords: 'rapports ventes' },
   { to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), group: t('nav.reports'), keywords: 'rapport inventaire stocks' },
+  { to: '/admin/reports/store-stock', label: t('reports.tabs.storeStock'), group: t('nav.reports'), keywords: 'rapport stock boutique magasin rupture rotation' },
   { to: '/admin/reports/purchases', label: t('reports.tabs.purchases'), group: t('nav.reports'), keywords: 'rapports achats' },
   { to: '/admin/reports/forecasts', label: t('reports.tabs.forecasts'), group: t('nav.reports'), keywords: 'previsions forecast' },
   { to: '/admin/reports/financial', label: t('reports.tabs.revenue'), group: t('nav.reports'), keywords: 'rapport recette finance' },
@@ -166,6 +168,7 @@ function iconFor(to: string): string {
   if (to.includes('/pos/shifts')) return 'shift'
   if (to.includes('/pos/reservations')) return 'calendar'
   if (to.includes('/pos/orders') || to.includes('/sales/returns')) return 'sales'
+  if (to.includes('/pos/terminal')) return 'device-pos'
   if (to.startsWith('/admin/pos')) return 'store-pin'
   if (to.includes('/catalog/options')) return 'layers'
   if (to.includes('/catalog/beverages')) return 'sparkles'
@@ -369,7 +372,7 @@ defineExpose({ show })
   overflow: hidden;
   border: 1px solid #e4e8ec;
   border-radius: 16px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
 }
 
@@ -381,7 +384,7 @@ defineExpose({ show })
   gap: var(--space-4);
   padding: 20px 24px 16px;
   border-bottom: 1px solid #e4e8ec;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .cmdk__heading {
@@ -400,23 +403,24 @@ defineExpose({ show })
   flex-shrink: 0;
   border-radius: var(--radius-md);
   background: #f4f6f8;
-  color: #5c7f96;
+  color: var(--color-brand-500);
   box-shadow: inset 0 0 0 1px #e4e8ec;
 }
 
 .cmdk__title {
   margin: 0;
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: 700;
   line-height: var(--line-md);
-  color: #3a4550;
+  color: var(--color-text-primary);
 }
 
 .cmdk__subtitle {
   margin: 2px 0 0;
   font-size: var(--text-sm);
+  font-weight: 600;
   line-height: var(--line-sm);
-  color: #7d8790;
+  color: var(--color-text-muted);
 }
 
 .cmdk__close {
@@ -429,8 +433,8 @@ defineExpose({ show })
   justify-content: center;
   border: 1px solid #e4e8ec;
   border-radius: var(--radius-md);
-  background: #fff;
-  color: #64748b;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
   font-size: var(--text-xl);
   font-weight: 600;
   line-height: 1;
@@ -453,18 +457,18 @@ defineExpose({ show })
   min-height: 56px;
   border: 1px solid #e4e8ec;
   border-radius: var(--radius-lg);
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .cmdk__search:focus-within {
   border-color: #cfd6dc;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 0 0 3px rgba(92, 127, 150, 0.1);
 }
 
 .cmdk__search-icon {
   flex-shrink: 0;
-  color: #5c7f96;
+  color: var(--color-brand-500);
 }
 
 .cmdk__input {
@@ -474,15 +478,15 @@ defineExpose({ show })
   border: 0;
   outline: none;
   background: transparent;
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 19px;
+  font-weight: 600;
   line-height: 24px;
-  color: #3a4550;
+  color: var(--color-text-primary);
 }
 
 .cmdk__input::placeholder {
-  font-weight: 400;
-  color: #a8b0b6;
+  font-weight: 500;
+  color: var(--color-text-faint);
 }
 
 .cmdk__input::-webkit-search-cancel-button {
@@ -513,7 +517,7 @@ defineExpose({ show })
   line-height: var(--line-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #5c7f96;
+  color: var(--color-brand-500);
 }
 
 .cmdk__group-title::before {
@@ -542,8 +546,8 @@ defineExpose({ show })
   padding: 8px 12px;
   border: 1px solid #e4e8ec;
   border-radius: var(--radius-lg);
-  background: #fff;
-  color: #3a4550;
+  background: var(--color-surface);
+  color: var(--color-text);
   text-align: left;
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease;
@@ -568,7 +572,7 @@ defineExpose({ show })
   flex-shrink: 0;
   border-radius: var(--radius-md);
   background: #f4f6f8;
-  color: #5c7f96;
+  color: var(--color-brand-500);
   box-shadow: inset 0 0 0 1px #e4e8ec;
 }
 
@@ -583,21 +587,21 @@ defineExpose({ show })
   flex: 1;
   overflow: hidden;
   font-size: var(--text-md);
-  font-weight: 600;
+  font-weight: 700;
   line-height: var(--line-sm);
-  color: #3a4550;
+  color: var(--color-text-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cmdk__item-arrow {
   flex-shrink: 0;
-  color: #5c7f96;
+  color: var(--color-brand-500);
 }
 
 .cmdk__empty :deep(.empty-state__icon) {
   background: #f4f6f8;
-  color: #5c7f96;
+  color: var(--color-brand-500);
   box-shadow: inset 0 0 0 1px #e4e8ec;
 }
 
@@ -613,7 +617,7 @@ defineExpose({ show })
   gap: var(--space-4);
   padding: 12px 24px;
   border-top: 1px solid #e4e8ec;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .cmdk__shortcuts {
@@ -622,7 +626,8 @@ defineExpose({ show })
   align-items: center;
   gap: 16px;
   font-size: var(--text-xs);
-  color: #8a9298;
+  font-weight: 600;
+  color: var(--color-text-muted);
 }
 
 .cmdk__shortcuts span {
@@ -640,19 +645,19 @@ defineExpose({ show })
   padding: 0 6px;
   border: 1px solid #e4e8ec;
   border-radius: 6px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: none;
   font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
 }
 
 .cmdk__count {
   margin: 0;
   font-size: var(--text-xs);
   font-weight: 600;
-  color: #5c7f96;
+  color: var(--color-brand-500);
 }
 
 .cmdk-enter-active,

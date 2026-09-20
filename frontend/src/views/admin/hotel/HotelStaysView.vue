@@ -4,7 +4,6 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { hospitalitySnapshotPath, HOTEL_STAY_KINDS } from '../../../api/hospitality'
-import { useConfirm } from '../../../composables/useConfirm'
 import { useRealtimeSync } from '../../../composables/useRealtimeSync'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -30,7 +29,6 @@ type StayBoardStatus = 'en_sejour' | 'enregistre' | 'en_attente' | 'parti' | 'an
 type BoardTab = 'plan' | 'arrivals' | 'departures' | 'folios' | 'list'
 
 const { t, locale } = useI18n()
-const { confirm: confirmDialog } = useConfirm()
 const store = useBackofficeStore()
 const auth = useAuthStore()
 
@@ -49,6 +47,17 @@ const collectOpen = ref(false)
 const collectAmount = ref('')
 const collectMethod = ref<PayMethod>('cash')
 const collectSaving = ref(false)
+const checkoutOpen = ref(false)
+const checkoutStay = ref<Doc | null>(null)
+const checkoutItems = ref<Array<{
+  amenity_id: string
+  name: string
+  icon_key: string
+  replacement_value_cents: number
+  status: 'ok' | 'missing' | 'damaged'
+  amount: string
+}>>([])
+const checkoutSaving = ref(false)
 const signingStay = ref<Doc | null>(null)
 const signTab = ref<'scan' | 'draw'>('scan')
 const signUrl = ref('')
@@ -86,6 +95,7 @@ const roomTypes = computed(() => docs.value.filter(d => d.kind === 'room_type'))
 const rooms = computed(() => docs.value.filter(d => d.kind === 'room'))
 const floors = computed(() => docs.value.filter(d => d.kind === 'floor'))
 const folios = computed(() => docs.value.filter(d => d.kind === 'folio'))
+const amenities = computed(() => docs.value.filter(d => d.kind === 'amenity'))
 
 type PlanTone = 'available' | 'occupied' | 'reserved' | 'dirty' | 'maintenance'
 
@@ -387,7 +397,6 @@ function openSignFromDetail() {
 
 function checkoutFromDetail() {
   const row = detailStay.value
-  closeDetail()
   if (row) void checkout(row)
 }
 
@@ -515,7 +524,7 @@ function exportStayLodging(row: Doc) {
 
 function exportStayConsumption(row: Doc) {
   const currency = stayCurrency(row)
-  const lines = detailFolioLines(row).filter(l => ['minibar', 'room_service', 'restaurant', 'other'].includes(String(l.kind || '')))
+  const lines = detailFolioLines(row).filter(l => ['minibar', 'room_service', 'restaurant', 'other', 'missing_amenity', 'damaged_amenity'].includes(String(l.kind || '')))
   const rows = lines.map(l => `<tr><td>${escapeHtml(String(l.kind || '—'))}</td><td>${escapeHtml(String(l.description || '—'))}</td><td>${escapeHtml(formatMoney(Math.abs(Number(l.amount || 0)), currency))}</td></tr>`).join('')
     || `<tr><td colspan="3">${escapeHtml(t('hotel.stays.detail.noTransactions'))}</td></tr>`
   printStayExport(t('hotel.stays.detail.exportConsumption'), `
@@ -695,6 +704,9 @@ function lineGroupLabel(line: Doc) {
   if (kind === 'room' || kind === 'stay') return t('hotel.stays.detail.groupStay')
   if (kind === 'tax' || kind === 'vat' || kind === 'tc') return t('hotel.stays.detail.groupTax')
   if (kind === 'payment' || kind === 'deposit') return t('hotel.stays.detail.groupPayment')
+  if (kind === 'missing_amenity' || kind === 'damaged_amenity' || kind === 'late_departure' || kind === 'early_arrival') {
+    return t('hotel.stays.detail.groupFees')
+  }
   return t('hotel.stays.detail.groupOther')
 }
 
@@ -1577,20 +1589,93 @@ async function saveDrawnSignature() {
 }
 
 async function checkout(row: Doc) {
-  const ok = await confirmDialog({
-    title: t('hotel.stays.checkoutTitle'),
-    message: t('hotel.stays.checkoutConfirm', { name: row.guest_name }),
-    confirmLabel: t('desk.checkOut'),
+  checkoutStay.value = row
+  checkoutItems.value = stayInventory(row).map(item => ({
+    amenity_id: item.id,
+    name: item.name,
+    icon_key: item.icon_key,
+    replacement_value_cents: item.replacement_value_cents,
+    status: 'ok' as const,
+    amount: item.replacement_value_cents ? String(item.replacement_value_cents / 100) : '',
+  }))
+  checkoutOpen.value = true
+  error.value = ''
+}
+
+function stayInventory(row: Doc) {
+  const snap = Array.isArray(row.inventory_amenities) ? row.inventory_amenities : []
+  if (snap.length) {
+    return snap.map((item: Doc) => ({
+      id: String(item.id ?? ''),
+      name: String(item.name ?? item.id ?? ''),
+      icon_key: String(item.icon_key ?? ''),
+      replacement_value_cents: Number(item.replacement_value_cents ?? 0),
+    })).filter(item => item.id)
+  }
+  const room = rooms.value.find(r => r.id === row.room_id)
+  const type = roomTypes.value.find(t => t.id === (room?.type_id || row.type_id))
+  const typeIds = Array.isArray(type?.amenity_ids) ? type.amenity_ids.map(String) : []
+  const extraIds = Array.isArray(room?.amenity_ids) ? room.amenity_ids.map(String) : []
+  const ids = [...new Set([...typeIds, ...extraIds])]
+  return ids.map((id) => {
+    const amenity = amenities.value.find(item => item.id === id)
+    return {
+      id,
+      name: String(amenity?.name ?? id),
+      icon_key: String(amenity?.icon_key ?? ''),
+      replacement_value_cents: Number(amenity?.replacement_value_cents ?? 0),
+    }
   })
-  if (!ok) return
+}
+
+function setCheckoutStatus(index: number, status: 'ok' | 'missing' | 'damaged') {
+  const item = checkoutItems.value[index]
+  if (!item) return
+  item.status = status
+  if (status !== 'ok' && !item.amount && item.replacement_value_cents) {
+    item.amount = String(item.replacement_value_cents / 100)
+  }
+}
+
+const checkoutChargeCents = computed(() =>
+  checkoutItems.value.reduce((sum, item) => {
+    if (item.status === 'ok') return sum
+    return sum + parseMoneyInput(item.amount || '0')
+  }, 0),
+)
+
+function closeCheckout() {
+  checkoutOpen.value = false
+  checkoutStay.value = null
+  checkoutItems.value = []
+  checkoutSaving.value = false
+}
+
+async function confirmCheckout() {
+  const row = checkoutStay.value
+  if (!row) return
+  checkoutSaving.value = true
+  error.value = ''
   try {
+    const missing_items = checkoutItems.value
+      .filter(item => item.status !== 'ok')
+      .map(item => ({
+        amenity_id: item.amenity_id,
+        condition: item.status,
+        amount_cents: parseMoneyInput(item.amount || '0'),
+      }))
     docs.value = (await api.post<{ data: { docs: Doc[] } }>('/hospitality/actions', {
       action: 'check_out',
       reservation_id: row.id,
+      missing_items,
     })).data.docs
     if (!form.value.room_id) form.value.room_id = vacantRooms.value[0]?.id ?? ''
+    closeCheckout()
+    closeDetail()
   } catch (err) {
     error.value = extractApiErrorMessage(err)
+  } finally {
+    checkoutSaving.value = false
   }
 }
 
@@ -2750,6 +2835,12 @@ function roomLabel(room: Doc) {
                 <em>{{ detailStay.status === 'checked_in' ? t('hotel.stays.board.planOccupied') : t('hotel.stays.board.planAvailable') }}</em>
               </div>
             </div>
+            <div v-if="stayInventory(detailStay).length" class="sd__amenities">
+              <span v-for="item in stayInventory(detailStay)" :key="item.id" class="sd__amenity">
+                <AppIcon :name="item.icon_key || 'sparkles'" :size="11" />
+                {{ item.name }}
+              </span>
+            </div>
             <div class="sd__actions">
               <button
                 type="button"
@@ -2824,6 +2915,76 @@ function roomLabel(room: Doc) {
         <button type="button" class="btn-secondary" @click="collectOpen = false">{{ t('common.cancel') }}</button>
         <button type="button" class="btn-primary" :disabled="collectSaving" @click="saveCollect">
           {{ t('hotel.stays.detail.collect') }}
+        </button>
+      </div>
+    </AppModal>
+
+    <AppModal
+      :open="checkoutOpen"
+      :title="t('hotel.stays.checkoutTitle')"
+      icon="key"
+      size="lg"
+      @close="closeCheckout"
+    >
+      <p class="stay__intro-text">
+        {{ t('hotel.stays.checkoutConfirm', { name: checkoutStay?.guest_name || '' }) }}
+      </p>
+      <p class="stay__hint">{{ t('hotel.stays.checkoutHint') }}</p>
+      <p v-if="error" class="stay__error">{{ error }}</p>
+
+      <h4 class="co__title">{{ t('hotel.stays.checkoutInventory') }}</h4>
+      <p v-if="!checkoutItems.length" class="stay__muted">{{ t('hotel.stays.checkoutEmpty') }}</p>
+      <ul v-else class="co__list">
+        <li v-for="(item, index) in checkoutItems" :key="item.amenity_id" class="co__item">
+          <div class="co__head">
+            <strong>
+              <AppIcon :name="item.icon_key || 'sparkles'" :size="14" />
+              {{ item.name }}
+            </strong>
+            <small>{{ formatMoney(item.replacement_value_cents, stayCurrency(checkoutStay || {})) }}</small>
+          </div>
+          <div class="co__status">
+            <button
+              type="button"
+              class="co__pill"
+              :class="{ 'co__pill--ok': item.status === 'ok' }"
+              @click="setCheckoutStatus(index, 'ok')"
+            >
+              {{ t('hotel.stays.checkoutOk') }}
+            </button>
+            <button
+              type="button"
+              class="co__pill"
+              :class="{ 'co__pill--missing': item.status === 'missing' }"
+              @click="setCheckoutStatus(index, 'missing')"
+            >
+              {{ t('hotel.stays.checkoutMissing') }}
+            </button>
+            <button
+              type="button"
+              class="co__pill"
+              :class="{ 'co__pill--damaged': item.status === 'damaged' }"
+              @click="setCheckoutStatus(index, 'damaged')"
+            >
+              {{ t('hotel.stays.checkoutDamaged') }}
+            </button>
+          </div>
+          <label v-if="item.status !== 'ok'" class="co__amount">
+            <span>{{ t('hotel.stays.checkoutCharge') }}</span>
+            <input v-model="item.amount" class="field" inputmode="decimal">
+          </label>
+        </li>
+      </ul>
+
+      <div class="co__total">
+        <span>{{ t('hotel.stays.checkoutTotal') }}</span>
+        <strong>{{ checkoutChargeCents > 0 ? formatMoney(checkoutChargeCents, stayCurrency(checkoutStay || {})) : t('hotel.stays.checkoutNoCharge') }}</strong>
+      </div>
+
+      <div class="stay__actions">
+        <button type="button" class="btn-secondary" @click="closeCheckout">{{ t('common.cancel') }}</button>
+        <button type="button" class="btn-primary" :disabled="checkoutSaving" @click="confirmCheckout">
+          {{ t('hotel.stays.checkoutConfirmBtn') }}
         </button>
       </div>
     </AppModal>
@@ -2973,7 +3134,7 @@ function roomLabel(room: Doc) {
   color: #94a3b8;
 }
 .stay__chip--on {
-  border-color: var(--color-brand-500, #4a6d86);
+  border-color: var(--color-brand-500, var(--color-brand-600));
   background: #eef4f8;
   color: #1c2830;
 }
@@ -3076,7 +3237,7 @@ function roomLabel(room: Doc) {
 .stay__view {
   border: 0;
   background: transparent;
-  color: var(--color-brand-600, #4a6d86);
+  color: var(--color-brand-600, var(--color-brand-600));
   font-weight: 650;
   font-size: 0.82rem;
   cursor: pointer;
@@ -3358,7 +3519,7 @@ function roomLabel(room: Doc) {
   background: #dbe3ea;
 }
 .sd__journey-step--done { color: #3d5c73; }
-.sd__journey-step--done i { background: var(--color-brand-600, #4a6d86); }
+.sd__journey-step--done i { background: var(--color-brand-600, var(--color-brand-600)); }
 .sd__journey-step--current { color: #047857; }
 .sd__journey-step--current i { background: #047857; box-shadow: 0 0 0 4px #d1fae5; }
 .sd__grid {
@@ -3411,14 +3572,14 @@ function roomLabel(room: Doc) {
   cursor: pointer;
 }
 .sd__quick-btn:hover:not(:disabled) {
-  border-color: var(--color-brand-500, #4a6d86);
+  border-color: var(--color-brand-500, var(--color-brand-600));
   background: #f3f6f8;
 }
 .sd__quick-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.sd__quick-btn :deep(svg) { color: var(--color-brand-600, #4a6d86); flex-shrink: 0; }
+.sd__quick-btn :deep(svg) { color: var(--color-brand-600, var(--color-brand-600)); flex-shrink: 0; }
 .sd__card {
   border: 1px solid #e4e8ec;
   border-radius: 0.85rem;
@@ -3551,7 +3712,7 @@ function roomLabel(room: Doc) {
   height: 0.55rem;
   margin-top: 0.35rem;
   border-radius: 999px;
-  background: var(--color-brand-600, #4a6d86);
+  background: var(--color-brand-600, var(--color-brand-600));
   box-shadow: 0 0 0 3px #e8f0f5;
   flex-shrink: 0;
 }
@@ -3662,7 +3823,7 @@ function roomLabel(room: Doc) {
   background: #dbe3ea;
 }
 .sd__journey-step--done { color: #3d5c73; }
-.sd__journey-step--done i { background: var(--color-brand-600, #4a6d86); }
+.sd__journey-step--done i { background: var(--color-brand-600, var(--color-brand-600)); }
 .sd__journey-step--current { color: #047857; }
 .sd__journey-step--current i { background: #047857; box-shadow: 0 0 0 4px #d1fae5; }
 .sd__grid {
@@ -3715,14 +3876,14 @@ function roomLabel(room: Doc) {
   cursor: pointer;
 }
 .sd__quick-btn:hover:not(:disabled) {
-  border-color: var(--color-brand-500, #4a6d86);
+  border-color: var(--color-brand-500, var(--color-brand-600));
   background: #f3f6f8;
 }
 .sd__quick-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.sd__quick-btn :deep(svg) { color: var(--color-brand-600, #4a6d86); flex-shrink: 0; }
+.sd__quick-btn :deep(svg) { color: var(--color-brand-600, var(--color-brand-600)); flex-shrink: 0; }
 .sd__card {
   border: 1px solid #e4e8ec;
   border-radius: 0.85rem;
@@ -3855,7 +4016,7 @@ function roomLabel(room: Doc) {
   height: 0.55rem;
   margin-top: 0.35rem;
   border-radius: 999px;
-  background: var(--color-brand-600, #4a6d86);
+  background: var(--color-brand-600, var(--color-brand-600));
   box-shadow: 0 0 0 3px #e8f0f5;
   flex-shrink: 0;
 }
@@ -3973,7 +4134,7 @@ function roomLabel(room: Doc) {
   gap: 0.45rem;
   padding: 1.25rem 1rem;
   border-radius: 14px;
-  background: linear-gradient(180deg, #ecfdf5, #f0fdf4);
+  background: #ecfdf5;
   border: 1px solid #a7f3d0;
   text-align: center;
   color: #065f46;
@@ -4017,7 +4178,7 @@ function roomLabel(room: Doc) {
 .stay__heading-icon {
   display: inline-flex; align-items: center; justify-content: center;
   width: 1.7rem; height: 1.7rem; border-radius: 0.45rem;
-  background: #eef4f8; color: var(--color-brand-600, #4a6d86);
+  background: #eef4f8; color: var(--color-brand-600, var(--color-brand-600));
 }
 
 .stay__steps {
@@ -4048,7 +4209,7 @@ function roomLabel(room: Doc) {
 }
 .stay__step--on { color: var(--color-brand-700, #3d5c73); }
 .stay__step--on span,
-.stay__step--done span { background: var(--color-brand-600, #4a6d86); color: #fff; }
+.stay__step--done span { background: var(--color-brand-600, var(--color-brand-600)); color: #fff; }
 
 .stay__error {
   margin: 0.85rem 0 0;
@@ -4068,7 +4229,7 @@ function roomLabel(room: Doc) {
 }
 .stay__block { margin-top: 1.2rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .stay__block h3 { font-size: 0.92rem; }
-.stay__block h3 :deep(svg) { color: var(--color-brand-600, #4a6d86); }
+.stay__block h3 :deep(svg) { color: var(--color-brand-600, var(--color-brand-600)); }
 .stay__label {
   margin: 0;
   font-size: 0.78rem;
@@ -4122,7 +4283,7 @@ function roomLabel(room: Doc) {
   display: flex; align-items: center; justify-content: center;
   color: #94a3b8; font-size: 0.8rem; background: #f8fafc;
 }
-.stay__link { color: var(--color-brand-600, #4a6d86); font-weight: 600; text-decoration: none; }
+.stay__link { color: var(--color-brand-600, var(--color-brand-600)); font-weight: 600; text-decoration: none; }
 .stay__grid { display: grid; gap: 0.85rem 1rem; grid-template-columns: 1fr; }
 @media (min-width: 720px) {
   .stay__grid { grid-template-columns: 1fr 1fr; }
@@ -4249,4 +4410,107 @@ function roomLabel(room: Doc) {
 .stay__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.1rem; }
 .stay__empty, .stay__muted { margin: 0; padding: 1.2rem; text-align: center; color: #7b8d9a; font-size: 0.85rem; }
 .text-brand-600 { color: var(--color-brand-600); }
+
+.sd__amenities,
+.co__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sd__amenities {
+  margin-top: 0.65rem;
+}
+
+.sd__amenity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid #d7e2ea;
+  border-radius: 999px;
+  background: #f8fafc;
+  font-size: 0.72rem;
+  color: #334155;
+}
+
+.co__title {
+  margin: 1rem 0 0.55rem;
+  font-size: 0.88rem;
+  color: #1c2830;
+}
+
+.co__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.co__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid #e8eef3;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.co__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.co__head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+  color: #1c2830;
+}
+
+.co__head small { color: #7b8d9a; font-size: 0.75rem; }
+
+.co__pill {
+  border: 1px solid #d7e2ea;
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.28rem 0.6rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: #475569;
+}
+
+.co__pill--ok { background: #ecfdf5; color: #047857; border-color: #a7f3d0; font-weight: 700; }
+.co__pill--missing { background: #fef2f2; color: #b91c1c; border-color: #fecaca; font-weight: 700; }
+.co__pill--damaged { background: #fffbeb; color: #b45309; border-color: #fde68a; font-weight: 700; }
+
+.co__amount {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.co__total {
+  margin-top: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e8eef3;
+}
+
+.co__total span { font-size: 0.78rem; color: #64748b; }
+.co__total strong { font-size: 0.95rem; color: #0f172a; }
 </style>

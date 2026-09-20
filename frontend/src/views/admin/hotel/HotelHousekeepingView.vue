@@ -734,7 +734,7 @@ onMounted(load)
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }
-.hk__tab--on { color: #1c2830; border-bottom-color: var(--color-brand-600, #4a6d86); }
+.hk__tab--on { color: #1c2830; border-bottom-color: var(--color-brand-600, var(--color-brand-600)); }
 .hk__filters {
   display: flex;
   flex-direction: column;

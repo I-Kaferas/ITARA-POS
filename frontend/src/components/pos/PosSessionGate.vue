@@ -14,6 +14,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   openShift: [payload: { pin: string; registerId: string; opening: number }]
   closeShift: [payload: { pin: string; counted: number; notes: string; reason: string }]
+  dismiss: []
   switch: []
 }>()
 
@@ -67,7 +68,7 @@ function submitClose() {
 </script>
 
 <template>
-  <div v-if="!open" class="gate">
+  <div v-if="!open" class="gate" @click.self="emit('dismiss')">
     <form class="card" @submit.prevent="submitOpen">
       <h2>{{ t('pos.openShift') }}</h2>
       <p>{{ t('pos.openShiftHint') }}</p>
@@ -90,7 +91,10 @@ function submitClose() {
         <input v-model="opening" type="number" min="0" step="0.01" />
       </div>
       <p v-if="error" class="error">{{ error }}</p>
-      <button type="submit">{{ t('pos.openShift') }}</button>
+      <div class="gate-actions">
+        <button type="button" class="gate-cancel" @click="emit('dismiss')">{{ t('common.cancel') }}</button>
+        <button type="submit">{{ t('pos.openShift') }}</button>
+      </div>
     </form>
   </div>
   <form v-else class="close" @submit.prevent="submitClose">
@@ -120,5 +124,8 @@ function submitClose() {
 .error { color: #b91c1c; }
 .gate-field { display: flex; flex-direction: column; gap: 0.3rem; }
 input, select, button { border: 1px solid #cbd5e1; border-radius: 0.55rem; padding: 0.5rem 0.7rem; }
-button { background: #4a6d86; color: white; border: 0; font-weight: 650; cursor: pointer; }
+button { background: var(--color-brand-600); color: white; border: 0; font-weight: 650; cursor: pointer; }
+.gate-actions { display: flex; gap: 0.5rem; }
+.gate-actions button { flex: 1; }
+.gate-cancel { background: #fff !important; color: #334155 !important; border: 1px solid #cbd5e1 !important; }
 </style>

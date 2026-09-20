@@ -20,7 +20,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { formatMoney } from '../../../utils/money'
 import { api } from '../../../api/client'
 import type { PosProduct } from '../../../types/pos'
-import { needsSaleQuantity } from '../../../utils/product'
+import { availableStock, needsSaleQuantity } from '../../../utils/product'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -29,11 +29,16 @@ const context = useContextStore()
 const pos = usePosStore()
 
 const showClose = ref(false)
+const showOpen = ref(false)
 const showReturn = ref(false)
 const drawerAmount = ref('')
 const searchQuery = ref('')
 const selectedCategoryId = ref<string | null>(null)
-const footerRef = ref<{ openPaymentModal: () => void } | null>(null)
+const footerRef = ref<{
+  openPaymentModal: () => void
+  openCustomerModal: () => void
+  openCreateCustomer: () => void
+} | null>(null)
 const searchRef = ref<{ focus: () => void } | null>(null)
 const unitProduct = ref<PosProduct | null>(null)
 const unitId = ref('')
@@ -46,6 +51,7 @@ const saleQty = ref(1)
 const accompanimentHost = ref<{ product: PosProduct; lineId: string } | null>(null)
 const selectedAccompanimentIds = ref<string[]>([])
 const cartOpen = ref(false)
+const orderMode = ref<'takeaway' | 'delivery'>('takeaway')
 
 const footerLabels = computed(() => ({
   customer: t('pos.customer'),
@@ -253,6 +259,7 @@ watch(
 function addHostProduct(product: PosProduct, quantity = 1, saleUnitId?: string, variantId?: string) {
   const before = pos.lines.length
   const line = pos.addProduct(product, quantity, saleUnitId, variantId)
+  if (!line) return
   if (pos.lines.length > before) promptAccompaniments(product, line)
 }
 
@@ -282,6 +289,13 @@ function confirmAccompaniments() {
 }
 
 function onAddProduct(product: PosProduct) {
+  if (needsSaleQuantity(product)) {
+    const available = availableStock(product, pos.cartReservedByProductId)
+    if (available !== null && available <= 0) {
+      pos.setStatus(t('pos.outOfStock'), true)
+      return
+    }
+  }
   if (product.variants?.length || product.product_type === 'variant' || product.option_groups?.length) {
     optionProduct.value = product
     variantId.value = product.variants?.[0]?.variant_id ?? ''
@@ -384,22 +398,28 @@ async function onRetrieve(id: string, options?: { openPayment?: boolean }) {
   }
 }
 
-function onPay(payments: { method: string; amount: number; tendered?: number }[]) {
-  const fromTable = Boolean(pos.activeTable)
-  void pos.pay(payments).then(async result => {
+function onPay(
+  payments: { method: string; amount: number; tendered?: number }[],
+  done: (result: { success: boolean; message?: string }) => void,
+) {
+  void pos.pay(payments).then(async (result) => {
     const changeMsg = result.change > 0 ? ` — ${t('pos.change')}: ${formatChange(result.change)}` : ''
     const earned = result.loyalty?.earned ?? 0
     const pointsMsg = earned > 0 ? ` — ${t('pos.loyaltyEarned', { points: earned })}` : ''
     pos.setStatus(`${result.message}${changeMsg}${pointsMsg}`, !result.success)
+    done({ success: result.success, message: result.message })
     if (!result.success) return
-    if (context.currentStoreId) await pos.loadSession(context.currentStoreId)
     kickDrawer()
     if (result.receipt) {
       printSaleDocument(result.receipt, t('pointOfSale.orders.receipt'))
     }
-    if (fromTable) {
-      await router.push({ name: 'pos-tables' })
+    if (context.currentStoreId) {
+      void pos.loadSession(context.currentStoreId)
     }
+  }).catch((e) => {
+    const message = e instanceof Error ? e.message : 'Paiement refusé'
+    pos.setStatus(message, true)
+    done({ success: false, message })
   })
 }
 
@@ -420,7 +440,7 @@ let scanBuffer = ''
 let scanTimer: ReturnType<typeof setTimeout> | null = null
 
 function onScanKey(event: KeyboardEvent) {
-  if (!pos.shift || event.ctrlKey || event.metaKey || event.altKey) return
+  if (event.ctrlKey || event.metaKey || event.altKey) return
   if (event.key === 'F2') {
     event.preventDefault()
     searchRef.value?.focus()
@@ -449,6 +469,7 @@ async function openShift(payload: { pin: string; registerId: string; opening: nu
   if (!context.currentStoreId) return
   try {
     await pos.openShiftWithPin(context.currentStoreId, payload.pin, payload.registerId, payload.opening)
+    showOpen.value = false
     pos.setStatus(t('pos.shiftOpened'))
   } catch (e) {
     pos.setStatus(e instanceof Error ? e.message : 'PIN refusé', true)
@@ -544,6 +565,7 @@ onUnmounted(() => {
           <button type="button" @click="kickDrawer">{{ t('pos.drawer') }}</button>
           <button type="button" :disabled="!pos.customer" @click="redeemLoyalty">{{ t('pos.loyalty') }}</button>
           <button type="button" :disabled="!pos.shift" @click="showReturn = !showReturn">{{ t('pos.refund') }}</button>
+          <button v-if="!pos.shift" type="button" @click="showOpen = true">{{ t('pos.openShift') }}</button>
           <button type="button" :disabled="!pos.shift" @click="showClose = !showClose">{{ t('pos.closeShift') }}</button>
         </div>
         <PosSessionGate
@@ -569,35 +591,8 @@ onUnmounted(() => {
             {{ t('nav.posTables') }}
           </button>
         </div>
-        <div class="pos-search-row">
-          <PosSearchBar
-            ref="searchRef"
-            v-model="searchQuery"
-            :placeholder="t('pos.searchPlaceholder')"
-            :hint="t('pos.scanHint')"
-            @submit="onSearchSubmit"
-          />
-          <button
-            type="button"
-            class="pos-cart-toggle"
-            :class="{ 'pos-cart-toggle--open': cartOpen }"
-            @click="cartOpen = !cartOpen"
-          >
-            <AppIcon name="receipt" :size="18" />
-            <span>{{ t('pos.cart') }}</span>
-            <em>{{ pos.lines.length }}</em>
-          </button>
-        </div>
 
-        <div v-if="pos.loading" class="pos-loading">{{ t('common.loading') }}</div>
-        <div v-else-if="pos.error" class="pos-error">
-          <p>{{ pos.error }}</p>
-          <button type="button" class="pos-retry" @click="loadForStore(context.currentStoreId!)">
-            {{ t('pos.retry') }}
-          </button>
-        </div>
-
-        <div v-else class="pos-body" :class="{ 'pos-body--cart-open': cartOpen }">
+        <div class="pos-workspace" :class="{ 'pos-workspace--cart-open': cartOpen }">
           <button
             v-if="cartOpen"
             type="button"
@@ -605,31 +600,123 @@ onUnmounted(() => {
             :aria-label="t('pos.cart')"
             @click="cartOpen = false"
           />
-          <PosCategorySidebar
-            :categories="pos.categories"
-            :selected-category-id="selectedCategoryId"
-            :all-label="t('pos.allCategories')"
-            :counts="categoryCounts"
-            :total-count="pos.products.length"
-            @select="selectedCategoryId = $event"
-          />
-          <PosProductGrid
-            :sections="productSections"
-            :currency="pos.totals.currency"
-            :empty-label="t('pos.noProducts')"
-            @select="onAddProduct"
-          />
-          <PosCartPanel
-            :lines="pos.lines"
-            :currency="pos.totals.currency"
-            :empty-label="t('pos.emptyCart')"
-            :line-totals="lineTotalsById"
-            @increment="pos.incrementQuantity"
-            @decrement="pos.decrementQuantity"
-            @quantity="pos.updateQuantity"
-            @remove="pos.removeLine"
-            @close="cartOpen = false"
-          />
+
+          <section class="pos-main">
+            <div class="pos-toolbar">
+              <PosSearchBar
+                ref="searchRef"
+                v-model="searchQuery"
+                :placeholder="t('pos.searchProducts')"
+                @submit="onSearchSubmit"
+              />
+              <div class="pos-order-mode" role="group" :aria-label="t('pos.orderMode')">
+                <button
+                  type="button"
+                  class="pos-order-mode__btn"
+                  :class="{ 'pos-order-mode__btn--active': orderMode === 'takeaway' }"
+                  @click="orderMode = 'takeaway'"
+                >
+                  {{ t('pos.takeaway') }}
+                </button>
+                <button
+                  type="button"
+                  class="pos-order-mode__btn"
+                  :class="{ 'pos-order-mode__btn--active': orderMode === 'delivery' }"
+                  @click="orderMode = 'delivery'"
+                >
+                  {{ t('pos.delivery') }}
+                </button>
+              </div>
+              <button
+                type="button"
+                class="pos-refresh"
+                :title="t('pos.retry')"
+                @click="loadForStore(context.currentStoreId!)"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="pos-cart-toggle"
+                :class="{ 'pos-cart-toggle--open': cartOpen }"
+                @click="cartOpen = !cartOpen"
+              >
+                <AppIcon name="receipt" :size="18" />
+                <span>{{ t('pos.cart') }}</span>
+                <em>{{ pos.lines.length }}</em>
+              </button>
+            </div>
+
+            <PosCategorySidebar
+              v-if="!pos.loading && !pos.error"
+              :categories="pos.categories"
+              :selected-category-id="selectedCategoryId"
+              :all-label="t('pos.allCategories')"
+              :counts="categoryCounts"
+              :total-count="pos.products.length"
+              @select="selectedCategoryId = $event"
+            />
+
+            <div v-if="pos.loading" class="pos-loading">{{ t('common.loading') }}</div>
+            <div v-else-if="pos.error" class="pos-error">
+              <p>{{ pos.error }}</p>
+              <button type="button" class="pos-retry" @click="loadForStore(context.currentStoreId!)">
+                {{ t('pos.retry') }}
+              </button>
+            </div>
+            <PosProductGrid
+              v-else
+              :sections="productSections"
+              :currency="pos.totals.currency"
+              :empty-label="t('pos.noProducts')"
+              :reserved-by-product-id="pos.cartReservedByProductId"
+              @select="onAddProduct"
+            />
+          </section>
+
+          <aside class="pos-side" :class="{ 'pos-side--cart-open': cartOpen }">
+            <PosCartPanel
+              :lines="pos.lines"
+              :currency="pos.totals.currency"
+              :empty-label="t('pos.emptyCart')"
+              :empty-hint="t('pos.emptyCartHint')"
+              :customer="pos.customer"
+              :line-totals="lineTotalsById"
+              @increment="pos.incrementQuantity"
+              @decrement="pos.decrementQuantity"
+              @quantity="pos.updateQuantity"
+              @remove="pos.removeLine"
+              @close="cartOpen = false"
+              @select-customer="pos.setCustomer"
+              @add-customer="footerRef?.openCreateCustomer()"
+            />
+            <PosFooterPanel
+              ref="footerRef"
+              compact
+              hide-customer-chip
+              :totals="pos.totals"
+              :customer="pos.customer"
+              :note="pos.note"
+              :global-discount="pos.globalDiscount"
+              :held-sales="pos.heldSales"
+              :is-empty="pos.isEmpty"
+              :calculating="pos.calculating"
+              :payment-methods="pos.availablePaymentMethods"
+              :labels="footerLabels"
+              @select-customer="pos.setCustomer"
+              @set-discount="pos.setGlobalDiscount"
+              @set-note="pos.setNote"
+              @hold="onHold"
+              @retrieve="onRetrieve"
+              @delete-held="pos.deleteHeldSale"
+              @cancel="pos.cancel"
+              @pay="onPay"
+            />
+          </aside>
         </div>
 
         <AppModal
@@ -648,7 +735,7 @@ onUnmounted(() => {
             </div>
             <div class="flex justify-end gap-2">
               <button type="button" class="rounded-lg border border-slate-300 px-4 py-2" @click="qtyProduct = null">{{ t('common.cancel') }}</button>
-              <button type="submit" class="rounded-lg bg-[#4a6d86] px-4 py-2 text-white">{{ t('beverages.add') }}</button>
+              <button type="submit" class="rounded-lg bg-[var(--color-brand-600)] px-4 py-2 text-white">{{ t('beverages.add') }}</button>
             </div>
           </form>
         </AppModal>
@@ -708,7 +795,7 @@ onUnmounted(() => {
                 v-for="unit in unitProduct?.sale_units ?? []"
                 :key="unit.id"
                 class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                :class="unitId === unit.id ? 'border-[#4a6d86] bg-slate-50' : 'border-slate-200'"
+                :class="unitId === unit.id ? 'border-[var(--color-brand-600)] bg-slate-50' : 'border-slate-200'"
               >
                 <span class="flex items-center gap-2">
                   <input v-model="unitId" type="radio" :value="unit.id" />
@@ -727,7 +814,7 @@ onUnmounted(() => {
             <p v-else class="text-sm text-slate-500">{{ t('pos.noQuantity') }}</p>
             <div class="flex justify-end gap-2">
               <button type="button" class="rounded-lg border border-slate-300 px-4 py-2" @click="unitProduct = null">{{ t('common.cancel') }}</button>
-              <button type="submit" class="rounded-lg bg-[#4a6d86] px-4 py-2 text-white">{{ t('beverages.add') }}</button>
+              <button type="submit" class="rounded-lg bg-[var(--color-brand-600)] px-4 py-2 text-white">{{ t('beverages.add') }}</button>
             </div>
           </form>
         </AppModal>
@@ -747,7 +834,7 @@ onUnmounted(() => {
                 v-for="item in accompanimentHost?.product.accompaniments ?? []"
                 :key="item.product_id"
                 class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                :class="selectedAccompanimentIds.includes(item.product_id) ? 'border-[#4a6d86] bg-slate-50' : 'border-slate-200'"
+                :class="selectedAccompanimentIds.includes(item.product_id) ? 'border-[var(--color-brand-600)] bg-slate-50' : 'border-slate-200'"
               >
                 <span class="flex items-center gap-2">
                   <input
@@ -766,38 +853,18 @@ onUnmounted(() => {
             </div>
             <div class="flex justify-end gap-2">
               <button type="button" class="rounded-lg border border-slate-300 px-4 py-2" @click="accompanimentHost = null">{{ t('pos.skipAccompaniment') }}</button>
-              <button type="submit" class="rounded-lg bg-[#4a6d86] px-4 py-2 text-white">{{ t('beverages.add') }}</button>
+              <button type="submit" class="rounded-lg bg-[var(--color-brand-600)] px-4 py-2 text-white">{{ t('beverages.add') }}</button>
             </div>
           </form>
         </AppModal>
 
-        <PosFooterPanel
-          ref="footerRef"
-          :totals="pos.totals"
-          :customer="pos.customer"
-          :note="pos.note"
-          :global-discount="pos.globalDiscount"
-          :held-sales="pos.heldSales"
-          :is-empty="pos.isEmpty"
-          :calculating="pos.calculating"
-          :payment-methods="pos.availablePaymentMethods"
-          :labels="footerLabels"
-          @select-customer="pos.setCustomer"
-          @set-discount="pos.setGlobalDiscount"
-          @set-note="pos.setNote"
-          @hold="onHold"
-          @retrieve="onRetrieve"
-          @delete-held="pos.deleteHeldSale"
-          @cancel="pos.cancel"
-          @pay="onPay"
-        />
-
         <PosSessionGate
-          v-if="!pos.shift"
+          v-if="showOpen && !pos.shift"
           class="pos-shift-gate"
           :open="false"
           :registers="pos.registers"
           @open-shift="openShift"
+          @dismiss="showOpen = false"
         />
 
         <div v-if="pos.statusMessage" class="pos-toast" :class="{ 'pos-toast--error': pos.statusIsError }">
@@ -819,7 +886,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #eef2f6;
+  background: var(--color-canvas, #f4f6f9);
 }
 .pos-desk {
   display: flex;
@@ -858,18 +925,78 @@ onUnmounted(() => {
 }
 .pos-desk__amount { width: 6.5rem; border: 1px solid #cbd5e1; border-radius: 0.45rem; padding: 0.3rem 0.45rem; }
 .pos-desk select, .pos-desk button { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.35rem 0.65rem; background: white; font-size: 0.8rem; }
-.pos-search-row {
+
+.pos-workspace {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 23rem);
+  overflow: hidden;
+  margin-top: 0.45rem;
+  background: #fff;
+  border-top: 1px solid var(--color-border, #e7edf3);
+}
+
+.pos-main {
   display: flex;
-  align-items: stretch;
-  gap: 0.5rem;
-  margin: 0.5rem 0.75rem 0;
-  flex-shrink: 0;
-}
-.pos-search-row :deep(.pos-search) {
-  flex: 1;
+  flex-direction: column;
   min-width: 0;
-  margin: 0;
+  min-height: 0;
+  padding: 0.85rem 1rem 0.5rem;
+  background: var(--color-canvas, #f7f8fb);
 }
+
+.pos-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+  margin-bottom: 0.7rem;
+}
+
+.pos-order-mode {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 0.35rem;
+}
+
+.pos-order-mode__btn {
+  border: 1px solid var(--color-border, #dbe3ea);
+  border-radius: 0.75rem;
+  padding: 0.7rem 1rem;
+  background: #fff;
+  color: var(--color-text-secondary, #475569);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pos-order-mode__btn--active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+
+.pos-refresh {
+  flex-shrink: 0;
+  width: 2.65rem;
+  height: 2.65rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border, #dbe3ea);
+  border-radius: 0.75rem;
+  background: #fff;
+  color: var(--color-text-secondary, #475569);
+  cursor: pointer;
+}
+
+.pos-refresh:hover {
+  border-color: var(--color-brand-300, #c4b5fd);
+  color: var(--color-brand-700);
+}
+
 .pos-cart-toggle {
   display: none;
   align-items: center;
@@ -878,6 +1005,7 @@ onUnmounted(() => {
   border: 1px solid #cbd5e1;
   border-radius: 0.65rem;
   padding: 0 0.85rem;
+  height: 2.65rem;
   background: #fff;
   color: #1c2830;
   font-size: 0.82rem;
@@ -888,46 +1016,44 @@ onUnmounted(() => {
   min-width: 1.35rem;
   padding: 0.1rem 0.4rem;
   border-radius: 999px;
-  background: #4a6d86;
+  background: var(--color-brand-600);
   color: #fff;
   font-style: normal;
   font-size: 0.72rem;
   text-align: center;
 }
 .pos-cart-toggle--open {
-  border-color: #4a6d86;
-  background: #4a6d86;
+  border-color: var(--color-brand-600);
+  background: var(--color-brand-600);
   color: #fff;
 }
 .pos-cart-toggle--open em {
   background: rgba(255, 255, 255, 0.2);
 }
+
+.pos-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--color-border, #e7edf3);
+  background: #fff;
+}
+
 .pos-cart-backdrop {
   display: none;
 }
-.pos-body {
-  position: relative;
-  flex: 1 1 auto;
-  display: flex;
-  min-height: 12rem;
-  overflow: hidden;
-  margin-top: 0.55rem;
-  border-top: 1px solid #e7edf3;
-  background: #fff;
-}
-@media (max-width: 1279px) {
-  .pos-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 19rem;
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas:
-      "cats cats"
-      "products cart";
+
+@media (max-width: 1100px) {
+  .pos-workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 20.5rem);
   }
-  .pos-body :deep(.pos-categories) { grid-area: cats; }
-  .pos-body :deep(.pos-products) { grid-area: products; min-width: 0; min-height: 0; }
-  .pos-body :deep(.pos-cart) { grid-area: cart; min-height: 0; }
+  .pos-order-mode__btn {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.78rem;
+  }
 }
+
 @media (max-width: 900px) {
   .pos-desk__meta {
     display: none;
@@ -941,14 +1067,23 @@ onUnmounted(() => {
   .pos-cart-toggle span {
     display: none;
   }
-  .pos-body {
+  .pos-workspace {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "cats"
-      "products";
   }
-  .pos-body :deep(.pos-cart) {
-    grid-area: unset;
+  .pos-side {
+    position: absolute;
+    inset: 0 0 0 auto;
+    z-index: 50;
+    width: min(22rem, 92%);
+    transform: translateX(110%);
+    transition: transform 0.2s ease;
+    pointer-events: none;
+    box-shadow: -12px 0 28px rgba(15, 23, 42, 0.16);
+  }
+  .pos-workspace--cart-open .pos-side,
+  .pos-side--cart-open {
+    transform: none;
+    pointer-events: auto;
   }
   .pos-cart-backdrop {
     display: block;
@@ -959,9 +1094,12 @@ onUnmounted(() => {
     background: rgba(15, 23, 42, 0.38);
     cursor: pointer;
   }
-  .pos-body--cart-open :deep(.pos-cart) {
+  .pos-side :deep(.pos-cart) {
+    position: static;
     transform: none;
+    width: 100%;
     pointer-events: auto;
+    box-shadow: none;
   }
 }
 .pos-shift-gate {
@@ -987,7 +1125,7 @@ onUnmounted(() => {
 .pos-retry {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
-  background: var(--color-brand-600, #4a6d86);
+  background: var(--color-brand-600, var(--color-brand-600));
   color: white;
   border: none;
   cursor: pointer;
@@ -1019,7 +1157,7 @@ onUnmounted(() => {
   padding: 0.75rem 0.8rem; border-radius: 0.75rem; border: 1px solid #dbe3ea;
   background: #fff; text-align: left; cursor: pointer;
 }
-.pos-option-card--active { border-color: #4a6d86; background: #4a6d86; color: #fff; }
+.pos-option-card--active { border-color: var(--color-brand-600); background: var(--color-brand-600); color: #fff; }
 .pos-option-card__label { font-weight: 650; }
 .pos-option-card__meta { font-size: 0.72rem; opacity: 0.75; }
 .pos-option-card__price { margin-top: 0.25rem; font-weight: 650; color: #e39b2b; }
@@ -1034,6 +1172,6 @@ onUnmounted(() => {
 .pos-option-qty__controls input { width: 4rem; text-align: center; }
 .pos-option-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .pos-option-cancel { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.55rem 1rem; background: #fff; }
-.pos-option-add { border: 0; border-radius: 0.5rem; padding: 0.55rem 1rem; background: #4a6d86; color: #fff; font-weight: 600; }
+.pos-option-add { border: 0; border-radius: 0.5rem; padding: 0.55rem 1rem; background: var(--color-brand-600); color: #fff; font-weight: 600; }
 .pos-option-add:disabled { opacity: 0.5; }
 </style>

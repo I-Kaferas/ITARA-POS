@@ -9,6 +9,7 @@ use App\Models\StockBalance;
 use App\Models\Store;
 use App\Models\StoreProduct;
 use App\Models\Warehouse;
+use App\Services\Catalog\StoreCatalogService;
 use App\Services\Inventory\OpeningStockService;
 use Illuminate\Support\Collection;
 
@@ -33,12 +34,18 @@ class PosCatalogSyncService
 
         $storeProducts = StoreProduct::query()
             ->where('store_id', $store->id)
+            ->where('is_available', true)
             ->get()
             ->keyBy('product_id');
+
+        if ($storeProducts->isEmpty()) {
+            return [];
+        }
 
         $stockByProduct = $this->stockByProduct($store);
 
         return Product::query()
+            ->whereIn('id', $storeProducts->keys())
             ->whereIn('catalog_id', $catalogIds)
             ->where('is_active', true)
             ->with([
@@ -154,6 +161,9 @@ class PosCatalogSyncService
 
         $categories = Category::query()
             ->whereIn('catalog_id', $catalogIds)
+            ->where(function ($query) use ($store) {
+                $query->where('store_id', $store->id)->orWhereNull('store_id');
+            })
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -162,6 +172,7 @@ class PosCatalogSyncService
             ->whereIn('catalog_id', $catalogIds)
             ->where('is_active', true)
             ->whereNotNull('category_id')
+            ->whereHas('storeProducts', fn ($q) => $q->where('store_id', $store->id)->where('is_available', true))
             ->distinct()
             ->pluck('category_id');
 
@@ -247,19 +258,17 @@ class PosCatalogSyncService
     private function catalogIdsForStore(Store $store): Collection
     {
         $store->loadMissing('branch');
+        $companyId = $store->branch?->company_id;
+        if (! $companyId) {
+            return collect();
+        }
 
-        $catalogIds = Catalog::query()
-            ->when($store->branch?->company_id, fn ($query) => $query->where('company_id', $store->branch->company_id))
+        app(StoreCatalogService::class)->bootstrap($store);
+
+        return Catalog::query()
+            ->where('company_id', $companyId)
             ->where('is_active', true)
             ->pluck('id');
-
-        $importedCatalogIds = StoreProduct::query()
-            ->where('store_id', $store->id)
-            ->join('products', 'products.id', '=', 'store_products.product_id')
-            ->distinct()
-            ->pluck('products.catalog_id');
-
-        return $catalogIds->merge($importedCatalogIds)->filter()->unique()->values();
     }
 
     /**

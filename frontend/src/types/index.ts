@@ -357,6 +357,7 @@ export interface Catalog {
   id: string
   tenant_id: string
   company_id: string
+  store_id?: string | null
   name: string
   description?: string | null
   is_default: boolean
@@ -367,6 +368,7 @@ export interface Category {
   id: string
   tenant_id: string
   catalog_id: string
+  store_id?: string | null
   parent_id?: string | null
   name: string
   slug: string
@@ -378,6 +380,7 @@ export interface Category {
 
 export interface CatalogAttribute {
   id: string
+  store_id?: string | null
   name: string
   code: string
   values: string[]
@@ -387,6 +390,7 @@ export interface CatalogAttribute {
 
 export interface Brand {
   id: string
+  store_id?: string | null
   name: string
   slug: string
   description?: string | null
@@ -395,6 +399,7 @@ export interface Brand {
 
 export interface Unit {
   id: string
+  store_id?: string | null
   code: string
   name: string
   symbol?: string | null
@@ -1513,6 +1518,184 @@ export interface InventoryReport {
     days_of_supply?: number | null
     value: number
   }[]
+}
+
+export type StoreStockStatus = 'healthy' | 'low' | 'out' | 'over'
+
+export interface StoreStockRow {
+  product_id: string
+  sku?: string | null
+  name?: string | null
+  category?: string | null
+  unit?: string | null
+  opening_qty: number
+  inbound_qty: number
+  outbound_qty: number
+  closing_qty: number
+  min_stock: number
+  max_stock: number
+  unit_cost: number
+  opening_value: number
+  closing_value: number
+  status: StoreStockStatus | string
+  last_moved_at?: string | null
+}
+
+export interface StoreStockReport {
+  generated_at: string
+  period: { from: string; to: string }
+  store: {
+    id?: string | null
+    name?: string | null
+    code?: string | null
+    kind?: string | null
+    address?: string | null
+    manager?: string | null
+  }
+  summary: {
+    opening_value: number
+    closing_value: number
+    variation_value: number
+    variation_pct: number
+    skus_in_stock: number
+    references_count: number
+    stockouts: number
+    low_stock_count: number
+    overstock_count: number
+    healthy_count: number
+    turnover_rate: number
+  }
+  stock_health: { label: string; count: number }[]
+  by_category: {
+    label: string
+    quantity: number
+    value: number
+    items: StoreStockRow[]
+  }[]
+  stock_rows: StoreStockRow[]
+  movements: {
+    inbound: {
+      occurred_at?: string | null
+      sku?: string | null
+      name?: string | null
+      quantity: number
+      unit_cost: number
+      value: number
+      type: string
+      notes?: string | null
+      supplier?: string | null
+    }[]
+    outbound: {
+      occurred_at?: string | null
+      sku?: string | null
+      name?: string | null
+      quantity: number
+      unit_cost: number
+      value: number
+      type: string
+      notes?: string | null
+      reason?: string | null
+    }[]
+    transfers: {
+      occurred_at?: string | null
+      sku?: string | null
+      name?: string | null
+      quantity: number
+      origin?: string | null
+      destination?: string | null
+      type: string
+    }[]
+    adjustments: {
+      occurred_at?: string | null
+      sku?: string | null
+      name?: string | null
+      quantity: number
+      value: number
+      type: string
+      notes?: string | null
+    }[]
+  }
+  alerts: {
+    out_of_stock: StoreStockRow[]
+    below_min: StoreStockRow[]
+    overstock: StoreStockRow[]
+    expiring: {
+      sku?: string | null
+      name?: string | null
+      warehouse?: string | null
+      batch?: string | null
+      expires_at?: string | null
+      days_left?: number | null
+      quantity_on_hand: number
+      expired: boolean
+      soon?: boolean
+    }[]
+    count_variances: {
+      sku?: string | null
+      name?: string | null
+      count_number?: string | null
+      counted_at?: string | null
+      system_qty: number
+      counted_qty: number
+      variance: number
+      reason?: string | null
+    }[]
+  }
+  performance: {
+    top_sold: { sku?: string | null; name?: string | null; category?: string | null; quantity: number; revenue: number }[]
+    least_sold: { sku?: string | null; name?: string | null; category?: string | null; quantity: number; revenue: number }[]
+    no_movement: {
+      sku?: string | null
+      name?: string | null
+      category?: string | null
+      closing_qty: number
+      closing_value: number
+      last_moved_at?: string | null
+    }[]
+    idle_days: number
+    service_rate: { fulfilled: number; total: number; rate: number }
+  }
+  comparison: {
+    stores: {
+      store_id: string
+      store_name: string
+      store_code?: string | null
+      closing_value: number
+      skus_in_stock: number
+      stockouts: number
+      sold_qty: number
+      turnover_rate: number
+    }[]
+    best_turnover_store?: string | null
+    transfer_opportunities: {
+      sku?: string | null
+      name?: string | null
+      from_store: string
+      to_store: string
+      quantity: number
+      reason: string
+    }[]
+  }
+  recommendations: {
+    reorder_urgent: {
+      sku?: string | null
+      name?: string | null
+      status: string
+      closing_qty: number
+      min_stock: number
+      suggested_qty: number
+    }[]
+    transfer: StoreStockReport['comparison']['transfer_opportunities']
+    threshold_adjustments: {
+      sku?: string | null
+      name?: string | null
+      current_min: number
+      current_max: number
+      suggested_min: number
+      suggested_max: number
+      reason: string
+    }[]
+  }
 }
 
 export interface PurchasesReport {

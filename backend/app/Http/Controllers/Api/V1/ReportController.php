@@ -7,6 +7,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Sale;
 use App\Models\StockBalance;
 use App\Services\Reports\ReportService;
+use App\Services\Reports\StoreStockReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,6 +17,7 @@ class ReportController extends Controller
 {
     public function __construct(
         private readonly ReportService $reports,
+        private readonly StoreStockReportService $storeStock,
     ) {}
 
     public function sales(Request $request): JsonResponse
@@ -46,6 +48,24 @@ class ReportController extends Controller
                 $from,
                 $to,
             ),
+        ]);
+    }
+
+    public function storeStock(Request $request): JsonResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        return response()->json([
+            'data' => $this->storeStock->summarize(
+                $request->string('store_id')->toString() ?: null,
+                $from,
+                $to,
+                max(1, (int) $request->integer('idle_days', 30)),
+            ),
+            'meta' => [
+                'from' => $from?->toDateString(),
+                'to' => $to?->toDateString(),
+            ],
         ]);
     }
 
@@ -293,6 +313,43 @@ class ReportController extends Controller
                     $balance->quantity_available,
                     $cost,
                     $cost * (int) $balance->quantity_on_hand,
+                ];
+            }
+        });
+    }
+
+    public function exportStoreStock(Request $request): StreamedResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+        $report = $this->storeStock->summarize(
+            $request->string('store_id')->toString() ?: null,
+            $from,
+            $to,
+            max(1, (int) $request->integer('idle_days', 30)),
+        );
+
+        $storeName = $report['store']['code'] ?? $report['store']['name'] ?? 'all';
+        $filename = 'stock-boutique-'.preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $storeName).'.csv';
+
+        return $this->csvDownload($filename, [
+            'sku', 'product', 'category', 'unit', 'opening_qty', 'inbound_qty', 'outbound_qty',
+            'closing_qty', 'min_stock', 'max_stock', 'status', 'opening_value', 'closing_value',
+        ], function () use ($report) {
+            foreach ($report['stock_rows'] as $row) {
+                yield [
+                    $row['sku'] ?? '',
+                    $row['name'] ?? '',
+                    $row['category'] ?? '',
+                    $row['unit'] ?? '',
+                    $row['opening_qty'] ?? 0,
+                    $row['inbound_qty'] ?? 0,
+                    $row['outbound_qty'] ?? 0,
+                    $row['closing_qty'] ?? 0,
+                    $row['min_stock'] ?? 0,
+                    $row['max_stock'] ?? 0,
+                    $row['status'] ?? '',
+                    $row['opening_value'] ?? 0,
+                    $row['closing_value'] ?? 0,
                 ];
             }
         });

@@ -64,7 +64,5 @@ async function submit() {
 .auth-locale { position: absolute; top: 1.25rem; right: 1.25rem; }
 .field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
 .btn-primary { border-radius: 0.5rem; padding: 0.625rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
-.from-brand-900 { --tw-gradient-from: var(--color-brand-900); }
-.to-brand-700 { --tw-gradient-to: var(--color-brand-700); }
 .text-brand-600 { color: var(--color-brand-600); }
 </style>

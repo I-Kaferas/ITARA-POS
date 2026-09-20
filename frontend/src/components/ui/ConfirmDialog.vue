@@ -98,7 +98,7 @@ function cancel() {
 .confirm-dialog__qty {
   font-family: var(--font-mono);
   font-weight: 650;
-  color: #4a6d86;
+  color: var(--color-brand-600);
   white-space: nowrap;
 }
 </style>

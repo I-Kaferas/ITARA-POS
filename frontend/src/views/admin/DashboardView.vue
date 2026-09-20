@@ -24,8 +24,8 @@ const firstName = computed(() => auth.user?.name?.split(' ')[0] ?? '')
 const storeId = computed(() => context.currentStoreId)
 
 const setupCards = computed(() => [
-  { key: 'companies' as const, label: t('nav.organization'), icon: 'building', accent: '#4a6d86', iconBg: '#e4edf2' },
-  { key: 'catalogs' as const, label: t('nav.catalogs'), icon: 'layers', accent: '#5c7f96', iconBg: '#f3f6f8' },
+  { key: 'companies' as const, label: t('nav.organization'), icon: 'building', accent: 'var(--color-brand-600)', iconBg: '#e4edf2' },
+  { key: 'catalogs' as const, label: t('nav.catalogs'), icon: 'layers', accent: 'var(--color-brand-500)', iconBg: '#f3f6f8' },
   { key: 'products' as const, label: t('nav.products'), icon: 'products', accent: '#3d5c73', iconBg: '#e4edf2' },
   { key: 'stores' as const, label: t('nav.stores'), icon: 'stores', accent: '#e39b2b', iconBg: '#f8efdc' },
   { key: 'store_imports' as const, label: t('dashboard.imports'), icon: 'import', accent: '#7d9aaf', iconBg: '#f3f6f8' },
@@ -125,7 +125,7 @@ watch(storeId, loadDashboard)
             :label="t('pointOfSale.overview.todayRevenue')"
             :value="formatMoney(overview?.kpis.revenue ?? 0)"
             icon="receipt"
-            accent="#4a6d86"
+            accent="var(--color-brand-600)"
             icon-bg="#e4edf2"
             :spark="hourSpark"
           />

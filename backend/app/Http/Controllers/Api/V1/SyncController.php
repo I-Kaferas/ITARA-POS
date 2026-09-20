@@ -108,9 +108,19 @@ class SyncController extends Controller
             : collect();
 
         $units = Unit::query()
+            ->where('store_id', $store->id)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'code', 'name', 'symbol', 'is_fractional', 'is_active']);
+
+        if ($units->isEmpty()) {
+            app(\App\Services\Catalog\StoreCatalogService::class)->ensureUnits($store);
+            $units = Unit::query()
+                ->where('store_id', $store->id)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'symbol', 'is_fractional', 'is_active']);
+        }
 
         $currencies = Currency::query()
             ->where('is_active', true)

@@ -13,6 +13,7 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { Category, InventoryCountDetail, Product, StockBalance, StockLedgerRow, Warehouse } from '../../../types'
 import { formatMoney } from '../../../utils/money'
 import { isStockableProduct } from '../../../utils/product'
@@ -23,6 +24,7 @@ type CountType = 'opening' | 'full' | 'cycle' | 'spot'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
+const context = useContextStore()
 const { notify, confirm: confirmDialog } = useConfirm()
 
 const COUNT_TYPES: CountType[] = ['opening', 'full', 'cycle', 'spot']
@@ -127,7 +129,7 @@ onMounted(async () => {
     const catalogs = await store.loadCatalogs(companyId)
     const catalogId = catalogs.find(c => c.is_default)?.id ?? catalogs[0]?.id
     if (catalogId) {
-      categories.value = await store.loadCategories(catalogId)
+      categories.value = await store.loadCategories(catalogId, context.currentStoreId)
       products.value = await store.loadProducts(catalogId)
     }
   }
@@ -658,7 +660,7 @@ async function completeFromPreview() {
   cursor: pointer;
   background: #fff;
 }
-.count-type--active { border-color: #4a6d86; background: #eef3f6; }
+.count-type--active { border-color: var(--color-brand-600); background: #eef3f6; }
 .count-type__title { font-size: 0.8125rem; font-weight: 700; color: #12181e; }
 .count-type__desc { font-size: 0.72rem; line-height: 1.35; color: #64748b; }
 .count-list { max-height: 18rem; overflow: auto; border: 1px solid #e2e8f0; border-radius: 0.75rem; }

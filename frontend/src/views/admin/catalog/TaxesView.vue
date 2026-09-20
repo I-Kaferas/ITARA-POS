@@ -798,7 +798,7 @@ function toggleCalcTax(id: string, checked: boolean) {
 .text-brand-600 { color: var(--color-brand-600); }
 .tax-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .tax-tab { border-radius: 999px; border: 1px solid #e2e8f0; background: white; padding: 0.4rem 0.85rem; font-size: 0.8125rem; color: #475569; }
-.tax-tab--active { background: #4a6d86; color: white; border-color: #4a6d86; }
+.tax-tab--active { background: var(--color-brand-600); color: white; border-color: var(--color-brand-600); }
 .panel { overflow: hidden; border-radius: 0.75rem; background: white; box-shadow: 0 1px 2px rgb(15 23 42 / 0.05); }
 .panel th, .panel td { padding: 0.75rem 1rem; text-align: left; }
 .panel tbody tr { border-top: 1px solid #f1f5f9; }

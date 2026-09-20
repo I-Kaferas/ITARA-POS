@@ -519,7 +519,7 @@ function spaceLabel(row: DeskDoc) {
 .rt__space input { position: absolute; opacity: 0; pointer-events: none; }
 .rt__space strong { font-size: 0.85rem; color: #1c2830; }
 .rt__space span { font-size: 0.75rem; color: #7b8d9a; line-height: 1.35; }
-.rt__space--on { border-color: var(--color-brand-500, #5c7f96); background: #f3f6f8; }
+.rt__space--on { border-color: var(--color-brand-500, var(--color-brand-500)); background: #f3f6f8; }
 .rt__grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem 1rem; }
 @media (min-width: 640px) {
   .rt__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

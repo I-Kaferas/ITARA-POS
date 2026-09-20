@@ -1,20 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
 import CatalogLayout from '../../../components/catalog/CatalogLayout.vue'
+import StoreMultiSelect from '../../../components/catalog/StoreMultiSelect.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { Brand } from '../../../types'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
 const store = useBackofficeStore()
+const context = useContextStore()
 const showModal = ref(false)
 const editing = ref<Brand | null>(null)
 const saving = ref(false)
@@ -24,26 +27,47 @@ const filtered = computed(() => store.brands.filter(brand =>
   && matchesActive(brand.is_active, filters.value.active),
 ))
 const form = ref({ name: '', slug: '', description: '', is_active: true })
+const storeIds = ref<string[]>([])
 
-onMounted(() => store.loadBrands())
+function defaultStoreIds() {
+  return context.currentStoreId ? [context.currentStoreId] : context.activeStores.map(store => store.id)
+}
+
+async function refreshBrands() {
+  if (!context.currentStoreId) return
+  await store.loadBrands(context.currentStoreId)
+}
+
+onMounted(async () => {
+  await context.loadStores()
+  await refreshBrands()
+})
+
+watch(() => context.currentStoreId, () => { void refreshBrands() })
 
 function openCreate() {
   editing.value = null
   form.value = { name: '', slug: '', description: '', is_active: true }
+  storeIds.value = defaultStoreIds()
   showModal.value = true
 }
 
 function openEdit(brand: Brand) {
   editing.value = brand
   form.value = { name: brand.name, slug: brand.slug, description: brand.description ?? '', is_active: brand.is_active }
+  storeIds.value = brand.store_id ? [brand.store_id] : defaultStoreIds()
   showModal.value = true
 }
 
 async function save() {
+  if (!storeIds.value.length) return
   saving.value = true
   try {
-    await store.saveBrand(form.value, editing.value?.id)
-    await store.loadBrands()
+    await store.saveBrand({
+      ...form.value,
+      store_ids: storeIds.value,
+    }, editing.value?.id)
+    await refreshBrands()
     showModal.value = false
   } finally {
     saving.value = false
@@ -53,15 +77,16 @@ async function save() {
 async function remove(brand: Brand) {
   if (!(await confirmDialog(t('org.confirmDelete')))) return
   await store.deleteBrand(brand.id)
-  await store.loadBrands()
+  await refreshBrands()
 }
 </script>
 
 <template>
   <CatalogLayout>
     <div class="space-y-4">
-      <div class="flex justify-end">
-        <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" @click="openCreate">+ {{ t('catalog.addBrand') }}</button>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="m-0 text-sm text-slate-500">{{ t('catalog.storeScopedHint') }}</p>
+        <button class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" :disabled="!context.activeStores.length" @click="openCreate">+ {{ t('catalog.addBrand') }}</button>
       </div>
       <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -98,23 +123,32 @@ async function remove(brand: Brand) {
       @close="showModal = false"
     >
       <form class="space-y-3" @submit.prevent="save">
-        <div><FieldLabel icon="account">{{ t('org.name') }}</FieldLabel><input v-model="form.name" required class="field" /></div>
-        <div><FieldLabel icon="tag">Slug</FieldLabel><input v-model="form.slug" class="field" /></div>
-        <div><FieldLabel icon="note">{{ t('products.description') }}</FieldLabel><textarea v-model="form.description" rows="2" class="field" /></div>
-        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
-        <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+        <div>
+          <FieldLabel icon="tag">{{ t('org.name') }}</FieldLabel>
+          <input v-model="form.name" required class="field" />
+        </div>
+        <div>
+          <FieldLabel icon="layers">Slug</FieldLabel>
+          <input v-model="form.slug" class="field font-mono" />
+        </div>
+        <div>
+          <FieldLabel icon="note">{{ t('org.description') }}</FieldLabel>
+          <textarea v-model="form.description" rows="2" class="field" />
+        </div>
+        <StoreMultiSelect v-model="storeIds" />
+        <p v-if="!storeIds.length" class="m-0 text-xs text-red-600">{{ t('catalog.selectStoresRequired') }}</p>
+        <label class="flex items-center gap-2 text-sm">
+          <input v-model="form.is_active" type="checkbox" class="rounded border-slate-300" />
+          {{ t('products.active') }}
+        </label>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm" @click="showModal = false">{{ t('common.cancel') }}</button>
+          <button type="submit" class="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white" :disabled="saving || !storeIds.length">
+            <AppIcon v-if="saving" name="spinner" :size="14" class="inline animate-spin" />
+            {{ t('common.save') }}
+          </button>
         </div>
       </form>
     </AppModal>
   </CatalogLayout>
 </template>
-
-<style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
-.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.bg-brand-600 { background-color: var(--color-brand-600); }
-.text-brand-600 { color: var(--color-brand-600); }
-</style>

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Store extends Model
@@ -55,6 +56,11 @@ class Store extends Model
         return $this->hasMany(StoreProduct::class);
     }
 
+    public function catalogs(): HasMany
+    {
+        return $this->hasMany(Catalog::class);
+    }
+
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'store_products')
@@ -66,5 +72,10 @@ class Store extends Model
     public function availableProducts(): BelongsToMany
     {
         return $this->products()->wherePivot('is_available', true);
+    }
+
+    public function catalog(): HasOne
+    {
+        return $this->hasOne(Catalog::class);
     }
 }
