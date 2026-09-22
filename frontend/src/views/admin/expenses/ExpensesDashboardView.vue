@@ -61,5 +61,5 @@ async function load() {
 </template>
 
 <style scoped>
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
 </style>

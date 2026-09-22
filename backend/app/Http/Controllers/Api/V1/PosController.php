@@ -33,11 +33,13 @@ class PosController extends Controller
     {
         CashRegister::ensureForStore($store);
 
+        $catalogIds = $this->catalogSync->catalogIdsForStore($store);
+
         return response()->json([
             'data' => [
                 'store_id' => $store->id,
-                'products' => $this->catalogSync->productsForStore($store),
-                'categories' => $this->catalogSync->categoriesForStore($store),
+                'products' => $this->catalogSync->productsForStore($store, $catalogIds),
+                'categories' => $this->catalogSync->categoriesForStore($store, $catalogIds),
                 'registers' => $store->cashRegisters()
                     ->where('is_active', true)
                     ->orderBy('name')

@@ -7,6 +7,7 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import DataTableShell from '../../../components/ui/DataTableShell.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import KpiCard from '../../../components/ui/KpiCard.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { api } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { InventoryMovement, Product, StockBalance, Warehouse } from '../../../types'
@@ -324,7 +325,7 @@ function clearHistoryDates() {
             {{ t('common.reset') }}
           </button>
         </div>
-        <p v-if="historyLoading" class="text-sm text-slate-500">{{ t('common.loading') }}</p>
+        <LoadingBlock v-if="historyLoading" variant="list" :rows="4" :label="t('common.loading')" />
         <div v-else class="max-h-80 overflow-auto rounded-xl ring-1 ring-slate-200">
           <p v-if="!history.length" class="px-3 py-6 text-center text-sm text-slate-500">
             {{ historyFrom || historyTo ? t('inventory.historyEmptyPeriod') : t('inventory.historyEmpty') }}
@@ -391,8 +392,8 @@ function clearHistoryDates() {
 </template>
 
 <style scoped>
-.field { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }
 .history-list { max-height: 22rem; overflow: auto; border: 1px solid #e2e8f0; border-radius: 0.75rem; }

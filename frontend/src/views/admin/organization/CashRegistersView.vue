@@ -7,6 +7,7 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -350,7 +351,7 @@ const varianceClass = computed(() => {
     >
       <p class="mb-3 text-sm text-slate-500">{{ t('registers.workflow') }}</p>
 
-      <div v-if="sessionBusy && !sessionSummary" class="py-8 text-center text-slate-500">{{ t('common.loading') }}</div>
+      <LoadingBlock v-if="sessionBusy && !sessionSummary" variant="detail" :rows="4" :label="t('common.loading')" />
 
       <template v-else>
         <!-- Session closed: show closure result -->
@@ -503,8 +504,8 @@ const varianceClass = computed(() => {
 </template>
 
 <style scoped>
-.field { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; background: white; }
 .text-brand-600 { color: var(--color-brand-600); }
 .bg-brand-50 { background-color: color-mix(in srgb, var(--color-brand-600) 8%, white); }

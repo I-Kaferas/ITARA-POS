@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   size: 'lg',
   closeOnBackdrop: true,
-  icon: 'sparkles',
+  icon: 'layers',
   tone: 'brand',
 })
 

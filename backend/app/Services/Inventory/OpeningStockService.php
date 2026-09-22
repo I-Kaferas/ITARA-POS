@@ -132,9 +132,12 @@ class OpeningStockService
         return $base instanceof ProductSaleUnit ? $base : $units->first();
     }
 
+    private static ?bool $saleUnitsTableExists = null;
+
     private function units(Product $product): Collection
     {
-        if (! Schema::hasTable('product_sale_units')) {
+        self::$saleUnitsTableExists ??= Schema::hasTable('product_sale_units');
+        if (! self::$saleUnitsTableExists) {
             return collect();
         }
 

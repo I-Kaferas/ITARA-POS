@@ -381,7 +381,7 @@ async function remove(item: Customer) {
 </template>
 
 <style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
+
 .hint { margin: 0.3rem 0 0; font-size: 0.75rem; color: #94a3b8; }
 .customer-form { display: flex; flex-direction: column; gap: 1rem; }
 .customer-tabs { display: flex; gap: 0.4rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.35rem; }
@@ -433,7 +433,7 @@ async function remove(item: Customer) {
 }
 .choice__icon { font-size: 1.05rem; }
 .save-error { margin: 0; border-radius: 0.65rem; background: #fef2f2; color: #b91c1c; padding: 0.65rem 0.75rem; font-size: 0.8125rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }
 </style>

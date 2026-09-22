@@ -354,11 +354,11 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
 </template>
 
 <style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
+
 .line-row { display: flex; align-items: center; gap: 0.5rem; }
 .line-row > .field { flex: 1 1 14rem; min-width: 0; }
 .line-row > .qty { flex: 0 0 6.5rem; width: 6.5rem; padding-left: 0.4rem; padding-right: 0.35rem; text-align: center; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }
 </style>

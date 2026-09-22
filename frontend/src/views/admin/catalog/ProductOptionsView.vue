@@ -273,8 +273,8 @@ function priceLabel(product: Product) {
 </template>
 
 <style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }
 .option-chip { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; background: var(--color-brand-600); color: #fff; padding: 0.15rem 0.45rem 0.15rem 0.55rem; font-size: 0.75rem; }

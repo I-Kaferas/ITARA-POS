@@ -181,7 +181,12 @@ export const usePosStore = defineStore('pos', () => {
     error.value = null
     try {
       await fetchCatalog(storeId)
-      await Promise.all([loadActiveRegister(storeId), loadPaymentMethods(storeId), loadSession(storeId)])
+      loading.value = false
+      void Promise.all([
+        loadActiveRegister(storeId),
+        loadPaymentMethods(storeId),
+        loadSession(storeId),
+      ]).catch(() => undefined)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur catalogue'
       throw e

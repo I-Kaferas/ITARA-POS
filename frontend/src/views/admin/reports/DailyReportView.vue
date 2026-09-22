@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { DailyReport, DailyReportDay, DailyReportDetail } from '../../../types'
@@ -358,7 +359,7 @@ onMounted(() => {
       tone="accent"
       @close="closeModal"
     >
-      <div v-if="detailLoading" class="detail-loading">{{ t('common.loading') }}…</div>
+      <LoadingBlock v-if="detailLoading" variant="detail" :rows="5" :label="t('common.loading')" />
       <div v-else-if="detail" class="detail">
         <div class="detail__actions">
           <button type="button" class="btn-secondary" @click="exportDayExcel">
@@ -575,14 +576,14 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 .kpi {
-  border-radius: 0.85rem; background: #fff; padding: 0.95rem 1rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05); border: 1px solid #e2e8f0;
+  border-radius: var(--radius-lg); background: #fff; padding: 0.95rem 1rem;
+  box-shadow: none; border: 1px solid var(--color-border);
 }
 .kpi__label { margin: 0; font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
-.kpi__value { margin: 0.35rem 0 0; font-size: 1.2rem; font-weight: 700; color: #0f172a; }
-.kpi__value--ca { color: #1d4ed8; }
-.kpi__value--net { color: #059669; }
-.kpi__value--credit { color: #dc2626; }
+.kpi__value { margin: 0.35rem 0 0; font-size: 1.2rem; font-weight: 600; color: var(--color-text-primary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.kpi__value--ca { color: var(--color-text-primary); }
+.kpi__value--net { color: var(--color-success); }
+.kpi__value--credit { color: var(--color-danger); }
 .kpi__hint { margin: 0.25rem 0 0; font-size: 0.75rem; color: #94a3b8; }
 
 .cal {

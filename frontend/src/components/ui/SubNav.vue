@@ -19,9 +19,7 @@ withDefaults(defineProps<{
       class="sub-nav__link"
       :class="{
         'sub-nav__link--active': tab.active,
-        'sub-nav__link--toned': Boolean(tab.color),
       }"
-      :style="tab.color ? { '--tab-color': tab.color } : undefined"
     >
       <span v-if="tab.icon" class="sub-nav__mark" aria-hidden="true">
         <AppIcon :name="tab.icon" :size="variant === 'secondary' ? 16 : 18" />

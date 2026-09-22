@@ -648,15 +648,8 @@ onMounted(() => {
   }
 }
 
-.field {
-  border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  padding: 0.5rem 0.75rem;
-  min-width: 10rem;
-  background: white;
-}
 
-.btn-primary,
+
 .btn-secondary {
   display: inline-flex;
   align-items: center;
@@ -668,11 +661,7 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.btn-primary {
-  border: none;
-  color: white;
-  background: var(--color-brand-600, #0f766e);
-}
+
 
 .btn-secondary {
   border: 1px solid #cbd5e1;
@@ -680,11 +669,7 @@ onMounted(() => {
   color: #334155;
 }
 
-.btn-primary:disabled,
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
+
 
 .purchases__kpis {
   display: grid;

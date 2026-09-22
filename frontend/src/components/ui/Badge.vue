@@ -1,6 +1,6 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
-  variant?: 'success' | 'neutral' | 'brand' | 'warning'
+  variant?: 'success' | 'neutral' | 'brand' | 'warning' | 'danger' | 'info'
 }>(), {
   variant: 'neutral',
 })

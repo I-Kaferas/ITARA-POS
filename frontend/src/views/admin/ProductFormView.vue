@@ -397,12 +397,20 @@ async function makePrimary(id: string) {
           <div><FieldLabel icon="coins">{{ t('products.price') }}</FieldLabel><input v-model.number="form.base_price" type="number" step="0.01" min="0" class="field" /></div>
           <div><FieldLabel icon="coins">{{ t('products.cost') }}</FieldLabel><input v-model.number="form.cost_price" type="number" step="0.01" min="0" class="field" /></div>
         </div>
-        <p class="m-0 text-sm text-slate-600">
-          HT {{ formatQuote(sellingQuote.ht) }}
-          · TVA {{ formatQuote(sellingQuote.tva) }}
-          · TTC {{ formatQuote(sellingQuote.ttc) }}
-          <span v-if="selectedTax" class="text-slate-400">({{ selectedTax.code }} {{ selectedTax.rate }}%)</span>
-        </p>
+        <div class="quote-block">
+          <div class="quote-block__item">
+            <span class="quote-block__label">HT</span>
+            <span class="quote-block__value">{{ formatQuote(sellingQuote.ht) }}</span>
+          </div>
+          <div class="quote-block__item">
+            <span class="quote-block__label">TVA <span v-if="selectedTax">({{ selectedTax.code }} {{ selectedTax.rate }}%)</span></span>
+            <span class="quote-block__value">{{ formatQuote(sellingQuote.tva) }}</span>
+          </div>
+          <div class="quote-block__item">
+            <span class="quote-block__label">TTC</span>
+            <span class="quote-block__value">{{ formatQuote(sellingQuote.ttc) }}</span>
+          </div>
+        </div>
         <div class="flex items-center justify-between">
           <h3 class="font-medium">{{ t('products.priceTiers') }}</h3>
           <button type="button" class="text-sm text-brand-600" @click="addPrice">+ {{ t('products.addPrice') }}</button>
@@ -527,9 +535,9 @@ async function makePrimary(id: string) {
 </template>
 
 <style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
-.btn-primary:disabled { opacity: 0.5; }
+
+
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; font-weight: 500; }
 .bg-brand-600 { background-color: var(--color-brand-600); }
 .text-brand-600 { color: var(--color-brand-600); }
@@ -545,9 +553,10 @@ async function makePrimary(id: string) {
   display: inline-flex;
   align-items: center;
   padding: 0.3rem 0.7rem;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
@@ -558,19 +567,11 @@ async function makePrimary(id: string) {
   line-height: 1.2;
 }
 
-.product-type-card--stock { border-color: var(--color-brand-600); color: var(--color-brand-600); background: #eef3f6; }
-.product-type-card--service { border-color: #e39b2b; color: #9a6412; background: #fdf6ea; }
-.product-type-card--simple { border-color: #3d7a6a; color: #2f6256; background: #eef6f3; }
-.product-type-card--variant { border-color: #6b5b95; color: #534678; background: #f3f0f8; }
-.product-type-card--batch { border-color: #c46b4a; color: #9a4e32; background: #fbf1ec; }
-.product-type-card--bundle { border-color: #12181e; color: #12181e; background: #f3f4f6; }
-
-.product-type-card--stock.product-type-card--active { background: var(--color-brand-600); color: #fff; }
-.product-type-card--service.product-type-card--active { background: #e39b2b; color: #12181e; }
-.product-type-card--simple.product-type-card--active { background: #3d7a6a; color: #fff; }
-.product-type-card--variant.product-type-card--active { background: #6b5b95; color: #fff; }
-.product-type-card--batch.product-type-card--active { background: #c46b4a; color: #fff; }
-.product-type-card--bundle.product-type-card--active { background: #12181e; color: #fff; }
+.product-type-card--active {
+  background: var(--color-brand-50);
+  border-color: var(--color-brand-600);
+  color: var(--color-brand-700);
+}
 
 .sr-only {
   position: absolute;

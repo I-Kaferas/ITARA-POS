@@ -8,10 +8,12 @@ import CatalogLayout from '../../components/catalog/CatalogLayout.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import Badge from '../../components/ui/Badge.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
+import LoadingBlock from '../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useContextStore } from '../../stores/context'
 import type { Catalog, Company } from '../../types'
 import { isStockableProduct } from '../../utils/product'
+import { formatMoney } from '../../utils/format'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -61,9 +63,6 @@ async function removeProduct(id: string) {
   }
 }
 
-function formatPrice(cents: number) {
-  return (cents / 100).toFixed(2)
-}
 
 function primaryImage(product: { images?: { cdn_url: string; is_primary: boolean }[] }) {
   return product.images?.find(i => i.is_primary)?.cdn_url ?? product.images?.[0]?.cdn_url
@@ -114,10 +113,7 @@ const productCount = computed(() => store.products.length)
       </button>
     </div>
 
-    <div v-if="store.loading" class="flex items-center gap-2 py-12 text-sm text-slate-500">
-      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-      {{ t('common.loading') }}
-    </div>
+    <LoadingBlock v-if="store.loading" variant="table" :label="t('common.loading')" />
 
     <div v-else class="ui-table-wrap">
       <div v-if="productCount" class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -172,8 +168,8 @@ const productCount = computed(() => store.products.length)
                 {{ t(`products.types.${product.product_type ?? 'simple'}.label`) }}
               </span>
             </td>
-            <td class="!font-medium">{{ formatPrice(product.base_price) }}</td>
-            <td>{{ formatPrice(product.cost_price ?? 0) }}</td>
+            <td class="num">{{ formatMoney(product.base_price) }}</td>
+            <td class="num">{{ formatMoney(product.cost_price ?? 0) }}</td>
             <td class="text-slate-600">{{ product.tax ? `${product.tax.code ?? product.tax.name}` : '—' }}</td>
             <td>{{ isStockableProduct(product) ? (product.stock ?? 0) : '' }}</td>
             <td>

@@ -474,24 +474,9 @@ function humanize(value: string) {
 </template>
 
 <style scoped>
-.field {
-  border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-}
-.btn-primary {
-  border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: white;
-  background-color: var(--color-brand-600);
-}
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+
+
+
 .btn-module {
   border-radius: 999px;
   border: 1px solid #cbd5e1;

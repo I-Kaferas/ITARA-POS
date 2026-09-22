@@ -8,6 +8,7 @@ defineProps<{
   allLabel: string
   counts?: Record<string, number>
   totalCount?: number
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -18,7 +19,21 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="pos-cat-tabs" role="tablist" :aria-label="t('pos.categories')">
+  <div
+    v-if="loading"
+    class="pos-cat-tabs"
+    role="status"
+    :aria-label="t('common.loading')"
+  >
+    <span
+      v-for="i in 5"
+      :key="i"
+      class="pos-cat-tabs__chip pos-cat-tabs__chip--skel ui-skeleton"
+      :style="{ width: `${5.2 + (i % 3) * 1.1}rem` }"
+      aria-hidden="true"
+    />
+  </div>
+  <div v-else class="pos-cat-tabs" role="tablist" :aria-label="t('pos.categories')">
     <button
       type="button"
       role="tab"
@@ -74,6 +89,12 @@ const { t } = useI18n()
 .pos-cat-tabs__chip:hover {
   background: #e4e8ef;
   color: var(--color-brand-700);
+}
+
+.pos-cat-tabs__chip--skel {
+  pointer-events: none;
+  height: 2.15rem;
+  border: 0;
 }
 
 .pos-cat-tabs__chip--active {

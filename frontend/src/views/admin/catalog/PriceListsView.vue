@@ -198,6 +198,6 @@ function money(amount: number, currency?: string) {
 </template>
 
 <style scoped>
-.field { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.4rem 0.6rem; }
+
 .text-brand-600 { color: var(--color-brand-600); }
 </style>

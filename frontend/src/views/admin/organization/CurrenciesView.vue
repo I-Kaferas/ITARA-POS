@@ -294,28 +294,11 @@ function closeModal() {
 </template>
 
 <style scoped>
-.field {
-  width: 100%;
-  border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  padding: 0.45rem 0.7rem;
-  font-size: 0.875rem;
-  background: white;
-}
 
-.btn-primary {
-  border-radius: 0.5rem;
-  padding: 0.45rem 0.95rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: white;
-  background-color: var(--color-brand-600);
-}
 
-.btn-primary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
+
+
+
 
 .btn-secondary {
   border-radius: 0.5rem;

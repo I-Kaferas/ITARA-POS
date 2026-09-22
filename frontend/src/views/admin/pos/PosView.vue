@@ -214,9 +214,12 @@ function onViewportChange() {
 onMounted(async () => {
   window.addEventListener('keydown', onScanKey)
   window.addEventListener('resize', onViewportChange)
+  pos.loading = true
   await context.loadStores()
   if (context.currentStoreId) {
     await loadForStore(context.currentStoreId)
+  } else {
+    pos.loading = false
   }
 })
 
@@ -637,17 +640,17 @@ onUnmounted(() => {
             </div>
 
             <PosCategorySidebar
-              v-if="!pos.loading && !pos.error"
+              v-if="pos.loading || !pos.error"
               :categories="pos.categories"
               :selected-category-id="selectedCategoryId"
               :all-label="t('pos.allCategories')"
               :counts="categoryCounts"
               :total-count="pos.products.length"
+              :loading="pos.loading"
               @select="selectedCategoryId = $event"
             />
 
-            <div v-if="pos.loading" class="pos-loading">{{ t('common.loading') }}</div>
-            <div v-else-if="pos.error" class="pos-error">
+            <div v-if="pos.error && !pos.loading" class="pos-error">
               <p>{{ pos.error }}</p>
               <button type="button" class="pos-retry" @click="loadForStore(context.currentStoreId!)">
                 {{ t('pos.retry') }}
@@ -659,6 +662,7 @@ onUnmounted(() => {
               :currency="pos.totals.currency"
               :empty-label="t('pos.noProducts')"
               :reserved-by-product-id="pos.cartReservedByProductId"
+              :loading="pos.loading"
               @select="onAddProduct"
             />
           </section>
@@ -1081,7 +1085,7 @@ onUnmounted(() => {
   color: #64748b;
   gap: 0.75rem;
   margin: 0.75rem;
-  border-radius: 1rem;
+  border-radius: var(--radius-lg);
   background: #fff;
   border: 1px dashed #dbe3ea;
 }

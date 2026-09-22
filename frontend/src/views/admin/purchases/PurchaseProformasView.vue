@@ -329,10 +329,7 @@ async function submitConvert() {
 </template>
 
 <style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.btn-primary, .btn-primary-sm { border-radius: 0.5rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
-.btn-primary { padding: 0.5rem 1rem; }
-.btn-primary-sm { padding: 0.375rem 0.75rem; font-size: 0.875rem; }
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .link { color: var(--color-brand-600); font-size: 0.8rem; font-weight: 600; }
 .link-danger { color: #dc2626; font-size: 0.8rem; font-weight: 600; }

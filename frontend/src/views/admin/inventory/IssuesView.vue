@@ -404,12 +404,12 @@ async function complete(id: string) {
 </template>
 
 <style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; background: white; }
+
 .line-row { display: flex; align-items: center; gap: 0.5rem; }
 .line-row > .name { flex: 1 1 16rem; min-width: 0; }
 .line-row > .qty { flex: 0 0 6.5rem; width: 6.5rem; }
 .line-row > .unit { flex: 0 1 10rem; width: 10rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }
 </style>

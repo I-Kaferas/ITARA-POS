@@ -6,6 +6,7 @@ import { useConfirm } from '../../../composables/useConfirm'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
@@ -281,7 +282,7 @@ function spaceLabel(row: DeskDoc) {
 
       <p v-if="error && !formOpen" class="rt__alert" role="alert">{{ error }}</p>
       <p v-else-if="message" class="rt__ok">{{ message }}</p>
-      <div v-if="loading" class="rt__muted">{{ t('common.loading') }}</div>
+      <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
 
       <div v-else class="rt__list">
         <div class="ui-table-wrap">

@@ -208,7 +208,7 @@ async function remove(item: Supplier) {
 </template>
 
 <style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
+
 .field-label { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem; font-size: 0.875rem; font-weight: 500; }
 .field-icon {
   display: inline-flex;
@@ -226,7 +226,7 @@ async function remove(item: Supplier) {
 @media (max-width: 640px) {
   .supplier-form { grid-template-columns: 1fr; }
 }
-.btn-primary { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-brand-600); }
 </style>

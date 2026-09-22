@@ -32,7 +32,7 @@ withDefaults(defineProps<{
       </div>
     </div>
 
-    <LoadingBlock v-if="loading" :label="loadingLabel" />
+    <LoadingBlock v-if="loading" variant="table" :label="loadingLabel" />
 
     <EmptyState
       v-else-if="empty"

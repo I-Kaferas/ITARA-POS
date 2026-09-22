@@ -23,14 +23,6 @@ const overview = ref<PosOverview | null>(null)
 const firstName = computed(() => auth.user?.name?.split(' ')[0] ?? '')
 const storeId = computed(() => context.currentStoreId)
 
-const setupCards = computed(() => [
-  { key: 'companies' as const, label: t('nav.organization'), icon: 'building', accent: 'var(--color-brand-600)', iconBg: '#e4edf2' },
-  { key: 'catalogs' as const, label: t('nav.catalogs'), icon: 'layers', accent: 'var(--color-brand-500)', iconBg: '#f3f6f8' },
-  { key: 'products' as const, label: t('nav.products'), icon: 'products', accent: '#3d5c73', iconBg: '#e4edf2' },
-  { key: 'stores' as const, label: t('nav.stores'), icon: 'stores', accent: '#e39b2b', iconBg: '#f8efdc' },
-  { key: 'store_imports' as const, label: t('dashboard.imports'), icon: 'import', accent: '#7d9aaf', iconBg: '#f3f6f8' },
-])
-
 const hourSpark = computed(() => {
   const hours = overview.value?.sales_by_hour ?? []
   if (!hours.length) return [18, 28, 22, 40, 55, 48, 62, 35]
@@ -92,96 +84,66 @@ watch(storeId, loadDashboard)
     <template #title>{{ t('nav.dashboard') }}</template>
     <template #subtitle>{{ t('dashboard.subtitle') }}</template>
 
-    <div class="hero-banner">
-      <div class="hero-banner__content">
-        <p class="font-brand mb-1 text-xs font-semibold uppercase tracking-widest text-white/50">
-          {{ t('dashboard.greeting') }}
-        </p>
-        <h2 class="hero-banner__title">
-          {{ t('dashboard.hello', { name: firstName }) }}
-        </h2>
-        <p class="hero-banner__subtitle">{{ t('dashboard.description') }}</p>
-      </div>
-    </div>
+    <p class="mb-5 text-sm text-slate-600">
+      {{ t('dashboard.hello', { name: firstName }) }} · {{ t('dashboard.description') }}
+    </p>
 
-    <LoadingBlock v-if="loading && !store.stats" :label="t('common.loading')" />
+    <LoadingBlock v-if="loading && !store.stats" variant="cards" :rows="8" :label="t('common.loading')" />
 
     <template v-else>
-      <section v-if="storeId" class="mb-6">
+      <section class="mb-6">
         <div class="mb-3 flex items-center justify-between gap-3">
           <h3 class="text-section-title">{{ t('dashboard.todayActivity') }}</h3>
           <span v-if="context.currentStore" class="text-caption text-slate-500">{{ context.storeLabel(context.currentStore) }}</span>
         </div>
         <div class="hub-strip">
           <KpiCard
-            :label="t('pointOfSale.overview.todaySales')"
-            :value="overview?.kpis.sales_count ?? 0"
-            icon="sales"
-            accent="#059669"
-            icon-bg="#ecfdf5"
-            :spark="hourSpark"
-          />
-          <KpiCard
             :label="t('pointOfSale.overview.todayRevenue')"
             :value="formatMoney(overview?.kpis.revenue ?? 0)"
             icon="receipt"
-            accent="var(--color-brand-600)"
-            icon-bg="#e4edf2"
+          />
+          <KpiCard
+            :label="t('pointOfSale.overview.todaySales')"
+            :value="overview?.kpis.sales_count ?? 0"
+            icon="sales"
             :spark="hourSpark"
           />
           <KpiCard
             :label="t('pointOfSale.overview.openShifts')"
             :value="openShifts"
             icon="shift"
-            accent="#2563eb"
-            icon-bg="#eff6ff"
           />
           <KpiCard
             :label="t('dashboard.stockAlerts')"
             :value="alertCount"
             icon="bell"
-            accent="#c4841d"
-            icon-bg="#f8efdc"
+            accent="var(--color-warning)"
+            icon-bg="var(--color-warning-bg)"
             :delta="alertCount > 0 ? t('dashboard.alertsOpen') : t('dashboard.alertsClear')"
             :delta-tone="alertCount > 0 ? 'down' : 'up'"
           />
         </div>
       </section>
 
-      <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <KpiCard
-          v-for="card in setupCards"
-          :key="card.key"
-          :label="card.label"
-          :value="store.stats?.[card.key] ?? '—'"
-          :icon="card.icon"
-          :accent="card.accent"
-          :icon-bg="card.iconBg"
-        />
-      </div>
-
       <div class="grid gap-6 lg:grid-cols-5">
         <div class="lg:col-span-3">
           <div class="ui-card">
             <div class="ui-card__header">
               <h3 class="ui-card__title">{{ t('dashboard.quickActions') }}</h3>
-              <AppIcon name="sparkles" :size="18" class="text-brand-400" />
             </div>
-            <div class="ui-card__body grid gap-3 sm:grid-cols-2">
+            <div class="action-list">
               <RouterLink
                 v-for="action in quickActions"
                 :key="action.to"
                 :to="action.to"
-                class="action-tile"
+                class="action-list__item"
               >
-                <div class="action-tile__icon">
-                  <AppIcon :name="action.icon" :size="18" />
+                <AppIcon :name="action.icon" :size="16" class="text-brand-600 shrink-0" />
+                <div class="min-w-0">
+                  <p class="action-list__title">{{ action.title }}</p>
+                  <p class="action-list__desc">{{ action.desc }}</p>
                 </div>
-                <div>
-                  <p class="action-tile__title">{{ action.title }}</p>
-                  <p class="action-tile__desc">{{ action.desc }}</p>
-                </div>
-                <AppIcon name="chevron-right" :size="16" class="ml-auto shrink-0 text-slate-300" />
+                <AppIcon name="chevron-right" :size="14" class="ml-auto shrink-0 text-slate-300" />
               </RouterLink>
             </div>
           </div>
@@ -196,14 +158,14 @@ watch(storeId, loadDashboard)
                   {{ completedSteps }}/{{ checklist.length }} {{ t('dashboard.stepsDone') }}
                 </p>
               </div>
-              <div class="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-sm font-bold text-brand-600">
+              <div class="flex h-8 w-8 items-center justify-center rounded bg-brand-50 text-xs font-semibold text-brand-600">
                 {{ Math.round((completedSteps / checklist.length) * 100) }}%
               </div>
             </div>
             <div class="ui-card__body !pt-0">
-              <div class="mb-4 h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div class="mb-3 h-1 overflow-hidden rounded bg-slate-100">
                 <div
-                  class="h-full rounded-full bg-brand-600 transition-all duration-500"
+                  class="h-full bg-brand-600"
                   :style="{ width: `${(completedSteps / checklist.length) * 100}%` }"
                 />
               </div>
@@ -222,20 +184,11 @@ watch(storeId, loadDashboard)
           </div>
         </div>
       </div>
-
-      <div class="mt-6 flex items-center justify-between rounded-xl border border-slate-200/80 bg-white/60 px-4 py-3 text-xs text-slate-500">
-        <span class="font-brand">{{ t('app.tagline') }}</span>
-        <span class="flex items-center gap-1.5">
-          <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          {{ t('dashboard.systemOnline') }}
-        </span>
-      </div>
     </template>
   </PageFrame>
 </template>
 
 <style scoped>
-.text-brand-400 { color: var(--color-brand-400); }
 .text-brand-600 { color: var(--color-brand-600); }
 .bg-brand-50 { background: var(--color-brand-50); }
 .text-success { color: var(--color-success); }

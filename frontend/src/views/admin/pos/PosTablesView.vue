@@ -7,6 +7,7 @@ import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { useConfirm } from '../../../composables/useConfirm'
@@ -503,7 +504,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         <button v-for="name in ZONE_PRESETS" :key="name" type="button" @click="createPresetZone(name)">{{ name }}</button>
       </div>
 
-      <div v-if="loading" class="tables-loading">{{ t('common.loading') }}</div>
+      <LoadingBlock v-if="loading" variant="cards" :rows="8" :label="t('common.loading')" />
 
       <EmptyState
         v-else-if="visibleTables.length === 0"

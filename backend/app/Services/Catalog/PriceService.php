@@ -142,6 +142,10 @@ class PriceService
             ? $storeProduct->product
             : $storeProduct->product()->first();
 
+        if ($product && ! $product->relationLoaded('prices')) {
+            $product->load('prices');
+        }
+
         return $this->resolve($product, $store, $priceType, $quantity, $at, $currency);
     }
 
@@ -189,6 +193,41 @@ class PriceService
         int $quantity,
         Carbon $at,
     ): ?Price {
+        if ($model->relationLoaded('prices')) {
+            $minQty = max(1, $quantity);
+            $candidates = $model->prices->filter(function (Price $price) use ($priceType, $minQty, $at) {
+                if (! $price->is_active || $price->price_type !== $priceType) {
+                    return false;
+                }
+                if ((int) $price->min_quantity > $minQty) {
+                    return false;
+                }
+                if ($price->valid_from && $price->valid_from->gt($at)) {
+                    return false;
+                }
+                if ($price->valid_until && $price->valid_until->lt($at)) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            if ($store) {
+                $storePrice = $candidates
+                    ->filter(fn (Price $price) => $price->store_id === $store->id)
+                    ->sortByDesc(fn (Price $price) => (int) $price->min_quantity)
+                    ->first();
+                if ($storePrice) {
+                    return $storePrice;
+                }
+            }
+
+            return $candidates
+                ->filter(fn (Price $price) => $price->store_id === null)
+                ->sortByDesc(fn (Price $price) => (int) $price->min_quantity)
+                ->first();
+        }
+
         $query = $model->prices()
             ->where('is_active', true)
             ->where('price_type', $priceType)
@@ -213,23 +252,31 @@ class PriceService
             ->first();
     }
 
+    /** @var array<string, string> */
+    private static array $currencyCache = [];
+
     private function resolveCurrencyCode(Product|ProductVariant $model): string
     {
         $product = $model instanceof ProductVariant
             ? ($model->relationLoaded('product') ? $model->product : $model->product()->first())
             : $model;
 
+        $cacheKey = $product?->id ?? '__default__';
+        if (isset(self::$currencyCache[$cacheKey])) {
+            return self::$currencyCache[$cacheKey];
+        }
+
         if ($product) {
             $product->loadMissing('catalog.company');
             $code = $product->catalog?->company?->currency_code;
             if ($code) {
-                return strtoupper($code);
+                return self::$currencyCache[$cacheKey] = strtoupper($code);
             }
         }
 
         $companyCode = Company::query()->where('is_active', true)->value('currency_code');
 
-        return strtoupper($companyCode ?: 'FBU');
+        return self::$currencyCache[$cacheKey] = strtoupper($companyCode ?: 'FBU');
     }
 
     private function inCurrency(ResolvedPrice $price, ?string $currency): ResolvedPrice

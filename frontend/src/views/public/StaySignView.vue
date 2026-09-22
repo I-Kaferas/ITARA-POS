@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { extractApiErrorMessage } from '../../api/client'
 import { setAppLocale } from '../../i18n'
+import LoadingBlock from '../../components/ui/LoadingBlock.vue'
 import type { AppLocale } from '../../i18n/locales'
 
 type StayHotel = {
@@ -273,7 +274,7 @@ async function submit() {
         <p>{{ t('hotel.stays.sign.pageTitle') }}</p>
       </header>
 
-      <p v-if="loading" class="sign-page__state">{{ t('common.loading') }}</p>
+      <LoadingBlock v-if="loading" variant="detail" :label="t('common.loading')" />
       <p v-else-if="error && !stay" class="sign-page__state sign-page__state--error">{{ error }}</p>
 
       <template v-else-if="stay">

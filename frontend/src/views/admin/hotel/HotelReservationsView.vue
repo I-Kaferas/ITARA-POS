@@ -8,6 +8,7 @@ import { useConfirm } from '../../../composables/useConfirm'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Customer } from '../../../types'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
@@ -656,7 +657,7 @@ async function remove(row: Doc) {
         </div>
 
         <p v-if="error && !formOpen && !detailOpen" class="rsv__error rsv__error--inline">{{ error }}</p>
-        <div v-if="loading" class="rsv__muted">{{ t('common.loading') }}</div>
+        <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
         <div v-else class="rsv__table-wrap">
           <table class="ui-table rsv__table">
             <thead>

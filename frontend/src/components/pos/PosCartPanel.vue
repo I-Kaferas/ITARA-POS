@@ -268,7 +268,7 @@ async function createCustomerQuick() {
   height: 2.15rem;
   display: grid;
   place-items: center;
-  border-radius: 0.7rem;
+  border-radius: var(--radius-lg);
   background: var(--color-brand-50, #f5f3ff);
   color: var(--color-brand-600);
 }
@@ -452,7 +452,7 @@ async function createCustomerQuick() {
   display: grid;
   place-items: center;
   overflow: hidden;
-  border-radius: 0.7rem;
+  border-radius: var(--radius-lg);
   background: var(--color-brand-50, #f5f3ff);
   color: var(--color-brand-700);
   font-weight: 700;

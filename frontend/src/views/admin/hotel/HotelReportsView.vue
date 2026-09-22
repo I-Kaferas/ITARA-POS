@@ -11,6 +11,7 @@ import {
 } from '../../../utils/hotelReport'
 import { useContextStore } from '../../../stores/context'
 import HotelChrome from './HotelChrome.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 
 const { t, locale } = useI18n()
 const ctx = useContextStore()
@@ -210,7 +211,7 @@ function exportCsv() {
       </header>
 
       <p v-if="error" class="rpt__error">{{ error }}</p>
-      <p v-if="loading" class="rpt__muted">{{ t('common.loading') }}</p>
+      <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
 
       <section class="rpt__kpis">
         <article class="kpi">

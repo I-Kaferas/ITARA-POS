@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Customer } from '../../../types'
@@ -228,7 +229,7 @@ onMounted(load)
       </div>
 
       <div class="hg__table-wrap">
-        <p v-if="loading" class="hg__muted">{{ t('common.loading') }}</p>
+        <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
         <table v-else class="hg__table">
           <thead>
             <tr>

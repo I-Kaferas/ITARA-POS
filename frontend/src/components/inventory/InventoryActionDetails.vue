@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppModal from '../ui/AppModal.vue'
+import LoadingBlock from '../ui/LoadingBlock.vue'
 import { useI18n } from 'vue-i18n'
 
 defineProps<{
@@ -25,7 +26,7 @@ const { t } = useI18n()
 
 <template>
   <AppModal :open="open" :title="reference ? `${title} · ${reference}` : title" icon="inventory" tone="info" size="lg" @close="emit('close')">
-    <p v-if="loading" class="text-sm text-slate-500">{{ t('common.loading') }}</p>
+    <LoadingBlock v-if="loading" variant="list" :rows="4" :label="t('common.loading')" />
     <div v-else class="space-y-4">
       <ol v-if="steps?.length" class="grid gap-1 sm:grid-cols-4">
         <li

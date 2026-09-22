@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { RevenueReport } from '../../../types'
@@ -378,7 +379,7 @@ onMounted(() => {
         </div>
       </section>
 
-      <p v-if="loading && !report" class="empty">{{ t('common.loading') }}</p>
+      <LoadingBlock v-if="loading && !report" variant="table" :label="t('common.loading')" />
     </div>
   </ReportsLayout>
 </template>
@@ -674,19 +675,12 @@ tfoot td {
   background: #f8fafc;
 }
 
-.field {
-  border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  padding: 0.5rem 0.75rem;
-  min-width: 11rem;
-  background: white;
-}
+
 
 .field--search {
   min-width: 14rem;
 }
 
-.btn-primary,
 .btn-secondary {
   display: inline-flex;
   align-items: center;
@@ -699,11 +693,7 @@ tfoot td {
   height: 2.45rem;
 }
 
-.btn-primary {
-  border: none;
-  color: white;
-  background: var(--color-brand-600, #0f766e);
-}
+
 
 .btn-secondary {
   border: 1px solid #cbd5e1;
@@ -711,11 +701,7 @@ tfoot td {
   color: #334155;
 }
 
-.btn-primary:disabled,
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
+
 
 .empty {
   margin: 0;

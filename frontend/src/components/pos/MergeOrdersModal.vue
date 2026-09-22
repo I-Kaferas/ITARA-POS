@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
+import LoadingBlock from '../ui/LoadingBlock.vue'
 import { api, extractApiErrorMessage } from '../../api/client'
 import { formatMoney } from '../../utils/money'
 
@@ -152,7 +153,7 @@ function close() {
         </div>
 
         <p class="merge-hint">{{ t('pointOfSale.merge.pickHint') }}</p>
-        <div v-if="loading" class="merge-empty">{{ t('common.loading') }}</div>
+        <LoadingBlock v-if="loading" variant="list" :rows="4" :label="t('common.loading')" />
         <div v-else-if="!candidates.length" class="merge-empty">{{ t('pointOfSale.merge.noCandidates') }}</div>
         <label v-for="candidate in candidates" :key="candidate.id" class="merge-choice">
           <input v-model="sourceId" type="radio" :value="candidate.id">

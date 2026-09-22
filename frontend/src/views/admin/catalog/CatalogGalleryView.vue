@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Catalog, Company, Product } from '../../../types'
@@ -82,10 +83,7 @@ const galleryItems = computed(() =>
       </div>
     </div>
 
-    <div v-if="store.loading" class="flex items-center gap-2 py-12 text-sm text-slate-500">
-      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-      {{ t('common.loading') }}
-    </div>
+    <LoadingBlock v-if="store.loading" variant="cards" :rows="8" :label="t('common.loading')" />
 
     <div v-else-if="galleryItems.length" class="gallery-grid">
       <button

@@ -208,8 +208,8 @@ async function submit() {
   <div
     class="login"
     :style="{
-      '--login-primary': branding?.primary_color || '#3D5C73',
-      '--login-accent': branding?.accent_color || '#E39B2B',
+      '--login-primary': branding?.primary_color || '#7c3aed',
+      '--login-accent': branding?.accent_color || '#7c3aed',
     }"
   >
     <aside class="login__brand">
@@ -257,9 +257,7 @@ async function submit() {
         <LanguageSwitcher />
       </div>
 
-      <form class="login__form" @submit.prevent="submit">
-        <div class="login__form-accent" aria-hidden="true" />
-
+        <form class="login__form" @submit.prevent="submit">
         <div class="login__form-head">
           <p class="login__eyebrow">{{ t('auth.eyebrow') }}</p>
           <h2>{{ showTwoFactor ? t('auth.twoFactorTitle') : t('auth.login') }}</h2>
@@ -363,10 +361,7 @@ async function submit() {
         aria-modal="true"
         aria-labelledby="login-welcome-title"
       >
-        <div class="login-welcome__bg" aria-hidden="true">
-          <span class="login-welcome__orb login-welcome__orb--a" />
-          <span class="login-welcome__orb login-welcome__orb--b" />
-        </div>
+        <div class="login-welcome__bg" aria-hidden="true" />
 
         <div class="login-welcome__frame">
           <div class="login-welcome__logo-block login-welcome__anim" style="--d: 40ms">
@@ -649,12 +644,6 @@ async function submit() {
   box-shadow: none;
 }
 
-.login__form-accent {
-  flex-shrink: 0;
-  height: 5px;
-  background: var(--login-primary);
-}
-
 .login__form-head {
   flex-shrink: 0;
   padding: 4.5rem clamp(1.75rem, 4.5vw, 4rem) 0;
@@ -672,8 +661,8 @@ async function submit() {
   flex-shrink: 0;
   margin-top: auto;
   padding: 1.25rem clamp(1.75rem, 4.5vw, 4rem) 1.75rem;
-  border-top: 1px solid #edf1f5;
-  background: #fbfcfd;
+  border-top: 1px solid var(--color-border, #edf1f5);
+  background: #fff;
 }
 
 .login__eyebrow {
@@ -717,11 +706,11 @@ async function submit() {
 }
 
 .login__form :deep(.ui-input) {
-  min-height: 3.05rem;
+  min-height: var(--control-xl, 40px);
   font-size: 0.98rem;
-  background: #f8fafc;
-  border: 1px solid #d7e0e8;
-  border-radius: 0.85rem;
+  background: #fff;
+  border: 1px solid var(--color-border-strong, #d7e0e8);
+  border-radius: var(--radius-md, 6px);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
@@ -732,8 +721,8 @@ async function submit() {
 
 .login__form :deep(.ui-input:focus) {
   background: #fff;
-  border-color: var(--login-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--login-primary) 18%, transparent);
+  border-color: var(--color-brand-600, #7c3aed);
+  box-shadow: 0 0 0 2px var(--color-focus-ring, rgba(124, 58, 237, 0.22));
 }
 
 .login__label-row {
@@ -813,25 +802,23 @@ async function submit() {
 .login__submit {
   width: 100%;
   margin-top: 0.35rem;
-  min-height: 3.15rem;
+  min-height: 2.75rem;
   border: 0;
-  border-radius: 0.9rem;
+  border-radius: var(--radius-md, 6px);
   font-size: 1rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  background: var(--login-primary);
-  box-shadow: 0 12px 24px color-mix(in srgb, var(--login-primary) 26%, transparent);
-  transition: transform 0.15s ease, filter 0.15s ease;
+  font-weight: 600;
+  letter-spacing: 0;
+  background: var(--color-brand-600, #7c3aed);
+  box-shadow: none;
+  transition: background 0.15s ease;
 }
 
 .login__submit:hover:not(:disabled) {
-  filter: brightness(1.05);
-  transform: translateY(-1px);
+  background: var(--color-brand-700, #6d28d9);
 }
 
 .login__submit:disabled {
   opacity: 0.7;
-  transform: none;
 }
 
 .login__secure {
@@ -886,36 +873,7 @@ async function submit() {
 .login-welcome__bg {
   position: absolute;
   inset: 0;
-  background: #0c1218;
-}
-
-.login-welcome__orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(56px);
-  pointer-events: none;
-  opacity: 0.35;
-}
-
-.login-welcome__orb--a {
-  left: 50%;
-  top: 42%;
-  width: min(22rem, 58vw);
-  height: min(22rem, 58vw);
-  transform: translate(-50%, -50%);
-  background: color-mix(in srgb, var(--login-accent) 10%, transparent);
-  animation: login-welcome-orb 4.8s ease-in-out both;
-}
-
-.login-welcome__orb--b {
-  left: 50%;
-  top: 58%;
-  width: min(14rem, 40vw);
-  height: min(14rem, 40vw);
-  transform: translate(-50%, -50%);
-  background: color-mix(in srgb, var(--login-primary) 12%, transparent);
-  animation: login-welcome-orb 4.8s ease-in-out both;
-  animation-delay: 0.15s;
+  background: #111827;
 }
 
 .login-welcome__frame {
@@ -946,8 +904,6 @@ async function submit() {
   height: auto;
   max-height: 12.5rem;
   object-fit: contain;
-  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.28));
-  animation: login-welcome-pulse 4.8s ease-in-out both;
 }
 
 .login-welcome__mark {
@@ -1036,13 +992,12 @@ async function submit() {
   font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .login-welcome__cta:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.34);
-  transform: translateY(-1px);
 }
 
 .login-welcome__cta:disabled {
@@ -1077,18 +1032,6 @@ async function submit() {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-@keyframes login-welcome-pulse {
-  0% { transform: scale(0.96); opacity: 0.92; }
-  30% { transform: scale(1.01); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes login-welcome-orb {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
-  40% { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0.22; transform: translate(-50%, -50%) scale(1.04); }
 }
 
 @keyframes login-welcome-progress {

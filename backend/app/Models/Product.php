@@ -220,12 +220,20 @@ class Product extends Model
 
     public function primaryImage(): ?ProductImage
     {
+        if ($this->relationLoaded('images')) {
+            return $this->images->firstWhere('is_primary', true) ?? $this->images->first();
+        }
+
         return $this->images()->where('is_primary', true)->first()
             ?? $this->images()->ordered()->first();
     }
 
     public function primaryBarcode(): ?Barcode
     {
+        if ($this->relationLoaded('barcodes')) {
+            return $this->barcodes->firstWhere('is_primary', true) ?? $this->barcodes->first();
+        }
+
         return $this->barcodes()->where('is_primary', true)->first()
             ?? $this->barcodes()->first();
     }

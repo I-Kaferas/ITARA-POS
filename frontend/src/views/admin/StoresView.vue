@@ -6,6 +6,7 @@ import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
+import LoadingBlock from '../../components/ui/LoadingBlock.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useConfirm } from '../../composables/useConfirm'
@@ -316,10 +317,7 @@ async function savePriceOverride() {
     <template #title>{{ t('stores.title') }}</template>
     <template #subtitle>{{ t('stores.subtitle') }}</template>
 
-    <div v-if="loading" class="flex items-center gap-2 py-16 text-sm text-slate-500">
-      <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-      {{ t('common.loading') }}
-    </div>
+    <LoadingBlock v-if="loading" variant="cards" :rows="8" :label="t('common.loading')" />
 
     <template v-else>
       <div class="stores-home">
@@ -723,37 +721,29 @@ async function savePriceOverride() {
   gap: 0.45rem;
   min-height: 2.5rem;
   padding: 0 0.85rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   background: #fff;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.8rem;
 }
 
 .home-chip strong {
-  color: #1a2833;
+  color: var(--color-text-primary);
   font-size: 0.95rem;
   font-weight: 700;
 }
 
-.home-chip--warm {
-  border-color: rgba(227, 155, 43, 0.28);
-  background: #fffdf8;
-  color: #b45309;
-}
-
-.home-chip--warm strong {
-  color: #b45309;
-}
-
+.home-chip--warm,
 .home-chip--active {
-  border-color: rgba(15, 118, 110, 0.28);
-  background: #f0fdfa;
-  color: #0f766e;
+  border-color: var(--color-border);
+  background: #fff;
+  color: var(--color-text-muted);
 }
 
+.home-chip--warm strong,
 .home-chip--active strong {
-  color: #0f766e;
+  color: var(--color-text-primary);
 }
 
 .assortment-grid {
@@ -787,7 +777,7 @@ async function savePriceOverride() {
   align-items: center;
   gap: 0.4rem;
   margin: 0 0 0.4rem;
-  color: #b45309;
+  color: var(--color-text-muted);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -813,9 +803,9 @@ async function savePriceOverride() {
   align-items: center;
   height: 1.4rem;
   padding: 0 0.55rem;
-  border-radius: 999px;
-  background: rgba(180, 83, 9, 0.1);
-  color: #b45309;
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -854,12 +844,7 @@ async function savePriceOverride() {
 }
 
 .home-banner__mark {
-  position: absolute;
-  right: -0.25rem;
-  bottom: -1.1rem;
-  color: #c4841d;
-  opacity: 0.12;
-  pointer-events: none;
+  display: none;
 }
 
 .count-pill {
@@ -892,21 +877,21 @@ async function savePriceOverride() {
   align-items: center;
   gap: 0.75rem;
   padding: 0.7rem 0.8rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: #fff;
   cursor: pointer;
 }
 
 .product-row:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
+  border-color: var(--color-border-strong);
+  background: var(--color-table-row-hover);
 }
 
 .product-row--selected {
-  border-color: rgba(227, 155, 43, 0.55);
-  background: #fffdf8;
-  box-shadow: inset 0 0 0 1px rgba(227, 155, 43, 0.18);
+  border-color: var(--color-brand-600);
+  background: var(--color-brand-50);
+  box-shadow: none;
 }
 
 .product-row--home {

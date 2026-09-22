@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
 import FieldLabel from '../ui/FieldLabel.vue'
+import LoadingBlock from '../ui/LoadingBlock.vue'
 import WarehouseOptions from './WarehouseOptions.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
@@ -230,7 +231,7 @@ async function submit() {
         <FieldLabel icon="products">{{ t('inventory.product') }}</FieldLabel>
         <input v-model="productQuery" class="field" :placeholder="t('inventory.searchProduct')" />
         <div class="product-list">
-          <p v-if="loadingProducts" class="px-3 py-4 text-sm text-slate-500">{{ t('common.loading') }}</p>
+          <LoadingBlock v-if="loadingProducts" variant="list" :rows="4" :label="t('common.loading')" />
           <p v-else-if="!stockableProducts.length" class="px-3 py-4 text-sm text-slate-500">{{ t('inventory.noOpeningArticles') }}</p>
           <button
             v-for="product in stockableProducts"
@@ -284,12 +285,12 @@ async function submit() {
 </template>
 
 <style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
+
 .product-list { margin-top: 0.5rem; max-height: 14rem; overflow: auto; border: 1px solid #e2e8f0; border-radius: 0.6rem; }
 .product-row { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.55rem 0.75rem; text-align: left; border-bottom: 1px solid #f1f5f9; }
 .product-row--active { background: #f4efe4; }
 .product-check { width: 1rem; font-weight: 700; color: var(--color-brand-600); }
 .line-card { border: 1px solid #e2e8f0; border-radius: 0.7rem; padding: 0.7rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 </style>

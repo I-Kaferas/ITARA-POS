@@ -6,6 +6,7 @@ import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import Badge from '../../../components/ui/Badge.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Company, Sale, SaleReturn, SaleTax } from '../../../types'
@@ -319,9 +320,7 @@ async function printInvoice() {
         </div>
       </div>
 
-      <div v-if="loading" class="rounded-2xl bg-white p-10 text-center text-slate-500 shadow-sm ring-1 ring-slate-200">
-        {{ t('common.loading') }}
-      </div>
+      <LoadingBlock v-if="loading" variant="detail" :label="t('common.loading')" />
 
       <div
         v-else-if="loadError || !sale"
@@ -331,31 +330,31 @@ async function printInvoice() {
       </div>
 
       <template v-else>
-        <section class="sale-hero overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div class="sale-hero__banner px-6 py-5 text-white sm:px-8">
+        <section class="sale-hero overflow-hidden rounded-lg bg-white ring-1 ring-slate-200">
+          <div class="sale-hero__banner px-6 py-5 sm:px-8">
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div class="flex items-start gap-3">
                 <img
                   v-if="company?.logo_url"
                   :src="company.logo_url"
                   :alt="company.name"
-                  class="h-12 w-12 rounded-lg bg-white object-contain p-1"
+                  class="h-12 w-12 rounded-md bg-white object-contain p-1 ring-1 ring-slate-200"
                 />
                 <div>
-                <p class="m-0 text-xs font-medium uppercase tracking-[0.18em] text-white/70">
+                <p class="m-0 text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
                   {{ company?.name || t('sales.invoiceTitle') }}
                 </p>
-                <h2 class="mt-1 font-mono text-2xl font-bold tracking-tight sm:text-3xl">
+                <h2 class="mt-1 font-mono text-2xl font-semibold tracking-tight sm:text-3xl">
                   {{ sale.reference }}
                 </h2>
-                <p class="mt-2 m-0 text-sm text-white/80">
+                <p class="mt-2 m-0 text-sm text-slate-600">
                   {{ formatDate(sale.completed_at ?? sale.created_at) }}
                   · {{ t('sales.itemCount', { count: itemCount }) }}
                 </p>
-                <p v-if="showVat && company?.tax_id" class="mt-2 m-0 text-sm text-white/90">
+                <p v-if="showVat && company?.tax_id" class="mt-2 m-0 text-sm text-slate-700">
                   {{ t('sales.companyTaxId') }} : <span class="font-mono">{{ company.tax_id }}</span>
                 </p>
-                <p v-else-if="!showVat" class="mt-2 m-0 text-xs text-white/60">
+                <p v-else-if="!showVat" class="mt-2 m-0 text-xs text-slate-400">
                   {{ t('sales.vatExempt') }}
                 </p>
                 </div>
@@ -737,7 +736,8 @@ async function printInvoice() {
 
 <style scoped>
 .sale-hero__banner {
-  background: #0f172a;
+  background: var(--color-canvas);
+  color: var(--color-text-primary);
 }
 
 .meta-label {
@@ -791,20 +791,9 @@ async function printInvoice() {
   font-size: 1.05rem;
 }
 
-.field {
-  width: 100%;
-  border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  padding: 0.5rem 0.75rem;
-}
 
-.btn-primary {
-  border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-weight: 500;
-  color: white;
-  background-color: var(--color-brand-600);
-}
+
+
 
 .btn-secondary {
   border-radius: 0.5rem;

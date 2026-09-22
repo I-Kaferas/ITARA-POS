@@ -136,7 +136,7 @@ useRealtimeSync(realtimeTopics.posOverview, load)
         />
       </div>
 
-      <LoadingBlock v-if="loading" :label="t('common.loading')" class="mb-6" />
+      <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" class="mb-6" />
 
       <div v-else class="mb-6 grid gap-4 xl:grid-cols-2">
         <!-- Articles les plus vendus -->
@@ -303,10 +303,11 @@ useRealtimeSync(realtimeTopics.posOverview, load)
 .connection-link strong { color: #1c2830; font-size: 0.9rem; }
 .connection-link span { color: #5b6b78; font-size: 0.8rem; }
 .stat-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: #fff;
   padding: 1rem 1.125rem;
+  box-shadow: none;
 }
 
 .stat-card__label {
@@ -319,9 +320,11 @@ useRealtimeSync(realtimeTopics.posOverview, load)
 .stat-card__value {
   margin: 0.35rem 0 0;
   font-size: 1.5rem;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-card__meta {

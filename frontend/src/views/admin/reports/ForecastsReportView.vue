@@ -289,13 +289,7 @@ onMounted(() => {
   gap: 0.65rem;
 }
 
-.field {
-  border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  padding: 0.5rem 0.75rem;
-  min-width: 10rem;
-  background: white;
-}
+
 
 .btn-secondary {
   display: inline-flex;

@@ -181,21 +181,8 @@ function reset() {
   cursor: pointer;
 }
 .filters { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; width: 100%; }
-.field {
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  height: var(--control-lg);
-  min-height: var(--control-lg);
-  padding: 0 var(--space-3);
-  background: white;
-  min-width: 9.5rem;
-  font-size: var(--text-md);
-  line-height: var(--line-sm);
-}
-.field:focus {
-  outline: none;
-  border-color: var(--color-brand-400);
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
-}
+.filters .field { min-width: 9.5rem; }
+
+
 .grow { flex: 1; min-width: 14rem; }
 </style>

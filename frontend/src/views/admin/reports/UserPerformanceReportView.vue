@@ -5,6 +5,7 @@ import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type {
@@ -686,7 +687,7 @@ onMounted(() => {
         </div>
       </section>
 
-      <p v-if="loading && !report" class="panel__empty">{{ t('common.loading') }}</p>
+      <LoadingBlock v-if="loading && !report" variant="table" :label="t('common.loading')" />
     </div>
 
     <AppModal
@@ -698,7 +699,7 @@ onMounted(() => {
       icon="account"
       @close="closeModal"
     >
-      <div v-if="detailLoading && modalMode === 'user'" class="panel__empty">{{ t('common.loading') }}</div>
+      <LoadingBlock v-if="detailLoading && modalMode === 'user'" variant="detail" :rows="4" :label="t('common.loading')" />
 
       <div v-else-if="modalMode === 'session'" class="detail">
         <header class="detail__hero">
@@ -721,7 +722,7 @@ onMounted(() => {
           </button>
         </header>
 
-        <div v-if="detailLoading || !sessionDetail" class="panel__empty">{{ t('common.loading') }}</div>
+        <LoadingBlock v-if="detailLoading || !sessionDetail" variant="detail" :rows="4" :label="t('common.loading')" />
         <template v-else>
           <div class="up__kpis up__kpis--compact">
             <article class="kpi">
@@ -1063,7 +1064,7 @@ onMounted(() => {
   --up-credit: #d97706;
   --up-ok-bg: #ecfdf5;
   --up-ok-text: #047857;
-  --up-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+  --up-shadow: none;
   display: grid;
   gap: 1rem;
 }

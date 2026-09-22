@@ -8,6 +8,7 @@ import { useConfirm } from '../../../composables/useConfirm'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
@@ -525,7 +526,7 @@ function selectCategory(id: string | null) {
       <p v-if="error && !formOpen" class="rooms__error">{{ error }}</p>
 
       <div class="rooms__list">
-        <div v-if="loading" class="rooms__muted">{{ t('common.loading') }}</div>
+        <LoadingBlock v-if="loading" variant="cards" :rows="8" :label="t('common.loading')" />
         <template v-else>
           <div class="rooms__browse">
             <div class="rooms__browse-head">
@@ -1417,15 +1418,8 @@ function selectCategory(id: string | null) {
   .rooms__grid { grid-template-columns: 1fr 1fr; }
   .rooms__span { grid-column: 1 / -1; }
 }
-.field {
-  width: 100%;
-  min-height: 2.45rem;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.55rem;
-  padding: 0.45rem 0.7rem;
-  background: #fff;
-}
-textarea.field { min-height: 5rem; resize: vertical; }
+
+textarea
 .rooms__hint { margin: 0.3rem 0 0; font-size: 0.72rem; color: #94a3b8; }
 .rooms__modes { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .rooms__mode {
@@ -1521,11 +1515,11 @@ textarea.field { min-height: 5rem; resize: vertical; }
 .rooms__gallery-item img { aspect-ratio: 1; width: 100%; object-fit: cover; }
 .rooms__gallery-item span { padding: 0 0.5rem 0.5rem; font-size: 0.75rem; color: #334155; }
 .rooms__gallery-item--on { border-color: var(--color-brand-500); box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand-500) 40%, transparent); }
-.btn-primary, .btn-secondary {
+.btn-secondary {
   border-radius: 0.5rem; padding: 0.45rem 0.85rem; font-weight: 600; font-size: 0.8125rem; cursor: pointer;
 }
-.btn-primary { border: 0; color: #fff; background: var(--color-brand-600, var(--color-brand-600)); }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+
 .btn-secondary { border: 1px solid #d7e2ea; background: #fff; color: #334155; }
 .font-semibold { font-weight: 600; }
 .text-brand-600 { color: var(--color-brand-600); }

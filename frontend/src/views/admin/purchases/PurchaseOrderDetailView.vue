@@ -351,11 +351,11 @@ function onHand(productId?: string) {
 </template>
 
 <style scoped>
-.field { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .btn-danger { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: #dc2626; }
-.stat-card { border-radius: 0.75rem; background: white; padding: 1rem; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); }
+.stat-card { border-radius: var(--radius-lg); background: white; padding: 1rem; box-shadow: none; border: 1px solid var(--color-border); }
 .stat-label { margin: 0; font-size: 0.75rem; color: #64748b; }
 .stat-value { margin: 0.25rem 0 0; font-size: 1.25rem; font-weight: 700; color: #0f172a; }
 .text-brand-600 { color: var(--color-brand-600); }

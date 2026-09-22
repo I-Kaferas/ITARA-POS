@@ -566,21 +566,21 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--card-color) 24%, #e2e8f0);
-  border-radius: 0.9rem;
-  background: color-mix(in srgb, var(--card-color) 6%, white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
   padding: 1.05rem 1.1rem 1.15rem;
 }
 
 .explore-card__icon {
   width: 2.35rem;
   height: 2.35rem;
-  border-radius: 0.6rem;
+  border-radius: var(--radius-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--card-color);
-  background: color-mix(in srgb, var(--card-color) 16%, white);
+  color: var(--color-brand-700);
+  background: var(--color-brand-50);
 }
 
 .explore-card__title {
@@ -603,7 +603,7 @@ onMounted(load)
   align-items: center;
   gap: 0.25rem;
   margin-top: 0.25rem;
-  color: var(--card-color);
+  color: var(--color-brand-700);
   font-size: 0.85rem;
   font-weight: 650;
   text-decoration: none;

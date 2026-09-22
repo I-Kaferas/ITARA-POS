@@ -6,6 +6,7 @@ import { hospitalitySnapshotPath, HOTEL_CONCIERGE_KINDS } from '../../../api/hos
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useAuthStore } from '../../../stores/auth'
 import { useContextStore } from '../../../stores/context'
 import HotelChrome from './HotelChrome.vue'
@@ -508,7 +509,7 @@ onMounted(load)
       </div>
 
       <div class="cg__table-wrap">
-        <p v-if="loading" class="cg__muted">{{ t('common.loading') }}</p>
+        <LoadingBlock v-if="loading" variant="list" :label="t('common.loading')" />
         <table v-else class="cg__table">
           <thead>
             <tr>

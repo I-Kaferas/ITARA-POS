@@ -655,23 +655,10 @@ onMounted(() => {
   min-width: 0.2rem;
 }
 
-.field {
-  border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  padding: 0.5rem 0.75rem;
-  min-width: 10rem;
-}
+
 
 .btn-secondary,
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border-radius: 0.5rem;
-  padding: 0.55rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
+
 
 .btn-secondary {
   border: 1px solid #cbd5e1;
@@ -680,16 +667,9 @@ onMounted(() => {
 }
 
 .btn-secondary:disabled,
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
-.btn-primary {
-  border: none;
-  background: #0e7490;
-  color: #fff;
-}
+
+
 
 @media (max-width: 720px) {
   .donut {

@@ -6,6 +6,7 @@ import { hospitalitySnapshotPath, HOTEL_CALENDAR_KINDS } from '../../../api/hosp
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useContextStore } from '../../../stores/context'
 import HotelChrome from './HotelChrome.vue'
 
@@ -522,7 +523,7 @@ watch(() => ctx.currentStoreId, () => {
             </div>
           </div>
 
-          <p v-if="loading" class="cal__muted">{{ t('common.loading') }}</p>
+          <LoadingBlock v-if="loading" variant="cards" :rows="6" :label="t('common.loading')" />
 
           <div class="cal__board">
             <div class="cal__weekdays">

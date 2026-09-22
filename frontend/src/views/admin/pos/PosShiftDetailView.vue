@@ -6,6 +6,7 @@ import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -134,7 +135,7 @@ watch(shiftId, load)
     </div>
 
     <p v-if="error && shift" class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
-    <div v-if="loading" class="py-10 text-center text-sm text-slate-500">{{ t('common.loading') }}</div>
+    <LoadingBlock v-if="loading" variant="detail" :label="t('common.loading')" />
 
     <template v-else-if="shift">
       <div class="mb-4 rounded-xl border border-slate-200 bg-white p-4">

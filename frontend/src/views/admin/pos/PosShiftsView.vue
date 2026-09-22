@@ -7,6 +7,7 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -223,7 +224,7 @@ function goDetail(id: string) {
         </div>
       </div>
 
-      <div v-if="loading" class="py-10 text-center text-sm text-slate-500">{{ t('common.loading') }}</div>
+      <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
 
       <div v-else class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <table v-if="filteredShifts.length" class="min-w-full divide-y divide-slate-200 text-sm">

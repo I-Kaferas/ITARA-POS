@@ -6,6 +6,7 @@ import { hospitalitySnapshotPath, HOTEL_HOUSEKEEPING_KINDS } from '../../../api/
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import HotelChrome from './HotelChrome.vue'
@@ -468,7 +469,7 @@ onMounted(load)
         </div>
 
         <div class="hk__table-wrap">
-          <p v-if="loading" class="hk__muted">{{ t('common.loading') }}</p>
+          <LoadingBlock v-if="loading" variant="list" :label="t('common.loading')" />
           <table v-else class="hk__table">
             <thead>
               <tr>

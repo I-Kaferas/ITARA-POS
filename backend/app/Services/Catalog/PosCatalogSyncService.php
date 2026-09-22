@@ -9,7 +9,6 @@ use App\Models\StockBalance;
 use App\Models\Store;
 use App\Models\StoreProduct;
 use App\Models\Warehouse;
-use App\Services\Catalog\StoreCatalogService;
 use App\Services\Inventory\OpeningStockService;
 use Illuminate\Support\Collection;
 
@@ -23,11 +22,12 @@ class PosCatalogSyncService
      * Build the catalog payload for a POS store import/sync.
      * Each item includes CDN image URLs from the product gallery.
      *
+     * @param  Collection<int, string>|null  $catalogIds
      * @return list<array<string, mixed>>
      */
-    public function productsForStore(Store $store): array
+    public function productsForStore(Store $store, ?Collection $catalogIds = null): array
     {
-        $catalogIds = $this->catalogIdsForStore($store);
+        $catalogIds ??= $this->catalogIdsForStore($store);
         if ($catalogIds->isEmpty()) {
             return [];
         }
@@ -51,6 +51,7 @@ class PosCatalogSyncService
             ->where('is_active', true)
             ->with([
                 'category:id,name',
+                'catalog.company:id,currency_code',
                 'images' => fn ($query) => $query->ordered(),
                 'tax',
                 'unitModel',
@@ -67,9 +68,14 @@ class PosCatalogSyncService
             ->get()
             ->map(function (Product $product) use ($store, $storeProducts, $stockByProduct) {
                 $storeProduct = $storeProducts->get($product->id);
-                $payload = $storeProduct
-                    ? $storeProduct->toPosSyncArray()
-                    : $this->productPayload($product, $store);
+                $product->variants->each(fn ($variant) => $variant->setRelation('product', $product));
+                if ($storeProduct) {
+                    $storeProduct->setRelation('product', $product);
+                    $storeProduct->setRelation('store', $store);
+                    $payload = $storeProduct->toPosSyncArray(includeVariants: false);
+                } else {
+                    $payload = $this->productPayload($product, $store);
+                }
 
                 $payload['category_id'] = $storeProduct?->category_id ?: $product->category_id;
                 $payload['category_name'] = $storeProduct?->category?->name ?? $product->category?->name;
@@ -150,11 +156,12 @@ class PosCatalogSyncService
      * Categories for the POS: active catalog categories, plus any category
      * still referenced by a product so those products are not left uncategorized.
      *
+     * @param  Collection<int, string>|null  $catalogIds
      * @return list<array<string, mixed>>
      */
-    public function categoriesForStore(Store $store): array
+    public function categoriesForStore(Store $store, ?Collection $catalogIds = null): array
     {
-        $catalogIds = $this->catalogIdsForStore($store);
+        $catalogIds ??= $this->catalogIdsForStore($store);
 
         if ($catalogIds->isEmpty()) {
             return [];
@@ -242,9 +249,8 @@ class PosCatalogSyncService
     }
 
     /**
-     * @return Collection<int, string>
+     * @return array<string, int>
      */
-    /** @return array<string, int> */
     private function stockByProduct(Store $store): array
     {
         $warehouseIds = Warehouse::query()
@@ -265,15 +271,16 @@ class PosCatalogSyncService
             ->all();
     }
 
-    private function catalogIdsForStore(Store $store): Collection
+    /**
+     * @return Collection<int, string>
+     */
+    public function catalogIdsForStore(Store $store): Collection
     {
         $store->loadMissing('branch');
         $companyId = $store->branch?->company_id;
         if (! $companyId) {
             return collect();
         }
-
-        app(StoreCatalogService::class)->bootstrap($store);
 
         return Catalog::query()
             ->where('company_id', $companyId)

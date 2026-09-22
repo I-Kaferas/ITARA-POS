@@ -65,11 +65,11 @@ const navSections = computed(() => [
         label: t('nav.group.posOps'),
         icon: 'store-pin',
         children: [
-          { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview'), icon: 'dashboard', color: '#64748b' },
-          { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal'), icon: 'device-pos', color: '#0f766e' },
-          { name: 'pos-tables', to: '/admin/hospitality', label: t('nav.restaurant'), icon: 'tables', color: '#0f766e' },
-          { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts'), icon: 'shift', color: '#2563eb' },
-          { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations'), icon: 'calendar', color: '#d97706' },
+          { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview'), icon: 'dashboard' },
+          { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal'), icon: 'device-pos' },
+          { name: 'pos-tables', to: '/admin/hospitality', label: t('nav.restaurant'), icon: 'tables' },
+          { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts'), icon: 'shift' },
+          { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations'), icon: 'calendar' },
         ],
       },
       {
@@ -78,8 +78,8 @@ const navSections = computed(() => [
         label: t('nav.group.posSales'),
         icon: 'sales',
         children: [
-          { name: 'pos-orders', to: '/admin/pos/orders', label: t('nav.posOrders'), icon: 'sales', color: '#059669' },
-          { name: 'pos-returns', to: '/admin/sales/returns', label: t('sales.tabs.returns'), icon: 'transfer', color: '#dc2626' },
+          { name: 'pos-orders', to: '/admin/pos/orders', label: t('nav.posOrders'), icon: 'sales' },
+          { name: 'pos-returns', to: '/admin/sales/returns', label: t('sales.tabs.returns'), icon: 'transfer' },
         ],
       },
       {
@@ -88,17 +88,17 @@ const navSections = computed(() => [
         label: t('nav.hotel'),
         icon: 'building',
         children: [
-          { name: 'hotel-room-config', to: '/admin/hotel/room-config', label: t('hotel.tabs.roomConfig'), icon: 'layers', color: 'var(--color-brand-500)' },
-          { name: 'hotel-rooms', to: '/admin/hotel/rooms', label: t('hotel.tabs.rooms'), icon: 'bed', color: '#0f766e' },
-          { name: 'hotel-reservations', to: '/admin/hotel/reservations', label: t('hotel.tabs.reservations'), icon: 'calendar', color: '#2563eb' },
-          { name: 'hotel-stays', to: '/admin/hotel/stays', label: t('hotel.tabs.stays'), icon: 'key', color: '#b45309' },
-          { name: 'hotel-invoices', to: '/admin/hotel/invoices', label: t('hotel.tabs.invoices'), icon: 'receipt', color: '#059669' },
-          { name: 'hotel-guests', to: '/admin/hotel/guests', label: t('hotel.tabs.guests'), icon: 'customers', color: '#be185d' },
-          { name: 'hotel-housekeeping', to: '/admin/hotel/housekeeping', label: t('hotel.tabs.housekeeping'), icon: 'broom', color: '#0891b2' },
-          { name: 'hotel-calendar', to: '/admin/hotel/calendar', label: t('hotel.tabs.calendar'), icon: 'calendar', color: '#d97706' },
-          { name: 'hotel-concierge', to: '/admin/hotel/concierge', label: t('hotel.tabs.concierge'), icon: 'bell', color: '#0e7490' },
-          { name: 'hotel-reports', to: '/admin/hotel/reports', label: t('hotel.tabs.reports'), icon: 'dashboard', color: '#475569' },
-          { name: 'hotel-settings', to: '/admin/hotel/settings', label: t('hotel.tabs.settings'), icon: 'account', color: '#64748b' },
+          { name: 'hotel-room-config', to: '/admin/hotel/room-config', label: t('hotel.tabs.roomConfig'), icon: 'layers' },
+          { name: 'hotel-rooms', to: '/admin/hotel/rooms', label: t('hotel.tabs.rooms'), icon: 'bed' },
+          { name: 'hotel-reservations', to: '/admin/hotel/reservations', label: t('hotel.tabs.reservations'), icon: 'calendar' },
+          { name: 'hotel-stays', to: '/admin/hotel/stays', label: t('hotel.tabs.stays'), icon: 'key' },
+          { name: 'hotel-invoices', to: '/admin/hotel/invoices', label: t('hotel.tabs.invoices'), icon: 'receipt' },
+          { name: 'hotel-guests', to: '/admin/hotel/guests', label: t('hotel.tabs.guests'), icon: 'customers' },
+          { name: 'hotel-housekeeping', to: '/admin/hotel/housekeeping', label: t('hotel.tabs.housekeeping'), icon: 'broom' },
+          { name: 'hotel-calendar', to: '/admin/hotel/calendar', label: t('hotel.tabs.calendar'), icon: 'calendar' },
+          { name: 'hotel-concierge', to: '/admin/hotel/concierge', label: t('hotel.tabs.concierge'), icon: 'bell' },
+          { name: 'hotel-reports', to: '/admin/hotel/reports', label: t('hotel.tabs.reports'), icon: 'dashboard' },
+          { name: 'hotel-settings', to: '/admin/hotel/settings', label: t('hotel.tabs.settings'), icon: 'account' },
         ],
       },
       { name: 'stores', to: '/admin/stores', label: t('nav.stores'), icon: 'stores' },
@@ -114,11 +114,11 @@ const navSections = computed(() => [
         label: t('nav.group.products'),
         icon: 'catalog',
         children: [
-          { name: 'product-catalog', to: '/admin/products', label: t('nav.productCatalog'), icon: 'products', color: '#0f766e' },
-          { name: 'product-accompaniments', to: '/admin/accompaniments', label: t('nav.accompaniments'), icon: 'sparkles', color: '#d97706' },
-          { name: 'product-options', to: '/admin/catalog/options', label: t('nav.productOptions'), icon: 'layers', color: 'var(--color-brand-500)' },
-          { name: 'beverages', to: '/admin/catalog/beverages', label: t('nav.beverages'), icon: 'sparkles', color: '#b45309' },
-          { name: 'catalog-gallery', to: '/admin/catalog/gallery', label: t('nav.catalogGallery'), icon: 'catalog', color: '#7c3aed' },
+          { name: 'product-catalog', to: '/admin/products', label: t('nav.productCatalog'), icon: 'products' },
+          { name: 'product-accompaniments', to: '/admin/accompaniments', label: t('nav.accompaniments'), icon: 'sparkles' },
+          { name: 'product-options', to: '/admin/catalog/options', label: t('nav.productOptions'), icon: 'layers' },
+          { name: 'beverages', to: '/admin/catalog/beverages', label: t('nav.beverages'), icon: 'sparkles' },
+          { name: 'catalog-gallery', to: '/admin/catalog/gallery', label: t('nav.catalogGallery'), icon: 'catalog' },
         ],
       },
       {
@@ -127,11 +127,11 @@ const navSections = computed(() => [
         label: t('nav.group.reference'),
         icon: 'layers',
         children: [
-          { name: 'catalogs', to: '/admin/catalog/catalogs', label: t('catalog.tabs.catalogs'), icon: 'catalog', color: '#2563eb' },
-          { name: 'catalog-categories', to: '/admin/catalog/categories', label: t('catalog.tabs.categories'), icon: 'layers', color: '#0e7490' },
-          { name: 'catalog-brands', to: '/admin/catalog/brands', label: t('nav.brands'), icon: 'tag', color: '#be185d' },
-          { name: 'catalog-units', to: '/admin/catalog/units', label: t('nav.units'), icon: 'package', color: '#64748b' },
-          { name: 'catalog-attributes', to: '/admin/catalog/attributes', label: t('nav.attributes'), icon: 'adjust', color: '#d97706' },
+          { name: 'catalogs', to: '/admin/catalog/catalogs', label: t('catalog.tabs.catalogs'), icon: 'catalog' },
+          { name: 'catalog-categories', to: '/admin/catalog/categories', label: t('catalog.tabs.categories'), icon: 'layers' },
+          { name: 'catalog-brands', to: '/admin/catalog/brands', label: t('nav.brands'), icon: 'tag' },
+          { name: 'catalog-units', to: '/admin/catalog/units', label: t('nav.units'), icon: 'package' },
+          { name: 'catalog-attributes', to: '/admin/catalog/attributes', label: t('nav.attributes'), icon: 'adjust' },
         ],
       },
       {
@@ -140,8 +140,8 @@ const navSections = computed(() => [
         label: t('nav.group.pricing'),
         icon: 'tag',
         children: [
-          { name: 'price-lists', to: '/admin/catalog/prices', label: t('nav.priceLists'), icon: 'tag', color: '#059669' },
-          { name: 'catalog-taxes', to: '/admin/catalog/taxes', label: t('catalog.tabs.taxes'), icon: 'percent', color: '#b45309' },
+          { name: 'price-lists', to: '/admin/catalog/prices', label: t('nav.priceLists'), icon: 'tag' },
+          { name: 'catalog-taxes', to: '/admin/catalog/taxes', label: t('catalog.tabs.taxes'), icon: 'percent' },
         ],
       },
       { name: 'barcodes', to: '/admin/barcodes', label: t('nav.barcodes'), icon: 'tag' },
@@ -158,8 +158,8 @@ const navSections = computed(() => [
         label: t('nav.group.stockStatus'),
         icon: 'inventory',
         children: [
-          { name: 'inventory-stock', to: '/admin/inventory/stock', label: t('inventory.tabs.stock'), icon: 'inventory', color: '#0f766e' },
-          { name: 'inventory-alerts', to: '/admin/inventory/alerts', label: t('inventory.tabs.alerts'), icon: 'alert', color: '#dc2626' },
+          { name: 'inventory-stock', to: '/admin/inventory/stock', label: t('inventory.tabs.stock'), icon: 'inventory' },
+          { name: 'inventory-alerts', to: '/admin/inventory/alerts', label: t('inventory.tabs.alerts'), icon: 'alert' },
         ],
       },
       {
@@ -168,10 +168,10 @@ const navSections = computed(() => [
         label: t('nav.group.movements'),
         icon: 'import',
         children: [
-          { name: 'inventory-supplies', to: '/admin/inventory/supplies', label: t('inventory.tabs.supplies'), icon: 'import', color: '#059669' },
-          { name: 'inventory-transfers', to: '/admin/inventory/transfers', label: t('inventory.tabs.transfers'), icon: 'transfer', color: '#2563eb' },
-          { name: 'inventory-adjustments', to: '/admin/inventory/adjustments', label: t('inventory.tabs.adjustments'), icon: 'adjust', color: '#d97706' },
-          { name: 'inventory-issues', to: '/admin/inventory/issues', label: t('inventory.tabs.issues'), icon: 'upload', color: '#b45309' },
+          { name: 'inventory-supplies', to: '/admin/inventory/supplies', label: t('inventory.tabs.supplies'), icon: 'import' },
+          { name: 'inventory-transfers', to: '/admin/inventory/transfers', label: t('inventory.tabs.transfers'), icon: 'transfer' },
+          { name: 'inventory-adjustments', to: '/admin/inventory/adjustments', label: t('inventory.tabs.adjustments'), icon: 'adjust' },
+          { name: 'inventory-issues', to: '/admin/inventory/issues', label: t('inventory.tabs.issues'), icon: 'upload' },
         ],
       },
       {
@@ -180,8 +180,8 @@ const navSections = computed(() => [
         label: t('nav.group.controls'),
         icon: 'layers',
         children: [
-          { name: 'inventory-counts', to: '/admin/inventory/counts', label: t('inventory.tabs.inventories'), icon: 'check', color: '#0e7490' },
-          { name: 'inventory-verifications', to: '/admin/inventory/verifications', label: t('inventory.tabs.verifications'), icon: 'lock', color: '#64748b' },
+          { name: 'inventory-counts', to: '/admin/inventory/counts', label: t('inventory.tabs.inventories'), icon: 'check' },
+          { name: 'inventory-verifications', to: '/admin/inventory/verifications', label: t('inventory.tabs.verifications'), icon: 'lock' },
         ],
       },
       {
@@ -190,8 +190,8 @@ const navSections = computed(() => [
         label: t('nav.group.traceability'),
         icon: 'tag',
         children: [
-          { name: 'inventory-batches', to: '/admin/inventory/batches', label: t('inventory.tabs.batches'), icon: 'package', color: '#7c3aed' },
-          { name: 'inventory-serials', to: '/admin/inventory/serials', label: t('inventory.tabs.serials'), icon: 'tag', color: '#be185d' },
+          { name: 'inventory-batches', to: '/admin/inventory/batches', label: t('inventory.tabs.batches'), icon: 'package' },
+          { name: 'inventory-serials', to: '/admin/inventory/serials', label: t('inventory.tabs.serials'), icon: 'tag' },
         ],
       },
       { name: 'production', to: '/admin/production', label: t('nav.production'), icon: 'inventory' },
@@ -207,10 +207,10 @@ const navSections = computed(() => [
         label: t('nav.group.purchaseCycle'),
         icon: 'purchases',
         children: [
-          { name: 'purchase-overview', to: '/admin/purchases/overview', label: t('purchases.hub.overview'), icon: 'dashboard', color: '#64748b' },
-          { name: 'purchase-requisitions', to: '/admin/purchases/requisitions', label: t('purchases.hub.requisitions'), icon: 'note', color: '#2563eb' },
-          { name: 'purchase-proformas', to: '/admin/purchases/proformas', label: t('purchases.hub.proformas'), icon: 'receipt', color: '#d97706' },
-          { name: 'purchase-orders', to: '/admin/purchases/orders', label: t('purchases.hub.orders'), icon: 'purchases', color: '#0f766e' },
+          { name: 'purchase-overview', to: '/admin/purchases/overview', label: t('purchases.hub.overview'), icon: 'dashboard' },
+          { name: 'purchase-requisitions', to: '/admin/purchases/requisitions', label: t('purchases.hub.requisitions'), icon: 'note' },
+          { name: 'purchase-proformas', to: '/admin/purchases/proformas', label: t('purchases.hub.proformas'), icon: 'receipt' },
+          { name: 'purchase-orders', to: '/admin/purchases/orders', label: t('purchases.hub.orders'), icon: 'purchases' },
         ],
       },
       {
@@ -219,9 +219,9 @@ const navSections = computed(() => [
         label: t('nav.group.purchaseBilling'),
         icon: 'sales',
         children: [
-          { name: 'purchase-invoices', to: '/admin/purchases/invoices', label: t('purchases.hub.invoices'), icon: 'receipt', color: '#059669' },
-          { name: 'purchase-payments', to: '/admin/purchases/payments', label: t('purchases.hub.payments'), icon: 'coins', color: '#b45309' },
-          { name: 'purchase-returns', to: '/admin/purchases/returns', label: t('purchases.hub.returns'), icon: 'transfer', color: '#dc2626' },
+          { name: 'purchase-invoices', to: '/admin/purchases/invoices', label: t('purchases.hub.invoices'), icon: 'receipt' },
+          { name: 'purchase-payments', to: '/admin/purchases/payments', label: t('purchases.hub.payments'), icon: 'coins' },
+          { name: 'purchase-returns', to: '/admin/purchases/returns', label: t('purchases.hub.returns'), icon: 'transfer' },
         ],
       },
       { name: 'payables', to: '/admin/payables', label: t('nav.payables'), icon: 'purchases' },
@@ -236,11 +236,11 @@ const navSections = computed(() => [
         label: t('nav.expenses'),
         icon: 'purchases',
         children: [
-          { name: 'expenses-dashboard', to: '/admin/expenses/dashboard', label: t('expenses.tabs.dashboard'), icon: 'dashboard', color: '#64748b' },
-          { name: 'expenses-list', to: '/admin/expenses', label: t('expenses.tabs.list'), icon: 'note', color: '#2563eb' },
-          { name: 'expenses-categories', to: '/admin/expenses/categories', label: t('expenses.tabs.categories'), icon: 'layers', color: '#0e7490' },
-          { name: 'expenses-recurring', to: '/admin/expenses/recurring', label: t('expenses.tabs.recurring'), icon: 'calendar', color: '#d97706' },
-          { name: 'expenses-reports', to: '/admin/expenses/reports', label: t('expenses.tabs.reports'), icon: 'sales', color: '#059669' },
+          { name: 'expenses-dashboard', to: '/admin/expenses/dashboard', label: t('expenses.tabs.dashboard'), icon: 'dashboard' },
+          { name: 'expenses-list', to: '/admin/expenses', label: t('expenses.tabs.list'), icon: 'note' },
+          { name: 'expenses-categories', to: '/admin/expenses/categories', label: t('expenses.tabs.categories'), icon: 'layers' },
+          { name: 'expenses-recurring', to: '/admin/expenses/recurring', label: t('expenses.tabs.recurring'), icon: 'calendar' },
+          { name: 'expenses-reports', to: '/admin/expenses/reports', label: t('expenses.tabs.reports'), icon: 'sales' },
         ],
       },
       { name: 'accounting', to: '/admin/accounting', label: t('nav.accounting'), icon: 'sales' },
@@ -250,16 +250,16 @@ const navSections = computed(() => [
         label: t('nav.reports'),
         icon: 'dashboard',
         children: [
-          { name: 'reports-dashboard', to: '/admin/reports/dashboard', label: t('reports.tabs.dashboard'), icon: 'dashboard', color: '#64748b' },
-          { name: 'reports-sales', to: '/admin/reports/sales', label: t('reports.tabs.sales'), icon: 'sales', color: '#059669' },
-          { name: 'reports-inventory', to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), icon: 'inventory', color: '#0f766e' },
-          { name: 'reports-store-stock', to: '/admin/reports/store-stock', label: t('reports.tabs.storeStock'), icon: 'stores', color: '#0e7490' },
-          { name: 'reports-purchases', to: '/admin/reports/purchases', label: t('reports.tabs.purchases'), icon: 'purchases', color: '#2563eb' },
-          { name: 'reports-forecasts', to: '/admin/reports/forecasts', label: t('reports.tabs.forecasts'), icon: 'sparkles', color: '#7c3aed' },
-          { name: 'reports-financial', to: '/admin/reports/financial', label: t('reports.tabs.revenue'), icon: 'coins', color: '#b45309' },
-          { name: 'reports-condensed', to: '/admin/reports/condensed', label: t('reports.tabs.condensed'), icon: 'layers', color: '#0e7490' },
-          { name: 'reports-daily', to: '/admin/reports/daily', label: t('reports.tabs.daily'), icon: 'calendar', color: '#d97706' },
-          { name: 'reports-user-performance', to: '/admin/reports/user-performance', label: t('reports.tabs.userPerformance'), icon: 'account', color: '#dc2626' },
+          { name: 'reports-dashboard', to: '/admin/reports/dashboard', label: t('reports.tabs.dashboard'), icon: 'dashboard' },
+          { name: 'reports-sales', to: '/admin/reports/sales', label: t('reports.tabs.sales'), icon: 'sales' },
+          { name: 'reports-inventory', to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), icon: 'inventory' },
+          { name: 'reports-store-stock', to: '/admin/reports/store-stock', label: t('reports.tabs.storeStock'), icon: 'stores' },
+          { name: 'reports-purchases', to: '/admin/reports/purchases', label: t('reports.tabs.purchases'), icon: 'purchases' },
+          { name: 'reports-forecasts', to: '/admin/reports/forecasts', label: t('reports.tabs.forecasts'), icon: 'sparkles' },
+          { name: 'reports-financial', to: '/admin/reports/financial', label: t('reports.tabs.revenue'), icon: 'coins' },
+          { name: 'reports-condensed', to: '/admin/reports/condensed', label: t('reports.tabs.condensed'), icon: 'layers' },
+          { name: 'reports-daily', to: '/admin/reports/daily', label: t('reports.tabs.daily'), icon: 'calendar' },
+          { name: 'reports-user-performance', to: '/admin/reports/user-performance', label: t('reports.tabs.userPerformance'), icon: 'account' },
         ],
       },
     ] as NavItem[],
@@ -273,10 +273,10 @@ const navSections = computed(() => [
         label: t('nav.group.company'),
         icon: 'organization',
         children: [
-          { name: 'org-company-page', to: '/admin/organization/company', label: t('org.tabs.company'), icon: 'organization', color: 'var(--color-brand-500)' },
-          { name: 'org-branding', to: '/admin/organization/branding', label: t('org.tabs.branding'), icon: 'sparkles', color: '#7c3aed' },
-          { name: 'org-currencies', to: '/admin/organization/currencies', label: t('org.tabs.currencies'), icon: 'coins', color: '#d97706' },
-          { name: 'org-payments', to: '/admin/organization/payment-methods', label: t('org.tabs.paymentMethods'), icon: 'card', color: '#059669' },
+          { name: 'org-company-page', to: '/admin/organization/company', label: t('org.tabs.company'), icon: 'organization' },
+          { name: 'org-branding', to: '/admin/organization/branding', label: t('org.tabs.branding'), icon: 'sparkles' },
+          { name: 'org-currencies', to: '/admin/organization/currencies', label: t('org.tabs.currencies'), icon: 'coins' },
+          { name: 'org-payments', to: '/admin/organization/payment-methods', label: t('org.tabs.paymentMethods'), icon: 'card' },
         ],
       },
       {
@@ -285,9 +285,9 @@ const navSections = computed(() => [
         label: t('nav.group.sites'),
         icon: 'stores',
         children: [
-          { name: 'org-branches', to: '/admin/organization/branches', label: t('org.tabs.branches'), icon: 'building', color: '#2563eb' },
-          { name: 'org-stores', to: '/admin/organization/stores', label: t('org.tabs.stores'), icon: 'stores', color: '#0f766e' },
-          { name: 'org-warehouses', to: '/admin/organization/warehouses', label: t('org.tabs.warehouses'), icon: 'inventory', color: '#b45309' },
+          { name: 'org-branches', to: '/admin/organization/branches', label: t('org.tabs.branches'), icon: 'building' },
+          { name: 'org-stores', to: '/admin/organization/stores', label: t('org.tabs.stores'), icon: 'stores' },
+          { name: 'org-warehouses', to: '/admin/organization/warehouses', label: t('org.tabs.warehouses'), icon: 'inventory' },
         ],
       },
       {
@@ -296,9 +296,9 @@ const navSections = computed(() => [
         label: t('nav.group.posHardware'),
         icon: 'store-pin',
         children: [
-          { name: 'org-terminals', to: '/admin/organization/terminals', label: t('org.tabs.terminals'), icon: 'device-pos', color: '#0e7490' },
-          { name: 'org-devices', to: '/admin/organization/devices', label: t('org.tabs.devices'), icon: 'device-tablet', color: '#7c3aed' },
-          { name: 'org-registers', to: '/admin/organization/registers', label: t('org.tabs.registers'), icon: 'coins', color: '#d97706' },
+          { name: 'org-terminals', to: '/admin/organization/terminals', label: t('org.tabs.terminals'), icon: 'device-pos' },
+          { name: 'org-devices', to: '/admin/organization/devices', label: t('org.tabs.devices'), icon: 'device-tablet' },
+          { name: 'org-registers', to: '/admin/organization/registers', label: t('org.tabs.registers'), icon: 'coins' },
         ],
       },
       {
@@ -307,9 +307,9 @@ const navSections = computed(() => [
         label: t('nav.group.access'),
         icon: 'account',
         children: [
-          { name: 'org-users', to: '/admin/organization/users', label: t('org.tabs.users'), icon: 'customers', color: '#2563eb' },
-          { name: 'org-roles', to: '/admin/organization/roles', label: t('org.tabs.roles'), icon: 'lock', color: '#b45309' },
-          { name: 'org-permissions', to: '/admin/organization/permissions', label: t('org.tabs.permissions'), icon: 'key', color: '#dc2626' },
+          { name: 'org-users', to: '/admin/organization/users', label: t('org.tabs.users'), icon: 'customers' },
+          { name: 'org-roles', to: '/admin/organization/roles', label: t('org.tabs.roles'), icon: 'lock' },
+          { name: 'org-permissions', to: '/admin/organization/permissions', label: t('org.tabs.permissions'), icon: 'key' },
         ],
       },
       { name: 'import-export', to: '/admin/import-export', label: t('nav.importExport'), icon: 'import' },
@@ -618,11 +618,7 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
                   :key="child.name"
                   :to="child.to"
                   class="app-nav-link app-nav-link--child"
-                  :class="{
-                    'app-nav-link--active': isChildActive(child),
-                    'app-nav-link--toned': Boolean(child.color),
-                  }"
-                  :style="child.color ? { '--nav-color': child.color } : undefined"
+                  :class="{ 'app-nav-link--active': isChildActive(child) }"
                 >
                   <span class="app-nav-link__mark" aria-hidden="true">
                     <AppIcon :name="child.icon" :size="16" />
@@ -830,7 +826,7 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
 
 .user-menu__trigger--open {
   border-color: var(--color-brand-600);
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
 }
 
 .user-menu__identity {

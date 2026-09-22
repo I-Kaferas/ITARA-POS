@@ -8,6 +8,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -379,9 +380,7 @@ watch(
           <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('pointOfSale.reservations.listTitle') }}</h3>
         </div>
 
-        <div v-if="loading" class="px-4 py-10 text-center text-sm text-slate-500">
-          {{ t('common.loading') }}
-        </div>
+        <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
 
         <table v-else-if="reservations.length" class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">

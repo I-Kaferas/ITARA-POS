@@ -526,10 +526,10 @@ function transactionTypeLabel(type: string): string {
 </template>
 
 <style scoped>
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
-.btn-primary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; color: white; background-color: var(--color-brand-600); }
+
+
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.stat-card { border-radius: 0.75rem; background: white; padding: 1rem 1.25rem; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); border: 1px solid #e2e8f0; }
+.stat-card { border-radius: var(--radius-lg); background: white; padding: 1rem 1.25rem; box-shadow: none; border: 1px solid var(--color-border); }
 .stat-label { font-size: 0.875rem; color: #64748b; }
 .stat-value { margin-top: 0.25rem; font-size: 1.5rem; font-weight: 600; }
 .tab-btn { padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: #64748b; border-bottom: 2px solid transparent; }

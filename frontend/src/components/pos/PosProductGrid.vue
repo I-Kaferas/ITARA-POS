@@ -11,6 +11,7 @@ const props = defineProps<{
   currency?: string
   emptyLabel: string
   reservedByProductId?: Record<string, number>
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -82,7 +83,30 @@ function onSelect(product: PosProduct) {
 
 <template>
   <section class="pos-products">
-    <div v-if="products.length" class="pos-products__grid">
+    <div
+      v-if="loading"
+      class="pos-products__grid"
+      role="status"
+      :aria-label="t('common.loading')"
+    >
+      <div
+        v-for="i in 12"
+        :key="i"
+        class="pos-products__card pos-products__card--skel"
+        aria-hidden="true"
+      >
+        <div class="pos-products__photo">
+          <span class="ui-skeleton ui-skeleton--thumb" />
+        </div>
+        <div class="pos-products__body">
+          <span class="ui-skeleton ui-skeleton--md" :style="{ width: `${68 + (i % 3) * 8}%` }" />
+          <span class="ui-skeleton ui-skeleton--sm" :style="{ width: `${38 + (i % 4) * 6}%` }" />
+          <span class="ui-skeleton ui-skeleton--sm" :style="{ width: `${28 + (i % 5) * 5}%` }" />
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="products.length" class="pos-products__grid">
       <button
         v-for="product in products"
         :key="product.product_id"
@@ -165,6 +189,16 @@ function onSelect(product: PosProduct) {
 .pos-products__card--off {
   opacity: 0.72;
   cursor: not-allowed;
+}
+
+.pos-products__card--skel {
+  pointer-events: none;
+  cursor: default;
+  box-shadow: none;
+}
+
+.pos-products__card--skel .pos-products__body {
+  gap: 0.45rem;
 }
 
 .pos-products__photo {

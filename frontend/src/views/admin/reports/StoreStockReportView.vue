@@ -862,18 +862,15 @@ onMounted(async () => {
   box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 4px 12px rgba(15,118,110,0.08);
 }
 .ss__tab.is-active .ss__tab-icon { background: #ecfdf5; color: #0f766e; }
-.field {
-  border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem;
-  min-width: 10rem; background: white;
-}
+
 .field--narrow { min-width: 6rem; max-width: 7rem; }
-.btn-primary, .btn-secondary {
+.btn-secondary {
   display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 0.55rem;
   padding: 0.5rem 0.9rem; font-size: 0.875rem; font-weight: 500; cursor: pointer;
 }
-.btn-primary { border: none; color: white; background: var(--color-brand-600, #0f766e); }
+
 .btn-secondary { border: 1px solid #cbd5e1; background: white; color: #334155; }
-.btn-primary:disabled, .btn-secondary:disabled { opacity: 0.6; cursor: wait; }
+
 .header-card {
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem;
   border: 1px solid #ccfbf1; border-radius: 0.95rem; background: #f0fdfa; padding: 1.1rem 1.2rem;

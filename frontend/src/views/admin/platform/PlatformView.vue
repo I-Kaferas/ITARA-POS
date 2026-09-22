@@ -225,7 +225,7 @@ onMounted(load)
 
 <style scoped>
 .panel { border-radius: 0.85rem; background: white; padding: 1rem; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); }
-.field { width: 100%; border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; }
+
 .btn { border-radius: 0.5rem; padding: 0.45rem 0.8rem; font-weight: 600; color: white; background: var(--color-brand-600); }
 .chip { border-radius: 999px; border: 1px solid #cbd5e1; padding: 0.35rem 0.7rem; font-size: 0.8rem; }
 .chip--on { border-color: var(--color-brand-600); color: var(--color-brand-700); background: #f8fafc; }

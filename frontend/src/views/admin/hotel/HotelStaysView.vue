@@ -8,6 +8,7 @@ import { useRealtimeSync } from '../../../composables/useRealtimeSync'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useAuthStore } from '../../../stores/auth'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Customer } from '../../../types'
@@ -1776,7 +1777,7 @@ function roomLabel(room: Doc) {
               </span>
             </div>
 
-            <div v-if="loading" class="stay__muted">{{ t('common.loading') }}</div>
+            <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
             <div v-else-if="!planFloors.length" class="stay__placeholder">
               <AppIcon name="bed" :size="22" />
               <p>{{ t('hotel.stays.board.planEmpty') }}</p>
@@ -1841,7 +1842,7 @@ function roomLabel(room: Doc) {
             >
           </div>
 
-          <div v-if="loading" class="stay__muted">{{ t('common.loading') }}</div>
+          <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
           <div v-else class="stay__table-wrap">
             <table class="ui-table stay__table">
               <thead>
@@ -2466,7 +2467,7 @@ function roomLabel(room: Doc) {
           <template v-else>
             <h5>{{ t('hotel.stays.sign.scanTitle') }}</h5>
             <p class="stay-sign__hint">{{ t('hotel.stays.sign.scanHint') }}</p>
-            <div v-if="signLoading" class="stay__muted">{{ t('common.loading') }}</div>
+            <LoadingBlock v-if="signLoading" variant="detail" :rows="3" :label="t('common.loading')" />
             <template v-else>
               <img v-if="qrImageUrl" :src="qrImageUrl" :alt="t('hotel.stays.sign.scanTitle')" class="stay-sign__qr">
               <div v-if="signUrl" class="stay-sign__link-box">

@@ -82,7 +82,7 @@ class StoreProduct extends Pivot
      *
      * @return array<string, mixed>
      */
-    public function toPosSyncArray(): array
+    public function toPosSyncArray(bool $includeVariants = true): array
     {
         $product = $this->relationLoaded('product')
             ? $this->product
@@ -91,7 +91,7 @@ class StoreProduct extends Pivot
                 'tax',
                 'unitModel',
                 'prices',
-                'variants' => fn ($q) => $q->where('is_active', true)->with('prices'),
+                'variants' => fn ($q) => $q->where('is_active', true)->with(['prices', 'barcodes']),
                 'bundleItems',
                 'barcodes',
             ])->first();
@@ -133,7 +133,7 @@ class StoreProduct extends Pivot
             'is_available' => $this->is_available,
             'primary_image_cdn_url' => $primaryImage?->cdn_url,
             'images' => $product->imageGalleryForPos(),
-            'variants' => $product->isVariantProduct()
+            'variants' => $includeVariants && $product->isVariantProduct()
                 ? $product->variants->where('is_active', true)->map->toPosSyncArray($store)->values()->all()
                 : [],
             'bundle_items' => $product->isBundle()

@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import AppIcon from '../ui/AppIcon.vue'
 import AppModal from '../ui/AppModal.vue'
 import FieldLabel from '../ui/FieldLabel.vue'
+import LoadingBlock from '../ui/LoadingBlock.vue'
 import WarehouseOptions from './WarehouseOptions.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
@@ -419,7 +420,7 @@ function statusLabel(value: string) {
 
 <template>
   <AppModal :open="open" :title="title" icon="inventory" tone="info" size="xl" @close="emit('close')">
-    <p v-if="loading" class="text-sm text-slate-500">{{ t('common.loading') }}</p>
+    <LoadingBlock v-if="loading" variant="table" :rows="5" :label="t('common.loading')" />
     <p v-if="error" class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
 
     <form v-if="!active && !loading" class="space-y-3" @submit.prevent="start">

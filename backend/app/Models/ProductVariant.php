@@ -57,6 +57,10 @@ class ProductVariant extends Model
 
     public function primaryBarcode(): ?Barcode
     {
+        if ($this->relationLoaded('barcodes')) {
+            return $this->barcodes->firstWhere('is_primary', true) ?? $this->barcodes->first();
+        }
+
         return $this->barcodes()->where('is_primary', true)->first()
             ?? $this->barcodes()->first();
     }
