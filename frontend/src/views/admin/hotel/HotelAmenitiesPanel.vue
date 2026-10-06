@@ -343,7 +343,7 @@ async function remove(row: Amenity) {
 
         <div class="amenities__actions">
           <button type="button" class="ui-btn" @click="closeForm">{{ t('common.cancel') }}</button>
-          <button type="submit" class="ui-btn ui-btn--primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -369,9 +369,8 @@ async function remove(row: Amenity) {
   margin: 0;
   max-width: 40rem;
   font-size: 0.875rem;
-  color: #66727c;
-  line-height: 1.45;
-}
+  color: var(--color-text-muted);
+  line-height: 1.45;}
 
 .amenities__form {
   display: flex;
@@ -382,30 +381,26 @@ async function remove(row: Amenity) {
 .amenities__intro {
   margin: 0;
   font-size: 0.875rem;
-  color: #66727c;
-  line-height: 1.45;
-}
+  color: var(--color-text-muted);
+  line-height: 1.45;}
 
 .amenities__code {
   margin: 0;
   font-size: 0.8rem;
-  color: #66727c;
-}
+  color: var(--color-text-muted);}
 
 .amenities__code strong {
   margin-left: 0.35rem;
   font-family: var(--font-mono);
-  color: #1a2833;
-}
+  color: var(--color-text-primary);}
 
 .amenities__error {
   margin: 0;
   padding: 0.7rem 0.85rem;
   border-radius: 0.7rem;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 0.85rem;
-}
+  background: var(--color-danger-bg);
+  color: light-dark(#b91c1c, #e2a0a0);
+  font-size: 0.85rem;}
 
 .amenities__grid {
   display: grid;
@@ -432,8 +427,7 @@ async function remove(row: Amenity) {
 
 .amenities__money span {
   font-weight: 700;
-  color: #3d5c73;
-}
+  color: var(--color-ink-brand, var(--color-brand-600));}
 
 .icon-picker {
   display: grid;
@@ -455,29 +449,25 @@ async function remove(row: Amenity) {
   height: 2.4rem;
   border: 1px solid transparent;
   border-radius: 0.55rem;
-  background: #fff;
-  color: #4a6272;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
   cursor: pointer;
-  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
-}
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;}
 
 .icon-picker__item:hover {
   border-color: #b7c9d6;
-  color: #1a2833;
-}
+  color: var(--color-text-primary);}
 
 .icon-picker__item--active {
   border-color: var(--color-brand-500, #2f6fed);
-  background: color-mix(in srgb, var(--color-brand-500, #2f6fed) 12%, #fff);
-  color: var(--color-brand-700, #1d4ed8);
-}
+  background: color-mix(in srgb, var(--color-brand-500, #2f6fed) 12%, var(--color-surface));
+  color: var(--color-ink-brand, var(--color-brand-700, light-dark(#1d4ed8, #a0b5ef)));}
 
 .icon-picker__none {
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1;
-  color: #8a9aa6;
-}
+  color: var(--color-text-faint);}
 
 .amenities__check {
   display: flex;
@@ -485,8 +475,7 @@ async function remove(row: Amenity) {
   gap: 0.45rem;
   margin-top: 1.55rem;
   font-size: 0.875rem;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 
 .amenities__actions {
   display: flex;
@@ -515,10 +504,9 @@ async function remove(row: Amenity) {
   margin: 0;
   padding: 1.4rem;
   text-align: center;
-  color: #66727c;
-  font-size: 0.875rem;
-}
+  color: var(--color-text-muted);
+  font-size: 0.875rem;}
 
-.text-brand-600 { color: var(--color-brand-600); }
-.text-red-600 { color: #dc2626; }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
+.text-red-600 { color: light-dark(#dc2626, #f0a4a4);}
 </style>

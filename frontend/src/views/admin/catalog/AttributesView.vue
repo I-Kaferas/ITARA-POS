@@ -151,7 +151,7 @@ async function remove(attribute: CatalogAttribute) {
         <p v-if="!storeIds.length" class="m-0 text-xs text-red-600">{{ t('catalog.selectStoresRequired') }}</p>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving || !storeIds.length">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !storeIds.length">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -163,5 +163,5 @@ async function remove(attribute: CatalogAttribute) {
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .bg-brand-600 { background-color: var(--color-brand-600); }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

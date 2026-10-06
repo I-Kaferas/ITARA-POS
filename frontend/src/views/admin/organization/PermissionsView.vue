@@ -480,17 +480,15 @@ function humanize(value: string) {
 .btn-module {
   border-radius: 999px;
   border: 1px solid #cbd5e1;
-  background: white;
+  background: var(--color-surface);
   padding: 0.2rem 0.65rem;
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #334155;
-  white-space: nowrap;
-}
+  color: var(--color-text-secondary);
+  white-space: nowrap;}
 .btn-module:hover:not(:disabled) {
   border-color: var(--color-brand-600);
-  color: var(--color-brand-600);
-}
+  color: var(--color-ink-brand, var(--color-brand-600));}
 .btn-module:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -510,9 +508,8 @@ function humanize(value: string) {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #64748b;
-  border-bottom: 1px solid #f1f5f9;
-}
+  color: var(--color-text-muted);
+  border-bottom: 1px solid #f1f5f9;}
 .crud-table__module,
 .crud-table td:first-child {
   text-align: left;
@@ -536,8 +533,7 @@ function humanize(value: string) {
   align-items: center;
   gap: 0.6rem;
   font-weight: 600;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 .crud-extras {
   display: flex;
   flex-wrap: wrap;
@@ -548,8 +544,7 @@ function humanize(value: string) {
   align-items: center;
   gap: 0.35rem;
   font-size: 0.75rem;
-  color: #475569;
-}
+  color: var(--color-text-secondary);}
 .crud-empty {
   color: #cbd5e1;
 }

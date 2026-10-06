@@ -11,6 +11,7 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, PurchaseInvoice, Supplier, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatMoney } from '../../../utils/format'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
@@ -100,6 +101,8 @@ onMounted(async () => {
     poForm.value.supplier_id = route.query.supplier
   }
 })
+
+useRealtimeSync(realtimeTopics.purchases, () => applyFilters())
 
 async function applyFilters() {
   const params: Record<string, string> = {}
@@ -369,7 +372,7 @@ function invoiceStatusActive(status: string): boolean {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showCreateModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('inventory.saveEntry') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('inventory.saveEntry') }}</button>
         </div>
       </form>
     </AppModal>
@@ -402,7 +405,7 @@ function invoiceStatusActive(status: string): boolean {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showPayModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('purchases.pay') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('purchases.pay') }}</button>
         </div>
       </form>
     </AppModal>
@@ -414,5 +417,5 @@ function invoiceStatusActive(status: string): boolean {
 
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

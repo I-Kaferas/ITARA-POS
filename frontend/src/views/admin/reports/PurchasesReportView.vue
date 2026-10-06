@@ -28,7 +28,7 @@ const tabs: { id: PurchasesTab; labelKey: string; icon: string }[] = [
   { id: 'receipts', labelKey: 'reports.purchaseAnalytics.tabs.receipts', icon: 'inventory' },
 ]
 
-const donutColors = ['#0f766e', '#2563eb', '#d97706', '#dc2626', '#7c3aed', '#0e7490', '#64748b']
+const donutColors = ['#0f766e', '#2563eb', '#d97706', '#dc2626', '#12243c', '#0e7490', '#64748b']
 const qtyColors: Record<string, string> = {
   ordered: '#2563eb',
   received: '#0ea5e9',
@@ -209,7 +209,7 @@ onMounted(() => {
             <span>{{ t('reports.purchaseAnalytics.exportExcel') }}</span>
           </button>
           <button type="button" class="btn-secondary" :disabled="loading" @click="load">
-            <AppIcon name="import" :size="15" />
+            <AppIcon name="recycle" :size="15" />
             <span>{{ t('common.refresh') }}</span>
           </button>
         </div>
@@ -567,12 +567,11 @@ onMounted(() => {
   gap: 0.25rem;
   padding: 0.28rem;
   border-radius: 0.95rem;
-  background: #f8fafc;
+  background: var(--color-table-header);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   overflow-x: auto;
   max-width: 100%;
-  scrollbar-width: none;
-}
+  scrollbar-width: none;}
 
 .purchases__tabs::-webkit-scrollbar {
   display: none;
@@ -585,20 +584,18 @@ onMounted(() => {
   gap: 0.45rem;
   border: 1px solid transparent;
   background: transparent;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1;
   padding: 0.62rem 0.95rem;
   border-radius: 0.72rem;
   white-space: nowrap;
-  cursor: pointer;
-}
+  cursor: pointer;}
 
 .purchases__tab:hover {
-  color: #0f172a;
-  background: rgba(255, 255, 255, 0.7);
-}
+  color: var(--color-text-primary);
+  background: var(--color-table-row-hover);}
 
 .purchases__tab-icon {
   display: inline-flex;
@@ -612,18 +609,16 @@ onMounted(() => {
 }
 
 .purchases__tab.is-active {
-  color: #0f766e;
-  background: white;
+  color: light-dark(#0f766e, #9ac5c2);
+  background: var(--color-surface);
   border-color: #ccfbf1;
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.06),
-    0 4px 12px rgba(15, 118, 110, 0.08);
-}
+    0 4px 12px rgba(15, 118, 110, 0.08);}
 
 .purchases__tab.is-active .purchases__tab-icon {
-  background: #ecfdf5;
-  color: #0f766e;
-}
+  background: var(--color-success-bg);
+  color: light-dark(#0f766e, #9ac5c2);}
 
 .purchases__tab.is-active::after {
   content: '';
@@ -665,9 +660,8 @@ onMounted(() => {
 
 .btn-secondary {
   border: 1px solid #cbd5e1;
-  background: white;
-  color: #334155;
-}
+  background: var(--color-surface);
+  color: var(--color-text-secondary);}
 
 
 
@@ -696,9 +690,8 @@ onMounted(() => {
 .kpi {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
-  padding: 1rem 1.05rem;
-}
+  background: var(--color-surface);
+  padding: 1rem 1.05rem;}
 
 .kpi__label {
   margin: 0;
@@ -706,23 +699,19 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .kpi__value {
   margin: 0.45rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .kpi__value--ok {
-  color: #059669;
-}
+  color: light-dark(#059669, #6ec2a8);}
 
 .kpi__value--danger {
-  color: #dc2626;
-}
+  color: light-dark(#dc2626, #f0a4a4);}
 
 .purchases__grid {
   display: grid;
@@ -749,15 +738,13 @@ onMounted(() => {
 .panel {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
+  background: var(--color-surface);
   padding: 1rem 1.1rem 1.15rem;
-  min-height: 180px;
-}
+  min-height: 180px;}
 
 .panel--soft {
   min-height: auto;
-  background: #ffffff;
-}
+  background: var(--color-surface);}
 
 .panel--table {
   overflow: auto;
@@ -794,23 +781,20 @@ onMounted(() => {
   border: 1px solid #cbd5e1;
   border-radius: 0.55rem;
   overflow: hidden;
-  background: white;
-}
+  background: var(--color-surface);}
 
 .segmented__btn {
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0.45rem 0.75rem;
-  cursor: pointer;
-}
+  cursor: pointer;}
 
 .segmented__btn.is-active {
   background: #f0fdfa;
-  color: #0f766e;
-}
+  color: light-dark(#0f766e, #9ac5c2);}
 
 .field--search {
   min-width: 16rem;
@@ -821,26 +805,22 @@ onMounted(() => {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .panel__meta {
-  color: #64748b;
-  font-size: 0.9rem;
-}
+  color: var(--color-text-muted);
+  font-size: 0.9rem;}
 
 .panel__empty {
   margin: 2rem 0 0;
   text-align: center;
-  color: #94a3b8;
-  font-size: 0.9rem;
-}
+  color: var(--color-text-faint);
+  font-size: 0.9rem;}
 
 .concentration {
   margin: 0 0 0.85rem;
-  color: #475569;
-  font-size: 0.95rem;
-}
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;}
 
 .concentration__track {
   height: 0.55rem;
@@ -860,8 +840,7 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 0.75rem;
   font-size: 0.78rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .legend__item {
   display: inline-flex;
@@ -916,9 +895,8 @@ onMounted(() => {
 
 .combo__label {
   font-size: 0.7rem;
-  color: #94a3b8;
-  text-transform: capitalize;
-}
+  color: var(--color-text-faint);
+  text-transform: capitalize;}
 
 .donut-wrap {
   display: flex;
@@ -953,8 +931,7 @@ onMounted(() => {
   gap: 0.5rem;
   align-items: center;
   font-size: 0.85rem;
-  color: #475569;
-}
+  color: var(--color-text-secondary);}
 
 .bar-list {
   display: flex;
@@ -973,8 +950,7 @@ onMounted(() => {
   justify-content: space-between;
   gap: 0.75rem;
   font-size: 0.85rem;
-  color: #334155;
-}
+  color: var(--color-text-secondary);}
 
 .bar-list__track {
   height: 0.45rem;
@@ -1008,12 +984,11 @@ onMounted(() => {
 }
 
 .table th {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-weight: 600;
   font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
+  letter-spacing: 0.02em;}
 
 .text-right {
   text-align: right;
@@ -1026,13 +1001,11 @@ onMounted(() => {
 }
 
 .product strong {
-  color: #0f172a;
-  font-weight: 600;
-}
+  color: var(--color-text-primary);
+  font-weight: 600;}
 
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-sans);
   font-size: 0.75rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 </style>

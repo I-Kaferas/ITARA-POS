@@ -206,7 +206,7 @@ async function save() {
 
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -217,6 +217,6 @@ async function save() {
 
 .color-swatch { height: 2.5rem; width: 3rem; cursor: pointer; border-radius: 0.5rem; border: 1px solid #cbd5e1; background: transparent; padding: 0.15rem; }
 
-.btn-secondary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; background: white; border: 1px solid #cbd5e1; }
-.text-brand-600 { color: var(--color-brand-600); }
+.btn-secondary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; background: var(--color-surface); border: 1px solid #cbd5e1;}
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

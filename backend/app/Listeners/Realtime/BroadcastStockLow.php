@@ -14,7 +14,7 @@ class BroadcastStockLow
         $alert = $event->alert;
 
         $this->publisher->notify(
-            type: 'stock.updated',
+            type: 'stock.low',
             tenantId: $alert->tenant_id,
             storeId: null,
             entity: 'alert',

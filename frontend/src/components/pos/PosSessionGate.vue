@@ -117,15 +117,15 @@ function submitClose() {
 
 <style scoped>
 .gate { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(15, 23, 42, 0.45); }
-.card, .close { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: end; background: white; border-radius: 1rem; padding: 1rem; }
+.card, .close { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: end; background: var(--color-surface); border-radius: 1rem; padding: 1rem;}
 .card { width: min(24rem, 92vw); flex-direction: column; align-items: stretch; }
 .card h2, .card p { margin: 0; }
-.card p, .error { color: #64748b; font-size: 0.85rem; }
-.error { color: #b91c1c; }
+.card p, .error { color: var(--color-text-muted); font-size: 0.85rem;}
+.error { color: light-dark(#b91c1c, #e2a0a0);}
 .gate-field { display: flex; flex-direction: column; gap: 0.3rem; }
 input, select, button { border: 1px solid #cbd5e1; border-radius: 0.55rem; padding: 0.5rem 0.7rem; }
 button { background: var(--color-brand-600); color: white; border: 0; font-weight: 650; cursor: pointer; }
 .gate-actions { display: flex; gap: 0.5rem; }
 .gate-actions button { flex: 1; }
-.gate-cancel { background: #fff !important; color: #334155 !important; border: 1px solid #cbd5e1 !important; }
+.gate-cancel { background: var(--color-surface) !important; color: var(--color-text-secondary) !important; border: 1px solid #cbd5e1 !important;}
 </style>

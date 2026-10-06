@@ -146,10 +146,9 @@ onBeforeUnmount(() => {
   padding: 0 var(--space-3) 0 var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #fff;
-  color: #1e293b;
-  cursor: pointer;
-}
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;}
 
 .lang__trigger:hover {
   border-color: #d7dbe6;
@@ -172,8 +171,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   flex-shrink: 0;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .lang__mark {
   width: var(--control-sm);
@@ -198,14 +196,12 @@ onBeforeUnmount(() => {
 .lang__chevron {
   width: 0.85rem;
   height: 0.85rem;
-  color: #94a3b8;
-  transition: transform 0.18s ease;
-}
+  color: var(--color-text-faint);
+  transition: transform 0.18s ease;}
 
 .lang--open .lang__chevron {
   transform: rotate(180deg);
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .lang__panel {
   position: absolute;
@@ -213,15 +209,14 @@ onBeforeUnmount(() => {
   right: 0;
   z-index: 50;
   width: 16.75rem;
-  padding: var(--space-1);
+  padding: var(--overlay-pad);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #fff;
-  box-shadow: var(--shadow-md);
-}
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);}
 
 .lang__head {
-  padding: 0.45rem 0.7rem 0.35rem;
+  padding: var(--space-2) var(--space-3) var(--space-1);
 }
 
 .lang__kicker {
@@ -229,23 +224,22 @@ onBeforeUnmount(() => {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .lang__list {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: var(--space-1);
 }
 
 .lang__option {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--nav-icon-gap);
   width: 100%;
-  height: var(--control-md);
+  height: auto;
   min-height: var(--control-md);
-  padding: 0 var(--space-3);
+  padding: var(--overlay-item-pad-y) var(--overlay-item-pad-x);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -274,19 +268,17 @@ onBeforeUnmount(() => {
   font-size: var(--text-md);
   font-weight: 500;
   letter-spacing: 0;
-  color: #0f172a;
-  line-height: var(--line-sm);
-}
+  color: var(--color-text-primary);
+  line-height: var(--line-sm);}
 
 .lang__meta {
   font-size: var(--text-xs);
   line-height: var(--line-xs);
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .lang-pop-enter-active,
 .lang-pop-leave-active {
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition: opacity var(--motion-fast) var(--ease-in-out), transform var(--motion-fast) var(--ease-out);
 }
 
 .lang-pop-enter-from,

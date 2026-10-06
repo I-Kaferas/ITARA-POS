@@ -26,12 +26,10 @@ const isAmenities = computed(() => route.path.startsWith('/admin/hotel/room-conf
   padding: 1.5rem;
   border: 1px solid var(--color-border, #e4e8ec);
   border-radius: 0.85rem;
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .hotel-panel__hint {
   margin: 0;
   font-size: 0.9rem;
-  color: #66727c;
-}
+  color: var(--color-text-muted);}
 </style>

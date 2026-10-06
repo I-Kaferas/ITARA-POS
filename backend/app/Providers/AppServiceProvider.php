@@ -13,6 +13,7 @@ use App\Models\Currency;
 use App\Models\Device;
 use App\Models\GoodsReceipt;
 use App\Models\Product;
+use App\Models\GalleryImage;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use App\Models\PurchaseInvoice;
@@ -94,6 +95,7 @@ class AppServiceProvider extends ServiceProvider
             'category' => Category::class,
             'product' => Product::class,
             'productImage' => ProductImage::class,
+            'galleryImage' => GalleryImage::class,
             'variant' => ProductVariant::class,
             'barcode' => Barcode::class,
             'purchaseOrder' => PurchaseOrder::class,

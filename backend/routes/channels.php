@@ -1,31 +1,24 @@
 <?php
 
-use App\Models\Store;
 use App\Models\User;
+use App\Services\Realtime\ChannelAuthorizer;
 use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('tenant.{tenantId}', function (User $user, string $tenantId): bool {
-    if (! $user->is_active) {
-        return false;
-    }
-
-    if ($user->tenant_id === null) {
-        return true;
-    }
-
-    return (string) $user->tenant_id === (string) $tenantId;
+    return app(ChannelAuthorizer::class)->allowsTenant($user, $tenantId);
 });
 
 Broadcast::channel('tenant.{tenantId}.store.{storeId}', function (User $user, string $tenantId, string $storeId): bool {
-    if (! $user->is_active) {
+    return app(ChannelAuthorizer::class)->allowsStore($user, $tenantId, $storeId);
+});
+
+Broadcast::channel('tenant.{tenantId}.online', function (User $user, string $tenantId): array|bool {
+    if (! app(ChannelAuthorizer::class)->allowsTenant($user, $tenantId)) {
         return false;
     }
 
-    if ($user->tenant_id !== null && (string) $user->tenant_id !== (string) $tenantId) {
-        return false;
-    }
-
-    $store = Store::query()->find($storeId);
-
-    return $store !== null && (string) $store->tenant_id === (string) $tenantId;
+    return [
+        'id' => $user->id,
+        'name' => $user->name,
+    ];
 });

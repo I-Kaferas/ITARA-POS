@@ -9,11 +9,31 @@ class SaasCatalog
     /** @var list<string> */
     public const MODULES = ['pos', 'stock', 'restaurant', 'hotel'];
 
+    /** @var list<string> */
+    public const LIFECYCLE = ['trial', 'active', 'past_due', 'suspended', 'cancelled', 'archived'];
+
     /** @var array<string, list<string>> */
     public const PLANS = [
         'pos_stock' => ['pos', 'stock'],
         'pos_stock_restaurant' => ['pos', 'stock', 'restaurant'],
         'pos_stock_hotel_restaurant' => ['pos', 'stock', 'hotel', 'restaurant'],
+    ];
+
+    /** @var array<string, string> */
+    private const COMMERCIAL_PLAN_ALIASES = [
+        'starter' => 'starter',
+        'professional' => 'professional',
+        'enterprise' => 'enterprise',
+        'pos_stock' => 'starter',
+        'pos_stock_restaurant' => 'professional',
+        'pos_stock_hotel_restaurant' => 'enterprise',
+    ];
+
+    /** @var array<string, int> */
+    public const COMMERCIAL_RANK = [
+        'starter' => 1,
+        'professional' => 2,
+        'enterprise' => 3,
     ];
 
     /** @return list<string> */
@@ -25,6 +45,41 @@ class SaasCatalog
         }
 
         return array_values(array_intersect(self::MODULES, $saved));
+    }
+
+    /** @return array{plan: string, status: string, billing_cycle: string, renews_on: ?string} */
+    public function commercialSubscription(?Tenant $tenant): array
+    {
+        $saved = is_array($tenant?->settings['saas'] ?? null) ? $tenant->settings['saas'] : [];
+        $subscription = is_array($saved['subscription'] ?? null) ? $saved['subscription'] : [];
+        $rawPlan = $subscription['plan'] ?? null;
+        $cycle = $subscription['billing_cycle'] ?? 'yearly';
+        $status = $subscription['status'] ?? 'active';
+        $renews = $subscription['renews_on'] ?? null;
+
+        return [
+            'plan' => $this->resolveCommercialPlan(is_string($rawPlan) ? $rawPlan : null, $tenant),
+            'status' => in_array($status, ['active', 'trial', 'past_due', 'cancelled'], true) ? $status : 'active',
+            'billing_cycle' => $cycle === 'monthly' ? 'monthly' : 'yearly',
+            'renews_on' => is_string($renews) && $renews !== '' ? $renews : null,
+        ];
+    }
+
+    private function resolveCommercialPlan(?string $plan, ?Tenant $tenant): string
+    {
+        if ($plan !== null && isset(self::COMMERCIAL_PLAN_ALIASES[$plan])) {
+            return self::COMMERCIAL_PLAN_ALIASES[$plan];
+        }
+
+        $modules = $this->modules($tenant);
+        if (in_array('hotel', $modules, true)) {
+            return 'enterprise';
+        }
+        if (in_array('restaurant', $modules, true)) {
+            return 'professional';
+        }
+
+        return 'starter';
     }
 
     /** @return array<string, mixed> */

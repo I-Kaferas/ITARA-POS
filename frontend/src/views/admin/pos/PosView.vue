@@ -13,6 +13,7 @@ import PosSessionGate from '../../../components/pos/PosSessionGate.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import { openPrintWindow, printSaleDocument } from '../../../utils/printSaleDocument'
 import { printZReport, type ZReportPayload } from '../../../utils/printZReport'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { useContextStore } from '../../../stores/context'
 import { usePosStore } from '../../../stores/pos'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -210,6 +211,10 @@ async function loadForStore(storeId: string) {
 function onViewportChange() {
   if (window.innerWidth > 900) cartOpen.value = false
 }
+
+useRealtimeSync(realtimeTopics.posTerminal, async () => {
+  if (context.currentStoreId) await pos.loadCatalog(context.currentStoreId)
+})
 
 onMounted(async () => {
   window.addEventListener('keydown', onScanKey)
@@ -621,11 +626,7 @@ onUnmounted(() => {
                 :title="t('pos.retry')"
                 @click="loadForStore(context.currentStoreId!)"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="23 4 23 10 17 10" />
-                  <polyline points="1 20 1 14 7 14" />
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                </svg>
+                <AppIcon name="recycle" :size="18" />
               </button>
               <button
                 type="button"
@@ -873,8 +874,7 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.75rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 .pos-table-banner {
   display: flex;
   align-items: center;
@@ -883,15 +883,14 @@ onUnmounted(() => {
   padding: 8px 12px;
   min-height: 40px;
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid #e2e8f0;
-  font-size: 13px;
-}
+  font-size: 13px;}
 .pos-table-banner strong {
   font-size: 14px;
 }
 .pos-desk__amount { width: 6.5rem; border: 1px solid #cbd5e1; border-radius: 0.45rem; padding: 0.3rem 0.45rem; }
-.pos-desk select, .pos-desk button { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.35rem 0.65rem; background: white; font-size: 0.8rem; }
+.pos-desk select, .pos-desk button { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.35rem 0.65rem; background: var(--color-surface); font-size: 0.8rem;}
 
 .pos-workspace {
   position: relative;
@@ -901,9 +900,8 @@ onUnmounted(() => {
   grid-template-columns: minmax(0, 1fr) minmax(20rem, 23rem);
   overflow: hidden;
   margin-top: 0.45rem;
-  background: #fff;
-  border-top: 1px solid var(--color-border, #e7edf3);
-}
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border, #e7edf3);}
 
 .pos-main {
   display: flex;
@@ -932,19 +930,17 @@ onUnmounted(() => {
   border: 1px solid var(--color-border, #dbe3ea);
   border-radius: 0.75rem;
   padding: 0.7rem 1rem;
-  background: #fff;
-  color: var(--color-text-secondary, #475569);
+  background: var(--color-surface);
+  color: var(--color-text-secondary, var(--color-text-secondary));
   font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
-  white-space: nowrap;
-}
+  white-space: nowrap;}
 
 .pos-order-mode__btn--active {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #fff;
-}
+  background: var(--color-inverse);
+  border-color: var(--color-inverse);
+  color: #fff;}
 
 .pos-refresh {
   flex-shrink: 0;
@@ -954,15 +950,13 @@ onUnmounted(() => {
   place-items: center;
   border: 1px solid var(--color-border, #dbe3ea);
   border-radius: 0.75rem;
-  background: #fff;
-  color: var(--color-text-secondary, #475569);
-  cursor: pointer;
-}
+  background: var(--color-surface);
+  color: var(--color-text-secondary, var(--color-text-secondary));
+  cursor: pointer;}
 
 .pos-refresh:hover {
-  border-color: var(--color-brand-300, #c4b5fd);
-  color: var(--color-brand-700);
-}
+  border-color: var(--color-brand-300, #a3b7c8);
+  color: var(--color-ink-brand, var(--color-brand-700));}
 
 .pos-cart-toggle {
   display: none;
@@ -973,12 +967,11 @@ onUnmounted(() => {
   border-radius: 0.65rem;
   padding: 0 0.85rem;
   height: 2.65rem;
-  background: #fff;
-  color: #1c2830;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font-size: 0.82rem;
   font-weight: 700;
-  cursor: pointer;
-}
+  cursor: pointer;}
 .pos-cart-toggle em {
   min-width: 1.35rem;
   padding: 0.1rem 0.4rem;
@@ -1004,8 +997,7 @@ onUnmounted(() => {
   min-width: 0;
   min-height: 0;
   border-left: 1px solid var(--color-border, #e7edf3);
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .pos-cart-backdrop {
   display: none;
@@ -1082,13 +1074,12 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--color-text-muted);
   gap: 0.75rem;
   margin: 0.75rem;
   border-radius: var(--radius-lg);
-  background: #fff;
-  border: 1px dashed #dbe3ea;
-}
+  background: var(--color-surface);
+  border: 1px dashed #dbe3ea;}
 .pos-retry {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
@@ -1102,7 +1093,7 @@ onUnmounted(() => {
   bottom: 6.5rem;
   left: 50%;
   transform: translateX(-50%);
-  background: #0f172a;
+  background: var(--color-inverse);
   color: white;
   padding: 0.625rem 1.25rem;
   border-radius: 0.5rem;
@@ -1110,20 +1101,18 @@ onUnmounted(() => {
   z-index: 200;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   max-width: min(90vw, 36rem);
-  text-align: center;
-}
+  text-align: center;}
 .pos-toast--error {
   background: #b91c1c;
 }
 .pos-option-form { display: flex; flex-direction: column; gap: 0.85rem; }
-.pos-option-hint { margin: 0; font-size: 0.85rem; color: #64748b; }
-.pos-option-empty { margin: 0; font-size: 0.85rem; color: #b45309; }
+.pos-option-hint { margin: 0; font-size: 0.85rem; color: var(--color-text-muted);}
+.pos-option-empty { margin: 0; font-size: 0.85rem; color: light-dark(#b45309, #d49b70);}
 .pos-option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); gap: 0.55rem; max-height: 22rem; overflow: auto; }
 .pos-option-card {
   display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem;
   padding: 0.75rem 0.8rem; border-radius: 0.75rem; border: 1px solid #dbe3ea;
-  background: #fff; text-align: left; cursor: pointer;
-}
+  background: var(--color-surface); text-align: left; cursor: pointer;}
 .pos-option-card--active { border-color: var(--color-brand-600); background: var(--color-brand-600); color: #fff; }
 .pos-option-card__label { font-weight: 650; }
 .pos-option-card__meta { font-size: 0.72rem; opacity: 0.75; }
@@ -1133,12 +1122,11 @@ onUnmounted(() => {
 .pos-option-qty__controls { display: flex; align-items: center; gap: 0.4rem; }
 .pos-option-qty__controls button,
 .pos-option-qty__controls input {
-  height: 2.4rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; background: #fff;
-}
+  height: 2.4rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; background: var(--color-surface);}
 .pos-option-qty__controls button { width: 2.4rem; font-size: 1.1rem; }
 .pos-option-qty__controls input { width: 4rem; text-align: center; }
 .pos-option-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
-.pos-option-cancel { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.55rem 1rem; background: #fff; }
+.pos-option-cancel { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.55rem 1rem; background: var(--color-surface);}
 .pos-option-add { border: 0; border-radius: 0.5rem; padding: 0.55rem 1rem; background: var(--color-brand-600); color: #fff; font-weight: 600; }
 .pos-option-add:disabled { opacity: 0.5; }
 </style>

@@ -372,7 +372,8 @@ function toggleCalcTax(id: string, checked: boolean) {
               <input v-model="period.to" type="date" class="field" />
             </div>
           </div>
-          <button type="button" class="btn-primary" @click="refreshFiscal">{{ t('catalog.tax.refresh') }}</button>
+          <button type="button" class="btn-primary" @click="refreshFiscal">
+            <AppIcon name="recycle" :size="15" />{{ t('catalog.tax.refresh') }}</button>
         </div>
         <div class="stats">
           <div><span>{{ t('catalog.tax.taxable') }}</span><strong>{{ formatMoney(reportTotals.taxable_amount) }}</strong></div>
@@ -597,7 +598,7 @@ function toggleCalcTax(id: string, checked: boolean) {
             {{ tax.name }} ({{ tax.rate }}%)
           </label>
         </div>
-        <button type="button" class="btn-primary" :disabled="saving" @click="runCalculator">{{ t('catalog.tax.calculate') }}</button>
+        <button type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="runCalculator">{{ t('catalog.tax.calculate') }}</button>
         <div v-if="calcResult" class="space-y-2 text-sm">
           <div class="stats">
             <div><span>{{ t('catalog.tax.net') }}</span><strong>{{ formatMoney(calcResult.net) }}</strong></div>
@@ -700,7 +701,7 @@ function toggleCalcTax(id: string, checked: boolean) {
 
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showTax = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -722,7 +723,7 @@ function toggleCalcTax(id: string, checked: boolean) {
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="groupForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showGroup = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -735,7 +736,7 @@ function toggleCalcTax(id: string, checked: boolean) {
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="classForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showClass = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -784,7 +785,7 @@ function toggleCalcTax(id: string, checked: boolean) {
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="ruleForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showRule = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -795,17 +796,17 @@ function toggleCalcTax(id: string, checked: boolean) {
 
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 .tax-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.tax-tab { border-radius: 999px; border: 1px solid #e2e8f0; background: white; padding: 0.4rem 0.85rem; font-size: 0.8125rem; color: #475569; }
+.tax-tab { border-radius: 999px; border: 1px solid #e2e8f0; background: var(--color-surface); padding: 0.4rem 0.85rem; font-size: 0.8125rem; color: var(--color-text-secondary);}
 .tax-tab--active { background: var(--color-brand-600); color: white; border-color: var(--color-brand-600); }
-.panel { overflow: hidden; border-radius: 0.75rem; background: white; box-shadow: 0 1px 2px rgb(15 23 42 / 0.05); }
+.panel { overflow: hidden; border-radius: 0.75rem; background: var(--color-surface); box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);}
 .panel th, .panel td { padding: 0.75rem 1rem; text-align: left; }
 .panel tbody tr { border-top: 1px solid #f1f5f9; }
-.empty { padding: 2rem 1rem; text-align: center; color: #64748b; }
+.empty { padding: 2rem 1rem; text-align: center; color: var(--color-text-muted);}
 .stats { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
-.stats div { border-radius: 0.75rem; background: white; padding: 0.85rem 1rem; box-shadow: 0 1px 2px rgb(15 23 42 / 0.05); }
-.stats span { display: block; font-size: 0.75rem; color: #64748b; }
+.stats div { border-radius: 0.75rem; background: var(--color-surface); padding: 0.85rem 1rem; box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);}
+.stats span { display: block; font-size: 0.75rem; color: var(--color-text-muted);}
 .rate-field { display: flex; align-items: center; gap: 0.4rem; }
 .behavior { display: grid; gap: 0.75rem; border-radius: 0.75rem; border: 1px solid #e2e8f0; padding: 0.85rem; }
 .behavior legend { padding: 0 0.25rem; font-size: 0.875rem; font-weight: 600; }

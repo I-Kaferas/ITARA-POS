@@ -3,13 +3,18 @@ import Pusher from 'pusher-js'
 import { api, getTenantId, getToken } from '../api/client'
 
 export type RealtimePayload = {
+  event_id?: string
   type: string
+  event_name?: string
   tenant_id: string
   store_id?: string | null
+  user_id?: string | null
   entity?: string | null
+  entity_id?: string | null
   id?: string | null
   status?: string | null
   occurred_at?: string
+  data?: Record<string, unknown>
 }
 
 type EchoInstance = InstanceType<typeof Echo>

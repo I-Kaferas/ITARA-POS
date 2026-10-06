@@ -199,5 +199,5 @@ function money(amount: number, currency?: string) {
 
 <style scoped>
 
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

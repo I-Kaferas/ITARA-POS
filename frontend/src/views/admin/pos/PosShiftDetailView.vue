@@ -11,6 +11,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { CashierShift, ShiftSummary } from '../../../types'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { formatDate, formatMoney } from '../../../utils/format'
 
 const { t } = useI18n()
@@ -112,6 +113,7 @@ function movementLabel(type: string) {
 }
 
 onMounted(load)
+useRealtimeSync(realtimeTopics.shifts, load)
 watch(shiftId, load)
 </script>
 
@@ -228,8 +230,8 @@ watch(shiftId, load)
         </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="ui-btn ui-btn--secondary" @click="showClose = false">{{ t('common.cancel') }}</button>
-          <button type="button" class="ui-btn ui-btn--primary" :disabled="saving" @click="confirmClose">
-            {{ saving ? t('common.loading') : t('common.save') }}
+          <button type="button" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="confirmClose">
+            {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>
       </div>

@@ -25,9 +25,9 @@ withDefaults(defineProps<{
     <div v-if="title || meta || $slots.toolbar" class="ui-table-wrap__header">
       <div>
         <h3 v-if="title" class="ui-table-wrap__title">{{ title }}</h3>
-        <p v-if="meta" class="ui-table-wrap__meta m-0 mt-0.5">{{ meta }}</p>
+        <p v-if="meta" class="ui-table-wrap__meta">{{ meta }}</p>
       </div>
-      <div v-if="$slots.toolbar" class="flex flex-wrap items-center gap-2">
+      <div v-if="$slots.toolbar" class="ui-table__actions">
         <slot name="toolbar" />
       </div>
     </div>

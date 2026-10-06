@@ -63,9 +63,10 @@ export function clearStoreId() {
   localStorage.removeItem('pos_store_id')
 }
 
-export function setAuth(accessToken: string, tenantId: string, refreshToken?: string) {
+export function setAuth(accessToken: string, tenantId: string | null, refreshToken?: string) {
   localStorage.setItem('pos_token', accessToken)
-  localStorage.setItem('pos_tenant_id', tenantId)
+  if (tenantId) localStorage.setItem('pos_tenant_id', tenantId)
+  else localStorage.removeItem('pos_tenant_id')
   if (refreshToken) localStorage.setItem('pos_refresh_token', refreshToken)
 }
 
@@ -98,8 +99,7 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 
   const payload = (await response.json()) as { access_token: string; refresh_token: string }
-  const tenantId = getTenantId()
-  if (tenantId) setAuth(payload.access_token, tenantId, payload.refresh_token)
+  setAuth(payload.access_token, getTenantId(), payload.refresh_token)
   return payload.access_token
 }
 

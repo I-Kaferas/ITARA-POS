@@ -17,6 +17,12 @@ export interface User {
   roles?: UserRoleAssignment[]
   store_ids?: string[]
   stores?: { id: string; name: string; code?: string | null }[]
+  subscription?: {
+    plan: 'starter' | 'professional' | 'enterprise'
+    status: 'active' | 'trial' | 'past_due' | 'cancelled'
+    billing_cycle: 'monthly' | 'yearly'
+    renews_on?: string | null
+  }
 }
 
 export interface UserSession {
@@ -78,6 +84,16 @@ export interface CompanySettings {
   dpmc?: string
   activity_sector?: string
   vat_status?: string
+  invoice_logo_url?: string | null
+  opening_hours?: string | null
+  is_open_now?: boolean
+  is_verified?: boolean
+  display_rating?: number | null
+  review_count?: number | null
+  cover_image_url?: string | null
+  cover_image_id?: string | null
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface Company {
@@ -597,6 +613,15 @@ export interface ProductAccompanimentHost {
   id: string
   product: ProductAccompanimentItem
   accompaniments: ProductAccompanimentItem[]
+}
+
+export interface GalleryImage {
+  id: string
+  catalog_id?: string | null
+  cdn_url: string
+  original_filename?: string | null
+  mime_type?: string
+  file_size?: number
 }
 
 export interface ProductImage {

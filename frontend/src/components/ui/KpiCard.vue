@@ -25,7 +25,7 @@ withDefaults(defineProps<{
     <div class="kpi-card__top">
       <div>
         <p class="kpi-card__label">{{ label }}</p>
-        <p class="kpi-card__value">{{ value }}</p>
+        <p class="kpi-card__value" :key="String(value)">{{ value }}</p>
         <span
           v-if="delta != null && delta !== ''"
           class="kpi-card__delta"

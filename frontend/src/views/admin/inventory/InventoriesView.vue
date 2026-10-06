@@ -578,7 +578,7 @@ async function completeFromPreview() {
 
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving || (form.count_type === 'spot' && !selectedProducts.length)">
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || (form.count_type === 'spot' && !selectedProducts.length)">
             {{ form.count_type === 'opening' ? t('inventory.createOpening') : form.count_type === 'full' ? t('inventory.startFullCount') : form.count_type === 'cycle' ? t('inventory.planCycle') : t('inventory.startSpotCount') }}
           </button>
         </div>
@@ -635,9 +635,9 @@ async function completeFromPreview() {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showPreview = false">{{ t('common.cancel') }}</button>
-          <button v-if="previewEditable" type="button" class="btn-secondary" :disabled="saving" @click="savePreview">{{ t('common.save') }}</button>
-          <button v-if="preview.status === 'draft'" type="button" class="btn-primary" :disabled="saving" @click="confirmFromPreview">{{ t('inventory.confirm') }}</button>
-          <button v-else-if="preview.status === 'confirmed'" type="button" class="btn-primary" :disabled="saving" @click="completeFromPreview">{{ t('inventory.confirmFinal') }}</button>
+          <button v-if="previewEditable" type="button" class="btn-secondary" :class="{ 'is-busy': saving }" :disabled="saving" @click="savePreview">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button v-if="preview.status === 'draft'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="confirmFromPreview">{{ t('inventory.confirm') }}</button>
+          <button v-else-if="preview.status === 'confirmed'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="completeFromPreview">{{ t('inventory.confirmFinal') }}</button>
         </div>
       </div>
     </AppModal>
@@ -648,7 +648,7 @@ async function completeFromPreview() {
 
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 .count-types { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
 .count-type {
   display: flex;
@@ -658,16 +658,15 @@ async function completeFromPreview() {
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   cursor: pointer;
-  background: #fff;
-}
-.count-type--active { border-color: var(--color-brand-600); background: #eef3f6; }
-.count-type__title { font-size: 0.8125rem; font-weight: 700; color: #12181e; }
-.count-type__desc { font-size: 0.72rem; line-height: 1.35; color: #64748b; }
+  background: var(--color-surface);}
+.count-type--active { border-color: var(--color-brand-600); background: var(--color-brand-50); }
+.count-type__title { font-size: 0.8125rem; font-weight: 700; color: var(--color-text-primary);}
+.count-type__desc { font-size: 0.72rem; line-height: 1.35; color: var(--color-text-muted);}
 .count-list { max-height: 18rem; overflow: auto; border: 1px solid #e2e8f0; border-radius: 0.75rem; }
 .count-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.65rem; border-bottom: 1px solid #f1f5f9; }
 .count-qty { width: 4.4rem; flex: 0 0 4.4rem; padding: 0.3rem 0.35rem; text-align: center; }
-.count-qty-label { width: 4.4rem; flex: 0 0 4.4rem; text-align: center; font-size: 0.75rem; color: #64748b; }
-.count-sys { width: 5.5rem; flex: 0 0 5.5rem; text-align: center; font-size: 0.875rem; color: #475569; }
-.count-row--head { font-size: 0.75rem; color: #64748b; background: #f8fafc; }
+.count-qty-label { width: 4.4rem; flex: 0 0 4.4rem; text-align: center; font-size: 0.75rem; color: var(--color-text-muted);}
+.count-sys { width: 5.5rem; flex: 0 0 5.5rem; text-align: center; font-size: 0.875rem; color: var(--color-text-secondary);}
+.count-row--head { font-size: 0.75rem; color: var(--color-text-muted); background: var(--color-table-header);}
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 </style>

@@ -49,7 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error('Réponse de connexion invalide')
       }
 
-      setAuth(response.access_token, response.user.tenant_id ?? '', response.refresh_token)
+      setAuth(response.access_token, response.user.tenant_id ?? null, response.refresh_token)
       user.value = response.user
       return { requiresTwoFactor: false as const }
     } catch (e) {
@@ -74,7 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       setAuth(
         response.access_token!,
-        response.user!.tenant_id || '',
+        response.user!.tenant_id ?? null,
         response.refresh_token,
       )
       user.value = response.user!

@@ -335,7 +335,7 @@ const varianceClass = computed(() => {
         </label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showRegisterModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -506,10 +506,10 @@ const varianceClass = computed(() => {
 <style scoped>
 
 
-.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; background: white; }
-.text-brand-600 { color: var(--color-brand-600); }
+.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; background: var(--color-surface);}
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 .bg-brand-50 { background-color: color-mix(in srgb, var(--color-brand-600) 8%, white); }
-.text-brand-700 { color: var(--color-brand-600); }
+.text-brand-700 { color: var(--color-ink-brand, var(--color-brand-600));}
 .text-brand-800 { color: color-mix(in srgb, var(--color-brand-600) 80%, black); }
 .ring-brand-200 { --tw-ring-color: color-mix(in srgb, var(--color-brand-600) 25%, white); }
 </style>

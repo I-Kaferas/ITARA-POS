@@ -12,7 +12,7 @@ const form = reactive({
   brand_name: '',
   tagline: '',
   logo_url: '',
-  primary_color: '#3D5C73',
+  primary_color: '#12243c',
   accent_color: '#E39B2B',
   support_email: '',
   support_phone: '',
@@ -149,7 +149,7 @@ onMounted(() => { void load() })
       </div>
 
       <div>
-        <button type="button" class="ui-btn ui-btn-primary" :disabled="saving" @click="save">
+        <button type="button" class="ui-btn ui-btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="save">
           {{ saving ? 'Enregistrement…' : 'Enregistrer la marque' }}
         </button>
       </div>

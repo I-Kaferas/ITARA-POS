@@ -4,6 +4,9 @@ import App from './App.vue'
 import i18n, { ensureI18nReady } from './i18n'
 import router from './router'
 import './style.css'
+import { initTheme } from './composables/useTheme'
+
+initTheme()
 
 async function bootstrap() {
   await ensureI18nReady()

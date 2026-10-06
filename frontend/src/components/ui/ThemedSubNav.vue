@@ -79,7 +79,7 @@ const showLinks = computed(() => linkTabs.value.length > 1)
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--section-gap);
 }
 
 .themed-sub-nav :deep(.sub-nav) {

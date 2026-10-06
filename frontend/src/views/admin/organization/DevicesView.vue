@@ -427,7 +427,7 @@ async function revoke(device: Device) {
             <button type="button" class="btn-secondary" :disabled="!showFormToken" @click="copyToken">
               {{ copied ? t('org.copied') : t('org.copyToken') }}
             </button>
-            <button type="button" class="btn-secondary" :disabled="saving" @click="regenerate">
+            <button type="button" class="btn-secondary" :class="{ 'is-busy': saving }" :disabled="saving" @click="regenerate">
               {{ t('org.regenerateToken') }}
             </button>
           </div>
@@ -444,7 +444,7 @@ async function revoke(device: Device) {
         <p v-if="saveNotice" class="save-banner save-banner--ok">{{ saveNotice }}</p>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving || !storeId">{{ saving ? t('common.loading') : t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !storeId">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -454,8 +454,8 @@ async function revoke(device: Device) {
 <style scoped>
 
 
-.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.45rem 0.75rem; font-size: 0.8125rem; background: white; }
-.text-brand-600 { color: var(--color-brand-600); }
+.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.45rem 0.75rem; font-size: 0.8125rem; background: var(--color-surface);}
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -478,17 +478,15 @@ async function revoke(device: Device) {
   padding: 0.55rem 0.7rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.8rem;
-  background: #fff;
-  color: #334155;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   text-align: left;
   font-size: 0.8125rem;
   font-weight: 600;
-  cursor: pointer;
-}
+  cursor: pointer;}
 .choice-card:hover {
   border-color: #c5d4df;
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 .choice-card--active {
   box-shadow: 0 0 0 1px currentColor;
 }
@@ -499,11 +497,10 @@ async function revoke(device: Device) {
   height: 2rem;
   flex-shrink: 0;
   border-radius: 0.6rem;
-  background: #f1f5f9;
-}
+  background: var(--color-table-header);}
 .choice-card--pos { --tone: #2563eb; }
 .choice-card--printer { --tone: #d97706; }
-.choice-card--tablet { --tone: #7c3aed; }
+.choice-card--tablet { --tone: var(--color-brand-600); }
 .choice-card--computer { --tone: #0f766e; }
 .choice-card--other { --tone: #64748b; }
 .choice-card--network { --tone: #0284c7; }
@@ -517,8 +514,7 @@ async function revoke(device: Device) {
 .choice-card--network,
 .choice-card--usb,
 .choice-card--bluetooth {
-  color: #334155;
-}
+  color: var(--color-text-secondary);}
 .choice-card--pos .choice-card__icon,
 .choice-card--printer .choice-card__icon,
 .choice-card--tablet .choice-card__icon,
@@ -548,18 +544,18 @@ async function revoke(device: Device) {
   color: white;
 }
 .device-panel { margin: 0; border: 1px solid #e4e8ec; border-radius: 0.75rem; padding: 0.85rem; }
-.device-panel legend { padding: 0 0.35rem; font-size: 0.8125rem; font-weight: 600; color: #3d5c73; }
+.device-panel legend { padding: 0 0.35rem; font-size: 0.8125rem; font-weight: 600; color: var(--color-ink-brand, var(--color-brand-600));}
 .warehouse-box { display: grid; gap: 0.4rem; max-height: 9rem; overflow: auto; border: 1px solid #e4e8ec; border-radius: 0.75rem; padding: 0.55rem; }
 .warehouse-option { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
 .token-cell { display: flex; align-items: center; gap: 0.55rem; }
-.token-reveal { border: 0; background: transparent; padding: 0; color: var(--color-brand-600); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
-.token-reveal:hover { color: var(--color-brand-700); }
+.token-reveal { border: 0; background: transparent; padding: 0; color: var(--color-ink-brand, var(--color-brand-600)); font-size: 0.75rem; font-weight: 600; cursor: pointer;}
+.token-reveal:hover { color: var(--color-ink-brand, var(--color-brand-700));}
 .token-box { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; border-radius: 0.75rem; background: #f3f6f8; padding: 0.85rem; }
-.token-value { margin: 0.2rem 0; font-family: ui-monospace, monospace; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.04em; color: #1a2833; }
+.token-value { margin: 0.2rem 0; font-family: var(--font-sans); font-size: 0.95rem; font-weight: 700; letter-spacing: 0.04em; color: var(--color-text-primary);}
 .reg-pill { display: inline-flex; border-radius: 999px; padding: 0.15rem 0.55rem; font-size: 0.75rem; font-weight: 600; }
-.reg-pill--pending { background: #f8efdc; color: #9a6810; }
-.reg-pill--ok { background: #ecfdf5; color: #047857; }
+.reg-pill--pending { background: #f8efdc; color: light-dark(#9a6810, #c4a774);}
+.reg-pill--ok { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
 .save-banner { margin: 0; border-radius: 0.65rem; padding: 0.65rem 0.75rem; font-size: 0.8125rem; }
-.save-banner--error { background: #fef2f2; color: #b91c1c; }
-.save-banner--ok { background: #ecfdf5; color: #047857; }
+.save-banner--error { background: var(--color-danger-bg); color: light-dark(#b91c1c, #e2a0a0);}
+.save-banner--ok { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
 </style>

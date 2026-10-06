@@ -170,15 +170,14 @@ function onSelect(product: PosProduct) {
   text-align: left;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #fff;
+  background: var(--color-surface);
   overflow: hidden;
   cursor: pointer;
   box-shadow: var(--shadow-xs);
   transition:
     transform var(--motion-fast) var(--ease-out),
     box-shadow var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out);
-}
+    border-color var(--motion-fast) var(--ease-out);}
 
 .pos-products__card:hover:not(:disabled) {
   transform: translateY(-2px);
@@ -264,8 +263,7 @@ function onSelect(product: PosProduct) {
   margin: 0.15rem 0 0;
   font-size: 0.875rem;
   font-weight: 700;
-  color: var(--color-brand-600);
-}
+  color: var(--color-ink-brand, var(--color-brand-600));}
 
 .pos-products__unit {
   font-weight: 500;
@@ -287,8 +285,7 @@ function onSelect(product: PosProduct) {
 }
 
 .pos-products__stock--out {
-  color: #dc2626;
-}
+  color: light-dark(#dc2626, #f0a4a4);}
 
 .pos-products__empty {
   display: grid;

@@ -270,8 +270,8 @@ async function save() {
           <h2 class="settings-page__title">{{ t('hotel.settings.title') }}</h2>
           <p class="settings-page__hint">{{ t('hotel.settings.hint') }}</p>
         </div>
-        <button class="btn-primary" :disabled="saving || loading" @click="save">
-          {{ saving ? t('common.loading') : t('common.save') }}
+        <button class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || loading" @click="save">
+          {{ saving ? t('common.saving') : t('common.save') }}
         </button>
       </div>
 
@@ -625,17 +625,15 @@ async function save() {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 650;
-  color: #1a2833;
-}
+  color: var(--color-text-primary);}
 
 .settings-page__hint,
 .section-hint,
 .field-hint {
   margin: 0.3rem 0 0;
   font-size: 0.84rem;
-  color: #66727c;
-  line-height: 1.4;
-}
+  color: var(--color-text-muted);
+  line-height: 1.4;}
 
 .field-hint {
   margin-bottom: 0.4rem;
@@ -649,14 +647,12 @@ async function save() {
 }
 
 .settings-banner--error {
-  background: #fef2f2;
-  color: #b91c1c;
-}
+  background: var(--color-danger-bg);
+  color: light-dark(#b91c1c, #e2a0a0);}
 
 .settings-banner--ok {
-  background: #ecfdf5;
-  color: #047857;
-}
+  background: var(--color-success-bg);
+  color: light-dark(#047857, #96c6b8);}
 
 .settings-layout {
   display: grid;
@@ -685,16 +681,14 @@ async function save() {
   padding: 1.2rem 1.3rem;
   border: 1px solid var(--color-border, #e4e8ec);
   border-radius: 0.9rem;
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .settings-card h3,
 .settings-preview__card h3 {
   margin: 0 0 1rem;
   font-size: 0.98rem;
   font-weight: 650;
-  color: #1a2833;
-}
+  color: var(--color-text-primary);}
 
 .settings-grid {
   display: grid;
@@ -723,10 +717,9 @@ async function save() {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  color: #64748b;
+  color: var(--color-text-muted);
   font-weight: 650;
-  pointer-events: none;
-}
+  pointer-events: none;}
 
 .money-field__prefix {
   left: 0.85rem;
@@ -763,14 +756,12 @@ async function save() {
 
 .toggle-row strong {
   font-size: 0.9rem;
-  color: #1e293b;
-}
+  color: var(--color-text-primary);}
 
 .toggle-row small {
   font-size: 0.8rem;
-  color: #66727c;
-  line-height: 1.35;
-}
+  color: var(--color-text-muted);
+  line-height: 1.35;}
 
 .toggle-row__input {
   position: absolute;
@@ -796,10 +787,9 @@ async function save() {
   width: 1.05rem;
   height: 1.05rem;
   border-radius: 999px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
-  transition: transform 0.16s ease;
-}
+  transition: transform 0.16s ease;}
 
 .toggle-row__input:checked + .toggle-row__track {
   background: #0f766e;
@@ -827,15 +817,13 @@ async function save() {
 
 .preview-list dt {
   margin: 0;
-  color: #66727c;
-}
+  color: var(--color-text-muted);}
 
 .preview-list dd {
   margin: 0;
   font-weight: 650;
-  color: #1a2833;
-  text-align: right;
-}
+  color: var(--color-text-primary);
+  text-align: right;}
 
 .preview-example {
   margin-top: 1rem;
@@ -847,25 +835,21 @@ async function save() {
 .preview-example h4 {
   margin: 0 0 0.45rem;
   font-size: 0.84rem;
-  color: #1a2833;
-}
+  color: var(--color-text-primary);}
 
 .preview-example p {
   margin: 0;
   font-size: 0.82rem;
-  color: #334155;
-  line-height: 1.45;
-}
+  color: var(--color-text-secondary);
+  line-height: 1.45;}
 
 .preview-example__note {
   margin-top: 0.45rem !important;
-  color: #66727c !important;
-}
+  color: var(--color-text-muted) !important;}
 
 .preview-saved,
 .preview-currency-meta {
   margin: 0.85rem 0 0;
   font-size: 0.78rem;
-  color: #80909c;
-}
+  color: var(--color-text-faint);}
 </style>

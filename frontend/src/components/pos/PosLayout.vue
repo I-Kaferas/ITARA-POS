@@ -25,7 +25,8 @@ const tabGroups = computed(() => [
     label: t('nav.group.posOps'),
     tabs: [
       tab('/admin/pos/overview', t('nav.posOverview')),
-      tab('/admin/hospitality', t('nav.restaurant')),
+      tab('/admin/pos/terminal', t('nav.posTerminal')),
+      tab('/admin/pos/orders', t('nav.posOrders')),
       tab('/admin/pos/shifts', t('nav.posShifts')),
       tab('/admin/pos/reservations', t('nav.posReservations')),
     ],
@@ -33,7 +34,6 @@ const tabGroups = computed(() => [
   {
     label: t('nav.group.posSales'),
     tabs: [
-      tab('/admin/pos/orders', t('nav.posOrders')),
       tab('/admin/sales/returns', t('sales.tabs.returns')),
       tab('/admin/customers', t('nav.customers')),
     ],

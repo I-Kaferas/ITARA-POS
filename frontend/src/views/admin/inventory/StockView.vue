@@ -8,6 +8,7 @@ import DataTableShell from '../../../components/ui/DataTableShell.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import KpiCard from '../../../components/ui/KpiCard.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { api } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { InventoryMovement, Product, StockBalance, Warehouse } from '../../../types'
@@ -96,6 +97,10 @@ onMounted(async () => {
   warehouses.value = await store.loadAllWarehouses()
   catalogProducts.value = await store.loadAllProducts()
   warehouseId.value = warehouses.value[0]?.id ?? ''
+})
+
+useRealtimeSync(realtimeTopics.stock, async () => {
+  if (warehouseId.value) await store.loadStockBalances(warehouseId.value, false)
 })
 
 watch(warehouseId, async (id) => {
@@ -384,7 +389,7 @@ function clearHistoryDates() {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -395,7 +400,7 @@ function clearHistoryDates() {
 
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 .history-list { max-height: 22rem; overflow: auto; border: 1px solid #e2e8f0; border-radius: 0.75rem; }
 .history-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0.8rem; border-bottom: 1px solid #f1f5f9; }
 .history-arrow {
@@ -408,9 +413,9 @@ function clearHistoryDates() {
   border-radius: 999px;
 }
 .history-arrow svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.history-arrow--in { background: #ecfdf5; color: #059669; }
-.history-arrow--out { background: #fef2f2; color: #dc2626; }
+.history-arrow--in { background: var(--color-success-bg); color: light-dark(#059669, #6ec2a8);}
+.history-arrow--out { background: var(--color-danger-bg); color: light-dark(#dc2626, #f0a4a4);}
 .history-qty { min-width: 3.5rem; text-align: right; font-weight: 650; }
-.history-qty--in { color: #059669; }
-.history-qty--out { color: #dc2626; }
+.history-qty--in { color: light-dark(#059669, #6ec2a8);}
+.history-qty--out { color: light-dark(#dc2626, #f0a4a4);}
 </style>

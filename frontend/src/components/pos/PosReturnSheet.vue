@@ -147,11 +147,11 @@ watchLiveSearch(reference, search)
 </template>
 
 <style scoped>
-.sheet { display: flex; flex-direction: column; gap: 0.55rem; margin: 0.4rem 0.85rem 0; padding: 0.75rem; border-radius: 0.75rem; background: white; border: 1px solid #e2e8f0; }
+.sheet { display: flex; flex-direction: column; gap: 0.55rem; margin: 0.4rem 0.85rem 0; padding: 0.75rem; border-radius: 0.75rem; background: var(--color-surface); border: 1px solid #e2e8f0;}
 .sheet__head, .sheet__search, .sheet__line { display: flex; gap: 0.45rem; align-items: center; }
 .sheet__head { justify-content: space-between; }
-.sheet__hint, .sheet__error { margin: 0; font-size: 0.78rem; color: #64748b; }
-.sheet__error { color: #b91c1c; }
+.sheet__hint, .sheet__error { margin: 0; font-size: 0.78rem; color: var(--color-text-muted);}
+.sheet__error { color: light-dark(#b91c1c, #e2a0a0);}
 .sheet__lines { display: flex; flex-direction: column; gap: 0.35rem; }
 .sheet__line span:first-child { flex: 1; min-width: 0; }
 input, select, button { border: 1px solid #cbd5e1; border-radius: 0.45rem; padding: 0.4rem 0.55rem; }

@@ -194,6 +194,7 @@ onMounted(load)
         </div>
         <div class="hg__actions">
           <button type="button" class="btn btn--ghost" :disabled="loading" @click="load">
+            <AppIcon name="recycle" :size="15" />
             {{ t('common.refresh') }}
           </button>
           <RouterLink class="btn btn--primary" to="/admin/hotel/reservations">
@@ -314,14 +315,12 @@ onMounted(load)
 .hg__head h2 {
   margin: 0;
   font-size: 1.35rem;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 
 .hg__head p {
   margin: 0.25rem 0 0;
-  color: #66727c;
-  font-size: 0.88rem;
-}
+  color: var(--color-text-muted);
+  font-size: 0.88rem;}
 
 .hg__actions {
   display: flex;
@@ -331,9 +330,8 @@ onMounted(load)
 
 .hg__error {
   margin: 0;
-  color: #b91c1c;
-  font-size: 0.88rem;
-}
+  color: light-dark(#b91c1c, #e2a0a0);
+  font-size: 0.88rem;}
 
 .hg__stats {
   display: grid;
@@ -342,25 +340,22 @@ onMounted(load)
 }
 
 .hg__stat {
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid #e8eef3;
   border-radius: 0.85rem;
   padding: 0.85rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-}
+  gap: 0.2rem;}
 
 .hg__stat span {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .hg__stat strong {
   font-size: 1.45rem;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 
 .hg__toolbar {
   display: flex;
@@ -373,11 +368,10 @@ onMounted(load)
 }
 
 .hg__table-wrap {
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid #e8eef3;
   border-radius: 0.85rem;
-  overflow: auto;
-}
+  overflow: auto;}
 
 .hg__table {
   width: 100%;
@@ -397,10 +391,9 @@ onMounted(load)
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #7b8d9a;
-  background: #f8fafc;
-  font-weight: 700;
-}
+  color: var(--color-text-muted);
+  background: var(--color-table-header);
+  font-weight: 700;}
 
 .hg__client {
   display: flex;
@@ -412,19 +405,17 @@ onMounted(load)
 .hg__contact span,
 .hg__last strong {
   display: block;
-  color: #1c2830;
-  font-size: 0.88rem;
-}
+  color: var(--color-text-primary);
+  font-size: 0.88rem;}
 
 .hg__client small,
 .hg__contact small,
 .hg__last small,
 .hg__status {
   display: block;
-  color: #7b8d9a;
+  color: var(--color-text-muted);
   font-size: 0.72rem;
-  margin-top: 0.15rem;
-}
+  margin-top: 0.15rem;}
 
 .hg__avatar {
   width: 2rem;
@@ -448,25 +439,23 @@ onMounted(load)
   font-weight: 700;
 }
 
-.hg-pill--on { background: #d1fae5; color: #047857; }
-.hg-pill--off { background: #f1f5f9; color: #64748b; }
+.hg-pill--on { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
+.hg-pill--off { background: var(--color-table-header); color: var(--color-text-muted);}
 
 .hg__link {
-  color: var(--color-brand-600, var(--color-brand-600));
+  color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));
   font-weight: 700;
   font-size: 0.78rem;
-  text-decoration: none;
-}
+  text-decoration: none;}
 
 .hg__empty,
 .hg__muted {
   margin: 0;
   padding: 1.25rem;
-  color: #7b8d9a;
-  font-size: 0.88rem;
-}
+  color: var(--color-text-muted);
+  font-size: 0.88rem;}
 
-.hg__muted-inline { color: #94a3b8; }
+.hg__muted-inline { color: var(--color-text-faint);}
 
 @media (max-width: 720px) {
   .hg__stats { grid-template-columns: 1fr; }

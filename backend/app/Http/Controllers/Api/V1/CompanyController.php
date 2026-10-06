@@ -92,47 +92,22 @@ class CompanyController extends Controller
 
     public function uploadLogo(Request $request, Company $company): JsonResponse
     {
-        $request->validate([
-            'logo' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:2048'],
-        ]);
-
-        $file = $request->file('logo');
-        if ($file === null) {
-            return response()->json(['message' => 'Logo manquant.'], 422);
-        }
-
-        $extension = $file->guessExtension() ?: 'png';
-        $path = $company->tenant_id.'/companies/'.$company->id.'/logo.'.$extension;
-        $disk = $this->images->mediaDisk();
-
-        $this->deleteStoredLogo($company);
-
-        if (! Storage::disk($disk)->put($path, $file->getContent(), 'public')) {
-            return response()->json(['message' => 'Impossible d’enregistrer le logo.'], 500);
-        }
-
-        $settings = $company->settings ?? [];
-        $settings['logo_storage_path'] = $path;
-        $company->update([
-            'logo_url' => $this->images->buildCdnUrl($path),
-            'settings' => $settings,
-        ]);
-
-        return response()->json(['data' => $this->profile($company->fresh())]);
+        return $this->storeLogo($request, $company, 'logo');
     }
 
     public function deleteLogo(Company $company): JsonResponse
     {
-        $this->deleteStoredLogo($company);
+        return $this->clearLogo($company, 'logo');
+    }
 
-        $settings = $company->settings ?? [];
-        unset($settings['logo_storage_path']);
-        $company->update([
-            'logo_url' => null,
-            'settings' => $settings,
-        ]);
+    public function uploadInvoiceLogo(Request $request, Company $company): JsonResponse
+    {
+        return $this->storeLogo($request, $company, 'invoice');
+    }
 
-        return response()->json(['data' => $this->profile($company->fresh())]);
+    public function deleteInvoiceLogo(Company $company): JsonResponse
+    {
+        return $this->clearLogo($company, 'invoice');
     }
 
     public function destroy(Company $company): JsonResponse
@@ -186,18 +161,113 @@ class CompanyController extends Controller
             'settings.dpmc' => ['nullable', 'string', 'max:100'],
             'settings.activity_sector' => ['nullable', 'string', 'max:255'],
             'settings.vat_status' => ['nullable', 'string', 'max:50'],
+            'settings.opening_hours' => ['nullable', 'string', 'max:500'],
+            'settings.is_open_now' => ['nullable', 'boolean'],
+            'settings.is_verified' => ['nullable', 'boolean'],
+            'settings.display_rating' => ['nullable', 'numeric', 'between:0,5'],
+            'settings.review_count' => ['nullable', 'integer', 'min:0'],
+            'settings.cover_image_url' => ['nullable', 'string', 'max:2048'],
+            'settings.cover_image_id' => ['nullable', 'string', 'max:64'],
+            'settings.latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'settings.longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'is_active' => ['boolean'],
         ]);
     }
 
-    private function deleteStoredLogo(Company $company): void
+    private function storeLogo(Request $request, Company $company, string $kind): JsonResponse
     {
-        $path = is_array($company->settings) ? ($company->settings['logo_storage_path'] ?? null) : null;
-        if (! is_string($path) || $path === '') {
-            return;
+        $file = $this->validatedLogo($request);
+        if ($file instanceof JsonResponse) {
+            return $file;
         }
 
-        Storage::disk($this->images->mediaDisk())->delete($path);
+        $extension = strtolower($file->getClientOriginalExtension() ?: '');
+        if ($extension === 'jpeg') {
+            $extension = 'jpg';
+        }
+        $name = $kind === 'invoice' ? 'invoice-logo' : 'logo';
+        $path = $company->tenant_id.'/companies/'.$company->id.'/'.$name.'.'.$extension;
+        $disk = $this->images->mediaDisk();
+        $settings = is_array($company->settings) ? $company->settings : [];
+        $pathKey = $kind === 'invoice' ? 'invoice_logo_storage_path' : 'logo_storage_path';
+        $urlKey = $kind === 'invoice' ? 'invoice_logo_url' : 'logo_url';
+
+        $previous = $settings[$pathKey] ?? null;
+        if (is_string($previous) && $previous !== '' && $previous !== $path) {
+            Storage::disk($disk)->delete($previous);
+        }
+
+        if (! Storage::disk($disk)->put($path, $file->getContent(), 'public')) {
+            return response()->json(['message' => 'Impossible d’enregistrer le logo.'], 500);
+        }
+
+        $settings[$pathKey] = $path;
+        $url = $this->images->buildCdnUrl($path);
+        if ($kind === 'invoice') {
+            $settings[$urlKey] = $url;
+            $company->update(['settings' => $settings]);
+        } else {
+            $company->update([
+                'logo_url' => $url,
+                'settings' => $settings,
+            ]);
+        }
+
+        return response()->json(['data' => $this->profile($company->fresh())]);
+    }
+
+    private function clearLogo(Company $company, string $kind): JsonResponse
+    {
+        $settings = is_array($company->settings) ? $company->settings : [];
+        $pathKey = $kind === 'invoice' ? 'invoice_logo_storage_path' : 'logo_storage_path';
+        $path = $settings[$pathKey] ?? null;
+        if (is_string($path) && $path !== '') {
+            Storage::disk($this->images->mediaDisk())->delete($path);
+        }
+        unset($settings[$pathKey]);
+
+        if ($kind === 'invoice') {
+            unset($settings['invoice_logo_url']);
+            $company->update(['settings' => $settings]);
+        } else {
+            $company->update([
+                'logo_url' => null,
+                'settings' => $settings,
+            ]);
+        }
+
+        return response()->json(['data' => $this->profile($company->fresh())]);
+    }
+
+    private function validatedLogo(Request $request): \Illuminate\Http\UploadedFile|JsonResponse
+    {
+        $request->validate([
+            'logo' => ['required', 'file', 'max:2048'],
+        ]);
+
+        $file = $request->file('logo');
+        if ($file === null) {
+            return response()->json(['message' => 'Logo manquant.'], 422);
+        }
+
+        $extension = strtolower($file->getClientOriginalExtension() ?: '');
+        if (! in_array($extension, ['jpg', 'jpeg', 'png', 'svg'], true)) {
+            return response()->json(['message' => 'Use a JPG, PNG or SVG file up to 2MB.'], 422);
+        }
+
+        if ($extension === 'svg') {
+            $svg = $file->getContent();
+            if (preg_match('/<script|foreignObject|javascript:|on[a-z]+\s*=/i', $svg)) {
+                return response()->json(['message' => 'This SVG file is not allowed.'], 422);
+            }
+        } else {
+            $mime = $file->getMimeType();
+            if (! in_array($mime, ['image/jpeg', 'image/png'], true)) {
+                return response()->json(['message' => 'Use a JPG, PNG or SVG file up to 2MB.'], 422);
+            }
+        }
+
+        return $file;
     }
 
     /**

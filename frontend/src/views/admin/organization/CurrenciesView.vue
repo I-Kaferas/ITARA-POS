@@ -13,6 +13,8 @@ import type { Currency } from '../../../types'
 import { getAppCurrency, setAppCurrency } from '../../../utils/currency'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
+defineProps<{ embedded?: boolean }>()
+
 const { t } = useI18n()
 const { confirm: confirmDialog, notify } = useConfirm()
 const store = useBackofficeStore()
@@ -161,9 +163,9 @@ function closeModal() {
 </script>
 
 <template>
-  <OrganizationLayout>
+  <component :is="embedded ? 'div' : OrganizationLayout">
     <div class="space-y-4">
-      <section class="app-currency rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
+      <section v-if="!embedded" class="app-currency rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
         <div class="app-currency__head">
           <span class="app-currency__icon" aria-hidden="true">
             <AppIcon name="coins" :size="18" />
@@ -286,11 +288,11 @@ function closeModal() {
 
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
-  </OrganizationLayout>
+  </component>
 </template>
 
 <style scoped>
@@ -305,14 +307,12 @@ function closeModal() {
   padding: 0.45rem 0.95rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #334155;
-  background: #f1f5f9;
-}
+  color: var(--color-text-secondary);
+  background: var(--color-table-header);}
 
 .field-icon {
   display: inline-flex;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .app-currency__head {
   display: flex;
@@ -328,24 +328,21 @@ function closeModal() {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.65rem;
-  background: color-mix(in srgb, var(--color-brand-500, #2f6fed) 12%, #fff);
-  color: var(--color-brand-700, #1d4ed8);
-  flex-shrink: 0;
-}
+  background: color-mix(in srgb, var(--color-brand-500, #2f6fed) 12%, var(--color-surface));
+  color: var(--color-ink-brand, var(--color-brand-700, light-dark(#1d4ed8, #a0b5ef)));
+  flex-shrink: 0;}
 
 .app-currency__title {
   margin: 0;
   font-size: 1rem;
   font-weight: 650;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .app-currency__hint {
   margin: 0.2rem 0 0;
   font-size: 0.82rem;
   line-height: 1.4;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .app-currency__row {
   display: flex;
@@ -367,10 +364,8 @@ function closeModal() {
 .app-currency__current {
   margin: 0.75rem 0 0;
   font-size: 0.8rem;
-  color: #475569;
-}
+  color: var(--color-text-secondary);}
 
 .app-currency__current--warn {
-  color: #b45309;
-}
+  color: light-dark(#b45309, #d49b70);}
 </style>

@@ -85,7 +85,7 @@ async function importFile() {
             {{ t('importExport.updateExisting') }}
           </label>
         </div>
-        <button class="btn-primary" :disabled="saving || !file || !catalogId" @click="importFile">
+        <button class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !file || !catalogId" @click="importFile">
           {{ t('importExport.importCsv') }}
         </button>
 

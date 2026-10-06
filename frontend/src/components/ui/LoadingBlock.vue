@@ -152,8 +152,7 @@ withDefaults(defineProps<{
   padding: 0.75rem;
   border: 1px solid var(--color-border, #e7edf3);
   border-radius: 0.85rem;
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .ui-skeleton-detail {
   display: flex;

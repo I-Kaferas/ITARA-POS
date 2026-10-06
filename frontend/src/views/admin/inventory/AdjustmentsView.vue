@@ -259,7 +259,7 @@ async function complete(id: string) {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('inventory.saveEntry') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('inventory.saveEntry') }}</button>
         </div>
       </form>
     </AppModal>
@@ -295,6 +295,6 @@ async function complete(id: string) {
 .line-row > .qty { flex: 0 0 7rem; width: 7rem; min-width: 6rem; }
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-brand-600); }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

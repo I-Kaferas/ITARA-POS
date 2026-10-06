@@ -464,7 +464,7 @@ function statusLabel(value: string) {
       </label>
       <div class="app-modal__actions">
         <button type="button" class="btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
-        <button type="submit" class="btn-primary" :disabled="saving || !setup.warehouse_id">{{ t('inventory.startFullCount') }}</button>
+        <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !setup.warehouse_id">{{ t('inventory.startFullCount') }}</button>
       </div>
     </form>
 
@@ -597,17 +597,17 @@ function statusLabel(value: string) {
           <input v-model="cancelReason" class="field" />
         </div>
         <button type="button" class="btn-secondary" @click="cancelling = false">{{ t('common.cancel') }}</button>
-        <button type="button" class="btn-danger" :disabled="saving" @click="confirmCancel">{{ t('inventory.cancelCount') }}</button>
+        <button type="button" class="btn-danger" :class="{ 'is-busy': saving }" :disabled="saving" @click="confirmCancel">{{ t('inventory.cancelCount') }}</button>
       </div>
 
       <div v-else class="app-modal__actions">
-        <button v-if="!['completed', 'cancelled'].includes(status)" type="button" class="btn-danger" :disabled="saving" @click="cancelling = true">{{ t('inventory.cancelCount') }}</button>
-        <button v-if="editable && dirty.size" type="button" class="btn-secondary" :disabled="saving" @click="persist()">{{ t('common.save') }}</button>
-        <button v-if="status === 'scheduled'" type="button" class="btn-primary" :disabled="saving" @click="runAction('start')">{{ t('inventory.startCycle') }}</button>
-        <button v-if="status === 'draft' || status === 'in_progress'" type="button" class="btn-primary" :disabled="saving" @click="runAction('submit')">{{ t('inventory.submitCount') }}</button>
-        <button v-if="status === 'counted'" type="button" class="btn-primary" :disabled="saving" @click="runAction('review')">{{ t('inventory.reviewCount') }}</button>
-        <button v-if="status === 'review'" type="button" class="btn-primary" :disabled="saving" @click="runAction('approve')">{{ t('inventory.approveCount') }}</button>
-        <button v-if="status === 'approved' || status === 'confirmed'" type="button" class="btn-primary" :disabled="saving" @click="runAction('complete')">{{ t('inventory.validateInventory') }}</button>
+        <button v-if="!['completed', 'cancelled'].includes(status)" type="button" class="btn-danger" :class="{ 'is-busy': saving }" :disabled="saving" @click="cancelling = true">{{ t('inventory.cancelCount') }}</button>
+        <button v-if="editable && dirty.size" type="button" class="btn-secondary" :class="{ 'is-busy': saving }" :disabled="saving" @click="persist()">{{ saving ? t('common.saving') : t('common.save') }}</button>
+        <button v-if="status === 'scheduled'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="runAction('start')">{{ t('inventory.startCycle') }}</button>
+        <button v-if="status === 'draft' || status === 'in_progress'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="runAction('submit')">{{ t('inventory.submitCount') }}</button>
+        <button v-if="status === 'counted'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="runAction('review')">{{ t('inventory.reviewCount') }}</button>
+        <button v-if="status === 'review'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="runAction('approve')">{{ t('inventory.approveCount') }}</button>
+        <button v-if="status === 'approved' || status === 'confirmed'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="runAction('complete')">{{ t('inventory.validateInventory') }}</button>
       </div>
     </div>
   </AppModal>

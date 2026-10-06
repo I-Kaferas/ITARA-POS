@@ -27,29 +27,15 @@ const emit = defineEmits<{
   addCustomer: []
 }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const pos = usePosStore()
 
-const orderDate = ref(new Date().toISOString().slice(0, 10))
 const customerQuery = ref('')
 const customerResults = ref<PosCustomerOption[]>([])
 const customerLoading = ref(false)
 const showResults = ref(false)
 
 const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.quantity, 0))
-
-const dateLabel = computed(() => {
-  try {
-    const d = new Date(`${orderDate.value}T12:00:00`)
-    return new Intl.DateTimeFormat(locale.value, {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    }).format(d).replace(/,/g, '').replace(/\s+/g, ' - ')
-  } catch {
-    return orderDate.value
-  }
-})
 
 async function runCustomerSearch() {
   const q = customerQuery.value.trim()
@@ -129,12 +115,6 @@ async function createCustomerQuick() {
       <button class="pos-cart__close" type="button" :title="t('pos.cart')" @click="emit('close')">×</button>
     </div>
 
-    <label class="pos-cart__date">
-      <AppIcon name="calendar" :size="16" />
-      <span>{{ dateLabel }}</span>
-      <input v-model="orderDate" type="date" />
-    </label>
-
     <div class="pos-cart__customer">
       <div class="pos-cart__customer-row">
         <div class="pos-cart__customer-search">
@@ -190,7 +170,7 @@ async function createCustomerQuick() {
       </div>
     </div>
 
-    <div class="pos-cart__lines">
+    <TransitionGroup name="cart-line" tag="div" class="pos-cart__lines">
       <article v-for="line in lines" :key="line.lineId" class="pos-cart__line">
         <div class="pos-cart__media">
           <img v-if="line.product.primary_image_cdn_url" :src="line.product.primary_image_cdn_url" :alt="line.product.name" />
@@ -229,14 +209,20 @@ async function createCustomerQuick() {
         </div>
       </article>
 
-      <div v-if="!lines.length" class="pos-cart__empty">
+      <div v-if="!lines.length" key="empty" class="pos-cart__empty">
         <span class="pos-cart__empty-mark">
           <AppIcon name="receipt" :size="36" />
         </span>
         <p class="pos-cart__empty-title">{{ emptyLabel }}</p>
         <p v-if="emptyHint" class="pos-cart__empty-hint">{{ emptyHint }}</p>
       </div>
-    </div>
+    </TransitionGroup>
+
+    <label class="pos-cart__date">
+      <AppIcon name="calendar" :size="16" />
+      <span>{{ t('pos.orderDate') }}</span>
+      <input v-model="pos.orderDate" type="date" :aria-label="t('pos.orderDate')" />
+    </label>
   </aside>
 </template>
 
@@ -247,8 +233,7 @@ async function createCustomerQuick() {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .pos-cart__header {
   display: flex;
@@ -270,8 +255,7 @@ async function createCustomerQuick() {
   place-items: center;
   border-radius: var(--radius-lg);
   background: var(--color-brand-50, #f5f3ff);
-  color: var(--color-brand-600);
-}
+  color: var(--color-ink-brand, var(--color-brand-600));}
 
 .pos-cart__close {
   display: none;
@@ -279,12 +263,11 @@ async function createCustomerQuick() {
   height: 1.7rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 1.1rem;
   line-height: 1;
-  cursor: pointer;
-}
+  cursor: pointer;}
 
 .pos-cart__title {
   margin: 0;
@@ -301,27 +284,29 @@ async function createCustomerQuick() {
 }
 
 .pos-cart__date {
-  position: relative;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
-  margin: 0 1rem 0.65rem;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md, 0.75rem);
+  margin: 0;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--color-border);
   background: var(--color-canvas, #f8fafc);
   color: var(--color-text-secondary);
   font-size: 0.84rem;
   font-weight: 600;
-  cursor: pointer;
 }
 
 .pos-cart__date input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
+  margin-left: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 0.75rem);
+  background: var(--color-surface);
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  cursor: pointer;}
 
 .pos-cart__customer {
   position: relative;
@@ -343,9 +328,8 @@ async function createCustomerQuick() {
   padding: 0 0.7rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md, 0.75rem);
-  background: #fff;
-  color: var(--color-text-faint);
-}
+  background: var(--color-surface);
+  color: var(--color-text-faint);}
 
 .pos-cart__customer-search input {
   flex: 1;
@@ -389,9 +373,8 @@ async function createCustomerQuick() {
   overflow: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md, 0.75rem);
-  background: #fff;
-  box-shadow: var(--shadow-md, 0 12px 28px rgba(15, 23, 42, 0.12));
-}
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md, 0 12px 28px rgba(15, 23, 42, 0.12));}
 
 .pos-cart__customer-item {
   display: flex;
@@ -401,11 +384,10 @@ async function createCustomerQuick() {
   width: 100%;
   border: 0;
   border-bottom: 1px solid var(--color-border);
-  background: #fff;
+  background: var(--color-surface);
   padding: 0.65rem 0.8rem;
   text-align: left;
-  cursor: pointer;
-}
+  cursor: pointer;}
 
 .pos-cart__customer-item:last-child {
   border-bottom: 0;
@@ -417,9 +399,8 @@ async function createCustomerQuick() {
 }
 
 .pos-cart__customer-item--create {
-  color: var(--color-brand-700);
-  font-weight: 600;
-}
+  color: var(--color-ink-brand, var(--color-brand-700));
+  font-weight: 600;}
 
 .pos-cart__customer-empty {
   margin: 0;
@@ -437,13 +418,12 @@ async function createCustomerQuick() {
 .pos-cart__line {
   display: flex;
   gap: 0.7rem;
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg, 0.9rem);
   padding: 0.7rem;
   margin-bottom: 0.55rem;
-  box-shadow: var(--shadow-xs);
-}
+  box-shadow: var(--shadow-xs);}
 
 .pos-cart__media {
   width: 3.1rem;
@@ -454,9 +434,8 @@ async function createCustomerQuick() {
   overflow: hidden;
   border-radius: var(--radius-lg);
   background: var(--color-brand-50, #f5f3ff);
-  color: var(--color-brand-700);
-  font-weight: 700;
-}
+  color: var(--color-ink-brand, var(--color-brand-700));
+  font-weight: 700;}
 
 .pos-cart__media img {
   width: 100%;
@@ -491,25 +470,23 @@ async function createCustomerQuick() {
 .pos-cart__free {
   margin-left: 0.35rem;
   border-radius: 999px;
-  background: #ecfdf5;
-  color: #047857;
+  background: var(--color-success-bg);
+  color: light-dark(#047857, #96c6b8);
   font-size: 0.65rem;
   font-weight: 700;
-  padding: 0.1rem 0.4rem;
-}
+  padding: 0.1rem 0.4rem;}
 
 .pos-cart__remove {
   border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: light-dark(#dc2626, #f0a4a4);
   width: 1.45rem;
   height: 1.45rem;
   border-radius: 999px;
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  line-height: 1;
-}
+  line-height: 1;}
 
 .pos-cart__sku,
 .pos-cart__unit {
@@ -549,11 +526,10 @@ async function createCustomerQuick() {
   height: 1.7rem;
   border: none;
   border-radius: 999px;
-  background: #fff;
+  background: var(--color-surface);
   cursor: pointer;
   font-size: 0.95rem;
-  color: var(--color-text-secondary);
-}
+  color: var(--color-text-secondary);}
 
 .pos-cart__qty button:hover {
   background: var(--color-brand-600);

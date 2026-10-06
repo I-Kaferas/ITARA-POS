@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { hospitalitySnapshotPath, HOTEL_RESERVATION_KINDS } from '../../../api/hospitality'
 import { useConfirm } from '../../../composables/useConfirm'
@@ -23,6 +23,7 @@ type Channel = 'direct' | 'phone' | 'walk_in' | 'booking_com' | 'expedia' | 'oth
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const { confirm: confirmDialog } = useConfirm()
 const store = useBackofficeStore()
 
@@ -212,6 +213,7 @@ watch(() => form.value.client_mode, (mode) => {
 
 onMounted(async () => {
   await Promise.all([load(), store.loadCustomers().catch(() => undefined)])
+  if (route.query.new === '1') openCreate()
 })
 
 function blankForm() {
@@ -901,7 +903,7 @@ async function remove(row: Doc) {
 
         <div class="rsv__actions">
           <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -1052,11 +1054,10 @@ async function remove(row: Doc) {
   padding: 0.85rem 1rem;
   border: 1px solid #d7e2ea;
   border-radius: 0.9rem;
-  background: #fff;
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-}
+  gap: 0.65rem;}
 
 .rsv__toolbar-top {
   display: flex;
@@ -1073,9 +1074,8 @@ async function remove(row: Doc) {
 .rsv__count {
   margin-left: auto;
   font-size: 0.8rem;
-  color: #7b8d9a;
-  font-weight: 650;
-}
+  color: var(--color-text-muted);
+  font-weight: 650;}
 
 .rsv__new {
   flex-shrink: 0;
@@ -1085,10 +1085,9 @@ async function remove(row: Doc) {
   padding: 0;
   border: 1px solid #d7e2ea;
   border-radius: 0.9rem;
-  background: #fff;
+  background: var(--color-surface);
   display: flex;
-  flex-direction: column;
-}
+  flex-direction: column;}
 
 .rsv__form--modal {
   padding: 0.15rem 0 0.25rem;
@@ -1097,9 +1096,8 @@ async function remove(row: Doc) {
 .rsv__intro-text {
   margin: 0 0 0.35rem;
   font-size: 0.875rem;
-  color: #66727c;
-  line-height: 1.45;
-}
+  color: var(--color-text-muted);
+  line-height: 1.45;}
 
 .rsv__list-head h3,
 .rsv__block h3 {
@@ -1107,34 +1105,31 @@ async function remove(row: Doc) {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 
 .rsv__error {
   margin: 0.85rem 0 0;
   padding: 0.7rem 0.85rem;
   border-radius: 0.7rem;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 0.85rem;
-}
+  background: var(--color-danger-bg);
+  color: light-dark(#b91c1c, #e2a0a0);
+  font-size: 0.85rem;}
 .rsv__error--inline {
   margin: 0 1.2rem 0.85rem;
 }
 
 .rsv__block { margin-top: 1.2rem; display: flex; flex-direction: column; gap: 0.7rem; }
 .rsv__block h3 { font-size: 0.92rem; }
-.rsv__block h3 :deep(svg) { color: var(--color-brand-600, var(--color-brand-600)); }
+.rsv__block h3 :deep(svg) { color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));}
 .rsv__label {
   margin: 0;
   font-size: 0.78rem;
   font-weight: 650;
-  color: #64748b;
+  color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.rsv__hint { margin: 0; font-size: 0.72rem; color: #94a3b8; }
-.rsv__link { color: var(--color-brand-600, var(--color-brand-600)); font-weight: 600; text-decoration: none; }
+  letter-spacing: 0.03em;}
+.rsv__hint { margin: 0; font-size: 0.72rem; color: var(--color-text-faint);}
+.rsv__link { color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600))); font-weight: 600; text-decoration: none;}
 .rsv__grid { display: grid; gap: 0.85rem 1rem; grid-template-columns: 1fr; }
 @media (min-width: 720px) {
   .rsv__grid { grid-template-columns: 1fr 1fr; }
@@ -1145,10 +1140,9 @@ async function remove(row: Doc) {
 .rsv__mode {
   display: inline-flex; align-items: center; gap: 0.35rem;
   border: 1px solid #d7e2ea; border-radius: 999px; padding: 0.35rem 0.7rem;
-  font-size: 0.8rem; cursor: pointer; background: #fff;
-}
+  font-size: 0.8rem; cursor: pointer; background: var(--color-surface);}
 .rsv__mode input { accent-color: var(--color-brand-600); }
-.rsv__mode--on { border-color: var(--color-brand-500); background: #f3f6f8; }
+.rsv__mode--on { border-color: var(--color-brand-500); background: var(--color-brand-50); }
 
 .rsv__spaces { display: grid; gap: 0.55rem; grid-template-columns: 1fr; }
 @media (min-width: 720px) {
@@ -1159,40 +1153,37 @@ async function remove(row: Doc) {
   border: 1px solid #d7e2ea; border-radius: 0.75rem; padding: 0.7rem 0.75rem; cursor: pointer;
 }
 .rsv__space input { position: absolute; opacity: 0; pointer-events: none; }
-.rsv__space strong { font-size: 0.82rem; color: #1c2830; }
-.rsv__space span { font-size: 0.72rem; color: #7b8d9a; line-height: 1.35; }
-.rsv__space--on { border-color: var(--color-brand-500); background: #f3f6f8; }
+.rsv__space strong { font-size: 0.82rem; color: var(--color-text-primary);}
+.rsv__space span { font-size: 0.72rem; color: var(--color-text-muted); line-height: 1.35;}
+.rsv__space--on { border-color: var(--color-brand-500); background: var(--color-brand-50); }
 .rsv__space-icon {
   display: inline-flex; width: 1.6rem; height: 1.6rem; align-items: center; justify-content: center;
-  border-radius: 0.4rem; background: #eef4f8; color: var(--color-brand-600, var(--color-brand-600)); margin-bottom: 0.15rem;
-}
+  border-radius: 0.4rem; background: #eef4f8; color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600))); margin-bottom: 0.15rem;}
 
 .rsv__money { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.4rem; }
-.rsv__money span { font-weight: 700; color: #3d5c73; }
+.rsv__money span { font-weight: 700; color: var(--color-ink-brand, var(--color-brand-600));}
 .rsv__status-pill {
   display: inline-flex; align-items: center; min-height: 2.4rem;
   padding: 0.45rem 0.75rem; border-radius: 0.65rem;
-  background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 0.85rem; font-weight: 650;
-}
+  background: var(--color-success-bg); color: light-dark(#047857, #96c6b8); border: 1px solid #a7f3d0; font-size: 0.85rem; font-weight: 650;}
 
 .rsv__pick { display: flex; flex-direction: column; gap: 0.45rem; }
 .rsv__picked {
   display: flex; flex-direction: column; gap: 0.15rem;
   padding: 0.65rem 0.75rem; border-radius: 0.7rem; background: #f3f6f8; border: 1px solid #d7e2ea;
 }
-.rsv__picked strong { font-size: 0.9rem; color: #1c2830; }
-.rsv__picked small { color: #7b8d9a; }
+.rsv__picked strong { font-size: 0.9rem; color: var(--color-text-primary);}
+.rsv__picked small { color: var(--color-text-muted);}
 .rsv__customer-list {
   max-height: 10rem; overflow: auto; border: 1px solid #e4e8ec; border-radius: 0.7rem;
   display: flex; flex-direction: column;
 }
 .rsv__customer {
   display: flex; flex-direction: column; gap: 0.1rem; text-align: left;
-  padding: 0.55rem 0.7rem; border: 0; border-bottom: 1px solid #eef2f6; background: #fff; cursor: pointer;
-}
-.rsv__customer:hover { background: #f8fafc; }
-.rsv__customer strong { font-size: 0.84rem; color: #1c2830; }
-.rsv__customer small { font-size: 0.72rem; color: #7b8d9a; }
+  padding: 0.55rem 0.7rem; border: 0; border-bottom: 1px solid #eef2f6; background: var(--color-surface); cursor: pointer;}
+.rsv__customer:hover { background: var(--color-table-header);}
+.rsv__customer strong { font-size: 0.84rem; color: var(--color-text-primary);}
+.rsv__customer small { font-size: 0.72rem; color: var(--color-text-muted);}
 
 .rsv__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.1rem; }
 
@@ -1211,8 +1202,7 @@ async function remove(row: Doc) {
 .rsv__filters-caret {
   transition: transform 0.15s ease;
   transform: rotate(90deg);
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 .rsv__filters-caret--open {
   transform: rotate(-90deg);
 }
@@ -1253,14 +1243,12 @@ async function remove(row: Doc) {
   padding: 0.35rem 0.75rem;
   font-size: 0.8rem;
   font-weight: 650;
-  color: #64748b;
-  cursor: pointer;
-}
+  color: var(--color-text-muted);
+  cursor: pointer;}
 .rsv__scope-btn--on {
-  background: #fff;
-  color: #1c2830;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-}
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);}
 .rsv__chips {
   display: flex;
   flex-wrap: wrap;
@@ -1269,18 +1257,16 @@ async function remove(row: Doc) {
 .rsv__chip {
   border: 1px solid #d7e2ea;
   border-radius: 999px;
-  background: #fff;
+  background: var(--color-surface);
   padding: 0.3rem 0.65rem;
   font-size: 0.78rem;
-  color: #4b5d6b;
-  cursor: pointer;
-}
+  color: var(--color-text-secondary);
+  cursor: pointer;}
 .rsv__chip--on {
   border-color: var(--color-brand-500, var(--color-brand-600));
   background: #eef4f8;
-  color: #1c2830;
-  font-weight: 650;
-}
+  color: var(--color-text-primary);
+  font-weight: 650;}
 .rsv__dates {
   display: grid;
   gap: 0.65rem;
@@ -1297,8 +1283,8 @@ async function remove(row: Doc) {
   padding: 1.15rem 1.2rem 0.85rem; flex-shrink: 0;
 }
 .rsv__list-head h3 { font-size: 1rem; }
-.rsv__list-head h3 :deep(svg) { color: var(--color-brand-600, var(--color-brand-600)); }
-.rsv__list-head p { margin: 0.25rem 0 0; font-size: 0.8rem; color: #7b8d9a; }
+.rsv__list-head h3 :deep(svg) { color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));}
+.rsv__list-head p { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--color-text-muted);}
 
 .rsv__table-wrap {
   overflow-x: auto;
@@ -1314,10 +1300,9 @@ async function remove(row: Doc) {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-weight: 700;
-  white-space: nowrap;
-}
+  white-space: nowrap;}
 .rsv__table td {
   vertical-align: top;
   padding-top: 0.85rem;
@@ -1332,13 +1317,11 @@ async function remove(row: Doc) {
 .rsv__ref strong,
 .rsv__type strong {
   font-size: 0.86rem;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 .rsv__ref small,
 .rsv__type small {
   font-size: 0.72rem;
-  color: #7b8d9a;
-}
+  color: var(--color-text-muted);}
 .rsv__client {
   display: flex;
   align-items: flex-start;
@@ -1350,25 +1333,22 @@ async function remove(row: Doc) {
   height: 2rem;
   border-radius: 999px;
   background: #eef4f8;
-  color: var(--color-brand-600, var(--color-brand-600));
+  color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 0.72rem;
   font-weight: 750;
-  flex-shrink: 0;
-}
+  flex-shrink: 0;}
 .rsv__client strong {
   display: block;
   font-size: 0.86rem;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 .rsv__client small {
   display: block;
   margin-top: 0.1rem;
   font-size: 0.72rem;
-  color: #7b8d9a;
-}
+  color: var(--color-text-muted);}
 .rsv__status-stack {
   display: flex;
   flex-direction: column;
@@ -1384,23 +1364,22 @@ async function remove(row: Doc) {
   font-weight: 650;
   white-space: nowrap;
 }
-.rsv-pill--guaranteed { background: #ecfdf5; color: #047857; }
-.rsv-pill--confirmed { background: #eff6ff; color: #1d4ed8; }
-.rsv-pill--pending { background: #fff7ed; color: #c2410c; }
-.rsv-pill--in_progress { background: #fef3c7; color: #b45309; }
-.rsv-pill--upcoming { background: #f1f5f9; color: #475569; }
-.rsv-pill--done { background: #ecfdf5; color: #047857; }
-.rsv-pill--closed { background: #f1f5f9; color: #64748b; }
+.rsv-pill--guaranteed { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
+.rsv-pill--confirmed { background: var(--color-info-bg); color: light-dark(#1d4ed8, #a0b5ef);}
+.rsv-pill--pending { background: var(--color-warning-bg); color: light-dark(#c2410c, #e5af99);}
+.rsv-pill--in_progress { background: var(--color-warning-bg); color: light-dark(#b45309, #d49b70);}
+.rsv-pill--upcoming { background: var(--color-table-header); color: var(--color-text-secondary);}
+.rsv-pill--done { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
+.rsv-pill--closed { background: var(--color-table-header); color: var(--color-text-muted);}
 .rsv__row-actions { white-space: nowrap; }
 .rsv__detail-btn {
   border: 0;
   background: none;
-  color: var(--color-brand-600, var(--color-brand-600));
+  color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
-  padding: 0;
-}
+  padding: 0;}
 .rsv__detail-btn:hover { text-decoration: underline; }
 
 .rd { display: flex; flex-direction: column; gap: 1rem; }
@@ -1417,42 +1396,36 @@ async function remove(row: Doc) {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #7b8d9a;
-}
+  color: var(--color-text-muted);}
 .rd__hero h3 {
   margin: 0.2rem 0 0;
   font-size: 1.25rem;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 .rd__guest {
   margin: 0.25rem 0 0;
   font-size: 1rem;
   font-weight: 650;
-  color: #334155;
-}
+  color: var(--color-text-secondary);}
 .rd__pills { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.55rem; }
 .rd__hero-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .rd__note {
   margin: 0;
   padding: 0.7rem 0.85rem;
   border-radius: 0.7rem;
-  background: #f8fafc;
+  background: var(--color-table-header);
   border: 1px solid #e2e8f0;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.82rem;
-  line-height: 1.45;
-}
+  line-height: 1.45;}
 .rd__card {
   border: 1px solid #d7e2ea;
   border-radius: 0.85rem;
   padding: 1rem 1.05rem;
-  background: #fff;
-}
+  background: var(--color-surface);}
 .rd__card h4 {
   margin: 0 0 0.75rem;
   font-size: 0.95rem;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 .rd__kv {
   margin: 0;
   display: grid;
@@ -1460,8 +1433,8 @@ async function remove(row: Doc) {
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 }
 .rd__kv > div { display: flex; flex-direction: column; gap: 0.2rem; }
-.rd__kv dt { font-size: 0.72rem; color: #7b8d9a; font-weight: 650; }
-.rd__kv dd { margin: 0; font-size: 0.88rem; color: #1c2830; font-weight: 600; }
+.rd__kv dt { font-size: 0.72rem; color: var(--color-text-muted); font-weight: 650;}
+.rd__kv dd { margin: 0; font-size: 0.88rem; color: var(--color-text-primary); font-weight: 600;}
 .rd__span { grid-column: 1 / -1; }
 .rd__table-wrap { overflow-x: auto; }
 .rd__table { width: 100%; min-width: 48rem; }
@@ -1470,19 +1443,17 @@ async function remove(row: Doc) {
   height: 2.5rem;
   border-radius: 0.45rem;
   overflow: hidden;
-  background: #f1f5f9;
+  background: var(--color-table-header);
   border: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.62rem;
-  color: #94a3b8;
+  color: var(--color-text-faint);
   text-align: center;
-  padding: 0.15rem;
-}
+  padding: 0.15rem;}
 .rd__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .rsv__muted, .rsv__empty {
-  margin: 0; padding: 1.2rem; text-align: center; color: #7b8d9a; font-size: 0.875rem;
-}
+  margin: 0; padding: 1.2rem; text-align: center; color: var(--color-text-muted); font-size: 0.875rem;}
 </style>

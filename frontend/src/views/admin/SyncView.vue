@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../api/client'
 import PageFrame from '../../components/layout/PageFrame.vue'
+import AppIcon from '../../components/ui/AppIcon.vue'
 import { formatDateTime } from '../../utils/format'
 
 type Device = { id: string; name: string; code?: string; platform?: string | null; device_type?: string | null; status?: string | null; last_sync_at?: string | null; is_active?: boolean }
@@ -31,7 +32,8 @@ async function load() {
     <template #subtitle>{{ t('desk.syncHint') }}</template>
 
     <div class="space-y-4">
-      <div class="flex justify-end"><button class="btn-secondary" @click="load">{{ t('common.refresh') }}</button></div>
+      <div class="flex justify-end"><button class="btn-secondary" @click="load">
+            <AppIcon name="recycle" :size="15" />{{ t('common.refresh') }}</button></div>
       <p v-if="error" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</p>
       <div v-if="status" class="grid gap-3 sm:grid-cols-3">
         <div class="rounded-2xl border border-slate-200 bg-white p-4"><span class="text-xs text-slate-500">{{ t('desk.sequence') }}</span><strong class="mt-1 block text-2xl">{{ status.server_sequence || 0 }}</strong></div>

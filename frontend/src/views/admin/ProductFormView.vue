@@ -304,13 +304,15 @@ async function makePrimary(id: string) {
   <PageFrame>
     <template #title>{{ isEdit ? t('products.edit') : t('products.new') }}</template>
 
-    <nav class="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
+    <nav class="form-tabs" role="tablist">
       <button
         v-for="tab in tabs"
         :key="tab.id"
         type="button"
-        class="rounded-lg px-4 py-2 text-sm font-medium transition"
-        :class="activeTab === tab.id ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+        role="tab"
+        class="form-tabs__btn"
+        :class="{ 'form-tabs__btn--active': activeTab === tab.id }"
+        :aria-selected="activeTab === tab.id"
         @click="activeTab = tab.id"
       >
         {{ tab.label }}
@@ -319,7 +321,10 @@ async function makePrimary(id: string) {
 
     <form class="space-y-6" novalidate @submit.prevent="save">
       <!-- General -->
-      <div v-show="activeTab === 'general'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-4">
+      <section v-show="activeTab === 'general'" class="form-section">
+        <header class="form-section__head">
+          <h2 class="form-section__title">{{ t('products.tabs.general') }}</h2>
+        </header>
         <div class="grid gap-4 sm:grid-cols-2">
           <div><FieldLabel icon="tag">SKU</FieldLabel><input v-model="form.sku" required class="field" /></div>
           <div><FieldLabel icon="products">{{ t('products.name') }}</FieldLabel><input v-model="form.name" required class="field" /></div>
@@ -366,19 +371,18 @@ async function makePrimary(id: string) {
           </select>
           <p v-if="!taxOptions.length" class="mt-1 text-xs text-slate-500">{{ t('catalog.emptyTaxes') }}</p>
         </div>
-        <div v-if="isQuantifiable" class="grid gap-4 sm:grid-cols-3">
-          <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="tag" :size="14" /></span><input v-model="form.is_serialized" type="checkbox" class="rounded" />{{ t('products.serialized') }}</label>
-          <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="inventory" :size="14" /></span><input v-model="form.track_batch" type="checkbox" class="rounded" />{{ t('products.batch') }}</label>
-          <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="calendar" :size="14" /></span><input v-model="form.track_expiration" type="checkbox" class="rounded" />{{ t('products.expiration') }}</label>
+        <div v-if="isQuantifiable" class="form-grid form-grid--3">
+          <label class="check-card"><input v-model="form.is_serialized" type="checkbox" />{{ t('products.serialized') }}</label>
+          <label class="check-card"><input v-model="form.track_batch" type="checkbox" />{{ t('products.batch') }}</label>
+          <label class="check-card"><input v-model="form.track_expiration" type="checkbox" />{{ t('products.expiration') }}</label>
         </div>
         <div v-if="form.track_expiration">
           <FieldLabel icon="calendar">{{ t('products.expirationDays') }}</FieldLabel>
           <input v-model.number="form.expiration_days" type="number" min="1" class="field max-w-xs" />
         </div>
-        <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
-        <label class="flex items-center gap-2 text-sm">
-          <span class="field-icon"><AppIcon name="sparkles" :size="14" /></span>
-          <input v-model="form.accompaniment_enabled" type="checkbox" class="rounded" />
+        <label class="check-card"><input v-model="form.is_active" type="checkbox" />{{ t('products.active') }}</label>
+        <label class="check-card">
+          <input v-model="form.accompaniment_enabled" type="checkbox" />
           {{ t('accompaniments.enabled') }}
         </label>
         <p class="m-0 text-xs text-slate-500">{{ t('accompaniments.enabledHint') }}</p>
@@ -388,14 +392,29 @@ async function makePrimary(id: string) {
         <p v-if="product && form.product_type === 'variant'" class="m-0 text-xs text-slate-500">
           {{ t('products.variantStockHint') }}
         </p>
-      </div>
+      </section>
 
       <!-- Pricing -->
-      <div v-show="activeTab === 'pricing'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-4">
-        <p class="text-sm text-slate-500">{{ t('products.priceHint') }}</p>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div><FieldLabel icon="coins">{{ t('products.price') }}</FieldLabel><input v-model.number="form.base_price" type="number" step="0.01" min="0" class="field" /></div>
-          <div><FieldLabel icon="coins">{{ t('products.cost') }}</FieldLabel><input v-model.number="form.cost_price" type="number" step="0.01" min="0" class="field" /></div>
+      <section v-show="activeTab === 'pricing'" class="form-section">
+        <header class="form-section__head">
+          <h2 class="form-section__title">{{ t('products.tabs.pricing') }}</h2>
+          <p class="form-section__hint">{{ t('products.priceHint') }}</p>
+        </header>
+        <div class="form-grid">
+          <div>
+            <FieldLabel icon="coins">{{ t('products.price') }}</FieldLabel>
+            <div class="money-field">
+              <input v-model.number="form.base_price" type="number" step="0.01" min="0" class="field" />
+              <span class="money-field__code">{{ getAppCurrency() }}</span>
+            </div>
+          </div>
+          <div>
+            <FieldLabel icon="coins">{{ t('products.cost') }}</FieldLabel>
+            <div class="money-field">
+              <input v-model.number="form.cost_price" type="number" step="0.01" min="0" class="field" />
+              <span class="money-field__code">{{ getAppCurrency() }}</span>
+            </div>
+          </div>
         </div>
         <div class="quote-block">
           <div class="quote-block__item">
@@ -415,7 +434,7 @@ async function makePrimary(id: string) {
           <h3 class="font-medium">{{ t('products.priceTiers') }}</h3>
           <button type="button" class="text-sm text-brand-600" @click="addPrice">+ {{ t('products.addPrice') }}</button>
         </div>
-        <div v-for="(price, i) in prices" :key="i" class="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-5">
+        <div v-for="(price, i) in prices" :key="i" class="line-card">
           <select v-model="price.price_type" class="field">
             <option value="base">{{ t('products.priceTypes.base') }}</option>
             <option value="retail">{{ t('products.priceTypes.retail') }}</option>
@@ -430,17 +449,17 @@ async function makePrimary(id: string) {
             <option v-if="!store.currencies.length" :value="getAppCurrency()">{{ getAppCurrency() }}</option>
           </select>
           <input v-model.number="price.min_quantity" type="number" min="1" class="field" :placeholder="t('common.minQty')" />
-          <button type="button" class="text-red-600 text-sm" @click="prices.splice(i, 1)">{{ t('common.delete') }}</button>
+          <button type="button" class="btn-danger btn-sm" @click="prices.splice(i, 1)">{{ t('common.delete') }}</button>
         </div>
-      </div>
+      </section>
 
       <!-- Barcodes -->
-      <div v-show="activeTab === 'barcodes'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-4">
+      <section v-show="activeTab === 'barcodes'" class="form-section">
         <div class="flex justify-between items-center">
           <h3 class="font-medium">{{ t('products.tabs.barcodes') }}</h3>
           <button type="button" class="text-sm text-brand-600" @click="addBarcode">+ {{ t('products.addBarcode') }}</button>
         </div>
-        <div v-for="(bc, i) in barcodes" :key="i" class="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-6">
+        <div v-for="(bc, i) in barcodes" :key="i" class="line-card">
           <input v-model="bc.barcode" class="field sm:col-span-2" :placeholder="t('products.barcode')" />
           <select v-model="bc.type" class="field">
             <option v-for="bt in BARCODE_TYPES" :key="bt" :value="bt">{{ bt.toUpperCase() }}</option>
@@ -452,10 +471,10 @@ async function makePrimary(id: string) {
             <button type="button" class="row-remove" @click="barcodes.splice(i, 1)">✕</button>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- Variants -->
-      <div v-show="activeTab === 'variants'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-4">
+      <section v-show="activeTab === 'variants'" class="form-section">
         <div class="flex justify-between gap-3">
           <div>
             <h3 class="font-medium">{{ t('products.tabs.variants') }}</h3>
@@ -463,7 +482,7 @@ async function makePrimary(id: string) {
           </div>
           <button type="button" class="shrink-0 text-sm text-brand-600" @click="addVariant">+ {{ t('products.addVariant') }}</button>
         </div>
-        <div v-for="(v, i) in variants" :key="i" class="rounded-lg border border-slate-200 p-4 space-y-3">
+        <div v-for="(v, i) in variants" :key="i" class="line-card line-card--stack">
           <div class="grid gap-3 sm:grid-cols-3">
             <input v-model="v.sku" class="field" placeholder="SKU" required />
             <input v-model="v.size" class="field" :placeholder="t('products.size')" />
@@ -479,17 +498,17 @@ async function makePrimary(id: string) {
             </div>
           </div>
           <button type="button" class="text-sm text-brand-600" @click="(v.barcodes ??= []).push({ barcode: '', type: 'internal', is_primary: true })">+ {{ t('products.addBarcode') }}</button>
-          <button type="button" class="text-sm text-red-600" @click="variants.splice(i, 1)">{{ t('common.delete') }}</button>
+          <button type="button" class="btn-danger btn-sm" @click="variants.splice(i, 1)">{{ t('common.delete') }}</button>
         </div>
-      </div>
+      </section>
 
       <!-- Bundle -->
-      <div v-show="activeTab === 'bundle'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 space-y-4">
+      <section v-show="activeTab === 'bundle'" class="form-section">
         <div class="flex justify-between">
           <h3 class="font-medium">{{ t('products.tabs.bundle') }}</h3>
           <button type="button" class="text-sm text-brand-600" @click="addBundleItem">+ {{ t('products.addComponent') }}</button>
         </div>
-        <div v-for="(item, i) in bundleItems" :key="i" class="grid gap-3 sm:grid-cols-3 rounded-lg border border-slate-200 p-3">
+        <div v-for="(item, i) in bundleItems" :key="i" class="line-card">
           <select v-model="item.component_product_id" class="field sm:col-span-2" required>
             <option value="">—</option>
             <option v-for="p in stockableComponents.filter(p => p.id !== product?.id)" :key="p.id" :value="p.id">{{ p.sku }} — {{ p.name }}</option>
@@ -499,15 +518,16 @@ async function makePrimary(id: string) {
             <button type="button" class="row-remove" @click="bundleItems.splice(i, 1)">✕</button>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- Gallery -->
-      <div v-show="activeTab === 'gallery'" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <p v-if="!product" class="text-sm text-slate-500">{{ t('products.galleryAfterSave') }}</p>
+      <section v-show="activeTab === 'gallery'" class="form-section">
+        <p v-if="!product" class="form-section__hint">{{ t('products.galleryAfterSave') }}</p>
         <template v-else>
-          <label class="mb-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-4 py-6 hover:border-brand-500">
-            <span class="text-sm text-slate-600">{{ uploading ? t('common.loading') : t('products.uploadImage') }}</span>
-            <input type="file" accept="image/*" class="hidden" @change="onFileChange" />
+          <label class="dropzone">
+            <span class="dropzone__title">{{ uploading ? t('common.saving') : t('products.uploadImage') }}</span>
+            <span class="dropzone__hint">{{ t('products.image') }}</span>
+            <input type="file" accept="image/*" class="sr-only" @change="onFileChange" />
           </label>
           <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div v-for="image in images" :key="image.id" class="group relative overflow-hidden rounded-lg ring-1 ring-slate-200">
@@ -519,16 +539,15 @@ async function makePrimary(id: string) {
             </div>
           </div>
         </template>
-      </div>
+      </section>
 
-      <p v-if="saveError" class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{{ saveError }}</p>
-      <p v-if="saveNotice" class="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ saveNotice }}</p>
-      <div class="flex gap-3">
-        <button type="submit" class="btn-primary gap-1.5" :disabled="saving">
-          <AppIcon name="check" :size="15" />
-          {{ saving ? t('common.loading') : t('common.save') }}
-        </button>
+      <p v-if="saveError" class="form-alert form-alert--error" role="alert">{{ saveError }}</p>
+      <p v-if="saveNotice" class="form-alert form-alert--success" role="status">{{ saveNotice }}</p>
+      <div class="form-actions">
         <button type="button" class="btn-secondary" @click="router.push({ name: 'products' })">{{ t('common.cancel') }}</button>
+        <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">
+          {{ saving ? t('common.saving') : (isEdit ? t('common.saveChanges') : t('common.save')) }}
+        </button>
       </div>
     </form>
   </PageFrame>
@@ -538,10 +557,7 @@ async function makePrimary(id: string) {
 
 
 
-.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; font-weight: 500; }
-.bg-brand-600 { background-color: var(--color-brand-600); }
-.text-brand-600 { color: var(--color-brand-600); }
-.hover\:border-brand-500:hover { border-color: var(--color-brand-500); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 
 .product-type-grid {
   display: flex;
@@ -570,8 +586,7 @@ async function makePrimary(id: string) {
 .product-type-card--active {
   background: var(--color-brand-50);
   border-color: var(--color-brand-600);
-  color: var(--color-brand-700);
-}
+  color: var(--color-ink-brand, var(--color-brand-700));}
 
 .sr-only {
   position: absolute;

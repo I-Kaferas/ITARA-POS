@@ -24,7 +24,7 @@ const loading = ref(false)
 const productTab = ref<ProductTab>('all')
 const search = ref('')
 
-const donutColors = ['#059669', '#2563eb', '#d97706', '#dc2626', '#7c3aed', '#0e7490', '#64748b', '#be185d', '#0f766e']
+const donutColors = ['#059669', '#2563eb', '#d97706', '#dc2626', '#12243c', '#0e7490', '#64748b', '#be185d', '#0f766e']
 
 function initDates() {
   const now = new Date()
@@ -171,7 +171,7 @@ onMounted(() => {
     <div class="rev">
       <div class="rev__toolbar">
         <button type="button" class="btn-secondary" :disabled="loading" @click="load">
-          <AppIcon name="import" :size="15" />
+          <AppIcon name="recycle" :size="15" />
           {{ t('common.refresh') }}
         </button>
         <div class="rev__filters">
@@ -409,8 +409,7 @@ onMounted(() => {
 .rev__meta {
   margin: 0;
   font-size: 0.875rem;
-  color: #475569;
-}
+  color: var(--color-text-secondary);}
 
 .rev__kpis {
   display: grid;
@@ -421,9 +420,8 @@ onMounted(() => {
 .kpi {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
-  padding: 0.95rem 1rem;
-}
+  background: var(--color-surface);
+  padding: 0.95rem 1rem;}
 
 .kpi--hero {
   border-color: #99f6e4;
@@ -436,22 +434,19 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .kpi__value {
   margin: 0.4rem 0 0;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .kpi__meta {
   margin: 0.25rem 0 0;
   font-size: 0.8rem;
-  color: #0f766e;
-  font-weight: 600;
-}
+  color: light-dark(#0f766e, #9ac5c2);
+  font-weight: 600;}
 
 .rev__charts {
   display: grid;
@@ -468,9 +463,8 @@ onMounted(() => {
 .panel {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
-  padding: 1rem 1.1rem 1.15rem;
-}
+  background: var(--color-surface);
+  padding: 1rem 1.1rem 1.15rem;}
 
 .panel--table {
   padding-bottom: 0.5rem;
@@ -480,8 +474,7 @@ onMounted(() => {
   margin: 0 0 0.85rem;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .bars {
   display: grid;
@@ -495,10 +488,9 @@ onMounted(() => {
   flex-direction: column;
   justify-content: space-between;
   font-size: 0.68rem;
-  color: #94a3b8;
+  color: var(--color-text-faint);
   text-align: right;
-  padding-bottom: 1.6rem;
-}
+  padding-bottom: 1.6rem;}
 
 .bars__plot {
   display: flex;
@@ -530,14 +522,13 @@ onMounted(() => {
 
 .bars__label {
   font-size: 0.62rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   writing-mode: horizontal-tb;
   white-space: nowrap;
   transform: rotate(-35deg);
   transform-origin: top left;
   margin-left: 0.4rem;
-  height: 1.4rem;
-}
+  height: 1.4rem;}
 
 .donut-wrap {
   display: grid;
@@ -568,8 +559,7 @@ onMounted(() => {
   align-items: flex-start;
   gap: 0.45rem;
   font-size: 0.8rem;
-  color: #334155;
-}
+  color: var(--color-text-secondary);}
 
 .legend__swatch {
   width: 0.7rem;
@@ -606,24 +596,21 @@ onMounted(() => {
   align-items: center;
   gap: 0.4rem;
   border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #64748b;
+  background: var(--color-table-header);
+  color: var(--color-text-muted);
   border-radius: 999px;
   padding: 0.35rem 0.75rem;
   font-size: 0.8rem;
   font-weight: 600;
-  cursor: pointer;
-}
+  cursor: pointer;}
 
 .seg__btn strong {
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .seg__btn.is-active {
-  background: #ecfdf5;
+  background: var(--color-success-bg);
   border-color: #99f6e4;
-  color: #0f766e;
-}
+  color: light-dark(#0f766e, #9ac5c2);}
 
 .table-scroll {
   overflow: auto;
@@ -644,13 +631,12 @@ td {
 }
 
 th {
-  background: #f8fafc;
-  color: #64748b;
+  background: var(--color-table-header);
+  color: var(--color-text-muted);
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  white-space: nowrap;
-}
+  white-space: nowrap;}
 
 .num {
   text-align: right;
@@ -666,14 +652,12 @@ th {
 
 .sku {
   font-size: 0.75rem;
-  color: #94a3b8;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
+  color: var(--color-text-faint);
+  font-family: var(--font-sans);}
 
 tfoot td {
   font-weight: 700;
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 
 
 
@@ -697,9 +681,8 @@ tfoot td {
 
 .btn-secondary {
   border: 1px solid #cbd5e1;
-  background: white;
-  color: #334155;
-}
+  background: var(--color-surface);
+  color: var(--color-text-secondary);}
 
 
 
@@ -707,7 +690,6 @@ tfoot td {
   margin: 0;
   padding: 1.25rem 0.5rem;
   text-align: center;
-  color: #94a3b8;
-  font-size: 0.875rem;
-}
+  color: var(--color-text-faint);
+  font-size: 0.875rem;}
 </style>

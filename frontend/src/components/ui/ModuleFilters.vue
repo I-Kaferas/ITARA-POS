@@ -158,7 +158,7 @@ function reset() {
   align-items: stretch;
   gap: var(--space-3);
   width: 100%;
-  padding: var(--space-4);
+  padding: var(--card-pad);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
@@ -174,13 +174,12 @@ function reset() {
   border-radius: var(--radius-sm);
   padding: 0 var(--space-3);
   background: var(--color-brand-50);
-  color: var(--color-brand-700);
+  color: var(--color-ink-brand, var(--color-brand-700));
   font-size: var(--text-sm);
   font-weight: 500;
   line-height: var(--line-sm);
-  cursor: pointer;
-}
-.filters { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; width: 100%; }
+  cursor: pointer;}
+.filters { display: flex; flex-wrap: wrap; gap: var(--field-gap) var(--space-3); align-items: center; width: 100%; }
 .filters .field { min-width: 9.5rem; }
 
 

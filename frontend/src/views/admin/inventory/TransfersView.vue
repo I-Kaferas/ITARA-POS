@@ -321,7 +321,7 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving || !destinationWarehouses.length">{{ t('inventory.saveEntry') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !destinationWarehouses.length">{{ t('inventory.saveEntry') }}</button>
         </div>
       </form>
     </AppModal>
@@ -360,5 +360,5 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
 .line-row > .qty { flex: 0 0 6.5rem; width: 6.5rem; padding-left: 0.4rem; padding-right: 0.35rem; text-align: center; }
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

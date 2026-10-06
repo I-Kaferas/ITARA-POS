@@ -265,7 +265,7 @@ function priceLabel(product: Product) {
 
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving || !productId || !preview.length">{{ t('catalog.options.apply') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !productId || !preview.length">{{ t('catalog.options.apply') }}</button>
         </div>
       </form>
     </AppModal>
@@ -276,7 +276,7 @@ function priceLabel(product: Product) {
 
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 .option-chip { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; background: var(--color-brand-600); color: #fff; padding: 0.15rem 0.45rem 0.15rem 0.55rem; font-size: 0.75rem; }
 .option-chip button { color: #fff; line-height: 1; }
 .preview-row {

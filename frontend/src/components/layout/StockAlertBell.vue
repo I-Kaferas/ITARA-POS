@@ -121,16 +121,14 @@ onBeforeUnmount(() => {
   min-width: var(--control-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #fff;
-  color: #3d5c73;
-  cursor: pointer;
-}
+  background: var(--color-surface);
+  color: var(--color-ink-brand, var(--color-brand-600));
+  cursor: pointer;}
 
 .stock-bell__btn--open,
 .stock-bell__btn:hover {
   border-color: #c5d4e0;
-  color: #16324f;
-}
+  color: var(--color-text-primary);}
 
 .stock-bell__badge {
   position: absolute;
@@ -157,9 +155,8 @@ onBeforeUnmount(() => {
   padding: var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #fff;
-  box-shadow: var(--shadow-md);
-}
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);}
 
 .stock-bell__head {
   padding: 0.75rem 0.85rem 0.55rem;
@@ -171,8 +168,7 @@ onBeforeUnmount(() => {
   font-size: var(--text-lg);
   font-weight: 600;
   line-height: var(--line-md);
-  color: #16324f;
-}
+  color: var(--color-text-primary);}
 
 .stock-bell__count,
 .stock-bell__meta,
@@ -180,8 +176,7 @@ onBeforeUnmount(() => {
   margin: var(--space-1) 0 0;
   font-size: var(--text-xs);
   line-height: var(--line-xs);
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .stock-bell__list {
   margin: 0;
@@ -203,15 +198,14 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.stock-bell__item:hover { background: #f8fafc; }
+.stock-bell__item:hover { background: var(--color-table-header);}
 
 .stock-bell__name {
   display: block;
   font-size: var(--text-md);
   font-weight: 500;
   line-height: var(--line-sm);
-  color: #1e293b;
-}
+  color: var(--color-text-primary);}
 
 .stock-bell__empty { padding: 0.85rem; }
 
@@ -220,12 +214,11 @@ onBeforeUnmount(() => {
   width: 100%;
   border: 0;
   border-top: 1px solid #f1f5f9;
-  background: #f8fafc;
-  color: #1d4e89;
+  background: var(--color-table-header);
+  color: light-dark(#1d4e89, #a0b5cd);
   font-size: 0.75rem;
   font-weight: 650;
   padding: 0.65rem 0.85rem;
   cursor: pointer;
-  text-align: left;
-}
+  text-align: left;}
 </style>

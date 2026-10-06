@@ -46,7 +46,9 @@ class RealtimeEvent implements ShouldBroadcastNow
 
     public function broadcastAs(): string
     {
-        return 'domain.changed';
+        $name = $this->payload['type'] ?? $this->payload['event_name'] ?? null;
+
+        return is_string($name) && $name !== '' ? $name : 'domain.changed';
     }
 
     /** @return array<string, mixed> */

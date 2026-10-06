@@ -177,7 +177,7 @@ const shortMonth = (label: string) => {
   }
 }
 
-const donutColors = ['#059669', '#2563eb', '#d97706', '#dc2626', '#7c3aed', '#0e7490', '#64748b']
+const donutColors = ['#059669', '#2563eb', '#d97706', '#dc2626', '#12243c', '#0e7490', '#64748b']
 
 function donutBackground(rows: { count: number }[]) {
   const total = rows.reduce((sum, row) => sum + row.count, 0) || 1
@@ -232,7 +232,7 @@ onMounted(() => {
             <span>{{ t('reports.salesAnalytics.exportExcel') }}</span>
           </button>
           <button type="button" class="btn-secondary" :disabled="loading" @click="load">
-            <AppIcon name="import" :size="15" />
+            <AppIcon name="recycle" :size="15" />
             <span>{{ t('common.refresh') }}</span>
           </button>
         </div>
@@ -698,12 +698,11 @@ onMounted(() => {
   padding: 0.28rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.95rem;
-  background: #f8fafc;
+  background: var(--color-table-header);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   overflow-x: auto;
   max-width: 100%;
-  scrollbar-width: none;
-}
+  scrollbar-width: none;}
 
 .sales__tabs::-webkit-scrollbar {
   display: none;
@@ -716,7 +715,7 @@ onMounted(() => {
   gap: 0.45rem;
   border: 1px solid transparent;
   background: transparent;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1;
@@ -729,13 +728,11 @@ onMounted(() => {
     background 0.18s ease,
     border-color 0.18s ease,
     box-shadow 0.18s ease,
-    transform 0.18s ease;
-}
+    transform 0.18s ease;}
 
 .sales__tab:hover {
-  color: #0f172a;
-  background: rgba(255, 255, 255, 0.7);
-}
+  color: var(--color-text-primary);
+  background: var(--color-table-row-hover);}
 
 .sales__tab-icon {
   display: inline-flex;
@@ -750,18 +747,16 @@ onMounted(() => {
 }
 
 .sales__tab.is-active {
-  color: #0f766e;
-  background: white;
+  color: light-dark(#0f766e, #9ac5c2);
+  background: var(--color-surface);
   border-color: #ccfbf1;
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.06),
-    0 4px 12px rgba(15, 118, 110, 0.08);
-}
+    0 4px 12px rgba(15, 118, 110, 0.08);}
 
 .sales__tab.is-active .sales__tab-icon {
-  background: #ecfdf5;
-  color: #0f766e;
-}
+  background: var(--color-success-bg);
+  color: light-dark(#0f766e, #9ac5c2);}
 
 .sales__tab.is-active::after {
   content: '';
@@ -811,9 +806,8 @@ onMounted(() => {
 
 .btn-secondary {
   border: 1px solid #cbd5e1;
-  background: white;
-  color: #334155;
-}
+  background: var(--color-surface);
+  color: var(--color-text-secondary);}
 
 
 
@@ -826,9 +820,8 @@ onMounted(() => {
 .kpi {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
-  padding: 1rem 1.05rem;
-}
+  background: var(--color-surface);
+  padding: 1rem 1.05rem;}
 
 .kpi__label {
   margin: 0;
@@ -836,21 +829,18 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .kpi__value {
   margin: 0.45rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .kpi__meta {
   margin: 0.3rem 0 0;
   font-size: 0.8rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .sales__grid {
   display: grid;
@@ -872,10 +862,9 @@ onMounted(() => {
 .panel {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
+  background: var(--color-surface);
   padding: 1rem 1.1rem 1.15rem;
-  min-height: 220px;
-}
+  min-height: 220px;}
 
 .panel--table {
   overflow: auto;
@@ -894,23 +883,20 @@ onMounted(() => {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .panel__empty {
   margin: 2rem 0 0;
   text-align: center;
-  color: #94a3b8;
-  font-size: 0.9rem;
-}
+  color: var(--color-text-faint);
+  font-size: 0.9rem;}
 
 .legend {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   font-size: 0.78rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .legend__item {
   display: inline-flex;
@@ -962,8 +948,7 @@ onMounted(() => {
   flex-direction: column-reverse;
   border-radius: 0.3rem 0.3rem 0.1rem 0.1rem;
   overflow: hidden;
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 
 .stacked__seg { width: 100%; min-height: 0; }
 .stacked__seg--collected { background: #059669; }
@@ -979,9 +964,8 @@ onMounted(() => {
 
 .stacked__label {
   font-size: 0.65rem;
-  color: #94a3b8;
-  text-transform: uppercase;
-}
+  color: var(--color-text-faint);
+  text-transform: uppercase;}
 
 .donut-wrap {
   display: flex;
@@ -1015,14 +999,12 @@ onMounted(() => {
   align-items: center;
   gap: 0.45rem;
   font-size: 0.85rem;
-  color: #475569;
-}
+  color: var(--color-text-secondary);}
 
 .donut-legend strong,
 .simple-list strong {
   margin-left: auto;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .simple-list {
   list-style: none;
@@ -1044,16 +1026,14 @@ onMounted(() => {
   justify-content: space-between;
   gap: 0.5rem;
   font-size: 0.85rem;
-  color: #475569;
-  margin-bottom: 0.25rem;
-}
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;}
 
 .bar-list__track {
   height: 0.45rem;
   border-radius: 999px;
-  background: #f1f5f9;
-  overflow: hidden;
-}
+  background: var(--color-table-header);
+  overflow: hidden;}
 
 .bar-list__fill {
   height: 100%;
@@ -1068,8 +1048,7 @@ onMounted(() => {
 .bar-list__sub {
   margin: 0.25rem 0 0;
   font-size: 0.75rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .trend {
   display: grid;
@@ -1116,9 +1095,8 @@ onMounted(() => {
 
 .trend__label {
   font-size: 0.6rem;
-  color: #94a3b8;
-  white-space: nowrap;
-}
+  color: var(--color-text-faint);
+  white-space: nowrap;}
 
 .line-chart {
   display: flex;
@@ -1130,24 +1108,21 @@ onMounted(() => {
 .line-chart__svg {
   width: 100%;
   height: 140px;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-}
+  background: var(--color-surface);
+  border-bottom: 1px solid #e2e8f0;}
 
 .line-chart__labels {
   display: flex;
   justify-content: space-between;
   gap: 0.35rem;
   font-size: 0.68rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .line-chart__hint {
   margin: 0;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .table {
   width: 100%;
@@ -1163,11 +1138,10 @@ onMounted(() => {
 }
 
 .table th {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-weight: 600;
   font-size: 0.75rem;
-  text-transform: uppercase;
-}
+  text-transform: uppercase;}
 
 .text-right { text-align: right !important; }
 

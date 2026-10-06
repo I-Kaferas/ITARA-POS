@@ -56,7 +56,7 @@ async function generate() {
 function printCode(value: string, label = '') {
   const win = window.open('', '_blank', 'noopener,width=420,height=280')
   if (!win) return
-  win.document.write(`<title>${label || value}</title><body style="font-family:sans-serif;text-align:center;padding:24px"><p>${label}</p><p style="font:700 28px/1.2 monospace;letter-spacing:.12em">${value}</p></body>`)
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"><title>${label || value}</title></head><body style="font-family:Inter,system-ui,sans-serif;text-align:center;padding:24px"><p>${label}</p><p style="font:700 28px/1.2 Inter,system-ui,sans-serif;letter-spacing:.12em">${value}</p></body></html>`)
   win.document.close()
   win.focus()
   win.print()

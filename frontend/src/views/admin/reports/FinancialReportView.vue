@@ -77,7 +77,7 @@ watchLiveSearch([from, to], load, 0)
 <style scoped>
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.stat { border-radius: 0.75rem; background: white; padding: 1rem; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); }
-.label { margin: 0; font-size: 0.75rem; color: #64748b; }
+.stat { border-radius: 0.75rem; background: var(--color-surface); padding: 1rem; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);}
+.label { margin: 0; font-size: 0.75rem; color: var(--color-text-muted);}
 .value { margin: 0.25rem 0 0; font-size: 1.25rem; font-weight: 700; }
 </style>

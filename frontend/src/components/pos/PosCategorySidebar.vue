@@ -88,8 +88,7 @@ const { t } = useI18n()
 
 .pos-cat-tabs__chip:hover {
   background: #e4e8ef;
-  color: var(--color-brand-700);
-}
+  color: var(--color-ink-brand, var(--color-brand-700));}
 
 .pos-cat-tabs__chip--skel {
   pointer-events: none;

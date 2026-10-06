@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import WorkspaceSplash from '../../components/auth/WorkspaceSplash.vue'
+import AppIcon from '../../components/ui/AppIcon.vue'
 import LanguageSwitcher from '../../components/ui/LanguageSwitcher.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -13,10 +15,8 @@ import type { Company } from '../../types'
 const DEMO_EMAIL = 'admin@pos.local'
 const DEMO_PASSWORD = 'password'
 const DEFAULT_SLUG = 'demo'
-const WELCOME_DURATION_MS = 4800
-const WELCOME_EXIT_MS = 380
 const ITARA_LOGO_URL = '/brand/itara-nexus-logo.png?v=2'
-const LOGIN_BACKGROUND_URL = '/brand/login-background.png'
+const PRODUCT_NAME = 'ITARA NEXUS'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -32,60 +32,98 @@ const twoFactorCode = ref('')
 const showTwoFactor = ref(false)
 const showPassword = ref(false)
 const logoFailed = ref(false)
-const welcomeLogoFailed = ref(false)
-const showWelcome = ref(false)
-const welcomeLeaving = ref(false)
+const showSplash = ref(false)
 const company = ref<Company | null>(null)
-let welcomeTimer: ReturnType<typeof setTimeout> | null = null
-let welcomeExitTimer: ReturnType<typeof setTimeout> | null = null
 
 const branding = computed(() => brandingStore.branding)
+const publicCompany = computed(() => branding.value?.company ?? null)
 const brandName = computed(() =>
-  company.value?.trade_name?.trim()
+  publicCompany.value?.name?.trim()
   || company.value?.name?.trim()
+  || publicCompany.value?.trade_name?.trim()
+  || company.value?.trade_name?.trim()
   || branding.value?.brand_name?.trim()
   || 'ITARA NEXUS Business CORE',
 )
-const tenantSlug = computed(() => branding.value?.slug || resolveTenantSlug())
-const loginLogoUrl = computed(() =>
-  ITARA_LOGO_URL,
+const tradeName = computed(() => {
+  const value = publicCompany.value?.trade_name?.trim() || company.value?.trade_name?.trim() || ''
+  if (!value || value.toLowerCase() === brandName.value.toLowerCase()) return ''
+  return value
+})
+const companyLogo = computed(() =>
+  publicCompany.value?.logo_url?.trim()
+  || company.value?.logo_url?.trim()
+  || '',
 )
-const welcomeLogoUrl = computed(() =>
-  welcomeLogoFailed.value ? '' : ITARA_LOGO_URL,
-)
+const loginLogoUrl = computed(() => ITARA_LOGO_URL)
 const initial = computed(() => 'I')
+const splashBrand = computed(() => {
+  const custom = branding.value?.brand_name?.trim() || ''
+  const generic = ['itara nexus', 'itara nexus business core']
+  if (custom && !generic.includes(custom.toLowerCase())) return custom
+  return PRODUCT_NAME
+})
+const splashTagline = computed(() => {
+  const tagline = branding.value?.tagline?.trim() || ''
+  const generic = [
+    'itara nexus',
+    'itara nexus business core',
+    splashBrand.value.toLowerCase(),
+    'point de vente professionnel',
+    'vendez plus vite',
+    'suivez vos stocks',
+  ]
+  const normalized = tagline.toLowerCase()
+  if (tagline && !generic.some(part => normalized.includes(part))) return tagline
+  return t('auth.brandTitle')
+})
+const splashCompany = computed(() => {
+  const name = company.value?.trade_name?.trim()
+    || company.value?.name?.trim()
+    || context.currentStore?.branch?.company?.trade_name?.trim()
+    || context.currentStore?.branch?.company?.name?.trim()
+    || ''
+  if (!name || name.toLowerCase() === splashBrand.value.toLowerCase()) return ''
+  return name
+})
+const tenantLogo = computed(() => branding.value?.logo_url?.trim() || '')
 const userName = computed(() => auth.user?.name?.trim() || '')
 const welcomeFirstName = computed(() => {
   const parts = userName.value.split(/\s+/).filter(Boolean)
   return parts[0] || userName.value
 })
 
-/** Prefer curated product copy on login; branding marketing only if it is specific. */
-const panelHeadline = computed(() => {
-  const title = branding.value?.marketing.hero_title?.trim() || ''
-  if (
-    title
-    && title.toLowerCase() !== brandName.value.toLowerCase()
-    && title.toLowerCase() !== 'itara nexus'
-  ) {
-    return title
-  }
-  return t('auth.brandTitle')
-})
-
 const panelLede = computed(() => {
-  const sub = branding.value?.marketing.hero_subtitle?.trim() || ''
+  const sector = publicCompany.value?.activity_sector?.trim() || ''
+  if (sector) return sector
+  const tagline = branding.value?.tagline?.trim() || ''
   const generic = [
     'point de vente professionnel',
     'vendez plus vite',
     'suivez vos stocks',
+    'itara nexus',
   ]
-  const isGeneric = !sub || generic.some(part => sub.toLowerCase().includes(part))
-  if (sub && !isGeneric) return sub
+  if (tagline && !generic.some(part => tagline.toLowerCase().includes(part))) return tagline
   return t('auth.brandSubtitle')
 })
 
-const welcomeMessage = computed(() => t('auth.welcomeModalMessage'))
+const companyFacts = computed(() => {
+  const profile = publicCompany.value
+  if (!profile) return []
+  const rows = [
+    { icon: 'organization', label: t('org.legalForm'), value: profile.legal_form?.trim() || '' },
+    { icon: 'percent', label: t('org.taxId'), value: profile.tax_id?.trim() || '' },
+    { icon: 'id-card', label: t('org.registration'), value: profile.registration_number?.trim() || '' },
+    { icon: 'building', label: t('org.fiscalCenter'), value: profile.fiscal_center?.trim() || '' },
+    { icon: 'phone', label: t('org.phone'), value: profile.phone?.trim() || '' },
+    { icon: 'mail', label: t('org.email'), value: profile.email?.trim() || '' },
+    { icon: 'globe', label: t('org.website'), value: profile.website?.trim() || '' },
+    { icon: 'pin', label: t('org.address'), value: profile.address?.trim() || '', wide: true },
+    { icon: 'coins', label: t('org.currency'), value: profile.currency_code?.trim() || '' },
+    { icon: 'calendar', label: t('org.settingsPage.openingHours'), value: profile.opening_hours?.trim() || '', wide: true },
+  ]
+  return rows.filter(row => row.value)
+})
 
 async function resolveCompany(): Promise<Company | null> {
   const fromStore = context.currentStore?.branch?.company
@@ -110,8 +148,11 @@ function resolveTenantSlug(): string {
   if (fromQuery) return fromQuery.toLowerCase()
 
   const host = window.location.hostname
+  const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host)
+  if (host === 'localhost' || isIp) return DEFAULT_SLUG
+
   const parts = host.split('.')
-  if (parts.length >= 3 && parts[0] && parts[0] !== 'www' && parts[0] !== 'localhost') {
+  if (parts.length >= 3 && parts[0] && parts[0] !== 'www') {
     return parts[0].toLowerCase()
   }
 
@@ -120,11 +161,6 @@ function resolveTenantSlug(): string {
 
 onMounted(() => {
   void brandingStore.loadPublic(resolveTenantSlug()).catch(() => undefined)
-})
-
-onBeforeUnmount(() => {
-  if (welcomeTimer) clearTimeout(welcomeTimer)
-  if (welcomeExitTimer) clearTimeout(welcomeExitTimer)
 })
 
 function fillDemo() {
@@ -138,48 +174,38 @@ function useAnotherAccount() {
   auth.error = null
 }
 
-async function prepareWelcome() {
-  welcomeLogoFailed.value = false
-  showWelcome.value = true
-  welcomeLeaving.value = false
-  if (welcomeTimer) clearTimeout(welcomeTimer)
-  if (welcomeExitTimer) clearTimeout(welcomeExitTimer)
-  welcomeTimer = setTimeout(() => {
-    void enterApplication()
-  }, WELCOME_DURATION_MS)
-
-  // Warm company/store context in the background; never block the welcome splash.
-  void (async () => {
-    try {
-      await context.loadStores()
-    } catch {
-      // ignore
-    }
-    try {
-      await brandingStore.loadCurrent()
-    } catch {
-      // ignore
-    }
-    try {
-      company.value = await resolveCompany()
-    } catch {
-      // ignore
-    }
-  })()
+function prepareWelcome() {
+  if (showSplash.value) return
+  company.value = null
+  showSplash.value = true
 }
 
-async function enterApplication() {
-  if (welcomeLeaving.value) return
-  welcomeLeaving.value = true
-  if (welcomeTimer) {
-    clearTimeout(welcomeTimer)
-    welcomeTimer = null
+async function bootWorkspace(report: { milestone: (ratio: number, step?: number) => void }) {
+  if (auth.user?.is_super_admin && !auth.user.tenant_id) {
+    report.milestone(1, 2)
+    return
   }
-  await new Promise<void>((resolve) => {
-    welcomeExitTimer = setTimeout(() => resolve(), WELCOME_EXIT_MS)
-  })
-  welcomeExitTimer = null
-  showWelcome.value = false
+  report.milestone(0.18, 0)
+  await context.loadStores()
+  report.milestone(0.62, 1)
+  await Promise.all([
+    brandingStore.loadCurrent().catch(() => undefined),
+    resolveCompany()
+      .then((value) => {
+        company.value = value
+      })
+      .catch(() => {
+        company.value = null
+      }),
+  ])
+  report.milestone(1, 2)
+}
+
+async function onSplashDone() {
+  if (auth.user?.is_super_admin && !auth.user.tenant_id) {
+    await router.push({ name: 'platform' })
+    return
+  }
   await router.push({ name: 'dashboard' })
 }
 
@@ -207,49 +233,67 @@ async function submit() {
 <template>
   <div
     class="login"
+    :inert="showSplash"
     :style="{
-      '--login-primary': branding?.primary_color || '#7c3aed',
-      '--login-accent': branding?.accent_color || '#7c3aed',
+      '--login-primary': branding?.primary_color || '#12243c',
+      '--login-accent': branding?.accent_color || '#E39B2B',
     }"
   >
     <aside class="login__brand">
-      <div class="login__brand-bg" aria-hidden="true">
-        <img
-          class="login__brand-photo"
-          :src="LOGIN_BACKGROUND_URL"
-          alt=""
-        />
-      </div>
-
-      <div class="login__brand-top">
-        <div class="login__lockup">
+      <div class="login__brand-inner">
+        <div v-if="companyLogo" class="login__identity">
           <img
-            v-if="loginLogoUrl && !logoFailed"
-            class="login__logo login__logo--wordmark"
-            :src="loginLogoUrl"
-            alt="ITARA NEXUS Business CORE"
-            @error="logoFailed = true"
+            class="login__brand-logo"
+            :src="companyLogo"
+            :alt="brandName"
           />
-          <template v-else>
-            <span class="login__mark">{{ initial }}</span>
-            <span class="login__name">{{ brandName }}</span>
-          </template>
         </div>
-        <p class="login__tenant">{{ tenantSlug }}</p>
+
+        <div class="login__brand-mid">
+          <span class="login__rule" aria-hidden="true" />
+          <h1>{{ brandName }}</h1>
+          <p v-if="tradeName" class="login__trade">{{ tradeName }}</p>
+          <p>{{ panelLede }}</p>
+        </div>
+
+        <div class="login__brand-bottom">
+          <ul v-if="companyFacts.length" class="login__points">
+            <li v-for="fact in companyFacts" :key="fact.label" :class="{ 'login__point--wide': fact.wide }">
+              <span class="login__point-icon" aria-hidden="true">
+                <AppIcon :name="fact.icon" :size="16" />
+              </span>
+              <span class="login__point-copy">
+                <span class="login__point-title">{{ fact.label }}</span>
+                <span class="login__point-desc">{{ fact.value }}</span>
+              </span>
+            </li>
+          </ul>
+          <ul v-else class="login__points">
+            <li>
+              <span class="login__point-icon" aria-hidden="true"><AppIcon name="device-pos" :size="16" /></span>
+              <span class="login__point-copy">
+                <span class="login__point-title">{{ t('auth.featureCatalog') }}</span>
+                <span class="login__point-desc">{{ t('auth.featureCatalogDesc') }}</span>
+              </span>
+            </li>
+            <li>
+              <span class="login__point-icon" aria-hidden="true"><AppIcon name="bed" :size="16" /></span>
+              <span class="login__point-copy">
+                <span class="login__point-title">{{ t('auth.featureStores') }}</span>
+                <span class="login__point-desc">{{ t('auth.featureStoresDesc') }}</span>
+              </span>
+            </li>
+            <li class="login__point--wide">
+              <span class="login__point-icon" aria-hidden="true"><AppIcon name="inventory" :size="16" /></span>
+              <span class="login__point-copy">
+                <span class="login__point-title">{{ t('auth.featureSaas') }}</span>
+                <span class="login__point-desc">{{ t('auth.featureSaasDesc') }}</span>
+              </span>
+            </li>
+          </ul>
+          <p class="login__foot">© {{ new Date().getFullYear() }} {{ brandName }}</p>
+        </div>
       </div>
-
-      <div class="login__brand-mid">
-        <h1>{{ panelHeadline }}</h1>
-        <p>{{ panelLede }}</p>
-      </div>
-
-      <ul class="login__points">
-        <li>{{ t('auth.featureCatalog') }}</li>
-        <li>{{ t('auth.featureStores') }}</li>
-        <li>{{ t('auth.featureSaas') }}</li>
-      </ul>
-
-      <p class="login__foot">© {{ new Date().getFullYear() }} {{ brandName }}</p>
     </aside>
 
     <main class="login__panel">
@@ -257,9 +301,16 @@ async function submit() {
         <LanguageSwitcher />
       </div>
 
-        <form class="login__form" @submit.prevent="submit">
+      <form class="login__form" @submit.prevent="submit">
         <div class="login__form-head">
-          <p class="login__eyebrow">{{ t('auth.eyebrow') }}</p>
+          <img
+            v-if="loginLogoUrl && !logoFailed"
+            class="login__logo"
+            :src="loginLogoUrl"
+            alt="ITARA NEXUS Business CORE"
+            @error="logoFailed = true"
+          />
+          <span v-else class="login__mark">{{ initial }}</span>
           <h2>{{ showTwoFactor ? t('auth.twoFactorTitle') : t('auth.login') }}</h2>
           <p class="login__lead">
             {{ showTwoFactor ? t('auth.twoFactorSubtitle') : t('auth.loginSubtitle') }}
@@ -331,6 +382,7 @@ async function submit() {
           <p v-if="auth.error" class="login__error" role="alert">{{ auth.error }}</p>
 
           <button class="ui-btn ui-btn--primary login__submit" type="submit" :disabled="auth.loading">
+            <AppIcon :name="showTwoFactor ? 'lock' : 'key'" :size="16" />
             {{ auth.loading ? t('common.loading') : showTwoFactor ? t('auth.verify') : t('auth.login') }}
           </button>
         </div>
@@ -338,276 +390,189 @@ async function submit() {
         <div class="login__form-foot">
           <p class="login__secure">{{ t('auth.secureNote') }}</p>
           <button v-if="showTwoFactor" class="login__quiet" type="button" @click="useAnotherAccount">
+            <AppIcon name="account" :size="14" />
             {{ t('auth.changeAccount') }}
           </button>
           <button v-else class="login__quiet" type="button" @click="fillDemo">
+            <AppIcon name="account" :size="14" />
             {{ t('auth.useDemo') }}
           </button>
         </div>
       </form>
     </main>
 
-    <Teleport to="body">
-      <div
-        v-if="showWelcome"
-        class="login-welcome"
-        :class="{ 'login-welcome--leaving': welcomeLeaving }"
-        :style="{
-          '--login-primary': branding?.primary_color || '#3D5C73',
-          '--login-accent': branding?.accent_color || '#E39B2B',
-          '--welcome-duration': `${WELCOME_DURATION_MS}ms`,
-        }"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="login-welcome-title"
-      >
-        <div class="login-welcome__bg" aria-hidden="true" />
-
-        <div class="login-welcome__frame">
-          <div class="login-welcome__logo-block login-welcome__anim" style="--d: 40ms">
-            <img
-              v-if="welcomeLogoUrl"
-              class="login-welcome__logo"
-              :src="welcomeLogoUrl"
-              alt="ITARA NEXUS Business CORE"
-              @error="welcomeLogoFailed = true"
-            />
-            <span v-else class="login-welcome__mark">{{ initial }}</span>
-          </div>
-
-          <p
-            v-if="welcomeFirstName"
-            class="login-welcome__hello login-welcome__anim"
-            style="--d: 220ms"
-          >
-            {{ t('auth.welcomeModalHello', { name: welcomeFirstName }) }}
-          </p>
-
-          <h2
-            id="login-welcome-title"
-            class="login-welcome__title login-welcome__anim"
-            style="--d: 320ms"
-          >
-            {{ t('auth.welcomeModalTitle') }}
-          </h2>
-
-          <p class="login-welcome__message login-welcome__anim" style="--d: 420ms">
-            {{ welcomeMessage }}
-          </p>
-
-          <p class="login-welcome__slogan login-welcome__anim" style="--d: 500ms">
-            {{ t('auth.welcomeSlogan') }}
-          </p>
-
-          <div class="login-welcome__meter login-welcome__anim" style="--d: 580ms" aria-hidden="true">
-            <span class="login-welcome__meter-bar" />
-          </div>
-
-          <button
-            type="button"
-            class="login-welcome__cta login-welcome__anim"
-            style="--d: 680ms"
-            :disabled="welcomeLeaving"
-            @click="enterApplication"
-          >
-            <span>{{ t('auth.welcomeContinue') }}</span>
-            <span class="login-welcome__cta-arrow" aria-hidden="true">→</span>
-          </button>
-        </div>
-      </div>
-    </Teleport>
+    <WorkspaceSplash
+      v-if="showSplash"
+      :brand-name="splashBrand"
+      :tagline="splashTagline"
+      :logo-url="tenantLogo"
+      :first-name="welcomeFirstName"
+      :company-name="splashCompany"
+      :boot="bootWorkspace"
+      @done="onSplashDone"
+    />
   </div>
 </template>
 
 <style scoped>
 .login {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 0.82fr) minmax(26rem, 1.18fr);
   width: 100%;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .login__brand {
-  position: relative;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  gap: 2rem;
+  min-width: 0;
   min-height: 0;
-  padding: 2rem 2.25rem 1.75rem;
-  background: #12181e;
+  padding: clamp(1.75rem, 4vh, 3rem) clamp(1.75rem, 3.5vw, 3.5rem);
+  overflow: auto;
+  background: var(--login-primary, #12243c);
   color: #fff;
-  overflow: hidden;
-  text-align: center;
 }
 
-.login__brand-photo {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  user-select: none;
-}
-
-.login__brand-bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.login__brand-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(10, 14, 20, 0.58);
-}
-
-.login__brand-top,
-.login__brand-mid,
-.login__points,
-.login__foot {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-}
-
-.login__brand-top {
+.login__brand-inner {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
+  justify-content: flex-start;
+  gap: 1.75rem;
+  width: 100%;
+  min-height: 100%;
+  margin: 0 auto;
 }
 
-.login__lockup {
+.login__identity {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.7rem;
+  gap: 0.9rem;
   min-width: 0;
 }
 
-.login__logo,
-.login__mark {
-  width: 2.15rem;
-  height: 2.15rem;
-  border-radius: 0.45rem;
+.login__brand-logo {
+  width: 3.25rem;
+  height: 3.25rem;
   flex-shrink: 0;
-}
-
-.login__logo {
   object-fit: contain;
-  background: transparent;
-  border-radius: 0;
-}
+  padding: 0.3rem;
+  border-radius: 0.7rem;
+  background: var(--color-surface);}
 
-.login__logo--wordmark {
-  width: auto;
-  height: 2.6rem;
-  max-width: 9.5rem;
-}
-
-.login__mark {
-  display: grid;
-  place-items: center;
-  background: var(--login-primary);
-  color: #fff;
-  font-family: var(--font-brand);
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.login__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-brand);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.login__tenant {
+.login__kicker {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.38);
-  text-align: center;
+  max-width: 24rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .login__brand-mid {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  max-width: 26rem;
-  margin: 0 auto;
+  align-items: flex-start;
+}
+
+.login__rule {
+  display: block;
+  width: 2.25rem;
+  height: 3px;
+  margin-bottom: 1.15rem;
+  border-radius: 2px;
+  background: var(--login-accent, #e39b2b);
 }
 
 .login__brand-mid h1 {
   margin: 0;
-  max-width: 18ch;
+  max-width: 22ch;
   font-family: var(--font-brand);
-  font-size: clamp(1.55rem, 2.2vw, 2rem);
+  font-size: clamp(1.85rem, 2.5vw, 2.45rem);
   font-weight: 600;
   letter-spacing: -0.03em;
-  line-height: 1.25;
-  text-align: center;
+  line-height: 1.18;
+}
+
+.login__trade {
+  margin: 0.45rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .login__brand-mid p {
-  margin: 0.95rem 0 0;
-  max-width: 28rem;
-  font-size: 0.925rem;
+  margin: 0.9rem 0 0;
+  max-width: 34ch;
+  font-size: 0.95rem;
   line-height: 1.55;
-  color: rgba(255, 255, 255, 0.58);
-  text-align: center;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.login__brand-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
 }
 
 .login__points {
-  margin: 0 auto;
-  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1rem;
+  margin: 0;
+  padding: 1rem 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
   list-style: none;
-  width: 100%;
-  max-width: 22rem;
 }
 
 .login__points li {
-  position: relative;
-  padding: 0.65rem 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.login__point--wide {
+  grid-column: 1 / -1;
+}
+
+.login__point-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--login-accent, #e39b2b);
+}
+
+.login__point-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.login__point-title {
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: #fff;
+}
+
+.login__point-desc {
   font-size: 0.8125rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.72);
-  text-align: center;
-}
-
-.login__points li:last-child {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.login__points li::before {
-  content: "";
-  display: block;
-  width: 0.35rem;
-  height: 0.35rem;
-  margin: 0 auto 0.4rem;
-  border-radius: 50%;
-  background: var(--login-accent);
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .login__foot {
   margin: 0;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.32);
-  text-align: center;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.46);
 }
 
 .login__panel {
@@ -615,11 +580,11 @@ async function submit() {
   display: flex;
   min-width: 0;
   min-height: 0;
-  align-items: stretch;
-  justify-content: stretch;
-  padding: 0;
-  background: #fff;
-}
+  align-items: center;
+  justify-content: center;
+  padding: clamp(4.5rem, 8vh, 5.5rem) clamp(1.75rem, 4vw, 3.25rem) clamp(2rem, 5vh, 3rem);
+  overflow: auto;
+  background: var(--color-canvas);}
 
 .login__tools {
   position: absolute;
@@ -633,72 +598,70 @@ async function submit() {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
-  overflow: auto;
-  padding: 0;
-  background: #ffffff;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
+  width: min(100%, 46rem);
+  margin: auto;
+  padding: 2.5rem 2.75rem 2rem;
+  background: var(--color-surface);
+  border: 1px solid #e3e7eb;
+  border-radius: 12px;}
 
 .login__form-head {
-  flex-shrink: 0;
-  padding: 4.5rem clamp(1.75rem, 4.5vw, 4rem) 0;
+  padding: 0;
+}
+
+.login__logo {
+  display: block;
+  width: auto;
+  height: 6.25rem;
+  max-width: 11rem;
+  margin: 0 0 1.6rem;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.login__mark {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: 1.15rem;
+  border-radius: 8px;
+  background: var(--login-primary, #12243c);
+  color: #fff;
+  font-family: var(--font-brand);
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .login__form-body {
-  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 1.75rem clamp(1.75rem, 4.5vw, 4rem) 2rem;
+  padding: 1.35rem 0 0;
 }
 
 .login__form-foot {
-  flex-shrink: 0;
-  margin-top: auto;
-  padding: 1.25rem clamp(1.75rem, 4.5vw, 4rem) 1.75rem;
-  border-top: 1px solid var(--color-border, #edf1f5);
-  background: #fff;
-}
-
-.login__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  margin: 0 0 0.55rem;
-  padding: 0.28rem 0.55rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--login-primary) 10%, #fff);
-  font-size: 0.68rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--login-primary);
+  margin-top: 0.35rem;
+  padding: 0.85rem 0 0;
+  background: transparent;
 }
 
 .login__form h2 {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 2rem;
+  font-size: 2.05rem;
   font-weight: 650;
-  line-height: 1.15;
-  letter-spacing: -0.035em;
-  color: #132029;
-}
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  color: var(--color-text-primary);}
 
 .login__lead {
   margin: 0.55rem 0 0;
-  font-size: 0.98rem;
+  font-size: 1.05rem;
   line-height: 1.5;
-  color: #62727e;
-}
+  color: var(--color-text-muted);}
 
 .login__form :deep(.ui-field) {
-  margin-bottom: 1.15rem;
+  margin-bottom: 1.35rem;
 }
 
 .login__form :deep(.ui-field + .ui-field) {
@@ -706,24 +669,21 @@ async function submit() {
 }
 
 .login__form :deep(.ui-input) {
-  min-height: var(--control-xl, 40px);
-  font-size: 0.98rem;
-  background: #fff;
+  min-height: 3.25rem;
+  font-size: 1.05rem;
+  background: var(--color-surface);
   border: 1px solid var(--color-border-strong, #d7e0e8);
   border-radius: var(--radius-md, 6px);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-}
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;}
 
 .login__form :deep(.ui-input:hover) {
   border-color: #c3d0db;
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .login__form :deep(.ui-input:focus) {
-  background: #fff;
-  border-color: var(--color-brand-600, #7c3aed);
-  box-shadow: 0 0 0 2px var(--color-focus-ring, rgba(124, 58, 237, 0.22));
-}
+  background: var(--color-surface);
+  border-color: var(--color-brand-600, #12243c);
+  box-shadow: 0 0 0 2px var(--color-focus-ring, rgba(18, 36, 60, 0.28));}
 
 .login__label-row {
   display: flex;
@@ -742,7 +702,7 @@ async function submit() {
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: var(--line-xs);
-  color: var(--login-primary);
+  color: var(--color-ink-brand, var(--login-primary));
   text-decoration: none;
 }
 
@@ -770,12 +730,11 @@ async function submit() {
   border: 0;
   border-radius: 0.65rem;
   background: transparent;
-  color: #8b97a1;
-  cursor: pointer;
-}
+  color: var(--color-text-faint);
+  cursor: pointer;}
 
 .login__secret button:hover {
-  color: var(--login-primary);
+  color: var(--color-ink-brand, var(--login-primary));
   background: color-mix(in srgb, var(--login-primary) 8%, transparent);
 }
 
@@ -794,27 +753,26 @@ async function submit() {
   padding: 0.65rem 0.75rem;
   border-radius: 0.7rem;
   border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #b42318;
-  font-size: 0.8125rem;
-}
+  background: var(--color-danger-bg);
+  color: light-dark(#b42318, #e0a39e);
+  font-size: 0.8125rem;}
 
 .login__submit {
   width: 100%;
   margin-top: 0.35rem;
-  min-height: 2.75rem;
+  min-height: 3.35rem;
   border: 0;
   border-radius: var(--radius-md, 6px);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: 0;
-  background: var(--color-brand-600, #7c3aed);
+  background: var(--color-brand-600, #12243c);
   box-shadow: none;
   transition: background 0.15s ease;
 }
 
 .login__submit:hover:not(:disabled) {
-  background: var(--color-brand-700, #6d28d9);
+  background: var(--color-brand-700, #314B5E);
 }
 
 .login__submit:disabled {
@@ -825,18 +783,20 @@ async function submit() {
   margin: 0;
   font-size: 0.72rem;
   line-height: 1.45;
-  color: #7d8c98;
-  text-align: center;
-}
+  color: var(--color-text-muted);
+  text-align: center;}
 
 .login__quiet {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   width: 100%;
   margin-top: 0.7rem;
   padding: 0.45rem 0;
   border: 0;
   background: transparent;
-  color: #6d7d8a;
+  color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 550;
   cursor: pointer;
@@ -844,210 +804,7 @@ async function submit() {
 }
 
 .login__quiet:hover {
-  color: var(--login-primary);
-}
-
-.login-welcome {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-  padding: 1.5rem;
-  overflow: hidden;
-  background: #0c1218;
-  color: #fff;
-  text-align: center;
-  animation: login-welcome-fade 0.45s ease both;
-}
-
-.login-welcome--leaving {
-  animation: login-welcome-fade-out 0.38s ease both;
-  pointer-events: none;
-}
-
-.login-welcome__bg {
-  position: absolute;
-  inset: 0;
-  background: #111827;
-}
-
-.login-welcome__frame {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: min(100%, 26rem);
-  margin: 0 auto;
-}
-
-.login-welcome__anim {
-  animation: login-welcome-pop 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: var(--d, 0ms);
-}
-
-.login-welcome__logo-block {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 1.35rem;
-}
-
-.login-welcome__logo {
-  display: block;
-  width: min(72vw, 18rem);
-  height: auto;
-  max-height: 12.5rem;
-  object-fit: contain;
-}
-
-.login-welcome__mark {
-  display: grid;
-  place-items: center;
-  width: 6.5rem;
-  height: 6.5rem;
-  border-radius: 1.1rem;
-  background: var(--login-primary);
-  color: #fff;
-  font-family: var(--font-brand);
-  font-size: 2.1rem;
-  font-weight: 700;
-}
-
-.login-welcome__hello {
-  margin: 0 0 0.45rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--login-accent);
-}
-
-.login-welcome__title {
-  margin: 0;
-  font-family: var(--font-brand);
-  font-size: clamp(2.1rem, 5vw, 2.7rem);
-  font-weight: 600;
-  letter-spacing: -0.045em;
-  line-height: 1.05;
-  color: #fff;
-}
-
-.login-welcome__message {
-  margin: 0.7rem 0 0;
-  max-width: 22rem;
-  font-size: 0.98rem;
-  font-weight: 500;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.78);
-}
-
-.login-welcome__slogan {
-  margin: 0.85rem 0 0;
-  max-width: 22rem;
-  font-family: var(--font-brand);
-  font-size: 0.82rem;
-  font-weight: 600;
-  font-style: italic;
-  letter-spacing: 0.04em;
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--login-accent) 78%, #fff);
-}
-
-.login-welcome__meter {
-  width: min(100%, 12.5rem);
-  height: 2px;
-  margin: 1.55rem auto 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-}
-
-.login-welcome__meter-bar {
-  display: block;
-  height: 100%;
-  width: 0;
-  border-radius: inherit;
-  background: var(--login-accent);
-  animation: login-welcome-progress var(--welcome-duration, 4.8s) linear both;
-}
-
-.login-welcome__cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  min-height: 2.7rem;
-  margin-top: 1.25rem;
-  padding: 0.7rem 1.45rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.login-welcome__cta:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.34);
-}
-
-.login-welcome__cta:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.login-welcome__cta-arrow {
-  transition: transform 0.2s ease;
-}
-
-.login-welcome__cta:hover:not(:disabled) .login-welcome__cta-arrow {
-  transform: translateX(3px);
-}
-
-@keyframes login-welcome-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes login-welcome-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-@keyframes login-welcome-pop {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes login-welcome-progress {
-  from { width: 0%; }
-  to { width: 100%; }
-}
-
-@media (max-width: 640px) {
-  .login-welcome__logo {
-    width: min(78vw, 14rem);
-    max-height: 10rem;
-  }
-
-  .login-welcome__title {
-    font-size: 1.9rem;
-  }
+  color: var(--color-ink-brand, var(--login-primary));
 }
 
 @media (max-width: 900px) {
@@ -1060,49 +817,47 @@ async function submit() {
   }
 
   .login__brand {
-    gap: 1.25rem;
-    padding: 1.25rem 1.25rem 1.35rem;
+    padding: 1.35rem 1.25rem 1.2rem;
   }
 
-  .login__points,
-  .login__foot,
-  .login__brand-mid p {
+  .login__brand-inner {
+    gap: 0.85rem;
+    width: 100%;
+    height: auto;
+  }
+
+  .login__brand-bottom,
+  .login__brand-mid p,
+  .login__rule {
     display: none;
   }
 
+  .login__brand,
+  .login__panel,
+  .login__form {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .login__brand-mid h1 {
-    font-size: 1.3rem;
+    max-width: 22ch;
+    font-size: 1.25rem;
   }
 
   .login__panel {
     flex: 1;
-    min-height: 28rem;
-    align-items: stretch;
-    padding: 0;
-  }
-
-  .login__brand-logo {
-    width: min(70%, 12rem);
-    opacity: 0.12;
+    align-items: flex-start;
+    padding: 4.75rem 1rem 1.75rem;
   }
 
   .login__form {
     width: 100%;
-    height: 100%;
-    min-height: 100%;
-    border-radius: 0;
+    margin: 0;
+    padding: 1.35rem 1.1rem 1.15rem;
   }
 
-  .login__form-head {
-    padding: 3.5rem 1.25rem 0;
-  }
-
-  .login__form-body {
-    padding: 1.25rem 1.25rem 1.5rem;
-  }
-
-  .login__form-foot {
-    padding: 1rem 1.25rem 1.35rem;
+  .login__label-row {
+    flex-wrap: wrap;
   }
 
   .login__tools {

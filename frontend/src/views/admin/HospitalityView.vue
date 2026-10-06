@@ -256,7 +256,8 @@ function folioTotal(room: Doc) {
           <button v-if="canRestaurant" type="button" class="sub-nav__link" :class="{ 'sub-nav__link--active': section === 'kitchen' }" @click="section = 'kitchen'">{{ t('desk.kitchen') }}</button>
           <button v-if="canHotel" type="button" class="sub-nav__link" :class="{ 'sub-nav__link--active': section === 'hotel' }" @click="section = 'hotel'">{{ t('desk.hotel') }}</button>
         </div>
-        <button class="btn-secondary" :disabled="loading" @click="load">{{ t('common.refresh') }}</button>
+        <button class="btn-secondary" :disabled="loading" @click="load">
+            <AppIcon name="recycle" :size="15" />{{ t('common.refresh') }}</button>
       </div>
       <p v-if="error" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</p>
 
@@ -556,7 +557,7 @@ function folioTotal(room: Doc) {
       </form>
       <template #footer>
         <button type="button" class="btn-secondary" @click="tableFormOpen = false">{{ t('common.cancel') }}</button>
-        <button type="submit" form="table-form" class="btn-primary" :disabled="savingTable">{{ t('common.save') }}</button>
+        <button type="submit" form="table-form" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="savingTable">{{ saving ? t('common.saving') : t('common.save') }}</button>
       </template>
     </AppModal>
 
@@ -569,7 +570,7 @@ function folioTotal(room: Doc) {
       </form>
       <template #footer>
         <button type="button" class="btn-secondary" @click="zoneFormOpen = false">{{ t('common.cancel') }}</button>
-        <button type="submit" form="zone-form" class="btn-primary" :disabled="savingTable">{{ t('common.save') }}</button>
+        <button type="submit" form="zone-form" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="savingTable">{{ saving ? t('common.saving') : t('common.save') }}</button>
       </template>
     </AppModal>
 
@@ -605,19 +606,17 @@ function folioTotal(room: Doc) {
   min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--color-table-header);
+  color: var(--color-text-secondary);
   font-size: 13px;
-  font-weight: 600;
-}
-.floor-pill--free { background: #ecfdf5; color: #047857; }
-.floor-pill--occupied { background: #fff7ed; color: #c2410c; }
+  font-weight: 600;}
+.floor-pill--free { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
+.floor-pill--occupied { background: var(--color-warning-bg); color: light-dark(#c2410c, #e5af99);}
 .floor-zone {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
-  background: #fff;
-  padding: 16px;
-}
+  background: var(--color-surface);
+  padding: 16px;}
 .floor-zone__head {
   display: flex;
   flex-wrap: wrap;
@@ -629,14 +628,12 @@ function folioTotal(room: Doc) {
 .floor-zone__head h3 {
   margin: 0;
   font-size: 16px;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 .floor-zone__head p,
 .floor-zone__empty {
   margin: 2px 0 0;
   font-size: 13px;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 .floor-zone__empty { margin: 0; }
 .floor-grid {
   display: grid;
@@ -649,10 +646,9 @@ function folioTotal(room: Doc) {
   padding: 12px;
   border-radius: 16px;
   border: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-.floor-table--free { background: #f0fdf4; border-color: #bbf7d0; }
-.floor-table--occupied { background: #fffbeb; border-color: #fde68a; }
+  background: var(--color-table-header);}
+.floor-table--free { background: var(--color-success-bg); border-color: #bbf7d0;}
+.floor-table--occupied { background: var(--color-warning-bg); border-color: #fde68a;}
 .floor-table__hit {
   position: relative;
   display: grid;
@@ -691,11 +687,10 @@ function folioTotal(room: Doc) {
   width: 92px;
   height: 92px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--color-surface);
   border: 2px solid #cbd5e1;
   box-shadow: inset 0 1px 0 #fff, 0 8px 16px rgb(15 23 42 / 0.08);
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 .floor-table--square .floor-table__top { border-radius: 14px; }
 .floor-table--oval .floor-table__top { width: 118px; height: 78px; border-radius: 999px; }
 .floor-table--rect .floor-table__top { width: 124px; height: 70px; border-radius: 16px; }
@@ -708,8 +703,7 @@ function folioTotal(room: Doc) {
 .floor-table__top em {
   font-style: normal;
   font-size: 11px;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 .floor-table__meta {
   display: flex;
   align-items: center;
@@ -729,22 +723,19 @@ function folioTotal(room: Doc) {
   padding: 0;
   border: 1px solid #e2e8f0;
   border-radius: 0.55rem;
-  background: #fff;
-  color: var(--color-brand-600, #0f766e);
+  background: var(--color-surface);
+  color: var(--color-ink-brand, var(--color-brand-600, light-dark(#0f766e, #9ac5c2)));
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;}
 .floor-icon-btn:hover {
   background: #f0fdfa;
   border-color: color-mix(in srgb, var(--color-brand-600, #0f766e) 35%, #e2e8f0);
 }
 .floor-icon-btn--danger {
-  color: #dc2626;
-}
+  color: light-dark(#dc2626, #f0a4a4);}
 .floor-icon-btn--danger:hover {
-  background: #fef2f2;
-  border-color: #fecaca;
-}
+  background: var(--color-danger-bg);
+  border-color: #fecaca;}
 .table-form {
   display: grid;
   gap: 1rem;
@@ -776,9 +767,8 @@ function folioTotal(room: Doc) {
   margin: 0;
   font-size: 0.75rem;
   line-height: 1.35;
-  color: #64748b;
-  text-align: center;
-}
+  color: var(--color-text-muted);
+  text-align: center;}
 .floor-table--preview {
   width: 100%;
   max-width: 148px;
@@ -820,12 +810,11 @@ function folioTotal(room: Doc) {
   padding: 0.4rem 0.65rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
-  background: #fff;
-  color: #334155;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.8125rem;
   font-weight: 600;
-  cursor: pointer;
-}
+  cursor: pointer;}
 .table-form__shape.is-active {
   border-color: var(--color-brand-600);
   background: color-mix(in srgb, var(--color-brand-500) 8%, white);

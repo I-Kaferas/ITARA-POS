@@ -101,6 +101,6 @@ async function resolve(id: string) {
 
 <style scoped>
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-brand-600); }
-.text-emerald-600 { color: #059669; }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
+.text-emerald-600 { color: light-dark(#059669, #6ec2a8);}
 </style>

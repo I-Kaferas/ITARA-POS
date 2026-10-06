@@ -52,7 +52,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 const brandName = computed(() => stay.value?.hotel?.brand_name || 'Hotel')
 const logoUrl = computed(() => stay.value?.hotel?.logo_url || null)
-const brandColor = computed(() => stay.value?.hotel?.primary_color || '#6D28D9')
+const brandColor = computed(() => stay.value?.hotel?.primary_color || '#12243c')
 
 const roomLine = computed(() => {
   if (!stay.value) return '—'
@@ -346,14 +346,13 @@ async function submit() {
 
 <style scoped>
 .sign-page {
-  --sign-brand: #6d28d9;
+  --sign-brand: #12243c;
   --sign-brand-soft: rgba(109, 40, 217, 0.12);
   min-height: 100dvh;
   padding: 1.25rem 1rem 2rem;
-  background: #f3f4f6;
-  color: #111827;
-  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-}
+  background: var(--color-table-header);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);}
 
 .sign-page__shell {
   width: min(28rem, 100%);
@@ -377,12 +376,11 @@ async function submit() {
   height: 4.25rem;
   border-radius: 1rem;
   overflow: hidden;
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid #e5e7eb;
   box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
   display: grid;
-  place-items: center;
-}
+  place-items: center;}
 
 .sign-page__logo img {
   width: 100%;
@@ -409,24 +407,21 @@ async function submit() {
 .sign-page__brand p {
   margin: 0;
   font-size: 0.92rem;
-  color: #6b7280;
-  font-weight: 500;
-}
+  color: var(--color-text-muted);
+  font-weight: 500;}
 
 .sign-card {
-  background: #fff;
+  background: var(--color-surface);
   border-radius: 1rem;
   padding: 1rem 1.05rem 1.05rem;
   box-shadow: 0 10px 28px rgba(17, 24, 39, 0.06);
-  border: 1px solid rgba(229, 231, 235, 0.9);
-}
+  border: 1px solid rgba(229, 231, 235, 0.9);}
 
 .sign-card h2 {
   margin: 0 0 0.75rem;
   font-size: 1.05rem;
   font-weight: 750;
-  color: #111827;
-}
+  color: var(--color-text-primary);}
 
 .sign-card__rows {
   margin: 0;
@@ -443,18 +438,16 @@ async function submit() {
 
 .sign-card__rows dt {
   font-size: 0.88rem;
-  color: #6b7280;
-  font-weight: 500;
-}
+  color: var(--color-text-muted);
+  font-weight: 500;}
 
 .sign-card__rows dd {
   margin: 0;
   text-align: right;
   font-size: 0.92rem;
   font-weight: 700;
-  color: #111827;
-  word-break: break-word;
-}
+  color: var(--color-text-primary);
+  word-break: break-word;}
 
 .sign-card__pad-head {
   display: flex;
@@ -493,8 +486,7 @@ async function submit() {
   margin: 0.7rem 0 0.9rem;
   font-size: 0.8rem;
   line-height: 1.45;
-  color: #9ca3af;
-}
+  color: var(--color-text-faint);}
 
 .sign-card__confirm {
   width: 100%;
@@ -515,23 +507,20 @@ async function submit() {
 
 .sign-card--done p {
   margin: 0;
-  color: #047857;
+  color: light-dark(#047857, #96c6b8);
   font-weight: 650;
-  line-height: 1.45;
-}
+  line-height: 1.45;}
 
 .sign-page__state {
   margin: 0;
   text-align: center;
   padding: 1rem;
   border-radius: 0.85rem;
-  background: #fff;
-  color: #6b7280;
-  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.05);
-}
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.05);}
 
 .sign-page__state--error {
-  color: #b91c1c;
-  background: #fef2f2;
-}
+  color: light-dark(#b91c1c, #e2a0a0);
+  background: var(--color-danger-bg);}
 </style>

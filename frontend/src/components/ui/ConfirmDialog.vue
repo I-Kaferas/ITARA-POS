@@ -23,6 +23,7 @@ function cancel() {
     :icon="state.mode === 'notice' ? 'info' : (state.danger ? 'trash' : 'alert')"
     :tone="state.mode === 'notice' ? 'info' : (state.danger ? 'danger' : 'warning')"
     :close-on-backdrop="false"
+    elevated
     @close="cancel"
   >
     <p class="confirm-dialog__message">{{ state.message }}</p>
@@ -52,10 +53,10 @@ function cancel() {
 
 <style scoped>
 .confirm-dialog__message {
-  margin: 0 0 var(--space-4);
-  color: #334155;
+  margin: 0 0 var(--paragraph-gap);
+  color: var(--color-text-secondary);
   font-size: var(--text-md);
-  line-height: var(--line-sm);
+  line-height: var(--leading-body);
 }
 
 .confirm-dialog__items {
@@ -72,9 +73,9 @@ function cancel() {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  min-height: var(--space-9);
-  padding: 0 var(--space-3);
-  border-top: 1px solid #f1f5f9;
+  min-height: var(--touch-min);
+  padding: var(--cell-pad-y) var(--cell-pad-x);
+  border-top: 1px solid var(--color-border);
 }
 
 .confirm-dialog__items li:first-child {
@@ -86,19 +87,18 @@ function cancel() {
   font-size: var(--text-md);
   font-weight: 500;
   line-height: var(--line-sm);
-  color: #1c2830;
+  color: var(--color-text-primary);
 }
 
 .confirm-dialog__items small {
   display: block;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   font-family: var(--font-mono);
 }
 
 .confirm-dialog__qty {
   font-family: var(--font-mono);
   font-weight: 650;
-  color: var(--color-brand-600);
-  white-space: nowrap;
-}
+  color: var(--color-ink-brand, var(--color-brand-600));
+  white-space: nowrap;}
 </style>

@@ -11,6 +11,7 @@ import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Unit } from '../../../types'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const { t } = useI18n()
@@ -34,6 +35,8 @@ function defaultStoreIds() {
 async function refreshUnits() {
   await store.loadUnits(false, context.currentStoreId)
 }
+
+useRealtimeSync(realtimeTopics.catalog, refreshUnits)
 
 onMounted(async () => {
   await context.loadStores()
@@ -133,7 +136,7 @@ async function remove(unit: Unit) {
         <p v-if="!storeIds.length" class="m-0 text-xs text-red-600">{{ t('catalog.selectStoresRequired') }}</p>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving || !storeIds.length">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !storeIds.length">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

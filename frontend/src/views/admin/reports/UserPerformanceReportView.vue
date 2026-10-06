@@ -421,7 +421,7 @@ onMounted(() => {
     <div class="up">
       <div class="up__toolbar">
         <button type="button" class="btn-secondary" :disabled="loading" @click="load">
-          <AppIcon name="import" :size="15" />
+          <AppIcon name="recycle" :size="15" />
           {{ t('common.refresh') }}
         </button>
         <div class="up__filters">
@@ -634,7 +634,7 @@ onMounted(() => {
             <p class="panel__hint">{{ t('reports.userPerformanceAnalytics.sessionsHint') }}</p>
           </div>
           <button type="button" class="btn-secondary" :disabled="loading" @click="load">
-            <AppIcon name="import" :size="15" />
+            <AppIcon name="recycle" :size="15" />
             {{ t('common.refresh') }}
           </button>
         </header>
@@ -1054,10 +1054,10 @@ onMounted(() => {
   --up-border-soft: #f1f5f9;
   --up-surface: #fff;
   --up-soft: #f1f5f9;
-  --up-muted: #64748b;
-  --up-faint: #94a3b8;
-  --up-text: #0f172a;
-  --up-text-soft: #334155;
+  --up-muted: var(--color-text-muted);
+  --up-faint: var(--color-text-faint);
+  --up-text: var(--color-text-primary);
+  --up-text-soft: var(--color-text-secondary);
   --up-accent: #0e7490;
   --up-accent-soft: #ecfeff;
   --up-collected: #059669;
@@ -1066,8 +1066,7 @@ onMounted(() => {
   --up-ok-text: #047857;
   --up-shadow: none;
   display: grid;
-  gap: 1rem;
-}
+  gap: 1rem;}
 
 .up__toolbar {
   display: flex;
@@ -1370,9 +1369,8 @@ onMounted(() => {
   letter-spacing: 0.03em;
   color: var(--up-muted);
   font-weight: 700;
-  background: #f8fafc;
-  border-top: 0;
-}
+  background: var(--color-table-header);
+  border-top: 0;}
 
 .table .num {
   text-align: right;
@@ -1415,10 +1413,9 @@ onMounted(() => {
   padding: 0.15rem 0.5rem;
   border-radius: 0.35rem;
   background: var(--up-soft);
-  color: #475569;
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
-  font-weight: 600;
-}
+  font-weight: 600;}
 
 .role-pill--ok {
   background: var(--up-ok-bg);
@@ -1443,11 +1440,10 @@ onMounted(() => {
 }
 
 .row-click:hover {
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   letter-spacing: 0.01em;
 }
@@ -1480,13 +1476,11 @@ onMounted(() => {
 
 .flag--offer-soft {
   background: #f0fdfa;
-  color: #0f766e;
-}
+  color: light-dark(#0f766e, #9ac5c2);}
 
 .flag--credit {
-  background: #fffbeb;
-  color: #b45309;
-}
+  background: var(--color-warning-bg);
+  color: light-dark(#b45309, #d49b70);}
 
 .qty-cell {
   display: grid;

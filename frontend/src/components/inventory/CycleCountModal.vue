@@ -311,8 +311,8 @@ async function generate() {
 
       <div class="app-modal__actions">
         <button type="button" class="btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
-        <button type="button" class="btn-secondary" :disabled="saving || !form.warehouse_id" @click="generate">{{ t('inventory.generateCycle') }}</button>
-        <button type="submit" class="btn-primary" :disabled="saving || !form.warehouse_id">
+        <button type="button" class="btn-secondary" :class="{ 'is-busy': saving }" :disabled="saving || !form.warehouse_id" @click="generate">{{ t('inventory.generateCycle') }}</button>
+        <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !form.warehouse_id">
           {{ t('inventory.planCycle') }}<template v-if="selectedIds.length"> ({{ selectedIds.length }})</template>
         </button>
       </div>

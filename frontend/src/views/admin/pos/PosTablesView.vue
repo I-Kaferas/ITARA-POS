@@ -626,7 +626,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         </label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showTableForm = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -642,7 +642,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         <textarea v-model="zoneForm.description" rows="2" />
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showZoneForm = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -688,7 +688,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         <textarea v-model="reserveForm.notes" rows="2" />
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showReserve = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -733,27 +733,24 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 13px;
-}
+  background: var(--color-danger-bg);
+  color: light-dark(#b91c1c, #e2a0a0);
+  font-size: 13px;}
 .tables-kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
 }
 .tables-kpis article {
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 8px;
-  padding: 12px 14px;
-}
+  padding: 12px 14px;}
 .tables-kpis span {
   display: block;
   font-size: 13px;
-  color: #64748b;
-  line-height: 20px;
-}
+  color: var(--color-text-muted);
+  line-height: 20px;}
 .tables-kpis strong {
   display: block;
   margin-top: 4px;
@@ -781,9 +778,8 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
   padding: 0 14px;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
-  background: #fff;
-  font-size: 13px;
-}
+  background: var(--color-surface);
+  font-size: 13px;}
 .tables-zones button.is-active {
   background: #0f766e;
   border-color: #0f766e;
@@ -796,7 +792,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
 }
 .table-card {
   text-align: left;
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 14px;
@@ -805,8 +801,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
   gap: 4px;
   font-size: 13px;
   line-height: 20px;
-  color: #334155;
-}
+  color: var(--color-text-secondary);}
 .table-card header {
   display: flex;
   justify-content: space-between;
@@ -815,26 +810,24 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
 }
 .table-card header strong {
   font-size: 14px;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 .table-card--available { box-shadow: inset 4px 0 0 #059669; }
 .table-card--occupied { box-shadow: inset 4px 0 0 #d97706; }
 .table-card--reserved { box-shadow: inset 4px 0 0 #2563eb; }
 .table-card--cleaning { box-shadow: inset 4px 0 0 #64748b; }
 .table-card--inactive { opacity: 0.55; }
-.table-card__sale { font-weight: 600; color: #0f172a; margin: 4px 0 0; }
-.table-card__total { font-size: 16px; font-weight: 700; color: #0f172a; }
+.table-card__sale { font-weight: 600; color: var(--color-text-primary); margin: 4px 0 0;}
+.table-card__total { font-size: 16px; font-weight: 700; color: var(--color-text-primary);}
 .table-card p { margin: 0; }
 .table-drawer {
   position: sticky;
   bottom: 0;
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 16px;
   display: grid;
-  gap: 12px;
-}
+  gap: 12px;}
 .table-drawer header {
   display: flex;
   justify-content: space-between;
@@ -868,6 +861,6 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
   font-size: 13px;
 }
 .tables-history li:first-child { border-top: 0; }
-.tables-history small { display: block; color: #64748b; }
-.tables-loading { color: #64748b; font-size: 14px; }
+.tables-history small { display: block; color: var(--color-text-muted);}
+.tables-loading { color: var(--color-text-muted); font-size: 14px;}
 </style>

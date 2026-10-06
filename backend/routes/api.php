@@ -53,6 +53,8 @@ use App\Http\Controllers\Api\V1\SaleReceiptController;
 use App\Http\Controllers\Api\V1\PriceController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductAccompanimentController;
+use App\Http\Controllers\Api\V1\GalleryImageController;
+use App\Http\Controllers\Api\V1\MerchantQrController;
 use App\Http\Controllers\Api\V1\ProductImageController;
 use App\Http\Controllers\Api\V1\ProductOptionController;
 use App\Http\Controllers\Api\V1\ProductVariantController;
@@ -77,6 +79,7 @@ use App\Http\Controllers\Api\V1\SupplierPaymentController;
 use App\Http\Controllers\Api\V1\SupplierTransactionController;
 use App\Http\Controllers\Api\V1\TaxController;
 use App\Http\Controllers\Api\V1\TenantBrandingController;
+use App\Http\Controllers\Api\V1\TenantSubscriptionController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TwoFactorController;
 use App\Http\Controllers\Api\V1\UnitController;
@@ -95,6 +98,9 @@ Route::prefix('v1')->group(function () {
     Route::get('/ready', [HealthController::class, 'ready']);
 
     Route::get('/public/tenants/{slug}/branding', [TenantBrandingController::class, 'publicShow'])
+        ->middleware('throttle:60,1');
+
+    Route::get('/public/merchant-qr/{merchantQr}', [MerchantQrController::class, 'publicShow'])
         ->middleware('throttle:60,1');
 
     Route::get('/public/stay-sign/{token}', [DeskController::class, 'staySignShow'])
@@ -130,6 +136,7 @@ Route::prefix('v1')->group(function () {
         Route::post('broadcasting/auth', function (Request $request) {
             return Broadcast::auth($request);
         });
+        Route::get('realtime/sync', [\App\Http\Controllers\Api\V1\RealtimeSyncController::class, 'index']);
         Route::get('terminal-backups', [TerminalBackupController::class, 'index']);
         Route::post('terminal-backups', [TerminalBackupController::class, 'store']);
         Route::get('terminal-backups/{backup}/file/{name}', [TerminalBackupController::class, 'download'])
@@ -284,6 +291,8 @@ Route::prefix('v1')->group(function () {
         // Companies
         Route::get('tenant/profile', [CompanyController::class, 'current'])
             ->middleware('permission:dashboard.view');
+        Route::patch('tenant/subscription', [TenantSubscriptionController::class, 'update'])
+            ->middleware('permission:settings.manage,dashboard.view');
         Route::post('platform/tenants', [PlatformTenantController::class, 'store']);
         Route::get('platform/overview', [PlatformAdminController::class, 'overview']);
         Route::get('platform/companies', [PlatformAdminController::class, 'companies']);
@@ -293,6 +302,7 @@ Route::prefix('v1')->group(function () {
         Route::get('platform/support', [PlatformAdminController::class, 'support']);
         Route::post('platform/support', [PlatformAdminController::class, 'storeSupport']);
         Route::post('platform/support/{ticket}/close', [PlatformAdminController::class, 'closeSupport']);
+        Route::get('platform/audit', [PlatformAdminController::class, 'audit']);
 
         Route::get('companies', [CompanyController::class, 'index'])
             ->middleware('permission:organization.companies.view');
@@ -306,8 +316,21 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:organization.companies.manage');
         Route::delete('companies/{company}/logo', [CompanyController::class, 'deleteLogo'])
             ->middleware('permission:organization.companies.manage');
+        Route::post('companies/{company}/invoice-logo', [CompanyController::class, 'uploadInvoiceLogo'])
+            ->middleware('permission:organization.companies.manage');
+        Route::delete('companies/{company}/invoice-logo', [CompanyController::class, 'deleteInvoiceLogo'])
+            ->middleware('permission:organization.companies.manage');
         Route::delete('companies/{company}', [CompanyController::class, 'destroy'])
             ->middleware('permission:organization.companies.manage');
+
+        Route::get('companies/{company}/merchant-qr-codes', [MerchantQrController::class, 'index'])
+            ->middleware('permission:settings.view,settings.manage');
+        Route::get('companies/{company}/merchant-qr-tables', [MerchantQrController::class, 'tables'])
+            ->middleware('permission:settings.view,settings.manage');
+        Route::post('companies/{company}/merchant-qr-codes', [MerchantQrController::class, 'store'])
+            ->middleware('permission:settings.manage');
+        Route::delete('merchant-qr-codes/{merchantQrCode}', [MerchantQrController::class, 'destroy'])
+            ->middleware('permission:settings.manage');
 
         // Company payment methods (POS tenders)
         Route::get('payment-method-catalog', [CompanyPaymentMethodController::class, 'catalog'])
@@ -452,6 +475,13 @@ Route::prefix('v1')->group(function () {
         Route::patch('product-images/{productImage}/primary', [ProductImageController::class, 'setPrimary'])
             ->middleware('permission:catalog.products.manage');
         Route::delete('product-images/{productImage}', [ProductImageController::class, 'destroy'])
+            ->middleware('permission:catalog.products.manage');
+
+        Route::get('gallery-images', [GalleryImageController::class, 'index'])
+            ->middleware('permission:catalog.products.view');
+        Route::post('gallery-images', [GalleryImageController::class, 'store'])
+            ->middleware('permission:catalog.products.manage');
+        Route::delete('gallery-images/{galleryImage}', [GalleryImageController::class, 'destroy'])
             ->middleware('permission:catalog.products.manage');
 
         // Store products

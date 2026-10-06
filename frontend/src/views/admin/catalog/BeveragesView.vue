@@ -285,9 +285,8 @@ async function removeBeverage(row: Dashboard['products'][number]) {
 .stat {
   padding: 0.9rem 1rem;
   border-radius: 0.9rem;
-  background: #fff;
-  border: 1px solid #e6edf3;
-}
+  background: var(--color-surface);
+  border: 1px solid #e6edf3;}
 
 .stat p {
   margin: 0;
@@ -295,8 +294,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .stat strong {
   display: block;
@@ -304,25 +302,21 @@ async function removeBeverage(row: Dashboard['products'][number]) {
   font-family: var(--font-mono);
   font-size: 1.25rem;
   font-weight: 650;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 
 .stat strong span {
   font-size: 0.75rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .stat__accent {
-  color: var(--color-brand-600);
-}
+  color: var(--color-ink-brand, var(--color-brand-600));}
 
 .list,
 .top {
   overflow: hidden;
   border-radius: 1rem;
-  background: #fff;
-  border: 1px solid #e6edf3;
-}
+  background: var(--color-surface);
+  border: 1px solid #e6edf3;}
 
 .list__head,
 .top h3 {
@@ -333,20 +327,18 @@ async function removeBeverage(row: Dashboard['products'][number]) {
   padding: 0.85rem 1rem;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #1c2830;
-  border-bottom: 1px solid #eef2f6;
-}
+  color: var(--color-text-primary);
+  border-bottom: 1px solid #eef2f6;}
 
 .list__head span {
   min-width: 1.6rem;
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
   background: #f4f1ea;
-  color: #8a6420;
+  color: light-dark(#8a6420, #bba57e);
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  text-align: center;
-}
+  text-align: center;}
 
 .drink {
   display: grid;
@@ -377,16 +369,14 @@ async function removeBeverage(row: Dashboard['products'][number]) {
   flex-shrink: 0;
   border-radius: 0.7rem;
   background: #e7eef3;
-  color: var(--color-brand-600);
-  font-weight: 700;
-}
+  color: var(--color-ink-brand, var(--color-brand-600));
+  font-weight: 700;}
 
 .drink__identity h3 {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 650;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 
 .drink__identity p {
   display: flex;
@@ -394,23 +384,20 @@ async function removeBeverage(row: Dashboard['products'][number]) {
   gap: 0.35rem 0.55rem;
   margin: 0.2rem 0 0;
   font-size: 0.72rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .drink__remove {
   margin-top: 0.35rem;
   padding: 0;
   border: 0;
   background: transparent;
-  color: #b45309;
+  color: light-dark(#b45309, #d49b70);
   font-size: 0.75rem;
   font-weight: 650;
-  cursor: pointer;
-}
+  cursor: pointer;}
 
 .drink__remove:hover {
-  color: #9a3412;
-}
+  color: light-dark(#9a3412, #d5aa9b);}
 
 .drink__facts {
   display: grid;
@@ -421,23 +408,20 @@ async function removeBeverage(row: Dashboard['products'][number]) {
 .drink__facts div {
   padding: 0.55rem 0.65rem;
   border-radius: 0.7rem;
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 
 .drink__facts span,
 .drink__facts small {
   display: block;
-  color: #94a3b8;
-  font-size: 0.68rem;
-}
+  color: var(--color-text-faint);
+  font-size: 0.68rem;}
 
 .drink__facts strong {
   display: block;
   margin-top: 0.15rem;
   font-family: var(--font-mono);
   font-size: 0.92rem;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 
 .drink__units {
   display: flex;
@@ -466,8 +450,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
 .drink__unit-name {
   font-size: 0.78rem;
   font-weight: 650;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 
 .drink__units .font-mono,
 .drink__price,
@@ -476,26 +459,22 @@ async function removeBeverage(row: Dashboard['products'][number]) {
 }
 
 .drink__units .font-mono {
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .drink__price {
   font-family: var(--font-mono);
   font-weight: 650;
-  color: var(--color-brand-600);
-}
+  color: var(--color-ink-brand, var(--color-brand-600));}
 
 .drink__profit {
   grid-column: 1 / -1;
-  color: #8a6420;
-}
+  color: light-dark(#8a6420, #bba57e);}
 
 .list__empty {
   margin: 0;
   padding: 2.5rem 1rem;
   text-align: center;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .top {
   padding-bottom: 0.4rem;
@@ -514,8 +493,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
   align-items: center;
   padding: 0.45rem 0.5rem;
   font-size: 0.85rem;
-  color: #334155;
-}
+  color: var(--color-text-secondary);}
 
 .top__rank {
   display: flex;
@@ -525,10 +503,9 @@ async function removeBeverage(row: Dashboard['products'][number]) {
   height: 1.35rem;
   border-radius: 999px;
   background: #e7eef3;
-  color: var(--color-brand-600);
+  color: var(--color-ink-brand, var(--color-brand-600));
   font-size: 0.68rem;
-  font-weight: 700;
-}
+  font-weight: 700;}
 
 .top__name {
   overflow: hidden;
@@ -539,8 +516,7 @@ async function removeBeverage(row: Dashboard['products'][number]) {
 .top__money {
   font-family: var(--font-mono);
   font-weight: 650;
-  color: #1c2830;
-}
+  color: var(--color-text-primary);}
 
 @media (max-width: 1100px) {
   .stat-grid {

@@ -14,12 +14,12 @@ class BroadcastPurchaseReceived
         $order = $event->purchaseOrder;
 
         $this->publisher->notify(
-            type: 'stock.updated',
+            type: 'purchase.received',
             tenantId: $order->tenant_id,
-            storeId: null,
             entity: 'purchase_order',
             id: $order->id,
             status: 'received',
+            data: ['total' => $order->total],
         );
     }
 }

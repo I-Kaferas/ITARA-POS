@@ -8,8 +8,12 @@ import SubNav from '../../../components/ui/SubNav.vue'
 const props = withDefaults(defineProps<{
   /** Allow the page body to grow and scroll with app-content (e.g. reservations list). */
   scrollBody?: boolean
+  subtitle?: string
+  title?: string
 }>(), {
   scrollBody: false,
+  subtitle: '',
+  title: '',
 })
 
 const { t } = useI18n()
@@ -20,6 +24,8 @@ function isPathActive(path: string) {
 }
 
 const tabs = computed(() => [
+  { to: '/admin/hotel/dashboard', label: t('hotel.tabs.dashboard') },
+  { to: '/admin/hotel/stock', label: t('hotel.tabs.stock') },
   { to: '/admin/hotel/room-config', label: t('hotel.tabs.roomConfig') },
   { to: '/admin/hotel/rooms', label: t('hotel.tabs.rooms') },
   { to: '/admin/hotel/reservations', label: t('hotel.tabs.reservations') },
@@ -53,6 +59,7 @@ const roomConfigTabs = computed(() => [
 })))
 
 const title = computed(() => {
+  if (props.title) return props.title
   const subTab = roomConfigTabs.value.find(tab => tab.active)
   if (subTab) return subTab.label
   return tabs.value.find(tab => tab.active)?.label ?? t('nav.hotel')
@@ -62,7 +69,7 @@ const title = computed(() => {
 <template>
   <PageFrame>
     <template #title>{{ title }}</template>
-    <template #subtitle>{{ t('hotel.subtitle') }}</template>
+    <template #subtitle>{{ props.subtitle || t('hotel.subtitle') }}</template>
 
     <div class="hotel-page" :class="{ 'hotel-page--scroll': allowScroll }">
       <div v-if="isRoomConfig" class="hotel-navs">

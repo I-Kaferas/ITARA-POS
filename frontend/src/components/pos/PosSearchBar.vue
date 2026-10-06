@@ -68,10 +68,9 @@ defineExpose({ focus })
   border-radius: 0.85rem;
   padding: 0.78rem 1rem 0.78rem 2.55rem;
   font-size: 0.95rem;
-  background: #fff;
+  background: var(--color-surface);
   color: var(--color-text-primary);
-  box-shadow: var(--shadow-xs);
-}
+  box-shadow: var(--shadow-xs);}
 
 .pos-search__input:focus {
   outline: 2px solid color-mix(in srgb, var(--color-brand-600) 35%, transparent);

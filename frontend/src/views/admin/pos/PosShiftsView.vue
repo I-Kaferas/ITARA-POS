@@ -11,6 +11,7 @@ import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { formatDate, formatMoney } from '../../../utils/format'
 
 const { t } = useI18n()
@@ -61,6 +62,7 @@ async function load() {
 
 onMounted(load)
 watch(storeId, load)
+useRealtimeSync(realtimeTopics.shifts, load)
 
 function openModal() {
   openingBalance.value = '0'
@@ -308,8 +310,8 @@ function goDetail(id: string) {
         </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="ui-btn ui-btn--secondary" @click="showOpen = false">{{ t('common.cancel') }}</button>
-          <button type="button" class="ui-btn ui-btn--primary" :disabled="saving || !selectedRegisterId" @click="confirmOpen">
-            {{ saving ? t('common.loading') : t('pointOfSale.shifts.openAction') }}
+          <button type="button" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving || !selectedRegisterId" @click="confirmOpen">
+            {{ saving ? t('common.saving') : t('pointOfSale.shifts.openAction') }}
           </button>
         </div>
       </div>
@@ -342,8 +344,8 @@ function goDetail(id: string) {
         </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="ui-btn ui-btn--secondary" @click="showClose = false">{{ t('common.cancel') }}</button>
-          <button type="button" class="ui-btn ui-btn--primary" :disabled="saving" @click="confirmClose">
-            {{ saving ? t('common.loading') : t('pointOfSale.shifts.closeAction') }}
+          <button type="button" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="confirmClose">
+            {{ saving ? t('common.saving') : t('pointOfSale.shifts.closeAction') }}
           </button>
         </div>
       </div>

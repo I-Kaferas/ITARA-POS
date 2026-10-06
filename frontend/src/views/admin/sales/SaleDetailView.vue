@@ -713,7 +713,7 @@ async function printInvoice() {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showReturnModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -746,44 +746,38 @@ async function printInvoice() {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .meta-value {
   margin: 0.35rem 0 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .meta-sub {
   margin: 0.15rem 0 0;
   font-size: 0.8rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .summary-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  color: #475569;
-}
+  color: var(--color-text-secondary);}
 
 .summary-row dd {
   margin: 0;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .summary-row--total {
   margin-top: 0.35rem;
   padding-top: 0.75rem;
   border-top: 1px solid #e2e8f0;
   font-size: 1rem;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .summary-row--total dt,
 .summary-row--total dd {
@@ -799,8 +793,7 @@ async function printInvoice() {
   border-radius: 0.5rem;
   border: 1px solid #cbd5e1;
   padding: 0.5rem 1rem;
-  background: white;
-}
+  background: var(--color-surface);}
 
 @media print {
   .no-print {

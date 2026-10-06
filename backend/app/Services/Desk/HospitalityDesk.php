@@ -2806,7 +2806,7 @@ class HospitalityDesk
         $branding = [
             'brand_name' => 'Hotel',
             'logo_url' => null,
-            'primary_color' => '#6D28D9',
+            'primary_color' => '#12243C',
         ];
         $store = Store::query()->find($row->store_id);
         if ($store !== null) {

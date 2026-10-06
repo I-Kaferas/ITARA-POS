@@ -235,11 +235,11 @@ function paymentMethodLabel(method: string): string {
 </template>
 
 <style scoped>
-.stat-card { border-radius: var(--radius-lg); background: white; padding: 1rem 1.25rem; box-shadow: none; border: 1px solid var(--color-border); }
-.stat-label { font-size: 0.875rem; color: #64748b; }
+.stat-card { border-radius: var(--radius-lg); background: var(--color-surface); padding: 1rem 1.25rem; box-shadow: none; border: 1px solid var(--color-border);}
+.stat-label { font-size: 0.875rem; color: var(--color-text-muted);}
 .stat-value { margin-top: 0.25rem; font-size: 1.5rem; font-weight: 600; }
-.tab-btn { padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: #64748b; border-bottom: 2px solid transparent; }
-.tab-btn.active { color: var(--color-brand-600); border-bottom-color: var(--color-brand-600); }
-.badge-overdue { border-radius: 9999px; background: #fef2f2; padding: 0.125rem 0.625rem; font-size: 0.75rem; font-weight: 500; color: #dc2626; }
-.badge-open { border-radius: 9999px; background: #f0fdf4; padding: 0.125rem 0.625rem; font-size: 0.75rem; font-weight: 500; color: #16a34a; }
+.tab-btn { padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: var(--color-text-muted); border-bottom: 2px solid transparent;}
+.tab-btn.active { color: var(--color-ink-brand, var(--color-brand-600)); border-bottom-color: var(--color-brand-600);}
+.badge-overdue { border-radius: 9999px; background: var(--color-danger-bg); padding: 0.125rem 0.625rem; font-size: 0.75rem; font-weight: 500; color: light-dark(#dc2626, #f0a4a4);}
+.badge-open { border-radius: 9999px; background: var(--color-success-bg); padding: 0.125rem 0.625rem; font-size: 0.75rem; font-weight: 500; color: light-dark(#16a34a, #78ca96);}
 </style>

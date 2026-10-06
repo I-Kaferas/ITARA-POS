@@ -429,7 +429,7 @@ function openAssign(user: TenantUser) {
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="userForm.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showUserModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -452,7 +452,7 @@ function openAssign(user: TenantUser) {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showRoleModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -465,7 +465,7 @@ function openAssign(user: TenantUser) {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showPasswordModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -476,52 +476,51 @@ function openAssign(user: TenantUser) {
 .users { display: flex; flex-direction: column; gap: 1rem; }
 .users__head, .users__roles-head, .users__detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .users__title { margin: 0; font-family: var(--font-display); font-size: 1.15rem; letter-spacing: -0.02em; }
-.users__subtitle, .users__email, .muted { margin: 0.15rem 0 0; color: #94a3b8; font-size: 0.8rem; }
-.users__notice { margin: 0; border-radius: 0.8rem; background: #e4edf2; color: #1a2833; padding: 0.7rem 0.9rem; font-size: 0.85rem; }
+.users__subtitle, .users__email, .muted { margin: 0.15rem 0 0; color: var(--color-text-faint); font-size: 0.8rem;}
+.users__notice { margin: 0; border-radius: 0.8rem; background: #e4edf2; color: var(--color-text-primary); padding: 0.7rem 0.9rem; font-size: 0.85rem;}
 .users__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
-.users__stat { border-radius: 1rem; background: #fff; border: 1px solid #e7e9f0; padding: 0.9rem 1rem; }
+.users__stat { border-radius: 1rem; background: var(--color-surface); border: 1px solid #e7e9f0; padding: 0.9rem 1rem;}
 .users__stat span { display: block; font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; }
-.users__stat small { color: #64748b; }
+.users__stat small { color: var(--color-text-muted);}
 .users__filters { display: grid; grid-template-columns: 1.6fr 0.8fr 0.9fr auto; gap: 0.6rem; }
 .users__layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.9fr); gap: 1rem; align-items: start; }
-.users__table, .users__detail { background: #fff; border: 1px solid #e7e9f0; border-radius: 1.1rem; overflow: hidden; }
+.users__table, .users__detail { background: var(--color-surface); border: 1px solid #e7e9f0; border-radius: 1.1rem; overflow: hidden;}
 .users__table table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .users__table th, .users__table td { padding: 0.85rem 1rem; text-align: left; border-bottom: 1px solid #f1f5f9; }
-.users__table th { font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: #94a3b8; }
+.users__table th { font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-text-faint);}
 .users__table tr { cursor: pointer; }
 .users__table tr.is-selected { background: #f5f6ff; }
 .users__name { margin: 0; font-weight: 600; }
 .users__pin {
   border: 0;
   background: #f6f3ee;
-  color: #1a2833;
+  color: var(--color-text-primary);
   border-radius: 999px;
   padding: 0.28rem 0.7rem;
   font-family: var(--font-mono);
   letter-spacing: 0.12em;
   font-weight: 650;
-  cursor: pointer;
-}
+  cursor: pointer;}
 .pin-field { grid-column: 1 / -1; }
 .pin-field__row { display: flex; gap: 0.5rem; align-items: center; }
 .pin-field__row .field { flex: 1; letter-spacing: 0.18em; font-family: var(--font-mono); }
-.pin-field__hint { margin: 0.35rem 0 0; color: #64748b; font-size: 0.75rem; }
-.pin-field__hint--error, .field--invalid { color: #b91c1c; }
+.pin-field__hint { margin: 0.35rem 0 0; color: var(--color-text-muted); font-size: 0.75rem;}
+.pin-field__hint--error, .field--invalid { color: light-dark(#b91c1c, #e2a0a0);}
 .field--invalid { border-color: #fca5a5; }
-.users__empty { padding: 2rem; text-align: center; color: #94a3b8; }
+.users__empty { padding: 2rem; text-align: center; color: var(--color-text-faint);}
 .users__detail { padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
 .users__detail h3, .users__detail h4 { margin: 0; }
-.users__detail-head p { margin: 0.2rem 0 0; color: #64748b; font-size: 0.8rem; }
+.users__detail-head p { margin: 0.2rem 0 0; color: var(--color-text-muted); font-size: 0.8rem;}
 .users__meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin: 0; }
-.users__meta dt { color: #94a3b8; font-size: 0.72rem; }
+.users__meta dt { color: var(--color-text-faint); font-size: 0.72rem;}
 .users__meta dd { margin: 0.1rem 0 0; font-weight: 600; }
-.users__roles-head button { border: 0; background: transparent; color: var(--color-brand-600); font-weight: 600; cursor: pointer; }
+.users__roles-head button { border: 0; background: transparent; color: var(--color-ink-brand, var(--color-brand-600)); font-weight: 600; cursor: pointer;}
 .users__chips { display: flex; flex-direction: column; gap: 0.45rem; }
-.users__chip { display: flex; align-items: center; gap: 0.5rem; border-radius: 0.8rem; background: #f8fafc; padding: 0.55rem 0.7rem; }
-.users__chip small { color: #64748b; flex: 1; }
-.users__chip button { border: 0; background: transparent; color: #dc2626; cursor: pointer; }
+.users__chip { display: flex; align-items: center; gap: 0.5rem; border-radius: 0.8rem; background: var(--color-table-header); padding: 0.55rem 0.7rem;}
+.users__chip small { color: var(--color-text-muted); flex: 1;}
+.users__chip button { border: 0; background: transparent; color: light-dark(#dc2626, #f0a4a4); cursor: pointer;}
 .users__session { display: flex; flex-direction: column; padding: 0.45rem 0; border-top: 1px solid #f1f5f9; font-size: 0.82rem; }
-.users__session small { color: #94a3b8; }
+.users__session small { color: var(--color-text-faint);}
 .users__actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .btn-danger { color: #fff; background: #dc2626; border: 0; }
 @media (max-width: 1100px) {

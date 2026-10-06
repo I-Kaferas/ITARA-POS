@@ -25,24 +25,24 @@ const modules = computed<ModuleItem[]>(() => [
   { to: '/admin', label: t('nav.dashboard'), group: t('nav.section.main'), keywords: 'accueil tableau board' },
   { to: '/admin/pos/overview', label: t('nav.posOverview'), group: t('nav.group.posOps'), keywords: 'apercu caisse pos dashboard' },
   { to: '/admin/pos/terminal', label: t('nav.posTerminal'), group: t('nav.group.posOps'), keywords: 'caisse terminal vente encaisser pos' },
-  { to: '/admin/hospitality', label: t('nav.restaurant'), group: t('nav.group.posOps'), keywords: 'tables restaurant salle commande hospitality' },
+  { to: '/admin/pos/orders', label: t('nav.posOrders'), group: t('nav.group.posOps'), keywords: 'commandes ventes factures tickets' },
   { to: '/admin/pos/shifts', label: t('nav.posShifts'), group: t('nav.group.posOps'), keywords: 'shift caisse caissier ouverture cloture' },
   { to: '/admin/pos/reservations', label: t('nav.posReservations'), group: t('nav.group.posOps'), keywords: 'reservation table' },
-  { to: '/admin/pos/orders', label: t('nav.posOrders'), group: t('nav.group.posSales'), keywords: 'commandes ventes factures tickets' },
+  { to: '/admin/hospitality', label: t('nav.restaurant'), group: t('nav.group.posOps'), keywords: 'tables restaurant salle commande hospitality' },
   { to: '/admin/sales/returns', label: t('sales.tabs.returns'), group: t('nav.group.posSales'), keywords: 'retours remboursement' },
-  { to: '/admin/products', label: t('nav.productCatalog'), group: t('nav.group.products'), keywords: 'produit catalogue article' },
+  { to: '/admin/products', label: t('nav.products'), group: t('nav.catalog'), keywords: 'produit catalogue article' },
   { to: '/admin/accompaniments', label: t('nav.accompaniments'), group: t('nav.group.products'), keywords: 'accompagnement gratuit produit frites side' },
   { to: '/admin/catalog/options', label: t('nav.productOptions'), group: t('nav.group.products'), keywords: 'options variantes taille couleur transformer' },
   { to: '/admin/catalog/beverages', label: t('nav.beverages'), group: t('nav.group.products'), keywords: 'boisson whisky verre bouteille dose bar' },
-  { to: '/admin/catalog/gallery', label: t('nav.catalogGallery'), group: t('nav.group.products'), keywords: 'galerie images photos' },
+  { to: '/admin/catalog/gallery', label: t('nav.catalogGallery'), group: t('nav.catalog'), keywords: 'galerie images photos' },
   { to: '/admin/catalog/catalogs', label: t('catalog.tabs.catalogs'), group: t('nav.group.reference'), keywords: 'catalogues' },
-  { to: '/admin/catalog/categories', label: t('catalog.tabs.categories'), group: t('nav.group.reference'), keywords: 'categories' },
-  { to: '/admin/catalog/brands', label: t('nav.brands'), group: t('nav.group.reference'), keywords: 'marque brand crud' },
-  { to: '/admin/catalog/units', label: t('nav.units'), group: t('nav.group.reference'), keywords: 'unite mesure unit kg piece' },
+  { to: '/admin/catalog/categories', label: t('nav.inventoryItems.categories'), group: t('nav.inventoryHub'), keywords: 'categories' },
+  { to: '/admin/catalog/brands', label: t('nav.inventoryItems.brands'), group: t('nav.inventoryHub'), keywords: 'marque brand crud' },
+  { to: '/admin/catalog/units', label: t('nav.inventoryItems.units'), group: t('nav.inventoryHub'), keywords: 'unite mesure unit kg piece' },
   { to: '/admin/catalog/attributes', label: t('nav.attributes'), group: t('nav.group.reference'), keywords: 'attributs couleur taille variantes' },
-  { to: '/admin/catalog/prices', label: t('nav.priceLists'), group: t('nav.group.pricing'), keywords: 'prix tarif liste' },
-  { to: '/admin/catalog/taxes', label: t('catalog.tabs.taxes'), group: t('nav.group.pricing'), keywords: 'taxes tva' },
-  { to: '/admin/customers', label: t('nav.customers'), group: t('nav.section.main'), keywords: 'clients' },
+  { to: '/admin/catalog/prices', label: t('nav.priceLists'), group: t('nav.catalog'), keywords: 'prix tarif liste' },
+  { to: '/admin/catalog/taxes', label: t('nav.inventoryItems.taxes'), group: t('nav.inventoryHub'), keywords: 'taxes tva' },
+  { to: '/admin/customers', label: t('nav.customers'), group: t('nav.catalog'), keywords: 'clients' },
   { to: '/admin/hotel/room-config', label: t('hotel.tabs.roomConfig'), group: t('nav.hotel'), keywords: 'chambre type configuration hotel' },
   { to: '/admin/hotel/room-config/amenities', label: t('hotel.roomConfig.amenities'), group: t('nav.hotel'), keywords: 'equipements amenities wifi tv minibar' },
   { to: '/admin/hotel/room-config/room-types', label: t('hotel.roomConfig.roomTypes'), group: t('nav.hotel'), keywords: 'types chambres room types suite standard' },
@@ -60,29 +60,32 @@ const modules = computed<ModuleItem[]>(() => [
   { to: '/admin/hotel/reports', label: t('hotel.tabs.reports'), group: t('nav.hotel'), keywords: 'rapports hotel occupancy' },
   { to: '/admin/hotel/settings', label: t('hotel.tabs.settings'), group: t('nav.hotel'), keywords: 'configuration hotel settings' },
   { to: '/admin/stores', label: t('nav.stores'), group: t('nav.section.main'), keywords: 'magasins' },
-  { to: '/admin/inventory/stock', label: t('inventory.tabs.stock'), group: t('nav.group.stockStatus'), keywords: 'stock inventaire' },
+  { to: '/admin/inventory/stock', label: t('nav.inventoryItems.products'), group: t('nav.inventoryHub'), keywords: 'stock inventaire produits' },
+  { to: '/admin/reports/inventory', label: t('nav.inventoryItems.overview'), group: t('nav.inventoryHub'), keywords: 'apercu inventaire overview' },
+  { to: '/admin/inventory/manufacturers', label: t('nav.inventoryItems.manufacturers'), group: t('nav.inventoryHub'), keywords: 'fabricant manufacturer' },
+  { to: '/admin/inventory/departments', label: t('nav.inventoryItems.departments'), group: t('nav.inventoryHub'), keywords: 'departement department' },
   { to: '/admin/inventory/alerts', label: t('inventory.tabs.alerts'), group: t('nav.group.stockStatus'), keywords: 'alertes' },
   { to: '/admin/inventory/supplies', label: t('inventory.tabs.supplies'), group: t('nav.group.movements'), keywords: 'approvisionnement achat reception' },
-  { to: '/admin/inventory/transfers', label: t('inventory.tabs.transfers'), group: t('nav.group.movements'), keywords: 'transferts' },
-  { to: '/admin/inventory/adjustments', label: t('inventory.tabs.adjustments'), group: t('nav.group.movements'), keywords: 'ajustements' },
-  { to: '/admin/inventory/issues', label: t('inventory.tabs.issues'), group: t('nav.group.movements'), keywords: 'sortie sorties issue' },
-  { to: '/admin/inventory/counts', label: t('inventory.tabs.inventories'), group: t('nav.group.controls'), keywords: 'inventaire inventaires comptage' },
+  { to: '/admin/inventory/transfers', label: t('nav.inventoryItems.transfers'), group: t('nav.inventoryHub'), keywords: 'transferts' },
+  { to: '/admin/inventory/adjustments', label: t('nav.inventoryItems.movements'), group: t('nav.inventoryHub'), keywords: 'ajustements mouvements' },
+  { to: '/admin/inventory/issues', label: t('nav.inventoryItems.exits'), group: t('nav.inventoryHub'), keywords: 'sortie sorties issue' },
+  { to: '/admin/inventory/counts', label: t('nav.inventoryItems.counts'), group: t('nav.inventoryHub'), keywords: 'inventaire inventaires comptage' },
   { to: '/admin/inventory/verifications', label: t('inventory.tabs.verifications'), group: t('nav.group.controls'), keywords: 'verification controle anomalies' },
   { to: '/admin/inventory/batches', label: t('inventory.tabs.batches'), group: t('nav.group.traceability'), keywords: 'lots' },
   { to: '/admin/inventory/serials', label: t('inventory.tabs.serials'), group: t('nav.group.traceability'), keywords: 'series numeros' },
-  { to: '/admin/suppliers', label: t('nav.suppliers'), group: t('nav.section.purchasing'), keywords: 'fournisseurs' },
-  { to: '/admin/purchases/overview', label: t('purchases.hub.overview'), group: t('nav.group.purchaseCycle'), keywords: 'achats apercu dashboard' },
-  { to: '/admin/purchases/requisitions', label: t('purchases.hub.requisitions'), group: t('nav.group.purchaseCycle'), keywords: 'requisition demande achat' },
-  { to: '/admin/purchases/proformas', label: t('purchases.hub.proformas'), group: t('nav.group.purchaseCycle'), keywords: 'proforma' },
-  { to: '/admin/purchases/orders', label: t('purchases.hub.orders'), group: t('nav.group.purchaseCycle'), keywords: 'achats commandes' },
-  { to: '/admin/purchases/invoices', label: t('purchases.hub.invoices'), group: t('nav.group.purchaseBilling'), keywords: 'factures fournisseurs' },
-  { to: '/admin/purchases/payments', label: t('purchases.hub.payments'), group: t('nav.group.purchaseBilling'), keywords: 'paiements fournisseurs' },
-  { to: '/admin/purchases/returns', label: t('purchases.hub.returns'), group: t('nav.group.purchaseBilling'), keywords: 'retours achats' },
-  { to: '/admin/expenses/dashboard', label: t('expenses.tabs.dashboard'), group: t('nav.expenses'), keywords: 'depenses dashboard' },
-  { to: '/admin/expenses', label: t('expenses.tabs.list'), group: t('nav.expenses'), keywords: 'depenses charges' },
-  { to: '/admin/expenses/categories', label: t('expenses.tabs.categories'), group: t('nav.expenses'), keywords: 'categories depenses' },
-  { to: '/admin/expenses/reports', label: t('expenses.tabs.reports'), group: t('nav.expenses'), keywords: 'rapports depenses' },
-  { to: '/admin/expenses/recurring', label: t('expenses.tabs.recurring'), group: t('nav.expenses'), keywords: 'depenses recurrentes loyer' },
+  { to: '/admin/suppliers', label: t('nav.inventoryItems.suppliers'), group: t('nav.inventoryHub'), keywords: 'fournisseurs' },
+  { to: '/admin/purchases/overview', label: t('purchases.hub.overview'), group: t('nav.purchasingHub'), keywords: 'achats apercu dashboard purchasing overview' },
+  { to: '/admin/purchases/requisitions', label: t('purchases.hub.requisitions'), group: t('nav.purchasingHub'), keywords: 'requisition demande achat' },
+  { to: '/admin/purchases/proformas', label: t('purchases.hub.proformas'), group: t('nav.purchasingHub'), keywords: 'proforma' },
+  { to: '/admin/purchases/orders', label: t('purchases.hub.orders'), group: t('nav.purchasingHub'), keywords: 'achats commandes purchase orders' },
+  { to: '/admin/purchases/invoices', label: t('purchases.hub.invoices'), group: t('nav.purchasingHub'), keywords: 'factures fournisseurs supplier invoices' },
+  { to: '/admin/purchases/payments', label: t('purchases.hub.payments'), group: t('nav.purchasingHub'), keywords: 'paiements fournisseurs supplier payments' },
+  { to: '/admin/purchases/returns', label: t('purchases.hub.returns'), group: t('nav.purchasingHub'), keywords: 'retours achats purchase returns' },
+  { to: '/admin/expenses/dashboard', label: t('expenses.tabs.dashboard'), group: t('nav.expenseTrackerHub'), keywords: 'depenses dashboard expense tracker' },
+  { to: '/admin/expenses', label: t('expenses.tabs.list'), group: t('nav.expenseTrackerHub'), keywords: 'depenses charges expenses' },
+  { to: '/admin/expenses/categories', label: t('expenses.tabs.categories'), group: t('nav.expenseTrackerHub'), keywords: 'categories depenses' },
+  { to: '/admin/expenses/reports', label: t('expenses.tabs.reports'), group: t('nav.expenseTrackerHub'), keywords: 'rapports depenses reports' },
+  { to: '/admin/expenses/recurring', label: t('expenses.tabs.recurring'), group: t('nav.expenseTrackerHub'), keywords: 'depenses recurrentes loyer recurring' },
   { to: '/admin/payables', label: t('nav.payables'), group: t('nav.section.purchasing'), keywords: 'dettes fournisseurs' },
   { to: '/admin/promotions', label: t('nav.promotions'), group: t('nav.section.catalog'), keywords: 'promotions remises' },
   { to: '/admin/barcodes', label: t('nav.barcodes'), group: t('nav.section.catalog'), keywords: 'code barre scanner etiquette' },
@@ -103,13 +106,23 @@ const modules = computed<ModuleItem[]>(() => [
   { to: '/admin/production', label: t('nav.production'), group: t('nav.section.stock'), keywords: 'production recette fabrication' },
   { to: '/admin/organization/company', label: t('org.tabs.company'), group: t('nav.group.company'), keywords: 'entreprise societe' },
   { to: '/admin/organization/branding', label: t('org.tabs.branding'), group: t('nav.group.company'), keywords: 'logo image marque branding' },
-  { to: '/admin/organization/currencies', label: t('org.tabs.currencies'), group: t('nav.group.company'), keywords: 'devises' },
+  { to: '/admin/organization/currencies', label: t('nav.settingsItems.currency'), group: t('nav.settingsHub'), keywords: 'devises currency' },
   { to: '/admin/organization/payment-methods', label: t('org.tabs.paymentMethods'), group: t('nav.group.company'), keywords: 'paiements' },
   { to: '/admin/organization/branches', label: t('org.tabs.branches'), group: t('nav.group.sites'), keywords: 'succursales' },
   { to: '/admin/organization/stores', label: t('org.tabs.stores'), group: t('nav.group.sites'), keywords: 'magasins org' },
-  { to: '/admin/organization/warehouses', label: t('org.tabs.warehouses'), group: t('nav.group.sites'), keywords: 'entrepots' },
+  { to: '/admin/organization/warehouses', label: t('nav.inventoryItems.warehouses'), group: t('nav.inventoryHub'), keywords: 'entrepots' },
   { to: '/admin/organization/terminals', label: t('org.tabs.terminals'), group: t('nav.group.posHardware'), keywords: 'terminaux pos' },
-  { to: '/admin/organization/devices', label: t('org.tabs.devices'), group: t('nav.group.posHardware'), keywords: 'appareils devices' },
+  { to: '/admin/organization/devices', label: t('org.tabs.devices'), group: t('nav.syncDevicesHub'), keywords: 'appareils devices sync' },
+  { to: '/admin/settings/subscription', label: t('nav.settingsItems.subscription'), group: t('nav.settingsHub'), keywords: 'abonnement subscription' },
+  { to: '/admin/customer-hub/dashboard', label: t('nav.customerHubItems.dashboard'), group: t('nav.customerHub'), keywords: 'customer hub dashboard clients' },
+  { to: '/admin/customer-hub/link-requests', label: t('nav.customerHubItems.linkRequests'), group: t('nav.customerHub'), keywords: 'link requests liaison clients' },
+  { to: '/admin/customer-hub/linked-users', label: t('nav.customerHubItems.linkedUsers'), group: t('nav.customerHub'), keywords: 'linked users utilisateurs lies' },
+  { to: '/admin/customer-hub/mobile-orders', label: t('nav.customerHubItems.mobileOrders'), group: t('nav.customerHub'), keywords: 'mobile orders commandes mobiles' },
+  { to: '/admin/customer-hub/payments', label: t('nav.customerHubItems.payments'), group: t('nav.customerHub'), keywords: 'payments paiements customer hub' },
+  { to: '/admin/settings/orders', label: t('nav.settingsItems.orders'), group: t('nav.spaceOrdersHub'), keywords: 'itara space commandes orders' },
+  { to: '/admin/settings/analytics', label: t('nav.settingsItems.analytics'), group: t('nav.spaceOrdersHub'), keywords: 'itara space analytics analytique' },
+  { to: '/admin/settings/merchant-qr', label: t('nav.settingsItems.merchantQr'), group: t('nav.settingsHub'), keywords: 'qr marchand merchant settings parametres' },
+  { to: '/admin/settings/app-versions', label: t('nav.settingsItems.appVersions'), group: t('nav.settingsHub'), keywords: 'versions application app' },
   { to: '/admin/organization/registers', label: t('org.tabs.registers'), group: t('nav.group.posHardware'), keywords: 'caisses' },
   { to: '/admin/organization/users', label: t('org.tabs.users'), group: t('nav.group.access'), keywords: 'utilisateurs' },
   { to: '/admin/organization/roles', label: t('org.tabs.roles'), group: t('nav.group.access'), keywords: 'roles permissions' },
@@ -360,7 +373,7 @@ defineExpose({ show })
   display: flex;
   align-items: stretch;
   justify-content: center;
-  padding: 20px;
+  padding: var(--card-pad);
   background: rgba(15, 23, 42, 0.32);
 }
 
@@ -382,7 +395,7 @@ defineExpose({ show })
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: 20px 24px 16px;
+  padding: var(--card-pad) var(--space-6) var(--space-4);
   border-bottom: 1px solid #e4e8ec;
   background: var(--color-surface);
 }
@@ -402,21 +415,20 @@ defineExpose({ show })
   height: 44px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
-  background: #f4f6f8;
-  color: var(--color-brand-500);
-  box-shadow: inset 0 0 0 1px #e4e8ec;
-}
+  background: var(--color-canvas);
+  color: var(--color-ink-brand, var(--color-brand-500));
+  box-shadow: inset 0 0 0 1px #e4e8ec;}
 
 .cmdk__title {
   margin: 0;
   font-size: var(--text-xl);
   font-weight: 700;
-  line-height: var(--line-md);
+  line-height: var(--leading-title);
   color: var(--color-text-primary);
 }
 
 .cmdk__subtitle {
-  margin: 2px 0 0;
+  margin: var(--title-gap) 0 0;
   font-size: var(--text-sm);
   font-weight: 600;
   line-height: var(--line-sm);
@@ -442,18 +454,17 @@ defineExpose({ show })
 }
 
 .cmdk__close:hover {
-  background: #f8fafc;
+  background: var(--color-table-header);
   border-color: #cfd6dc;
-  color: #334155;
-}
+  color: var(--color-text-secondary);}
 
 .cmdk__search {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   gap: var(--space-3);
-  margin: 16px 24px 0;
-  padding: 0 16px;
+  margin: var(--space-4) var(--space-6) 0;
+  padding: 0 var(--space-4);
   min-height: 56px;
   border: 1px solid #e4e8ec;
   border-radius: var(--radius-lg);
@@ -468,8 +479,7 @@ defineExpose({ show })
 
 .cmdk__search-icon {
   flex-shrink: 0;
-  color: var(--color-brand-500);
-}
+  color: var(--color-ink-brand, var(--color-brand-500));}
 
 .cmdk__input {
   flex: 1;
@@ -497,13 +507,13 @@ defineExpose({ show })
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 20px 24px 8px;
+  padding: var(--card-pad) var(--space-6) var(--space-2);
 }
 
 .cmdk__groups {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px 16px;
+  gap: var(--space-5) var(--space-4);
   align-content: start;
 }
 
@@ -511,14 +521,13 @@ defineExpose({ show })
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 0 10px;
+  margin: 0 0 var(--title-gap);
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: var(--line-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-brand-500);
-}
+  color: var(--color-ink-brand, var(--color-brand-500));}
 
 .cmdk__group-title::before {
   content: "";
@@ -531,7 +540,7 @@ defineExpose({ show })
 .cmdk__grid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -540,10 +549,10 @@ defineExpose({ show })
 .cmdk__item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   width: 100%;
   min-height: 52px;
-  padding: 8px 12px;
+  padding: var(--overlay-item-pad-y) var(--overlay-item-pad-x);
   border: 1px solid #e4e8ec;
   border-radius: var(--radius-lg);
   background: var(--color-surface);
@@ -554,9 +563,8 @@ defineExpose({ show })
 }
 
 .cmdk__item:hover {
-  background: #f4f6f8;
-  border-color: #dbe3ea;
-}
+  background: var(--color-canvas);
+  border-color: #dbe3ea;}
 
 .cmdk__item--active {
   background: #eef2f5;
@@ -571,16 +579,14 @@ defineExpose({ show })
   height: 40px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
-  background: #f4f6f8;
-  color: var(--color-brand-500);
-  box-shadow: inset 0 0 0 1px #e4e8ec;
-}
+  background: var(--color-canvas);
+  color: var(--color-ink-brand, var(--color-brand-500));
+  box-shadow: inset 0 0 0 1px #e4e8ec;}
 
 .cmdk__item--active .cmdk__item-icon {
   background: #e4edf2;
-  color: #3d5c73;
-  box-shadow: none;
-}
+  color: var(--color-ink-brand, var(--color-brand-600));
+  box-shadow: none;}
 
 .cmdk__label {
   min-width: 0;
@@ -596,18 +602,15 @@ defineExpose({ show })
 
 .cmdk__item-arrow {
   flex-shrink: 0;
-  color: var(--color-brand-500);
-}
+  color: var(--color-ink-brand, var(--color-brand-500));}
 
 .cmdk__empty :deep(.empty-state__icon) {
-  background: #f4f6f8;
-  color: var(--color-brand-500);
-  box-shadow: inset 0 0 0 1px #e4e8ec;
-}
+  background: var(--color-canvas);
+  color: var(--color-ink-brand, var(--color-brand-500));
+  box-shadow: inset 0 0 0 1px #e4e8ec;}
 
 .cmdk__empty :deep(.empty-state__title) {
-  color: #5c6670;
-}
+  color: var(--color-text-muted);}
 
 .cmdk__footer {
   display: flex;
@@ -615,7 +618,7 @@ defineExpose({ show })
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: 12px 24px;
+  padding: var(--space-3) var(--space-6);
   border-top: 1px solid #e4e8ec;
   background: var(--color-surface);
 }
@@ -624,7 +627,7 @@ defineExpose({ show })
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-4);
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--color-text-muted);
@@ -633,7 +636,7 @@ defineExpose({ show })
 .cmdk__shortcuts span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--label-gap);
 }
 
 .cmdk__chip {
@@ -642,7 +645,7 @@ defineExpose({ show })
   justify-content: center;
   min-width: 24px;
   height: 22px;
-  padding: 0 6px;
+  padding: 0 var(--label-gap);
   border: 1px solid #e4e8ec;
   border-radius: 6px;
   background: var(--color-surface);
@@ -657,17 +660,16 @@ defineExpose({ show })
   margin: 0;
   font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--color-brand-500);
-}
+  color: var(--color-ink-brand, var(--color-brand-500));}
 
 .cmdk-enter-active,
 .cmdk-leave-active {
-  transition: opacity 0.18s ease;
+  transition: opacity var(--motion-fast) var(--ease-in-out);
 }
 
 .cmdk-enter-active .cmdk__panel,
 .cmdk-leave-active .cmdk__panel {
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: transform var(--motion-page) var(--ease-out), opacity var(--motion-page) var(--ease-in-out);
 }
 
 .cmdk-enter-from,
@@ -701,12 +703,12 @@ defineExpose({ show })
   .cmdk__header,
   .cmdk__body,
   .cmdk__footer {
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
   }
 
   .cmdk__search {
-    margin: 12px 16px 0;
+    margin: var(--space-3) var(--space-4) 0;
   }
 
   .cmdk__subtitle,

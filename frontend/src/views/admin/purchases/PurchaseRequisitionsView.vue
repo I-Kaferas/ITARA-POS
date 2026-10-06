@@ -342,7 +342,7 @@ function openOrder(row: PurchaseRequisition) {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showCreate = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -371,7 +371,7 @@ function openOrder(row: PurchaseRequisition) {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="converting = null">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('purchases.hub.convert') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('purchases.hub.convert') }}</button>
         </div>
       </form>
     </AppModal>
@@ -389,11 +389,10 @@ function openOrder(row: PurchaseRequisition) {
 }
 .line-head {
   padding: 0 0.1rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
-}
+  letter-spacing: 0.01em;}
 .line-head span:nth-child(2),
 .line-head span:nth-child(3) {
   text-align: center;
@@ -408,28 +407,25 @@ function openOrder(row: PurchaseRequisition) {
   height: var(--control-lg);
   border: 0;
   background: transparent;
-  color: #dc2626;
+  color: light-dark(#dc2626, #f0a4a4);
   font-size: 0.8rem;
   font-weight: 600;
   text-align: left;
-  white-space: nowrap;
-}
+  white-space: nowrap;}
 .line-add {
   margin-top: 0.15rem;
   border: 0;
   background: transparent;
-  color: var(--color-brand-600);
+  color: var(--color-ink-brand, var(--color-brand-600));
   font-size: 0.85rem;
-  font-weight: 600;
-}
+  font-weight: 600;}
 .form-error {
   margin: 0;
-  color: #dc2626;
-  font-size: 0.85rem;
-}
+  color: light-dark(#dc2626, #f0a4a4);
+  font-size: 0.85rem;}
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.link { color: var(--color-brand-600); font-size: 0.8rem; font-weight: 600; }
-.link-danger { color: #dc2626; font-size: 0.8rem; font-weight: 600; }
+.link { color: var(--color-ink-brand, var(--color-brand-600)); font-size: 0.8rem; font-weight: 600;}
+.link-danger { color: light-dark(#dc2626, #f0a4a4); font-size: 0.8rem; font-weight: 600;}
 @media (max-width: 640px) {
   .line-row,
   .line-head {

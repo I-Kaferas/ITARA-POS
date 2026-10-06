@@ -45,10 +45,10 @@ class AppPalette {
   final Color shadow;
 
   static const light = AppPalette(
-    brand50: Color(0xFFF2F6F9),
-    brand100: Color(0xFFE3ECF2),
-    brand200: Color(0xFFC2D3DF),
-    brandInk: Color(0xFF3D5C73),
+    brand50: Color(0xFFF1F2F3),
+    brand100: Color(0xFFE3E5E8),
+    brand200: Color(0xFFBDC2C8),
+    brandInk: Color(0xFF12243C),
     canvas: Color(0xFFF3F5F7),
     surface: Color(0xFFFFFFFF),
     surfaceVariant: Color(0xFFF8FAFB),
@@ -67,10 +67,10 @@ class AppPalette {
   );
 
   static const dark = AppPalette(
-    brand50: Color(0xFF1A242E),
-    brand100: Color(0xFF22303C),
-    brand200: Color(0xFF3A5164),
-    brandInk: Color(0xFFA8C0D0),
+    brand50: Color(0xFF141E2C),
+    brand100: Color(0xFF1A2840),
+    brand200: Color(0xFF2A4060),
+    brandInk: Color(0xFFC9D8EF),
     canvas: Color(0xFF0E1419),
     surface: Color(0xFF171F27),
     surfaceVariant: Color(0xFF1C2630),
@@ -89,33 +89,33 @@ class AppPalette {
   );
 }
 
-/// Design tokens — refined brand kept (#4A6D86) for enterprise POS identity.
+/// Design tokens — primary navy #12243C.
 abstract final class AppColors {
   static AppPalette _palette = AppPalette.light;
 
   static void bind(AppPalette palette) => _palette = palette;
 
-  static const brand400 = Color(0xFF7D9AAF);
-  static const brand500 = Color(0xFF5C7F96);
-  static const brand600 = Color(0xFF4A6D86);
-  static const brand700 = Color(0xFF3D5C73);
-  static const brand900 = Color(0xFF1A2833);
+  static const brand400 = Color(0xFF848D9A);
+  static const brand500 = Color(0xFF465467);
+  static const brand600 = Color(0xFF25364C);
+  static const brand700 = Color(0xFF12243C);
+  static const brand900 = Color(0xFF0A1523);
 
   static const accent = Color(0xFFE39B2B);
   static const violet500 = accent;
   static const violet600 = Color(0xFFC4841D);
 
-  static const sidebar = Color(0xFF121A22);
-  static const sidebarPanel = Color(0xFF18232D);
+  static const sidebar = Color(0xFF12243C);
+  static const sidebarPanel = Color(0xFF0F2036);
   static const sidebarBorder = Color(0x1AE39B2B);
-  static const sidebarHover = Color(0x334A6D86);
-  static const sidebarActive = Color(0xFF4A6D86);
+  static const sidebarHover = Color(0x331A3050);
+  static const sidebarActive = Color(0xFF1A3050);
   static const sidebarText = Color(0xB3E8EEF3);
 
   static const success = Color(0xFF059669);
   static const warning = Color(0xFFC4841D);
   static const danger = Color(0xFFDC2626);
-  static const info = Color(0xFF4A6D86);
+  static const info = Color(0xFF2A4060);
 
   static Color get brand50 => _palette.brand50;
   static Color get brand100 => _palette.brand100;

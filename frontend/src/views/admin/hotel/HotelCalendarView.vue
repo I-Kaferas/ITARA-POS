@@ -41,7 +41,7 @@ const resizeEventId = ref<string | null>(null)
 
 const categories: { id: EventCategory; color: string }[] = [
   { id: 'training', color: '#2563eb' },
-  { id: 'meeting', color: '#7c3aed' },
+  { id: 'meeting', color: '#12243c' },
   { id: 'maintenance', color: '#d97706' },
   { id: 'housekeeping', color: '#059669' },
   { id: 'reservation', color: 'var(--color-brand-600)' },
@@ -477,6 +477,7 @@ watch(() => ctx.currentStoreId, () => {
         </div>
         <div class="cal__top-actions">
           <button type="button" class="btn-secondary" :disabled="loading" @click="loadReservations">
+            <AppIcon name="recycle" :size="15" />
             {{ t('common.refresh') }}
           </button>
           <button type="button" class="btn-primary" @click="openCreate()">
@@ -668,7 +669,7 @@ watch(() => ctx.currentStoreId, () => {
         <button v-if="editingId" type="button" class="btn-secondary" @click="removeEvent">{{ t('common.delete') }}</button>
         <div class="cal__actions-end">
           <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
-          <button type="button" class="btn-primary" :disabled="saving" @click="saveEvent">{{ t('common.save') }}</button>
+          <button type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="saveEvent">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </div>
     </AppModal>
@@ -697,14 +698,12 @@ watch(() => ctx.currentStoreId, () => {
   font-size: 1.15rem;
   font-weight: 750;
   letter-spacing: -0.02em;
-  color: var(--color-text-primary, #1c2830);
-}
+  color: var(--color-text-primary, var(--color-text-primary));}
 
 .cal__intro p {
   margin: 0.25rem 0 0;
   font-size: 0.85rem;
-  color: var(--color-text-muted, #66727c);
-}
+  color: var(--color-text-muted, var(--color-text-muted));}
 
 .cal__top-actions {
   display: flex;
@@ -722,10 +721,9 @@ watch(() => ctx.currentStoreId, () => {
   margin: 0;
   padding: 0.7rem 0.85rem;
   border-radius: 0.7rem;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 0.85rem;
-}
+  background: var(--color-danger-bg);
+  color: light-dark(#b91c1c, #e2a0a0);
+  font-size: 0.85rem;}
 
 .cal__shell {
   display: grid;
@@ -749,9 +747,8 @@ watch(() => ctx.currentStoreId, () => {
   padding: 0.85rem 1rem;
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 1rem;
-  background: #fff;
-  box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));
-}
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));}
 
 .cal__nav {
   display: flex;
@@ -765,42 +762,37 @@ watch(() => ctx.currentStoreId, () => {
   height: 2.15rem;
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 0.65rem;
-  background: #fff;
+  background: var(--color-surface);
   font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
-  color: var(--color-text-secondary, #334155);
-}
+  color: var(--color-text-secondary, var(--color-text-secondary));}
 
 .cal__nav-btn:hover {
-  border-color: var(--color-brand-300, #c4b5fd);
-  color: var(--color-brand-700);
-}
+  border-color: var(--color-brand-300, #a3b7c8);
+  color: var(--color-ink-brand, var(--color-brand-700));}
 
 .cal__month {
   margin: 0 0.35rem 0 0.25rem;
   font-size: 1.05rem;
   font-weight: 750;
-  color: var(--color-text-primary, #1c2830);
-  text-transform: capitalize;
-}
+  color: var(--color-text-primary, var(--color-text-primary));
+  text-transform: capitalize;}
 
 .cal__today {
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 999px;
-  background: #fff;
+  background: var(--color-surface);
   padding: 0.35rem 0.8rem;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--color-text-secondary, #475569);
-  cursor: pointer;
-}
+  color: var(--color-text-secondary, var(--color-text-secondary));
+  cursor: pointer;}
 
 .cal__today:hover {
   border-color: var(--color-brand-400);
-  color: var(--color-brand-700);
-  background: var(--color-brand-50, #f5f3ff);
-}
+  color: var(--color-ink-brand, var(--color-brand-700));
+  background: var(--color-brand-50, #f5f3ff);}
 
 .cal__filters {
   display: flex;
@@ -818,9 +810,8 @@ watch(() => ctx.currentStoreId, () => {
   padding: 0.35rem 0.7rem;
   font-size: 0.78rem;
   font-weight: 650;
-  color: var(--color-text-secondary, #334155);
-  cursor: pointer;
-}
+  color: var(--color-text-secondary, var(--color-text-secondary));
+  cursor: pointer;}
 
 .cal__chip i {
   width: 0.5rem;
@@ -836,26 +827,23 @@ watch(() => ctx.currentStoreId, () => {
 }
 
 .cal__chip--on {
-  background: color-mix(in srgb, var(--cat, var(--color-brand-600)) 14%, #fff);
+  background: color-mix(in srgb, var(--cat, var(--color-brand-600)) 14%, var(--color-surface));
   border-color: color-mix(in srgb, var(--cat, var(--color-brand-600)) 40%, #fff);
-  color: color-mix(in srgb, var(--cat, var(--color-brand-700)) 75%, #0f172a);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cat, var(--color-brand-600)) 18%, transparent);
-}
+  color: color-mix(in srgb, var(--cat, var(--color-brand-700)) 75%, var(--color-text-primary));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cat, var(--color-brand-600)) 18%, transparent);}
 
 .cal__board {
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 1rem;
-  background: #fff;
+  background: var(--color-surface);
   overflow: hidden;
-  box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));
-}
+  box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));}
 
 .cal__weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  background: #f8fafc;
-  border-bottom: 1px solid var(--color-border, #e2e8f0);
-}
+  background: var(--color-table-header);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);}
 
 .cal__weekdays span {
   padding: 0.7rem 0.35rem;
@@ -864,8 +852,7 @@ watch(() => ctx.currentStoreId, () => {
   font-weight: 750;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--color-text-muted, #64748b);
-}
+  color: var(--color-text-muted, var(--color-text-muted));}
 
 .cal__grid {
   display: grid;
@@ -882,13 +869,12 @@ watch(() => ctx.currentStoreId, () => {
   border: 0;
   border-right: 1px solid #eef2f6;
   border-bottom: 1px solid #eef2f6;
-  background: #fff;
+  background: var(--color-surface);
   padding: 0.4rem 0.35rem 0.45rem;
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-  transition: background var(--motion-fast, 120ms) ease;
-}
+  transition: background var(--motion-fast, 120ms) ease;}
 
 .cal__day:nth-child(7n) { border-right: 0; }
 
@@ -897,13 +883,11 @@ watch(() => ctx.currentStoreId, () => {
 }
 
 .cal__day--out {
-  background: #f8fafc;
-  color: #94a3b8;
-}
+  background: var(--color-table-header);
+  color: var(--color-text-faint);}
 
 .cal__day--out:hover {
-  background: #f1f5f9;
-}
+  background: var(--color-table-header);}
 
 .cal__day--today .cal__day-num {
   background: var(--color-brand-600);
@@ -912,10 +896,9 @@ watch(() => ctx.currentStoreId, () => {
 }
 
 .cal__day--selected {
-  background: color-mix(in srgb, var(--color-brand-600) 7%, #fff);
+  background: color-mix(in srgb, var(--color-brand-600) 7%, var(--color-surface));
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-brand-600) 45%, transparent);
-  z-index: 1;
-}
+  z-index: 1;}
 
 .cal__day--busy .cal__day-count {
   opacity: 1;
@@ -945,9 +928,8 @@ watch(() => ctx.currentStoreId, () => {
 .cal__day-count {
   font-size: 0.65rem;
   font-weight: 700;
-  color: var(--color-text-faint, #94a3b8);
-  opacity: 0.85;
-}
+  color: var(--color-text-faint, var(--color-text-faint));
+  opacity: 0.85;}
 
 .cal__events {
   display: flex;
@@ -962,16 +944,14 @@ watch(() => ctx.currentStoreId, () => {
   position: relative;
   border-radius: 0.4rem;
   padding: 0.18rem 0.4rem 0.18rem 0.45rem;
-  background: color-mix(in srgb, var(--cat) 16%, #fff);
+  background: color-mix(in srgb, var(--cat) 16%, var(--color-surface));
   border: 1px solid color-mix(in srgb, var(--cat) 28%, #fff);
   border-left: 3px solid var(--cat);
   cursor: grab;
-  flex-shrink: 0;
-}
+  flex-shrink: 0;}
 
 .cal__event--start {
-  background: color-mix(in srgb, var(--cat) 26%, #fff);
-}
+  background: color-mix(in srgb, var(--cat) 26%, var(--color-surface));}
 
 .cal__event--span {
   opacity: 0.88;
@@ -987,11 +967,10 @@ watch(() => ctx.currentStoreId, () => {
   font-size: 0.68rem;
   font-weight: 700;
   line-height: 1.25;
-  color: color-mix(in srgb, var(--cat) 70%, #0f172a);
+  color: color-mix(in srgb, var(--cat) 70%, var(--color-text-primary));
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
+  text-overflow: ellipsis;}
 
 .cal__resize {
   position: absolute;
@@ -1007,16 +986,14 @@ watch(() => ctx.currentStoreId, () => {
 
 .cal__more {
   font-size: 0.65rem;
-  color: var(--color-text-muted, #7b8d9a);
+  color: var(--color-text-muted, var(--color-text-muted));
   font-weight: 650;
-  padding: 0 0.15rem;
-}
+  padding: 0 0.15rem;}
 
 .cal__muted {
   margin: 0;
-  color: var(--color-text-muted, #7b8d9a);
-  font-size: 0.85rem;
-}
+  color: var(--color-text-muted, var(--color-text-muted));
+  font-size: 0.85rem;}
 
 .cal__agenda {
   position: sticky;
@@ -1027,10 +1004,9 @@ watch(() => ctx.currentStoreId, () => {
   max-height: calc(100vh - 10rem);
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 1rem;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));
-  overflow: hidden;
-}
+  overflow: hidden;}
 
 .cal__agenda-head {
   display: flex;
@@ -1047,17 +1023,15 @@ watch(() => ctx.currentStoreId, () => {
   font-weight: 750;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--color-brand-600);
-}
+  color: var(--color-ink-brand, var(--color-brand-600));}
 
 .cal__agenda-head h3 {
   margin: 0.2rem 0 0;
   font-size: 0.95rem;
   font-weight: 750;
-  color: var(--color-text-primary, #1c2830);
+  color: var(--color-text-primary, var(--color-text-primary));
   text-transform: capitalize;
-  line-height: 1.3;
-}
+  line-height: 1.3;}
 
 .cal__agenda-add {
   width: 2.15rem;
@@ -1084,9 +1058,8 @@ watch(() => ctx.currentStoreId, () => {
   justify-content: center;
   gap: 0.55rem;
   padding: 1.5rem 1rem;
-  color: var(--color-text-faint, #94a3b8);
-  text-align: center;
-}
+  color: var(--color-text-faint, var(--color-text-faint));
+  text-align: center;}
 
 .cal__agenda-empty p {
   margin: 0;
@@ -1113,10 +1086,9 @@ watch(() => ctx.currentStoreId, () => {
   padding: 0.7rem 0.75rem;
   border: 1px solid color-mix(in srgb, var(--cat) 22%, #e2e8f0);
   border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--cat) 8%, #fff);
+  background: color-mix(in srgb, var(--cat) 8%, var(--color-surface));
   cursor: pointer;
-  transition: transform var(--motion-fast, 120ms) ease;
-}
+  transition: transform var(--motion-fast, 120ms) ease;}
 
 .cal__agenda-item:hover {
   transform: translateY(-1px);
@@ -1134,20 +1106,17 @@ watch(() => ctx.currentStoreId, () => {
   display: block;
   font-size: 0.84rem;
   font-weight: 750;
-  color: var(--color-text-primary, #0f172a);
-  line-height: 1.25;
-}
+  color: var(--color-text-primary, var(--color-text-primary));
+  line-height: 1.25;}
 
 .cal__agenda-body p {
   margin: 0.2rem 0 0;
   font-size: 0.72rem;
-  color: var(--color-text-muted, #64748b);
-}
+  color: var(--color-text-muted, var(--color-text-muted));}
 
 .cal__agenda-cat {
   font-weight: 650;
-  color: color-mix(in srgb, var(--cat) 65%, #334155);
-}
+  color: color-mix(in srgb, var(--cat) 65%, var(--color-text-secondary));}
 
 .cal__agenda-notes {
   display: -webkit-box;
@@ -1161,11 +1130,10 @@ watch(() => ctx.currentStoreId, () => {
   font-weight: 750;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--color-brand-700, #6d28d9);
+  color: var(--color-ink-brand, var(--color-brand-700, var(--color-text-secondary)));
   background: var(--color-brand-50, #f5f3ff);
   border-radius: 999px;
-  padding: 0.15rem 0.4rem;
-}
+  padding: 0.15rem 0.4rem;}
 
 .cal__form {
   display: grid;

@@ -62,7 +62,7 @@ const links = [
     titleKey: 'reports.explore.forecasts.title',
     descKey: 'reports.explore.forecasts.desc',
     icon: 'sparkles',
-    color: '#7c3aed',
+    color: '#12243c',
   },
   {
     to: '/admin/reports/revenue',
@@ -207,7 +207,7 @@ onMounted(load)
     <div class="analytics">
       <div class="analytics__toolbar">
         <button type="button" class="btn-refresh" :disabled="loading" @click="load">
-          <AppIcon name="import" :size="16" />
+          <AppIcon name="recycle" :size="16" />
           {{ t('common.refresh') }}
         </button>
       </div>
@@ -354,13 +354,12 @@ onMounted(load)
   gap: 0.45rem;
   border: 1px solid #cbd5e1;
   border-radius: 0.55rem;
-  background: white;
-  color: #334155;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   padding: 0.45rem 0.85rem;
   font-size: 0.875rem;
   font-weight: 500;
-  cursor: pointer;
-}
+  cursor: pointer;}
 
 .btn-refresh:disabled {
   opacity: 0.6;
@@ -375,17 +374,15 @@ onMounted(load)
   padding: 0.75rem 1rem;
   border-radius: 0.75rem;
   border: 1px solid #fcd34d;
-  background: #fffbeb;
-  color: #92400e;
-  font-size: 0.9rem;
-}
+  background: var(--color-warning-bg);
+  color: light-dark(#92400e, #d1af9a);
+  font-size: 0.9rem;}
 
 .analytics__alert-link {
   margin-left: auto;
-  color: #b45309;
+  color: light-dark(#b45309, #d49b70);
   font-weight: 600;
-  text-decoration: none;
-}
+  text-decoration: none;}
 
 .analytics__kpis,
 .analytics__secondary {
@@ -397,9 +394,8 @@ onMounted(load)
 .kpi {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
-  padding: 1rem 1.05rem;
-}
+  background: var(--color-surface);
+  padding: 1rem 1.05rem;}
 
 .kpi--compact {
   padding: 0.85rem 1rem;
@@ -411,16 +407,14 @@ onMounted(load)
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .kpi__value {
   margin: 0.45rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: #0f172a;
-  line-height: 1.2;
-}
+  color: var(--color-text-primary);
+  line-height: 1.2;}
 
 .kpi__meta {
   margin: 0.35rem 0 0;
@@ -428,8 +422,8 @@ onMounted(load)
   font-weight: 600;
 }
 
-.kpi__meta.is-up { color: #059669; }
-.kpi__meta.is-down { color: #dc2626; }
+.kpi__meta.is-up { color: light-dark(#059669, #6ec2a8);}
+.kpi__meta.is-down { color: light-dark(#dc2626, #f0a4a4);}
 
 .analytics__mid {
   display: grid;
@@ -446,10 +440,9 @@ onMounted(load)
 .panel {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
+  background: var(--color-surface);
   padding: 1rem 1.1rem 1.15rem;
-  min-height: 240px;
-}
+  min-height: 240px;}
 
 .panel__header {
   margin-bottom: 0.85rem;
@@ -459,15 +452,13 @@ onMounted(load)
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .panel__empty {
   margin: 2rem 0 0;
   text-align: center;
-  color: #94a3b8;
-  font-size: 0.9rem;
-}
+  color: var(--color-text-faint);
+  font-size: 0.9rem;}
 
 .trend {
   display: grid;
@@ -503,9 +494,8 @@ onMounted(load)
 
 .trend__label {
   font-size: 0.65rem;
-  color: #94a3b8;
-  text-transform: uppercase;
-}
+  color: var(--color-text-faint);
+  text-transform: uppercase;}
 
 .top-list {
   display: flex;
@@ -526,24 +516,21 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--color-table-header);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
-  font-weight: 700;
-}
+  font-weight: 700;}
 
 .top-list__name {
   margin: 0;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .top-list__meta {
   margin: 0.1rem 0 0;
   font-size: 0.78rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .explore__header {
   margin-bottom: 0.85rem;
@@ -553,8 +540,7 @@ onMounted(load)
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .explore__grid {
   display: grid;
@@ -579,33 +565,29 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-brand-700);
-  background: var(--color-brand-50);
-}
+  color: var(--color-ink-brand, var(--color-brand-700));
+  background: var(--color-brand-50);}
 
 .explore-card__title {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .explore-card__desc {
   margin: 0;
   flex: 1;
   font-size: 0.82rem;
   line-height: 1.45;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .explore-card__cta {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
   margin-top: 0.25rem;
-  color: var(--color-brand-700);
+  color: var(--color-ink-brand, var(--color-brand-700));
   font-size: 0.85rem;
   font-weight: 650;
-  text-decoration: none;
-}
+  text-decoration: none;}
 </style>

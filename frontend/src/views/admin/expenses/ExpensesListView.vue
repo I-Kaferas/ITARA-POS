@@ -8,6 +8,7 @@ import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { emptyListFilters, listFilterParams, type ListFilters } from '../../../utils/listFilters'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { parseMoneyInput } from '../../../utils/money'
 
 type Category = { id: string; code: string; name: string }
@@ -56,6 +57,8 @@ async function load() {
   const params = listFilterParams(filters.value, { categoryKey: 'expense_category_id' })
   rows.value = (await store.loadExpenses(params)) as ExpenseRow[]
 }
+
+useRealtimeSync(realtimeTopics.expenses, load)
 
 async function onBranchChange() {
   form.value.cash_register_session_id = ''
@@ -194,7 +197,7 @@ async function save() {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -204,5 +207,5 @@ async function save() {
 <style scoped>
 
 
-.btn-secondary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; background: white; border: 1px solid #cbd5e1; }
+.btn-secondary { border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 500; background: var(--color-surface); border: 1px solid #cbd5e1;}
 </style>

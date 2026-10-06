@@ -64,5 +64,5 @@ async function submit() {
 .auth-locale { position: absolute; top: 1.25rem; right: 1.25rem; }
 
 
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

@@ -6,14 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Organization\TenantProvisioningService;
+use App\Services\Platform\PlatformAuditLogger;
+use App\Services\Platform\SaasCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PlatformTenantController extends Controller
 {
     public function __construct(
         private readonly TenantProvisioningService $provisioning,
         private readonly AuthorizationService $authorization,
+        private readonly PlatformAuditLogger $audit,
     ) {}
 
     public function store(Request $request): JsonResponse
@@ -29,9 +33,26 @@ class PlatformTenantController extends Controller
             'timezone' => ['nullable', 'string', 'max:64'],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
+            'status' => ['nullable', Rule::in(SaasCatalog::LIFECYCLE)],
+            'plan' => ['nullable', Rule::in(array_keys(SaasCatalog::PLANS))],
+            'admin_name' => ['nullable', 'string', 'max:255'],
+            'admin_email' => ['nullable', 'email', 'max:255', 'unique:users,email', 'required_with:admin_password'],
+            'admin_password' => ['nullable', 'string', 'min:8', 'required_with:admin_email'],
         ]);
 
         $created = $this->provisioning->provision($data);
+        $company = $created['company'];
+        $admin = $created['admin'];
+
+        if (! ($created['idempotent'] ?? false)) {
+            $this->audit->record($user, 'tenant.provisioned', $created['tenant']->id, [
+                'name' => $created['tenant']->name,
+                'slug' => $created['tenant']->slug,
+                'status' => $created['tenant']->status,
+                'plan' => $data['plan'] ?? 'pos_stock',
+                'admin_email' => $admin?->email,
+            ], $request->ip());
+        }
 
         return response()->json([
             'data' => [
@@ -41,14 +62,20 @@ class PlatformTenantController extends Controller
                     'slug' => $created['tenant']->slug,
                     'status' => $created['tenant']->status,
                 ],
-                'company' => [
-                    'id' => $created['company']->id,
-                    'name' => $created['company']->name,
-                    'currency_code' => $created['company']->currency_code,
-                    'locale' => $created['company']->locale,
-                    'timezone' => $created['company']->timezone,
-                ],
+                'company' => $company ? [
+                    'id' => $company->id,
+                    'name' => $company->name,
+                    'currency_code' => $company->currency_code,
+                    'locale' => $company->locale,
+                    'timezone' => $company->timezone,
+                ] : null,
+                'admin' => $admin ? [
+                    'id' => $admin->id,
+                    'name' => $admin->name,
+                    'email' => $admin->email,
+                ] : null,
+                'idempotent' => (bool) ($created['idempotent'] ?? false),
             ],
-        ], 201);
+        ], ($created['idempotent'] ?? false) ? 200 : 201);
     }
 }

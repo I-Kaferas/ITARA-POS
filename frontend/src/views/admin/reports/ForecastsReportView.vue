@@ -86,7 +86,7 @@ onMounted(() => {
           </select>
         </div>
         <button type="button" class="btn-secondary" :disabled="loading" @click="load">
-          <AppIcon name="import" :size="15" />
+          <AppIcon name="recycle" :size="15" />
           {{ t('common.refresh') }}
         </button>
       </div>
@@ -301,9 +301,8 @@ onMounted(() => {
   font-weight: 500;
   cursor: pointer;
   border: 1px solid #cbd5e1;
-  background: white;
-  color: #334155;
-}
+  background: var(--color-surface);
+  color: var(--color-text-secondary);}
 
 .btn-secondary:disabled {
   opacity: 0.6;
@@ -331,9 +330,8 @@ onMounted(() => {
 .kpi {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
-  padding: 1rem 1.05rem;
-}
+  background: var(--color-surface);
+  padding: 1rem 1.05rem;}
 
 .kpi__label {
   margin: 0;
@@ -341,24 +339,21 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .kpi__value {
   margin: 0.45rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
-.kpi__value.is-up { color: #059669; }
-.kpi__value.is-down { color: #dc2626; }
+.kpi__value.is-up { color: light-dark(#059669, #6ec2a8);}
+.kpi__value.is-down { color: light-dark(#dc2626, #f0a4a4);}
 
 .kpi__meta {
   margin: 0.3rem 0 0;
   font-size: 0.8rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .forecast__grid {
   display: grid;
@@ -375,10 +370,9 @@ onMounted(() => {
 .panel {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
+  background: var(--color-surface);
   padding: 1rem 1.1rem 1.15rem;
-  min-height: 180px;
-}
+  min-height: 180px;}
 
 .panel--table {
   overflow: auto;
@@ -400,29 +394,25 @@ onMounted(() => {
   gap: 0.4rem;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .panel__empty {
   margin: 2rem 0 0;
   text-align: center;
-  color: #94a3b8;
-  font-size: 0.9rem;
-}
+  color: var(--color-text-faint);
+  font-size: 0.9rem;}
 
 .legend {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   font-size: 0.78rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .legend--sub {
   margin: -0.35rem 0 0.85rem;
   gap: 1rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .legend__item {
   display: inline-flex;
@@ -438,8 +428,8 @@ onMounted(() => {
 }
 
 .dot--actual { background: #2563eb; }
-.dot--forecast { background: #7c3aed; }
-.dot--band { background: #c4b5fd; }
+.dot--forecast { background: var(--color-brand-600); }
+.dot--band { background: #a3b7c8; }
 
 .combo {
   display: grid;
@@ -492,13 +482,12 @@ onMounted(() => {
 }
 
 .combo__bar--actual { background: #2563eb; }
-.combo__bar--forecast { background: #7c3aed; }
+.combo__bar--forecast { background: var(--color-brand-600); }
 
 .combo__label {
   font-size: 0.68rem;
-  color: #94a3b8;
-  text-transform: capitalize;
-}
+  color: var(--color-text-faint);
+  text-transform: capitalize;}
 
 .growth {
   display: grid;
@@ -536,15 +525,13 @@ onMounted(() => {
 
 .growth__label {
   font-size: 0.68rem;
-  color: #94a3b8;
-  text-transform: capitalize;
-}
+  color: var(--color-text-faint);
+  text-transform: capitalize;}
 
 .growth__rate {
   font-size: 0.68rem;
-  color: #64748b;
-  font-weight: 600;
-}
+  color: var(--color-text-muted);
+  font-weight: 600;}
 
 .bar-list {
   display: flex;
@@ -563,17 +550,15 @@ onMounted(() => {
   justify-content: space-between;
   gap: 0.75rem;
   font-size: 0.85rem;
-  color: #334155;
-}
+  color: var(--color-text-secondary);}
 
 .bar-list__sub {
   margin: 0;
   font-size: 0.75rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
-.is-up { color: #059669; }
-.is-down { color: #dc2626; }
+.is-up { color: light-dark(#059669, #6ec2a8);}
+.is-down { color: light-dark(#dc2626, #f0a4a4);}
 
 .insights {
   display: grid;
@@ -590,22 +575,19 @@ onMounted(() => {
 .insight {
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
-  background: #ffffff;
-  padding: 0.9rem 1rem;
-}
+  background: var(--color-surface);
+  padding: 0.9rem 1rem;}
 
 .insight h4 {
   margin: 0 0 0.45rem;
   font-size: 0.88rem;
-  color: #5b21b6;
-}
+  color: light-dark(#5b21b6, #d4c5ec);}
 
 .insight p {
   margin: 0;
   font-size: 0.88rem;
   line-height: 1.45;
-  color: #475569;
-}
+  color: var(--color-text-secondary);}
 
 .table {
   width: 100%;
@@ -621,12 +603,11 @@ onMounted(() => {
 }
 
 .table th {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-weight: 600;
   font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
+  letter-spacing: 0.02em;}
 
 .text-right {
   text-align: right;

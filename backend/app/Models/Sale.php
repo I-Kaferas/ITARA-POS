@@ -33,6 +33,7 @@ class Sale extends Model
         'total',
         'paid_amount',
         'due_date',
+        'order_date',
         'payment_status',
         'currency',
         'payment_transaction_number',
@@ -54,6 +55,7 @@ class Sale extends Model
             'total' => 'integer',
             'paid_amount' => 'integer',
             'due_date' => 'date',
+            'order_date' => 'date',
             'payment_status' => SalePaymentStatus::class,
             'completed_at' => 'datetime',
         ];
@@ -195,6 +197,7 @@ class Sale extends Model
             'paid_amount' => $this->paid_amount,
             'outstanding_amount' => $this->outstandingAmount(),
             'due_date' => $this->due_date?->toDateString(),
+            'order_date' => $this->order_date?->toDateString(),
             'payment_status' => $this->payment_status->value,
             'currency' => $this->currency,
             'payment_transaction_number' => $this->payment_transaction_number,

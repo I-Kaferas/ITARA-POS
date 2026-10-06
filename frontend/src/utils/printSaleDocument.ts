@@ -81,8 +81,9 @@ export function printSaleDocument(
 <head>
   <meta charset="utf-8" />
   <title>${escapeHtml(title)}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
   <style>
-    body { font-family: Arial, sans-serif; color: #0f172a; margin: 24px; }
+    body { font-family: Inter, system-ui, sans-serif; color: #0f172a; margin: 24px; }
     h1 { font-size: 18px; margin: 0 0 4px; }
     h2 { font-size: 14px; margin: 0 0 16px; color: #475569; font-weight: 500; }
     .meta { font-size: 12px; color: #64748b; margin-bottom: 16px; }

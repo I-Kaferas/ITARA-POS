@@ -126,7 +126,7 @@ async function save() {
         <div><FieldLabel icon="calendar">{{ t('inventory.expires') }}</FieldLabel><input v-model="form.expires_at" type="date" class="field w-full" /></div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

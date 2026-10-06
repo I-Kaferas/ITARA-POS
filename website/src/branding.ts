@@ -19,7 +19,7 @@ export type TenantBranding = {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 export const DEFAULT_SLUG = import.meta.env.VITE_DEFAULT_TENANT_SLUG ?? 'demo'
-export const ADMIN_LOGIN_URL = import.meta.env.VITE_ADMIN_URL ?? 'http://localhost:5173/login'
+export const ADMIN_LOGIN_URL = import.meta.env.VITE_ADMIN_URL ?? 'http://localhost:4173/login'
 
 export async function fetchPublicBranding(slug: string): Promise<TenantBranding> {
   const controller = new AbortController()

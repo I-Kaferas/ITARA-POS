@@ -223,13 +223,15 @@ async function remove(item: Customer) {
       @close="showModal = false"
     >
       <form class="customer-form" novalidate @submit.prevent="save">
-        <div class="customer-tabs">
+        <div class="form-tabs" role="tablist">
           <button
             v-for="tab in (['general', 'financial', 'notes'] as const)"
             :key="tab"
             type="button"
-            class="customer-tabs__btn"
-            :class="{ 'customer-tabs__btn--active': activeTab === tab }"
+            role="tab"
+            class="form-tabs__btn"
+            :class="{ 'form-tabs__btn--active': activeTab === tab }"
+            :aria-selected="activeTab === tab"
             @click="activeTab = tab"
           >
             {{ t(`customers.tabs.${tab}`) }}
@@ -373,7 +375,7 @@ async function remove(item: Customer) {
         <p v-if="saveError" class="save-error">{{ saveError }}</p>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? t('common.loading') : t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : (editing ? t('common.saveChanges') : t('common.save')) }}</button>
         </div>
       </form>
     </AppModal>
@@ -382,58 +384,18 @@ async function remove(item: Customer) {
 
 <style scoped>
 
-.hint { margin: 0.3rem 0 0; font-size: 0.75rem; color: #94a3b8; }
-.customer-form { display: flex; flex-direction: column; gap: 1rem; }
-.customer-tabs { display: flex; gap: 0.4rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.35rem; }
-.customer-tabs__btn {
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 0.875rem;
-  font-weight: 650;
-  padding: 0.45rem 0.8rem;
-  border-radius: 0.55rem;
-  cursor: pointer;
-}
-.customer-tabs__btn--active {
-  background: color-mix(in srgb, var(--color-brand-500) 12%, white);
-  color: var(--color-brand-700, #3d5c73);
-}
-.customer-pane { display: flex; flex-direction: column; gap: 0.85rem; }
+.customer-form { display: flex; flex-direction: column; gap: var(--field-gap); }
+.customer-pane { display: flex; flex-direction: column; gap: var(--field-gap); }
 .customer-code-hint {
   margin: 0;
   padding: 0.65rem 0.8rem;
   border-radius: 0.65rem;
-  border: 1px dashed #cbd5e1;
-  background: #f8fafc;
-  color: #64748b;
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-canvas);
+  color: var(--color-text-muted);
   font-size: 0.8125rem;
   line-height: 1.45;
 }
-.choice-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
-.choice {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  min-height: 2.8rem;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  background: #fff;
-  color: #334155;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: left;
-}
-.choice--active {
-  border-color: var(--color-brand-600);
-  background: color-mix(in srgb, var(--color-brand-500) 8%, white);
-  box-shadow: 0 0 0 1px var(--color-brand-600);
-}
 .choice__icon { font-size: 1.05rem; }
-.save-error { margin: 0; border-radius: 0.65rem; background: #fef2f2; color: #b91c1c; padding: 0.65rem 0.75rem; font-size: 0.8125rem; }
-
-.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

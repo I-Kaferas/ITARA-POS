@@ -234,7 +234,7 @@ function close() {
           v-else
           type="button"
           class="btn-primary"
-          :disabled="saving || needsCustomerConfirm"
+          :class="{ 'is-busy': saving }" :disabled="saving || needsCustomerConfirm"
           @click="confirmMerge"
         >
           {{ t('pointOfSale.merge.confirm') }}
@@ -250,25 +250,22 @@ function close() {
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 13px;
-}
+  background: var(--color-danger-bg);
+  color: light-dark(#b91c1c, #e2a0a0);
+  font-size: 13px;}
 .merge-card {
   display: grid;
   gap: 2px;
   padding: 12px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 .merge-card span,
 .merge-card small,
 .merge-choice small {
-  color: #64748b;
-  font-size: 12px;
-}
-.merge-hint, .merge-label { margin: 0; font-size: 13px; color: #475569; }
+  color: var(--color-text-muted);
+  font-size: 12px;}
+.merge-hint, .merge-label { margin: 0; font-size: 13px; color: var(--color-text-secondary);}
 .merge-choice {
   display: flex;
   gap: 10px;
@@ -279,15 +276,14 @@ function close() {
   border-radius: 8px;
 }
 .merge-choice span { display: grid; gap: 2px; }
-.merge-empty { color: #64748b; font-size: 13px; padding: 8px 0; }
+.merge-empty { color: var(--color-text-muted); font-size: 13px; padding: 8px 0;}
 .merge-stack { display: grid; gap: 8px; }
-.merge-plus { text-align: center; font-weight: 700; color: #64748b; }
+.merge-plus { text-align: center; font-weight: 700; color: var(--color-text-muted);}
 .merge-result {
   border: 1px solid #dbeafe;
-  background: #eff6ff;
+  background: var(--color-info-bg);
   border-radius: 8px;
-  padding: 12px;
-}
+  padding: 12px;}
 .merge-result h4 { margin: 0 0 8px; font-size: 13px; }
 .merge-result ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
 .merge-result li { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
@@ -298,8 +294,7 @@ function close() {
   gap: 8px;
   padding: 12px;
   border-radius: 8px;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-}
-.merge-warning p { margin: 0; font-size: 13px; color: #92400e; }
+  background: var(--color-warning-bg);
+  border: 1px solid #fde68a;}
+.merge-warning p { margin: 0; font-size: 13px; color: light-dark(#92400e, #d1af9a);}
 </style>

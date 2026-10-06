@@ -14,6 +14,7 @@ import { useBrandingStore } from '../../stores/branding'
 import { useContextStore } from '../../stores/context'
 import { usePageHeaderStore } from '../../stores/pageHeader'
 import { useRealtimeStore } from '../../stores/realtime'
+import { useTheme } from '../../composables/useTheme'
 
 type NavChild = { name: string; to: string; label: string; icon: string; color?: string }
 type NavItem = {
@@ -25,6 +26,12 @@ type NavItem = {
 }
 
 const { t } = useI18n()
+const { preference, cycleTheme } = useTheme()
+const themeIcon = computed(() => {
+  if (preference.value === 'dark') return 'moon'
+  if (preference.value === 'light') return 'sun'
+  return 'device-computer'
+})
 const route = useRoute()
 const router = useRouter()
 const slots = useSlots()
@@ -40,7 +47,8 @@ const userMenuTrigger = ref<HTMLElement | null>(null)
 const userMenuPanel = ref<HTMLElement | null>(null)
 const userMenuStyle = ref<Record<string, string>>({})
 
-const expandedMenus = ref<Record<string, boolean>>({})
+const openMenuId = ref<string | null>(null)
+const navEl = ref<HTMLElement | null>(null)
 const sidebarOpen = ref(localStorage.getItem('pos_sidebar_open') !== '0')
 const drawerOpen = ref(false)
 const isDesktop = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1024)
@@ -58,30 +66,21 @@ const navSections = computed(() => [
   {
     label: t('nav.section.main'),
     items: [
+      {
+        name: 'platform',
+        to: '/admin/platform',
+        label: t('nav.platform'),
+        icon: 'building',
+        children: [
+          { name: 'platform-dashboard', to: '/admin/platform', label: t('platform.nav.dashboard'), icon: 'dashboard' },
+          { name: 'platform-tenants', to: '/admin/platform/tenants', label: t('platform.nav.tenants'), icon: 'building' },
+          { name: 'platform-plans', to: '/admin/platform/plans', label: t('platform.nav.plans'), icon: 'coins' },
+          { name: 'platform-users', to: '/admin/platform/users', label: t('platform.nav.users'), icon: 'customers' },
+          { name: 'platform-support', to: '/admin/platform/support', label: t('platform.nav.support'), icon: 'mail' },
+          { name: 'platform-audit', to: '/admin/platform/audit', label: t('platform.nav.audit'), icon: 'receipt' },
+        ],
+      },
       { name: 'dashboard', to: '/admin', label: t('nav.dashboard'), icon: 'dashboard' },
-      {
-        name: 'pos-ops',
-        to: '/admin/pos/overview',
-        label: t('nav.group.posOps'),
-        icon: 'store-pin',
-        children: [
-          { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview'), icon: 'dashboard' },
-          { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal'), icon: 'device-pos' },
-          { name: 'pos-tables', to: '/admin/hospitality', label: t('nav.restaurant'), icon: 'tables' },
-          { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts'), icon: 'shift' },
-          { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations'), icon: 'calendar' },
-        ],
-      },
-      {
-        name: 'pos-sales',
-        to: '/admin/pos/orders',
-        label: t('nav.group.posSales'),
-        icon: 'sales',
-        children: [
-          { name: 'pos-orders', to: '/admin/pos/orders', label: t('nav.posOrders'), icon: 'sales' },
-          { name: 'pos-returns', to: '/admin/sales/returns', label: t('sales.tabs.returns'), icon: 'transfer' },
-        ],
-      },
       {
         name: 'hotel',
         to: '/admin/hotel/rooms',
@@ -101,149 +100,81 @@ const navSections = computed(() => [
           { name: 'hotel-settings', to: '/admin/hotel/settings', label: t('hotel.tabs.settings'), icon: 'account' },
         ],
       },
-      { name: 'stores', to: '/admin/stores', label: t('nav.stores'), icon: 'stores' },
-      { name: 'customers', to: '/admin/customers', label: t('nav.customers'), icon: 'customers' },
-    ] as NavItem[],
-  },
-  {
-    label: t('nav.section.catalog'),
-    items: [
       {
-        name: 'catalog-products',
+        name: 'catalogue',
         to: '/admin/products',
-        label: t('nav.group.products'),
+        label: t('nav.catalog'),
         icon: 'catalog',
         children: [
-          { name: 'product-catalog', to: '/admin/products', label: t('nav.productCatalog'), icon: 'products' },
-          { name: 'product-accompaniments', to: '/admin/accompaniments', label: t('nav.accompaniments'), icon: 'sparkles' },
-          { name: 'product-options', to: '/admin/catalog/options', label: t('nav.productOptions'), icon: 'layers' },
-          { name: 'beverages', to: '/admin/catalog/beverages', label: t('nav.beverages'), icon: 'sparkles' },
+          { name: 'product-catalog', to: '/admin/products', label: t('nav.products'), icon: 'products' },
           { name: 'catalog-gallery', to: '/admin/catalog/gallery', label: t('nav.catalogGallery'), icon: 'catalog' },
-        ],
-      },
-      {
-        name: 'catalog-reference',
-        to: '/admin/catalog/catalogs',
-        label: t('nav.group.reference'),
-        icon: 'layers',
-        children: [
-          { name: 'catalogs', to: '/admin/catalog/catalogs', label: t('catalog.tabs.catalogs'), icon: 'catalog' },
-          { name: 'catalog-categories', to: '/admin/catalog/categories', label: t('catalog.tabs.categories'), icon: 'layers' },
-          { name: 'catalog-brands', to: '/admin/catalog/brands', label: t('nav.brands'), icon: 'tag' },
-          { name: 'catalog-units', to: '/admin/catalog/units', label: t('nav.units'), icon: 'package' },
-          { name: 'catalog-attributes', to: '/admin/catalog/attributes', label: t('nav.attributes'), icon: 'adjust' },
-        ],
-      },
-      {
-        name: 'catalog-pricing',
-        to: '/admin/catalog/prices',
-        label: t('nav.group.pricing'),
-        icon: 'tag',
-        children: [
+          { name: 'customers', to: '/admin/customers', label: t('nav.customers'), icon: 'customers' },
           { name: 'price-lists', to: '/admin/catalog/prices', label: t('nav.priceLists'), icon: 'tag' },
-          { name: 'catalog-taxes', to: '/admin/catalog/taxes', label: t('catalog.tabs.taxes'), icon: 'percent' },
         ],
       },
-      { name: 'barcodes', to: '/admin/barcodes', label: t('nav.barcodes'), icon: 'tag' },
-      { name: 'promotions', to: '/admin/promotions', label: t('nav.promotions'), icon: 'products' },
-      { name: 'services', to: '/admin/services', label: t('nav.services'), icon: 'customers' },
-    ] as NavItem[],
-  },
-  {
-    label: t('nav.section.stock'),
-    items: [
       {
-        name: 'inventory-status',
+        name: 'pos-ops',
+        to: '/admin/pos/overview',
+        label: t('nav.group.posOps'),
+        icon: 'store-pin',
+        children: [
+          { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview'), icon: 'dashboard' },
+          { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal'), icon: 'device-pos' },
+          { name: 'pos-orders', to: '/admin/pos/orders', label: t('nav.posOrders'), icon: 'sales' },
+          { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts'), icon: 'shift' },
+          { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations'), icon: 'calendar' },
+        ],
+      },
+      {
+        name: 'inventory',
         to: '/admin/inventory/stock',
-        label: t('nav.group.stockStatus'),
+        label: t('nav.inventoryHub'),
         icon: 'inventory',
         children: [
-          { name: 'inventory-stock', to: '/admin/inventory/stock', label: t('inventory.tabs.stock'), icon: 'inventory' },
-          { name: 'inventory-alerts', to: '/admin/inventory/alerts', label: t('inventory.tabs.alerts'), icon: 'alert' },
+          { name: 'inventory-overview', to: '/admin/reports/inventory', label: t('nav.inventoryItems.overview'), icon: 'dashboard' },
+          { name: 'inventory-products', to: '/admin/inventory/stock', label: t('nav.inventoryItems.products'), icon: 'products' },
+          { name: 'catalog-brands', to: '/admin/catalog/brands', label: t('nav.inventoryItems.brands'), icon: 'tag' },
+          { name: 'inventory-manufacturers', to: '/admin/inventory/manufacturers', label: t('nav.inventoryItems.manufacturers'), icon: 'organization' },
+          { name: 'catalog-units', to: '/admin/catalog/units', label: t('nav.inventoryItems.units'), icon: 'package' },
+          { name: 'inventory-transfers', to: '/admin/inventory/transfers', label: t('nav.inventoryItems.transfers'), icon: 'transfer' },
+          { name: 'inventory-counts', to: '/admin/inventory/counts', label: t('nav.inventoryItems.counts'), icon: 'check' },
+          { name: 'inventory-issues', to: '/admin/inventory/issues', label: t('nav.inventoryItems.exits'), icon: 'upload' },
+          { name: 'catalog-taxes', to: '/admin/catalog/taxes', label: t('nav.inventoryItems.taxes'), icon: 'percent' },
+          { name: 'catalog-categories', to: '/admin/catalog/categories', label: t('nav.inventoryItems.categories'), icon: 'layers' },
+          { name: 'org-warehouses', to: '/admin/organization/warehouses', label: t('nav.inventoryItems.warehouses'), icon: 'inventory' },
+          { name: 'inventory-adjustments', to: '/admin/inventory/adjustments', label: t('nav.inventoryItems.movements'), icon: 'adjust' },
+          { name: 'suppliers', to: '/admin/suppliers', label: t('nav.inventoryItems.suppliers'), icon: 'suppliers' },
+          { name: 'inventory-departments', to: '/admin/inventory/departments', label: t('nav.inventoryItems.departments'), icon: 'building' },
         ],
       },
       {
-        name: 'inventory-movements',
-        to: '/admin/inventory/supplies',
-        label: t('nav.group.movements'),
-        icon: 'import',
-        children: [
-          { name: 'inventory-supplies', to: '/admin/inventory/supplies', label: t('inventory.tabs.supplies'), icon: 'import' },
-          { name: 'inventory-transfers', to: '/admin/inventory/transfers', label: t('inventory.tabs.transfers'), icon: 'transfer' },
-          { name: 'inventory-adjustments', to: '/admin/inventory/adjustments', label: t('inventory.tabs.adjustments'), icon: 'adjust' },
-          { name: 'inventory-issues', to: '/admin/inventory/issues', label: t('inventory.tabs.issues'), icon: 'upload' },
-        ],
-      },
-      {
-        name: 'inventory-controls',
-        to: '/admin/inventory/counts',
-        label: t('nav.group.controls'),
-        icon: 'layers',
-        children: [
-          { name: 'inventory-counts', to: '/admin/inventory/counts', label: t('inventory.tabs.inventories'), icon: 'check' },
-          { name: 'inventory-verifications', to: '/admin/inventory/verifications', label: t('inventory.tabs.verifications'), icon: 'lock' },
-        ],
-      },
-      {
-        name: 'inventory-traceability',
-        to: '/admin/inventory/batches',
-        label: t('nav.group.traceability'),
-        icon: 'tag',
-        children: [
-          { name: 'inventory-batches', to: '/admin/inventory/batches', label: t('inventory.tabs.batches'), icon: 'package' },
-          { name: 'inventory-serials', to: '/admin/inventory/serials', label: t('inventory.tabs.serials'), icon: 'tag' },
-        ],
-      },
-      { name: 'production', to: '/admin/production', label: t('nav.production'), icon: 'inventory' },
-    ] as NavItem[],
-  },
-  {
-    label: t('nav.section.purchasing'),
-    items: [
-      { name: 'suppliers', to: '/admin/suppliers', label: t('nav.suppliers'), icon: 'suppliers' },
-      {
-        name: 'purchases-cycle',
+        name: 'purchasing',
         to: '/admin/purchases/overview',
-        label: t('nav.group.purchaseCycle'),
+        label: t('nav.purchasingHub'),
         icon: 'purchases',
         children: [
           { name: 'purchase-overview', to: '/admin/purchases/overview', label: t('purchases.hub.overview'), icon: 'dashboard' },
           { name: 'purchase-requisitions', to: '/admin/purchases/requisitions', label: t('purchases.hub.requisitions'), icon: 'note' },
           { name: 'purchase-proformas', to: '/admin/purchases/proformas', label: t('purchases.hub.proformas'), icon: 'receipt' },
           { name: 'purchase-orders', to: '/admin/purchases/orders', label: t('purchases.hub.orders'), icon: 'purchases' },
-        ],
-      },
-      {
-        name: 'purchases-billing',
-        to: '/admin/purchases/invoices',
-        label: t('nav.group.purchaseBilling'),
-        icon: 'sales',
-        children: [
           { name: 'purchase-invoices', to: '/admin/purchases/invoices', label: t('purchases.hub.invoices'), icon: 'receipt' },
           { name: 'purchase-payments', to: '/admin/purchases/payments', label: t('purchases.hub.payments'), icon: 'coins' },
           { name: 'purchase-returns', to: '/admin/purchases/returns', label: t('purchases.hub.returns'), icon: 'transfer' },
         ],
       },
-      { name: 'payables', to: '/admin/payables', label: t('nav.payables'), icon: 'purchases' },
-    ] as NavItem[],
-  },
-  {
-    label: t('nav.section.finance'),
-    items: [
       {
-        name: 'expenses',
+        name: 'expense-tracker',
         to: '/admin/expenses/dashboard',
-        label: t('nav.expenses'),
-        icon: 'purchases',
+        label: t('nav.expenseTrackerHub'),
+        icon: 'coins',
         children: [
           { name: 'expenses-dashboard', to: '/admin/expenses/dashboard', label: t('expenses.tabs.dashboard'), icon: 'dashboard' },
           { name: 'expenses-list', to: '/admin/expenses', label: t('expenses.tabs.list'), icon: 'note' },
           { name: 'expenses-categories', to: '/admin/expenses/categories', label: t('expenses.tabs.categories'), icon: 'layers' },
-          { name: 'expenses-recurring', to: '/admin/expenses/recurring', label: t('expenses.tabs.recurring'), icon: 'calendar' },
           { name: 'expenses-reports', to: '/admin/expenses/reports', label: t('expenses.tabs.reports'), icon: 'sales' },
+          { name: 'expenses-recurring', to: '/admin/expenses/recurring', label: t('expenses.tabs.recurring'), icon: 'calendar' },
         ],
       },
-      { name: 'accounting', to: '/admin/accounting', label: t('nav.accounting'), icon: 'sales' },
       {
         name: 'reports',
         to: '/admin/reports/dashboard',
@@ -253,7 +184,6 @@ const navSections = computed(() => [
           { name: 'reports-dashboard', to: '/admin/reports/dashboard', label: t('reports.tabs.dashboard'), icon: 'dashboard' },
           { name: 'reports-sales', to: '/admin/reports/sales', label: t('reports.tabs.sales'), icon: 'sales' },
           { name: 'reports-inventory', to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), icon: 'inventory' },
-          { name: 'reports-store-stock', to: '/admin/reports/store-stock', label: t('reports.tabs.storeStock'), icon: 'stores' },
           { name: 'reports-purchases', to: '/admin/reports/purchases', label: t('reports.tabs.purchases'), icon: 'purchases' },
           { name: 'reports-forecasts', to: '/admin/reports/forecasts', label: t('reports.tabs.forecasts'), icon: 'sparkles' },
           { name: 'reports-financial', to: '/admin/reports/financial', label: t('reports.tabs.revenue'), icon: 'coins' },
@@ -262,61 +192,50 @@ const navSections = computed(() => [
           { name: 'reports-user-performance', to: '/admin/reports/user-performance', label: t('reports.tabs.userPerformance'), icon: 'account' },
         ],
       },
-    ] as NavItem[],
-  },
-  {
-    label: t('nav.section.system'),
-    items: [
       {
-        name: 'org-company',
-        to: '/admin/organization/company',
-        label: t('nav.group.company'),
-        icon: 'organization',
+        name: 'sync-devices',
+        to: '/admin/organization/devices',
+        label: t('nav.syncDevicesHub'),
+        icon: 'device-tablet',
         children: [
-          { name: 'org-company-page', to: '/admin/organization/company', label: t('org.tabs.company'), icon: 'organization' },
-          { name: 'org-branding', to: '/admin/organization/branding', label: t('org.tabs.branding'), icon: 'sparkles' },
-          { name: 'org-currencies', to: '/admin/organization/currencies', label: t('org.tabs.currencies'), icon: 'coins' },
-          { name: 'org-payments', to: '/admin/organization/payment-methods', label: t('org.tabs.paymentMethods'), icon: 'card' },
-        ],
-      },
-      {
-        name: 'org-sites',
-        to: '/admin/organization/branches',
-        label: t('nav.group.sites'),
-        icon: 'stores',
-        children: [
-          { name: 'org-branches', to: '/admin/organization/branches', label: t('org.tabs.branches'), icon: 'building' },
-          { name: 'org-stores', to: '/admin/organization/stores', label: t('org.tabs.stores'), icon: 'stores' },
-          { name: 'org-warehouses', to: '/admin/organization/warehouses', label: t('org.tabs.warehouses'), icon: 'inventory' },
-        ],
-      },
-      {
-        name: 'org-pos',
-        to: '/admin/organization/terminals',
-        label: t('nav.group.posHardware'),
-        icon: 'store-pin',
-        children: [
-          { name: 'org-terminals', to: '/admin/organization/terminals', label: t('org.tabs.terminals'), icon: 'device-pos' },
           { name: 'org-devices', to: '/admin/organization/devices', label: t('org.tabs.devices'), icon: 'device-tablet' },
-          { name: 'org-registers', to: '/admin/organization/registers', label: t('org.tabs.registers'), icon: 'coins' },
         ],
       },
       {
-        name: 'org-access',
-        to: '/admin/organization/users',
-        label: t('nav.group.access'),
+        name: 'settings-hub',
+        to: '/admin/settings/subscription',
+        label: t('nav.settingsHub'),
         icon: 'account',
         children: [
-          { name: 'org-users', to: '/admin/organization/users', label: t('org.tabs.users'), icon: 'customers' },
-          { name: 'org-roles', to: '/admin/organization/roles', label: t('org.tabs.roles'), icon: 'lock' },
-          { name: 'org-permissions', to: '/admin/organization/permissions', label: t('org.tabs.permissions'), icon: 'key' },
+          { name: 'settings-subscription', to: '/admin/settings/subscription', label: t('nav.settingsItems.subscription'), icon: 'key' },
+          { name: 'settings-currency', to: '/admin/organization/currencies', label: t('nav.settingsItems.company'), icon: 'building' },
+          { name: 'settings-merchant-qr', to: '/admin/settings/merchant-qr', label: t('nav.settingsItems.merchantQr'), icon: 'tag' },
         ],
       },
-      { name: 'import-export', to: '/admin/import-export', label: t('nav.importExport'), icon: 'import' },
-      { name: 'sync', to: '/admin/sync', label: t('nav.sync'), icon: 'import' },
-      { name: 'audit', to: '/admin/audit', label: t('nav.audit'), icon: 'layers' },
-      { name: 'platform', to: '/admin/platform', label: t('nav.platform'), icon: 'organization' },
-      { name: 'account', to: '/admin/account', label: t('nav.account'), icon: 'account' },
+      {
+        name: 'customer-hub',
+        to: '/admin/customer-hub/dashboard',
+        label: t('nav.customerHub'),
+        icon: 'customers',
+        children: [
+          { name: 'customer-hub-dashboard', to: '/admin/customer-hub/dashboard', label: t('nav.customerHubItems.dashboard'), icon: 'dashboard' },
+          { name: 'customer-hub-link-requests', to: '/admin/customer-hub/link-requests', label: t('nav.customerHubItems.linkRequests'), icon: 'key' },
+          { name: 'customer-hub-linked-users', to: '/admin/customer-hub/linked-users', label: t('nav.customerHubItems.linkedUsers'), icon: 'customers' },
+          { name: 'customer-hub-mobile-orders', to: '/admin/customer-hub/mobile-orders', label: t('nav.customerHubItems.mobileOrders'), icon: 'device-tablet' },
+          { name: 'customer-hub-payments', to: '/admin/customer-hub/payments', label: t('nav.customerHubItems.payments'), icon: 'coins' },
+        ],
+      },
+      {
+        name: 'space-orders',
+        to: '/admin/settings/orders',
+        label: t('nav.spaceOrdersHub'),
+        icon: 'purchases',
+        children: [
+          { name: 'settings-orders', to: '/admin/settings/orders', label: t('nav.settingsItems.orders'), icon: 'sales' },
+          { name: 'settings-analytics', to: '/admin/settings/analytics', label: t('nav.settingsItems.analytics'), icon: 'dashboard' },
+        ],
+      },
+      { name: 'app-versions', to: '/admin/settings/app-versions', label: t('nav.settingsItems.appVersions'), icon: 'device-tablet' },
     ] as NavItem[],
   },
 ])
@@ -327,17 +246,21 @@ function hasModule(code: string) {
   return modules.includes(code)
 }
 
-const visibleNav = computed(() => navSections.value.map(section => ({
+const visibleNav = computed(() => {
+  const platformOnly = auth.user?.is_super_admin === true && !auth.user.tenant_id
+  return navSections.value.map(section => ({
   ...section,
   items: section.items.filter(item => {
-    if (item.name === 'platform') return auth.user?.is_super_admin === true
+    if (platformOnly) return item.name === 'platform' || item.name.startsWith('platform-')
+    if (item.name === 'platform') return false
     if (item.name === 'pos-ops' || item.name === 'pos-sales') return hasModule('pos')
-    if (item.name.startsWith('inventory-') || item.name === 'production') return hasModule('stock')
+    if (item.name === 'inventory' || item.name.startsWith('inventory-') || item.name === 'production') return hasModule('stock')
     if (item.name === 'hotel') return hasModule('hotel')
     if (item.name === 'restaurant') return hasModule('restaurant')
     return true
   }),
-})).filter(section => section.items.length > 0))
+})).filter(section => section.items.length > 0)
+})
 
 const userInitials = computed(() => {
   const name = auth.user?.name ?? '?'
@@ -351,10 +274,19 @@ const company = computed(() => {
 })
 
 const companyName = computed(() => {
-  const fromBranding = brandingStore.branding?.brand_name?.trim()
-  if (fromBranding) return fromBranding
-  const name = company.value?.name?.trim() || company.value?.trade_name?.trim() || 'ITARA NEXUS Business CORE'
+  const name = company.value?.trade_name?.trim()
+    || company.value?.name?.trim()
+    || brandingStore.branding?.company?.trade_name?.trim()
+    || brandingStore.branding?.company?.name?.trim()
+    || brandingStore.branding?.brand_name?.trim()
+    || 'ITARA NEXUS Business CORE'
   return name
+})
+
+const companyInitials = computed(() => {
+  const parts = companyName.value.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return companyName.value.slice(0, 2).toUpperCase()
 })
 
 const brandLines = computed(() => {
@@ -366,11 +298,15 @@ const brandLines = computed(() => {
 const accentColor = computed(() => brandingStore.branding?.accent_color || 'var(--color-brand-500)')
 
 const logoFailed = ref(false)
-const companyLogo = computed(() =>
-  brandingStore.branding?.logo_url?.trim()
-  || company.value?.logo_url?.trim()
-  || '',
-)
+const companyLogo = computed(() => {
+  const active = company.value
+  const profile = brandingStore.branding?.company
+  return active?.logo_url?.trim()
+    || active?.settings?.invoice_logo_url?.trim()
+    || profile?.logo_url?.trim()
+    || brandingStore.branding?.logo_url?.trim()
+    || ''
+})
 
 watch(companyLogo, () => {
   logoFailed.value = false
@@ -411,22 +347,202 @@ function isGroupActive(item: NavItem) {
 }
 
 function isExpanded(item: NavItem) {
-  return Boolean(expandedMenus.value[item.name])
+  return openMenuId.value === item.name
+}
+
+function activeMenuId() {
+  for (const section of visibleNav.value) {
+    for (const item of section.items) {
+      if (item.children?.length && isGroupActive(item)) return item.name
+    }
+  }
+  return null
 }
 
 function toggleMenu(item: NavItem) {
   if (!item.children?.length) return
   if (!isDesktop.value && !drawerOpen.value) {
     drawerOpen.value = true
-    expandedMenus.value[item.name] = true
+    openMenuId.value = item.name
     return
   }
   if (isDesktop.value && !sidebarOpen.value) {
     sidebarOpen.value = true
-    expandedMenus.value[item.name] = true
+    openMenuId.value = item.name
     return
   }
-  expandedMenus.value[item.name] = !isExpanded(item)
+  openMenuId.value = isExpanded(item) ? null : item.name
+}
+
+const submenuMotionMs = 220
+let scrollTimer = 0
+let navReady = false
+
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function visibleActiveLink() {
+  const nav = navEl.value
+  if (!nav) return null
+  const links = [...nav.querySelectorAll<HTMLElement>('.app-nav-link--active')]
+  const visible = links.filter((el) => {
+    const rect = el.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0
+  })
+  return visible.find((el) => el.classList.contains('app-nav-link--child')) ?? visible[visible.length - 1] ?? null
+}
+
+function isFullyInView(container: HTMLElement, el: HTMLElement) {
+  const box = container.getBoundingClientRect()
+  const rect = el.getBoundingClientRect()
+  return rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1
+}
+
+function scrollActiveIntoView() {
+  const nav = navEl.value
+  const el = visibleActiveLink()
+  if (!nav || !el || isFullyInView(nav, el)) return
+  const box = nav.getBoundingClientRect()
+  const rect = el.getBoundingClientRect()
+  const top = nav.scrollTop + (rect.top - box.top) - (box.height / 2) + (rect.height / 2)
+  nav.scrollTo({
+    top: Math.max(0, top),
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+  })
+}
+
+function scheduleScroll(waitForSubmenu: boolean) {
+  window.clearTimeout(scrollTimer)
+  const delay = waitForSubmenu && !prefersReducedMotion() ? submenuMotionMs : 0
+  scrollTimer = window.setTimeout(() => {
+    void nextTick(() => requestAnimationFrame(() => scrollActiveIntoView()))
+  }, delay)
+}
+
+type SubNode = HTMLElement & { _subTimer?: number }
+
+function clearSubTimer(node: SubNode) {
+  if (node._subTimer === undefined) return
+  window.clearTimeout(node._subTimer)
+  node._subTimer = undefined
+}
+
+function resetSubMotion(node: HTMLElement) {
+  node.style.transition = ''
+  node.style.height = ''
+  node.style.opacity = ''
+  node.style.overflow = ''
+}
+
+function onSubEnter(el: Element, done: () => void) {
+  const node = el as SubNode
+  clearSubTimer(node)
+  if (prefersReducedMotion()) {
+    resetSubMotion(node)
+    done()
+    return
+  }
+  let settled = false
+  const finish = (event?: TransitionEvent) => {
+    if (settled) return
+    if (event && (event.target !== node || event.propertyName !== 'height')) return
+    settled = true
+    clearSubTimer(node)
+    node.removeEventListener('transitionend', finish)
+    done()
+  }
+  node.style.overflow = 'hidden'
+  node.style.height = '0px'
+  node.style.opacity = '0'
+  node.addEventListener('transitionend', finish)
+  requestAnimationFrame(() => {
+    const height = node.scrollHeight
+    node.style.transition = `height ${submenuMotionMs}ms var(--ease-out), opacity 200ms var(--ease-out)`
+    node.style.height = `${height}px`
+    node.style.opacity = '1'
+    node._subTimer = window.setTimeout(() => finish(), submenuMotionMs + 40)
+    if (height === 0) finish()
+  })
+}
+
+function onSubAfterEnter(el: Element) {
+  resetSubMotion(el as HTMLElement)
+}
+
+function onSubLeave(el: Element, done: () => void) {
+  const node = el as SubNode
+  clearSubTimer(node)
+  if (prefersReducedMotion()) {
+    done()
+    return
+  }
+  node.style.overflow = 'hidden'
+  node.style.height = `${node.scrollHeight}px`
+  node.style.opacity = '1'
+  requestAnimationFrame(() => {
+    node.style.transition = `height ${submenuMotionMs}ms var(--ease-out), opacity 200ms var(--ease-out)`
+    node.style.height = '0px'
+    node.style.opacity = '0'
+  })
+  node._subTimer = window.setTimeout(() => {
+    node._subTimer = undefined
+    resetSubMotion(node)
+    done()
+  }, submenuMotionMs)
+}
+
+function focusableNavItems() {
+  const nav = navEl.value
+  if (!nav) return []
+  return [...nav.querySelectorAll<HTMLElement>('.app-nav-link')].filter((el) => {
+    const rect = el.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0
+  })
+}
+
+function onNavKeydown(event: KeyboardEvent) {
+  const current = (event.target as HTMLElement | null)?.closest<HTMLElement>('.app-nav-link')
+  if (!current || !navEl.value?.contains(current)) return
+  const items = focusableNavItems()
+  const index = items.indexOf(current)
+  if (index < 0) return
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+    event.preventDefault()
+    const next = event.key === 'ArrowDown'
+      ? items[Math.min(items.length - 1, index + 1)]
+      : event.key === 'ArrowUp'
+        ? items[Math.max(0, index - 1)]
+        : event.key === 'Home'
+          ? items[0]
+          : items[items.length - 1]
+    next?.focus()
+    return
+  }
+
+  if (event.key === 'ArrowRight' && current.classList.contains('app-nav-link--parent')) {
+    event.preventDefault()
+    const name = current.dataset.menu
+    if (!name) return
+    if (openMenuId.value !== name) openMenuId.value = name
+    window.setTimeout(() => {
+      navEl.value?.querySelector<HTMLElement>(`#nav-sub-${CSS.escape(name)} .app-nav-link`)?.focus()
+    }, prefersReducedMotion() ? 0 : submenuMotionMs)
+    return
+  }
+
+  if (event.key === 'ArrowLeft' && current.classList.contains('app-nav-link--child')) {
+    event.preventDefault()
+    const parent = current.closest('.app-nav-sub')?.previousElementSibling
+    if (parent instanceof HTMLElement) parent.focus()
+    return
+  }
+
+  if (event.key === 'ArrowLeft' && current.classList.contains('app-nav-link--parent') && current.getAttribute('aria-expanded') === 'true') {
+    event.preventDefault()
+    openMenuId.value = null
+  }
 }
 
 function toggleSidebar() {
@@ -444,16 +560,22 @@ function closeDrawer() {
 watch(
   () => route.path,
   () => {
-    for (const section of navSections.value) {
-      for (const item of section.items) {
-        if (item.children?.length && isGroupActive(item)) {
-          expandedMenus.value[item.name] = true
-        }
-      }
-    }
+    const nextId = activeMenuId()
+    const opening = nextId !== null && nextId !== openMenuId.value
+    openMenuId.value = nextId
+    if (navReady) scheduleScroll(opening)
   },
   { immediate: true },
 )
+
+watch(sidebarOpen, (open) => {
+  if (navReady) scheduleScroll(open && openMenuId.value !== null)
+})
+
+watch(drawerOpen, (open) => {
+  document.body.classList.toggle('nav-drawer-open', open)
+  if (open && navReady) scheduleScroll(openMenuId.value !== null)
+})
 
 function onStoreChange(event: Event) {
   const id = (event.target as HTMLSelectElement).value
@@ -498,6 +620,8 @@ function onSidebarPref(event: Event) {
 }
 
 onMounted(() => {
+  navReady = true
+  scheduleScroll(openMenuId.value !== null)
   syncViewport()
   window.addEventListener('pointerdown', onUserMenuPointer)
   window.addEventListener('keydown', onUserMenuKey)
@@ -509,11 +633,13 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.clearTimeout(scrollTimer)
   window.removeEventListener('pointerdown', onUserMenuPointer)
   window.removeEventListener('keydown', onUserMenuKey)
   window.removeEventListener('resize', placeUserMenu)
   window.removeEventListener('resize', syncViewport)
   window.removeEventListener('pos-sidebar-pref', onSidebarPref)
+  document.body.classList.remove('nav-drawer-open')
   realtime.disconnect()
 })
 
@@ -540,15 +666,18 @@ const HeaderSubtitle = computed(() => ({
   setup: () => () => pageHeader.subtitleSlot?.() ?? slots.subtitle?.() ?? null,
 }))
 const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subtitle))
+const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') ? 'page-instant' : 'page'))
 </script>
 
 <template>
   <div class="app-shell">
-    <div
-      v-if="drawerOpen"
-      class="app-sidebar-backdrop"
-      @click="closeDrawer"
-    />
+    <Transition name="fade">
+      <div
+        v-if="drawerOpen"
+        class="app-sidebar-backdrop"
+        @click="closeDrawer"
+      />
+    </Transition>
     <aside
       class="app-sidebar"
       :class="{
@@ -564,7 +693,7 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
             :alt="companyName"
             @error="logoFailed = true"
           />
-          <img v-else src="/brand-mark.svg" :alt="companyName" />
+          <span v-else class="app-sidebar__mark" :aria-label="companyName">{{ companyInitials }}</span>
         </div>
         <div class="app-sidebar__brand-text min-w-0 flex-1">
           <p class="font-brand m-0 text-sm font-bold tracking-[0.04em] text-slate-900">{{ brandLines.primary }}</p>
@@ -590,7 +719,7 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
         <kbd>Ctrl K</kbd>
       </button>
 
-      <nav class="app-sidebar__nav">
+      <nav ref="navEl" class="app-sidebar__nav" @keydown="onNavKeydown">
         <div v-for="section in visibleNav" :key="section.label">
           <p class="app-sidebar__section-label">{{ section.label }}</p>
           <template v-for="item in section.items" :key="item.name">
@@ -599,8 +728,10 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
                 type="button"
                 class="app-nav-link app-nav-link--parent"
                 :class="{ 'app-nav-link--active': isGroupActive(item), 'app-nav-link--open': isExpanded(item) }"
+                :data-menu="item.name"
                 :title="item.label"
                 :aria-expanded="isExpanded(item)"
+                :aria-controls="`nav-sub-${item.name}`"
                 @click="toggleMenu(item)"
               >
                 <AppIcon :name="item.icon" :size="18" />
@@ -612,26 +743,35 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
                   :class="{ 'app-nav-link__chevron--open': isExpanded(item) }"
                 />
               </button>
-              <div v-show="isExpanded(item)" class="app-nav-sub">
-                <RouterLink
-                  v-for="child in item.children"
-                  :key="child.name"
-                  :to="child.to"
-                  class="app-nav-link app-nav-link--child"
-                  :class="{ 'app-nav-link--active': isChildActive(child) }"
-                >
-                  <span class="app-nav-link__mark" aria-hidden="true">
-                    <AppIcon :name="child.icon" :size="16" />
-                  </span>
-                  <span class="min-w-0 flex-1 text-left">{{ child.label }}</span>
-                </RouterLink>
-              </div>
+              <Transition @enter="onSubEnter" @after-enter="onSubAfterEnter" @leave="onSubLeave">
+                <div v-show="isExpanded(item)" :id="`nav-sub-${item.name}`" class="app-nav-sub">
+                  <div
+                    v-for="child in item.children"
+                    :key="child.name"
+                    class="app-nav-sub__item"
+                  >
+                    <span class="app-nav-link__branch" aria-hidden="true"></span>
+                    <RouterLink
+                      :to="child.to"
+                      class="app-nav-link app-nav-link--child"
+                      :class="{ 'app-nav-link--active': isChildActive(child) }"
+                      :aria-current="isChildActive(child) ? 'page' : undefined"
+                    >
+                      <span class="app-nav-link__mark" aria-hidden="true">
+                        <AppIcon :name="child.icon" :size="18" />
+                      </span>
+                      <span class="min-w-0 flex-1 text-left">{{ child.label }}</span>
+                    </RouterLink>
+                  </div>
+                </div>
+              </Transition>
             </template>
             <RouterLink
               v-else
               :to="item.to"
               class="app-nav-link"
               :class="{ 'app-nav-link--active': isActive(item.to) }"
+              :aria-current="isActive(item.to) ? 'page' : undefined"
               :title="item.label"
             >
               <AppIcon :name="item.icon" :size="18" />
@@ -701,37 +841,43 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
             </button>
           </div>
           <Teleport to="body">
-            <div
-              v-if="userMenuOpen"
-              ref="userMenuPanel"
-              class="user-menu__panel"
-              :style="userMenuStyle"
-              role="menu"
-            >
-              <p class="user-menu__heading">{{ auth.user?.name }}</p>
-              <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin')">
-                <AppIcon name="dashboard" :size="18" />
-                {{ t('nav.dashboard') }}
-              </button>
-              <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin/profile')">
-                <AppIcon name="account" :size="18" />
-                {{ t('auth.profile') }}
-              </button>
-              <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin/settings')">
-                <AppIcon name="organization" :size="18" />
-                {{ t('auth.settings') }}
-              </button>
-              <button type="button" class="user-menu__item user-menu__item--danger" role="menuitem" @click="logout">
-                <AppIcon name="logout" :size="18" />
-                {{ t('auth.logout') }}
-              </button>
-            </div>
+            <Transition name="menu-pop">
+              <div
+                v-if="userMenuOpen"
+                ref="userMenuPanel"
+                class="user-menu__panel"
+                :style="userMenuStyle"
+                role="menu"
+              >
+                <p class="user-menu__heading">{{ auth.user?.name }}</p>
+                <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin')">
+                  <AppIcon name="dashboard" :size="18" />
+                  {{ t('nav.dashboard') }}
+                </button>
+                <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin/profile')">
+                  <AppIcon name="account" :size="18" />
+                  {{ t('auth.profile') }}
+                </button>
+                <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin/settings')">
+                  <AppIcon name="organization" :size="18" />
+                  {{ t('auth.settings') }}
+                </button>
+                <button type="button" class="user-menu__item" role="menuitem" @click="cycleTheme">
+                  <AppIcon :name="themeIcon" :size="18" />
+                  {{ t(`auth.theme.${preference}`) }}
+                </button>
+                <button type="button" class="user-menu__item user-menu__item--danger" role="menuitem" @click="logout">
+                  <AppIcon name="logout" :size="18" />
+                  {{ t('auth.logout') }}
+                </button>
+              </div>
+            </Transition>
           </Teleport>
         </div>
       </header>
 
       <main class="app-content">
-        <Transition name="page" mode="out-in">
+        <Transition :name="pageMotion" mode="out-in">
           <div :key="route.path" class="page-stage">
             <RouterView />
           </div>
@@ -742,33 +888,34 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
 </template>
 
 <style scoped>
-.text-brand-500 { color: var(--color-brand-500); }
+.text-brand-500 { color: var(--color-ink-brand, var(--color-brand-500));}
 
 .topbar-start {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--header-gap);
 }
 
 .topbar-tools {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--header-gap);
 }
 
 .module-search-btn {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  height: var(--control-lg);
+  gap: var(--nav-icon-gap);
+  height: auto;
+  min-height: var(--control-lg);
   width: calc(100% - var(--space-6));
   margin: var(--space-3) var(--space-3) var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-sidebar-border);
   border-radius: var(--radius-md);
-  background: var(--color-canvas);
-  color: var(--color-text-muted);
-  padding: 0 var(--space-3);
+  background: var(--color-sidebar-elevated);
+  color: var(--color-sidebar-muted);
+  padding: var(--nav-item-pad-y) var(--nav-item-pad-x);
   font-size: var(--text-md);
   font-weight: 500;
   line-height: var(--line-sm);
@@ -780,9 +927,9 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
 }
 
 .module-search-btn:hover {
-  background: var(--color-brand-50);
-  border-color: var(--color-brand-200);
-  color: var(--color-brand-700);
+  background: var(--color-sidebar-hover);
+  border-color: var(--color-sidebar-border);
+  color: var(--color-sidebar-text-strong);
 }
 
 .module-search-btn svg {
@@ -796,12 +943,12 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
 }
 
 .module-search-btn kbd {
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-sidebar-border);
   border-radius: var(--radius-sm);
-  background: white;
+  background: var(--color-sidebar);
   padding: 2px var(--space-2);
   font-size: var(--text-xs);
-  color: var(--color-text-faint);
+  color: var(--color-sidebar-muted);
   font-family: var(--font-sans);
 }
 
@@ -814,7 +961,7 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
   max-width: 16rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--color-surface);
   padding: 0 var(--space-2) 0 var(--space-1);
   cursor: pointer;
 }
@@ -842,10 +989,9 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
   font-size: var(--text-sm);
   font-weight: 500;
   line-height: var(--line-sm);
-  color: #0f172a;
+  color: var(--color-text-primary);
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  white-space: nowrap;}
 
 .user-menu__email {
   display: none;
@@ -853,10 +999,9 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
 
 .user-menu__caret {
   flex-shrink: 0;
-  color: #64748b;
+  color: var(--color-text-muted);
   transform: rotate(90deg);
-  transition: transform 0.16s ease;
-}
+  transition: transform var(--motion-fast) var(--ease-in-out);}
 
 .user-menu__caret--open {
   transform: rotate(-90deg);
@@ -867,48 +1012,44 @@ const hasSubtitle = computed(() => Boolean(pageHeader.subtitleSlot || slots.subt
   z-index: 500;
   width: 15.5rem;
   overflow: hidden;
-  padding: var(--space-1);
+  padding: var(--overlay-pad);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: var(--shadow-md);
 }
 
 .user-menu__heading {
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--overlay-item-pad-y) var(--overlay-item-pad-x);
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: var(--line-xs);
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .user-menu__item {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: var(--space-3);
-  height: var(--control-md);
+  gap: var(--nav-icon-gap);
+  height: auto;
   min-height: var(--control-md);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  padding: 0 var(--space-3);
+  padding: var(--overlay-item-pad-y) var(--overlay-item-pad-x);
   text-align: left;
   font-size: var(--text-md);
   font-weight: 500;
   line-height: var(--line-sm);
-  color: #0f172a;
-  cursor: pointer;
-}
+  color: var(--color-text-primary);
+  cursor: pointer;}
 
 .user-menu__item:hover {
-  background: #f4f8fb;
-}
+  background: var(--color-table-row-hover);}
 
 .user-menu__item--danger {
-  color: #b91c1c;
-}
+  color: light-dark(#b91c1c, #e2a0a0);}
 
 @media (max-width: 767px) {
   .user-menu__identity {

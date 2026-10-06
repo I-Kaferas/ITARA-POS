@@ -91,8 +91,7 @@ function choose(id: string) {
   overflow: auto;
   border: 1px solid #cbd5e1;
   border-radius: 0.6rem;
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .warehouse-field__option {
   display: block;
@@ -100,13 +99,12 @@ function choose(id: string) {
   padding: 0.5rem 0.75rem;
   border: 0;
   border-bottom: 1px solid #f1f5f9;
-  background: #fff;
+  background: var(--color-surface);
   text-align: left;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #0f172a;
-  cursor: pointer;
-}
+  color: var(--color-text-primary);
+  cursor: pointer;}
 
 .warehouse-field__option:last-child {
   border-bottom: 0;
@@ -114,7 +112,6 @@ function choose(id: string) {
 
 .warehouse-field__option--active,
 .warehouse-field__option:hover {
-  background: #e8f0f5;
-  color: #1e3a4c;
-}
+  background: var(--color-brand-50);
+  color: var(--color-ink-brand, var(--color-brand-700));}
 </style>

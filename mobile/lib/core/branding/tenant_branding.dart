@@ -18,7 +18,7 @@ class TenantBranding {
       brandName: json['brand_name'] as String? ?? 'POS',
       tagline: json['tagline'] as String? ?? '',
       logoUrl: json['logo_url'] as String?,
-      primaryColor: json['primary_color'] as String? ?? '#3D5C73',
+      primaryColor: json['primary_color'] as String? ?? '#12243C',
       accentColor: json['accent_color'] as String? ?? '#E39B2B',
     );
   }
@@ -31,7 +31,7 @@ class TenantBranding {
   final String primaryColor;
   final String accentColor;
 
-  Color get primary => parseHex(primaryColor) ?? const Color(0xFF3D5C73);
+  Color get primary => parseHex(primaryColor) ?? const Color(0xFF12243C);
   Color get accent => parseHex(accentColor) ?? const Color(0xFFE39B2B);
 
   static Color? parseHex(String? value) {

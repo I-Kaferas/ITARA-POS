@@ -43,6 +43,7 @@ import type {
   InventoryMovement,
   Permission,
   Product,
+  GalleryImage,
   ProductAccompanimentHost,
   ProductAccompanimentItem,
   ProductVariant,
@@ -118,6 +119,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   const promotions = ref<Promotion[]>([])
   const promotionTypes = ref<PromotionTypeMeta[]>([])
   const products = ref<Product[]>([])
+  const galleryImages = ref<GalleryImage[]>([])
   const stores = ref<Store[]>([])
   const warehouses = ref<Warehouse[]>([])
   const devices = ref<Device[]>([])
@@ -191,6 +193,16 @@ export const useBackofficeStore = defineStore('backoffice', () => {
 
   async function deleteCompanyLogo(id: string) {
     return (await api.delete<ApiItemResponse<Company>>(`/companies/${id}/logo`)).data
+  }
+
+  async function uploadInvoiceLogo(id: string, file: File) {
+    const form = new FormData()
+    form.append('logo', file)
+    return (await api.upload<ApiItemResponse<Company>>(`/companies/${id}/invoice-logo`, form)).data
+  }
+
+  async function deleteInvoiceLogo(id: string) {
+    return (await api.delete<ApiItemResponse<Company>>(`/companies/${id}/invoice-logo`)).data
   }
 
   async function deleteCompany(id: string) {
@@ -804,6 +816,20 @@ export const useBackofficeStore = defineStore('backoffice', () => {
 
   async function setPrimaryImage(imageId: string) {
     await api.patch(`/product-images/${imageId}/primary`)
+  }
+
+  async function loadGalleryImages(catalogId = '') {
+    galleryImages.value = (await api.get<ApiListResponse<GalleryImage>>(`/gallery-images${queryFrom({ catalog_id: catalogId })}`)).data
+    return galleryImages.value
+  }
+
+  async function uploadGalleryImage(file: File, catalogId = '') {
+    const form = new FormData()
+    form.append('image', file)
+    if (catalogId) form.append('catalog_id', catalogId)
+    const image = (await api.upload<ApiItemResponse<GalleryImage>>('/gallery-images', form)).data
+    galleryImages.value = [image, ...galleryImages.value]
+    return image
   }
 
   // Store products
@@ -1904,7 +1930,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   }
 
   return {
-    companies, branches, catalogs, categories, brands, units, taxes, currencies, paymentMethods, promotions, promotionTypes, products,
+    companies, branches, catalogs, categories, brands, units, taxes, currencies, paymentMethods, promotions, promotionTypes, products, galleryImages,
     stores, warehouses, devices, cashRegisters, cashierShifts, currentCashierShift, users, roles, permissions, storeProducts, stats,
     catalogAttributes,
     suppliers, customers, purchaseOrders, purchaseInvoices,
@@ -1912,7 +1938,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     stockBalances, stockTransfers, stockAdjustments, inventoryCounts, inventoryAlerts, sales,
     auditLogs, accountingEntries, serialNumbers, productBatches,
     loading,
-    loadStats, loadCompanies, loadCompanyDetail, saveCompany, deleteCompany, uploadCompanyLogo, deleteCompanyLogo,
+    loadStats, loadCompanies, loadCompanyDetail, saveCompany, deleteCompany, uploadCompanyLogo, deleteCompanyLogo, uploadInvoiceLogo, deleteInvoiceLogo,
     loadCurrencies, saveCurrency, deleteCurrency,
     loadPaymentMethods, savePaymentMethod, updatePaymentMethod, deletePaymentMethod, reorderPaymentMethods,
     loadBranches, saveBranch, deleteBranch, loadBranchProfile, addBranchExpense, loadStores, saveStore, deleteStore,
@@ -1928,7 +1954,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadPromotionTypes, loadPromotions, savePromotion, deletePromotion,
     loadProducts, loadPriceList, loadProduct, saveProduct, deleteProduct, transformProductOptions,
     generateBarcode, printBarcode,
-    uploadProductImage, deleteProductImage, setPrimaryImage,
+    uploadProductImage, deleteProductImage, setPrimaryImage, loadGalleryImages, uploadGalleryImage,
     loadStoreProducts, importToStore, classifyStoreProducts, updateStoreProduct, removeFromStore,
     loadAllWarehouses,
     loadSuppliers, saveSupplier, deleteSupplier,

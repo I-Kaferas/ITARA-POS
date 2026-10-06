@@ -214,6 +214,7 @@ class AuthService
             'tenant_id' => $user->tenant_id,
             'is_super_admin' => $superAdmin,
             'modules' => $superAdmin ? \App\Services\Platform\SaasCatalog::MODULES : $catalog->modules($user->tenant_id ? $user->tenant : null),
+            'subscription' => $catalog->commercialSubscription($user->tenant_id ? $user->tenant : null),
             'email_verified' => $user->hasVerifiedEmail(),
             'phone_verified' => $user->phone_verified_at !== null,
             'two_factor_enabled' => $user->hasTwoFactorEnabled(),

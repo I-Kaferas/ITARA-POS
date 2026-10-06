@@ -704,8 +704,7 @@ async function savePriceOverride() {
   padding: 0.85rem 1.15rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .home-strip {
   display: flex;
@@ -723,10 +722,9 @@ async function savePriceOverride() {
   padding: 0 0.85rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--color-surface);
   color: var(--color-text-muted);
-  font-size: 0.8rem;
-}
+  font-size: 0.8rem;}
 
 .home-chip strong {
   color: var(--color-text-primary);
@@ -737,9 +735,8 @@ async function savePriceOverride() {
 .home-chip--warm,
 .home-chip--active {
   border-color: var(--color-border);
-  background: #fff;
-  color: var(--color-text-muted);
-}
+  background: var(--color-surface);
+  color: var(--color-text-muted);}
 
 .home-chip--warm strong,
 .home-chip--active strong {
@@ -790,13 +787,12 @@ async function savePriceOverride() {
   align-items: center;
   gap: 0.55rem;
   margin: 0.1rem 0 0;
-  color: #1a2833;
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: 1.4rem;
   font-weight: 600;
   letter-spacing: -0.03em;
-  line-height: 1.2;
-}
+  line-height: 1.2;}
 
 .kind-pill {
   display: inline-flex;
@@ -805,35 +801,31 @@ async function savePriceOverride() {
   padding: 0 0.55rem;
   border-radius: var(--radius-sm);
   background: var(--color-brand-50);
-  color: var(--color-brand-700);
+  color: var(--color-ink-brand, var(--color-brand-700));
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
+  text-transform: uppercase;}
 
 .home-banner__hello {
   margin: 0;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.95rem;
   font-weight: 500;
   text-transform: none;
-  letter-spacing: 0;
-}
+  letter-spacing: 0;}
 
 .home-banner__place {
   margin: 0.3rem 0 0;
-  color: #64748b;
-  font-size: 0.82rem;
-}
+  color: var(--color-text-muted);
+  font-size: 0.82rem;}
 
 .home-banner__hint {
   margin: 0.55rem 0 0;
   max-width: 34rem;
-  color: #57534e;
+  color: var(--color-text-secondary);
   font-size: 0.88rem;
-  line-height: 1.45;
-}
+  line-height: 1.45;}
 
 .home-banner__actions {
   position: relative;
@@ -856,15 +848,13 @@ async function savePriceOverride() {
   padding: 0 0.5rem;
   border-radius: 999px;
   background: #e4edf2;
-  color: var(--color-brand-600);
+  color: var(--color-ink-brand, var(--color-brand-600));
   font-size: 0.75rem;
-  font-weight: 700;
-}
+  font-weight: 700;}
 
 .count-pill--warm {
   background: #f8efdc;
-  color: #b45309;
-}
+  color: light-dark(#b45309, #d49b70);}
 
 .product-list {
   display: flex;
@@ -879,9 +869,8 @@ async function savePriceOverride() {
   padding: 0.7rem 0.8rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #fff;
-  cursor: pointer;
-}
+  background: var(--color-surface);
+  cursor: pointer;}
 
 .product-row:hover {
   border-color: var(--color-border-strong);
@@ -910,58 +899,50 @@ async function savePriceOverride() {
   flex-shrink: 0;
   border-radius: 0.7rem;
   object-fit: cover;
-  background: #f1f5f9;
-}
+  background: var(--color-table-header);}
 
 .product-row__photo--empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .product-row__photo--warm {
   background: #f8efdc;
-  color: #c4841d;
-}
+  color: light-dark(#c4841d, #ddb87c);}
 
 .product-row__name {
   margin: 0;
   overflow: hidden;
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
   font-weight: 600;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  white-space: nowrap;}
 
 .product-row__meta {
   margin: 0.15rem 0 0;
   overflow: hidden;
-  color: #94a3b8;
+  color: var(--color-text-faint);
   font-size: 0.75rem;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  white-space: nowrap;}
 
 .product-row__price {
-  color: #1a2833;
+  color: var(--color-text-primary);
   font-size: 0.85rem;
-  font-weight: 600;
-}
+  font-weight: 600;}
 
 .price-tag {
   margin-left: 0.35rem;
-  color: #b45309;
-  font-weight: 600;
-}
+  color: light-dark(#b45309, #d49b70);
+  font-weight: 600;}
 
 .empty-line {
   margin: auto;
-  color: #94a3b8;
+  color: var(--color-text-faint);
   font-size: 0.875rem;
-  text-align: center;
-}
+  text-align: center;}
 
 .classify-card {
   display: flex;
@@ -971,21 +952,18 @@ async function savePriceOverride() {
   padding: 1rem 1.1rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #fff;
-}
+  background: var(--color-surface);}
 
 .classify-card__intro h3 {
   margin: 0;
-  color: #1a2833;
+  color: var(--color-text-primary);
   font-size: 1rem;
-  font-weight: 650;
-}
+  font-weight: 650;}
 
 .classify-card__intro p {
   margin: 0.2rem 0 0;
-  color: #64748b;
-  font-size: 0.82rem;
-}
+  color: var(--color-text-muted);
+  font-size: 0.82rem;}
 
 .classify-card__actions {
   display: flex;
@@ -1005,5 +983,5 @@ async function savePriceOverride() {
   }
 }
 
-.text-red-600 { color: #dc2626; }
+.text-red-600 { color: light-dark(#dc2626, #f0a4a4);}
 </style>

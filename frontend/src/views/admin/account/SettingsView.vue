@@ -29,7 +29,7 @@ const apiUrl = computed(() => {
   if (terminal) return terminal.replace(/\/$/, '')
   const base = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
   if (/^https?:\/\//i.test(base)) return String(base).replace(/\/$/, '')
-  return 'http://127.0.0.1:8000/api/v1'
+  return 'http://127.0.0.1:8001/api/v1'
 })
 
 const hub = computed(() => [
@@ -211,7 +211,7 @@ function save() {
 
 <style scoped>
 .settings { display: flex; flex-direction: column; gap: 1rem; max-width: 52rem; }
-.banner { margin: 0; border-radius: 0.75rem; background: #ecfdf5; color: #047857; padding: 0.7rem 0.9rem; font-size: 0.85rem; }
+.banner { margin: 0; border-radius: 0.75rem; background: var(--color-success-bg); color: light-dark(#047857, #96c6b8); padding: 0.7rem 0.9rem; font-size: 0.85rem;}
 .settings-grid { display: grid; gap: 1rem; }
 .card {
   display: flex;
@@ -220,10 +220,9 @@ function save() {
   padding: 1.1rem 1.15rem;
   border: 1px solid #e4e8ec;
   border-radius: 1rem;
-  background: #fff;
-}
-.card h3 { margin: 0; color: #1c2830; font-size: 0.95rem; }
-.hint { margin: 0; color: #94a3b8; font-size: 0.75rem; }
+  background: var(--color-surface);}
+.card h3 { margin: 0; color: var(--color-text-primary); font-size: 0.95rem;}
+.hint { margin: 0; color: var(--color-text-faint); font-size: 0.75rem;}
 .locale-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
 .locale-card {
   display: flex;
@@ -234,10 +233,9 @@ function save() {
   border-radius: 0.8rem;
   background: #f7f9fb;
   padding: 0.7rem 0.75rem;
-  color: #1c2830;
+  color: var(--color-text-primary);
   text-align: left;
-  cursor: pointer;
-}
+  cursor: pointer;}
 .locale-card__flag {
   display: block;
   width: 1.7rem;
@@ -251,7 +249,7 @@ function save() {
   background: #f8efdc;
   box-shadow: inset 0 0 0 1px var(--color-brand-600);
 }
-.check { display: flex; align-items: center; gap: 0.55rem; color: #1c2830; font-size: 0.86rem; font-weight: 600; }
+.check { display: flex; align-items: center; gap: 0.55rem; color: var(--color-text-primary); font-size: 0.86rem; font-weight: 600;}
 .shortcut {
   display: flex;
   flex-direction: column;
@@ -259,11 +257,10 @@ function save() {
   border: 1px solid #e4e8ec;
   border-radius: 0.75rem;
   padding: 0.7rem 0.8rem;
-  color: #1c2830;
-  text-decoration: none;
-}
-.shortcut:hover { border-color: var(--color-brand-600); background: #f3f6f8; }
-.shortcut span { color: #64748b; font-size: 0.75rem; }
+  color: var(--color-text-primary);
+  text-decoration: none;}
+.shortcut:hover { border-color: var(--color-brand-600); background: var(--color-brand-50); }
+.shortcut span { color: var(--color-text-muted); font-size: 0.75rem;}
 .hub { display: flex; flex-direction: column; gap: 0.5rem; grid-column: 1 / -1; }
 .terminal-card { grid-column: 1 / -1; }
 .cred {
@@ -274,15 +271,13 @@ function save() {
   padding: 0.55rem 0.65rem;
   border: 1px solid #e8edf2;
   border-radius: 0.75rem;
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 .cred__label {
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 .cred__value {
   margin: 0;
   min-width: 0;
@@ -290,20 +285,18 @@ function save() {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.78rem;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 .cred__btn {
   border: 1px solid #dbe3ea;
   border-radius: 0.55rem;
-  background: #fff;
-  color: #334155;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.72rem;
   font-weight: 650;
   padding: 0.28rem 0.55rem;
-  cursor: pointer;
-}
+  cursor: pointer;}
 .cred__btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.cred__btn:not(:disabled):hover { border-color: var(--color-brand-600); color: #1c2830; }
+.cred__btn:not(:disabled):hover { border-color: var(--color-brand-600); color: var(--color-text-primary);}
 .settings-actions { display: flex; justify-content: flex-end; }
 @media (min-width: 860px) {
   .settings-grid { grid-template-columns: 1fr 1fr; }

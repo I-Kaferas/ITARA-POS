@@ -306,7 +306,7 @@ async function submitConvert() {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showCreate = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -321,7 +321,7 @@ async function submitConvert() {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="converting = null">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('purchases.hub.convert') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('purchases.hub.convert') }}</button>
         </div>
       </form>
     </AppModal>
@@ -331,7 +331,7 @@ async function submitConvert() {
 <style scoped>
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.link { color: var(--color-brand-600); font-size: 0.8rem; font-weight: 600; }
-.link-danger { color: #dc2626; font-size: 0.8rem; font-weight: 600; }
-.text-brand-600 { color: var(--color-brand-600); }
+.link { color: var(--color-ink-brand, var(--color-brand-600)); font-size: 0.8rem; font-weight: 600;}
+.link-danger { color: light-dark(#dc2626, #f0a4a4); font-size: 0.8rem; font-weight: 600;}
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

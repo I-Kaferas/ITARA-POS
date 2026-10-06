@@ -32,6 +32,11 @@ const router = createRouter({
       meta: { guest: true },
     },
     {
+      path: '/q/:id',
+      name: 'merchant-qr-public',
+      component: () => import('../views/public/MerchantQrPublicView.vue'),
+    },
+    {
       path: '/admin',
       component: () => import('../components/layout/AdminLayout.vue'),
       meta: { requiresAuth: true },
@@ -253,6 +258,18 @@ const router = createRouter({
               meta: { requiresAuth: true },
             },
         {
+              path: 'inventory/manufacturers',
+              name: 'inventory-manufacturers',
+              component: () => import('../views/admin/inventory/ManufacturersView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.inventoryItems.manufacturers' },
+            },
+        {
+              path: 'inventory/departments',
+              name: 'inventory-departments',
+              component: () => import('../views/admin/inventory/DepartmentsView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.inventoryItems.departments' },
+            },
+        {
               path: 'reports',
               redirect: '/admin/reports/dashboard',
             },
@@ -460,7 +477,19 @@ const router = createRouter({
             },
         {
               path: 'hotel',
-              redirect: '/admin/hotel/rooms',
+              redirect: '/admin/hotel/dashboard',
+            },
+        {
+              path: 'hotel/dashboard',
+              name: 'hotel-dashboard',
+              component: () => import('../views/admin/hotel/HotelDashboardView.vue'),
+              meta: { requiresAuth: true },
+            },
+        {
+              path: 'hotel/stock',
+              name: 'hotel-stock',
+              component: () => import('../views/admin/hotel/HotelStockDashboardView.vue'),
+              meta: { requiresAuth: true },
             },
         {
               path: 'hotel/room-config',
@@ -611,7 +640,7 @@ const router = createRouter({
         {
               path: 'organization/currencies',
               name: 'org-currencies',
-              component: () => import('../views/admin/organization/CurrenciesView.vue'),
+              component: () => import('../views/admin/organization/CompanySettingsView.vue'),
               meta: { requiresAuth: true },
             },
         {
@@ -678,7 +707,103 @@ const router = createRouter({
               path: 'platform',
               name: 'platform',
               component: () => import('../views/admin/platform/PlatformView.vue'),
-              meta: { requiresAuth: true },
+              meta: { requiresAuth: true, platformSection: 'stats' },
+            },
+        {
+              path: 'platform/tenants',
+              name: 'platform-tenants',
+              component: () => import('../views/admin/platform/PlatformView.vue'),
+              meta: { requiresAuth: true, platformSection: 'companies' },
+            },
+        {
+              path: 'platform/plans',
+              name: 'platform-plans',
+              component: () => import('../views/admin/platform/PlatformView.vue'),
+              meta: { requiresAuth: true, platformSection: 'subscriptions' },
+            },
+        {
+              path: 'platform/users',
+              name: 'platform-users',
+              component: () => import('../views/admin/platform/PlatformView.vue'),
+              meta: { requiresAuth: true, platformSection: 'users' },
+            },
+        {
+              path: 'platform/support',
+              name: 'platform-support',
+              component: () => import('../views/admin/platform/PlatformView.vue'),
+              meta: { requiresAuth: true, platformSection: 'support' },
+            },
+        {
+              path: 'platform/audit',
+              name: 'platform-audit',
+              component: () => import('../views/admin/platform/PlatformView.vue'),
+              meta: { requiresAuth: true, platformSection: 'audit' },
+            },
+        {
+              path: 'customer-hub/dashboard',
+              name: 'customer-hub-dashboard',
+              component: () => import('../views/admin/customer-hub/CustomerHubDashboardView.vue'),
+              meta: { requiresAuth: true, titleKey: 'customerHubPage.title' },
+            },
+        {
+              path: 'customer-hub/link-requests',
+              name: 'customer-hub-link-requests',
+              component: () => import('../views/admin/customer-hub/LinkRequestsView.vue'),
+              meta: { requiresAuth: true, titleKey: 'linkRequestsPage.title' },
+            },
+        {
+              path: 'customer-hub/linked-users',
+              name: 'customer-hub-linked-users',
+              component: () => import('../views/admin/settings/SettingsSectionView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.customerHubItems.linkedUsers' },
+            },
+        {
+              path: 'customer-hub/mobile-orders',
+              name: 'customer-hub-mobile-orders',
+              component: () => import('../views/admin/customer-hub/MobileOrdersView.vue'),
+              meta: { requiresAuth: true, titleKey: 'mobileOrdersPage.title' },
+            },
+        {
+              path: 'customer-hub/payments',
+              name: 'customer-hub-payments',
+              component: () => import('../views/admin/settings/SettingsSectionView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.customerHubItems.payments' },
+            },
+        {
+              path: 'settings/subscription',
+              name: 'settings-subscription',
+              component: () => import('../views/admin/settings/SubscriptionView.vue'),
+              meta: { requiresAuth: true, titleKey: 'subscriptionPage.title' },
+            },
+        {
+              path: 'settings/space-orders',
+              name: 'settings-space-orders',
+              component: () => import('../views/admin/settings/SettingsSectionView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.settingsItems.spaceOrders' },
+            },
+        {
+              path: 'settings/orders',
+              name: 'settings-orders',
+              component: () => import('../views/admin/settings/SettingsSectionView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.settingsItems.orders' },
+            },
+        {
+              path: 'settings/analytics',
+              name: 'settings-analytics',
+              component: () => import('../views/admin/settings/SettingsSectionView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.settingsItems.analytics' },
+            },
+            {
+              path: 'settings/merchant-qr',
+              name: 'settings-merchant-qr',
+              component: () => import('../views/admin/settings/MerchantQrView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.settingsItems.merchantQr' },
+            },
+        {
+              path: 'settings/app-versions',
+              name: 'settings-app-versions',
+              component: () => import('../views/admin/settings/AppVersionsView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.settingsItems.appVersions' },
             },
         {
               path: 'settings',
@@ -720,7 +845,9 @@ router.beforeEach(async (to) => {
     if (!auth.user) {
       await auth.fetchMe()
     }
-    if (auth.user?.is_super_admin && !auth.user.tenant_id && to.name !== 'platform') {
+    const platformAdmin = auth.user?.is_super_admin === true && !auth.user.tenant_id
+    const platformRoute = typeof to.name === 'string' && (to.name === 'platform' || to.name.startsWith('platform-'))
+    if (platformAdmin && !platformRoute && to.name !== 'merchant-qr-public') {
       return { name: 'platform' }
     }
     if (auth.user?.tenant_id && !context.stores.length) {

@@ -18,11 +18,11 @@ const from = ref('')
 const to = ref('')
 const loading = ref(false)
 
-const methodColors = ['#0e7490', '#059669', '#2563eb', '#d97706', '#7c3aed', '#dc2626', '#64748b']
+const methodColors = ['#0e7490', '#059669', '#2563eb', '#d97706', '#12243c', '#dc2626', '#64748b']
 const statusColors: Record<string, string> = {
   paid: '#059669',
   partial: '#d97706',
-  on_credit: '#7c3aed',
+  on_credit: '#12243c',
   unpaid: '#dc2626',
 }
 
@@ -214,7 +214,7 @@ onMounted(() => {
     <div class="condensed">
       <div class="condensed__chrome">
         <button type="button" class="btn-secondary" :disabled="loading" @click="load">
-          <AppIcon name="import" :size="15" />
+          <AppIcon name="recycle" :size="15" />
           <span>{{ t('common.refresh') }}</span>
         </button>
       </div>
@@ -408,8 +408,7 @@ onMounted(() => {
 .condensed__period {
   margin: 0;
   font-size: 0.875rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .condensed__kpis {
   display: grid;
@@ -419,11 +418,10 @@ onMounted(() => {
 
 .kpi {
   border-radius: 0.875rem;
-  background: #fff;
+  background: var(--color-surface);
   padding: 1rem 1.1rem;
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
-  border: 1px solid #e2e8f0;
-}
+  border: 1px solid #e2e8f0;}
 
 .kpi__label {
   margin: 0;
@@ -431,25 +429,21 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .kpi__value {
   margin: 0.35rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .kpi__value--warn {
-  color: #b45309;
-}
+  color: light-dark(#b45309, #d49b70);}
 
 .kpi__hint {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .condensed__grid {
   display: grid;
@@ -459,11 +453,10 @@ onMounted(() => {
 
 .panel {
   border-radius: 0.875rem;
-  background: #fff;
+  background: var(--color-surface);
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
-  overflow: hidden;
-}
+  overflow: hidden;}
 
 .panel__header {
   padding: 1rem 1.1rem 0.35rem;
@@ -473,21 +466,18 @@ onMounted(() => {
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .panel__hint {
   margin: 0.2rem 0 0;
   font-size: 0.8rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .panel__empty {
   margin: 0;
   padding: 1.5rem 1.1rem;
   font-size: 0.9rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .chart {
   display: grid;
@@ -521,7 +511,7 @@ onMounted(() => {
   position: absolute;
   inset: 27%;
   border-radius: 999px;
-  background: #fff;
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -529,24 +519,21 @@ onMounted(() => {
   gap: 0.15rem;
   text-align: center;
   padding: 0.35rem;
-  box-shadow: 0 0 0 1px #f1f5f9;
-}
+  box-shadow: 0 0 0 1px #f1f5f9;}
 
 .donut__center span {
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .donut__center strong {
   font-size: clamp(0.7rem, 2.4vw, 0.95rem);
   font-weight: 700;
-  color: #0f172a;
+  color: var(--color-text-primary);
   line-height: 1.15;
-  word-break: break-word;
-}
+  word-break: break-word;}
 
 .chart__pct {
   fill: #fff;
@@ -567,8 +554,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .details__list {
   list-style: none;
@@ -588,9 +574,8 @@ onMounted(() => {
   align-items: center;
   padding: 0.7rem 0.8rem;
   border-radius: 0.75rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
+  background: var(--color-table-header);
+  border: 1px solid #e2e8f0;}
 
 .details__swatch {
   grid-area: swatch;
@@ -610,15 +595,13 @@ onMounted(() => {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
-  word-break: break-word;
-}
+  color: var(--color-text-primary);
+  word-break: break-word;}
 
 .details__count {
   margin: 0.15rem 0 0;
   font-size: 0.8rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .details__figures {
   grid-area: figures;
@@ -630,15 +613,13 @@ onMounted(() => {
 .details__amount {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
-  white-space: nowrap;
-}
+  color: var(--color-text-primary);
+  white-space: nowrap;}
 
 .details__share {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #0e7490;
-}
+  color: light-dark(#0e7490, #9ac5d0);}
 
 .details__bar {
   grid-area: bar;
@@ -662,9 +643,8 @@ onMounted(() => {
 
 .btn-secondary {
   border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #334155;
-}
+  background: var(--color-surface);
+  color: var(--color-text-secondary);}
 
 .btn-secondary:disabled,
 

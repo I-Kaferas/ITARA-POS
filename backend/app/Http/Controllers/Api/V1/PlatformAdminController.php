@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Device;
+use App\Models\PlatformAuditLog;
 use App\Models\Sale;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Authorization\AuthorizationService;
+use App\Services\Platform\PlatformAuditLogger;
 use App\Services\Platform\SaasCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +22,7 @@ class PlatformAdminController extends Controller
     public function __construct(
         private readonly AuthorizationService $authorization,
         private readonly SaasCatalog $saas,
+        private readonly PlatformAuditLogger $audit,
     ) {}
 
     public function overview(Request $request): JsonResponse
@@ -52,7 +55,18 @@ class PlatformAdminController extends Controller
         $users = User::withoutGlobalScopes()->whereNotNull('tenant_id')->selectRaw('tenant_id, COUNT(*) as aggregate')->groupBy('tenant_id')->pluck('aggregate', 'tenant_id');
         $devices = Device::withoutGlobalScopes()->selectRaw('tenant_id, COUNT(*) as aggregate')->groupBy('tenant_id')->pluck('aggregate', 'tenant_id');
 
-        $rows = Tenant::query()->orderBy('name')->get()->map(function (Tenant $tenant) use ($users, $devices) {
+        $query = Tenant::query()->orderBy('name');
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+        if ($request->filled('q')) {
+            $term = '%'.$request->string('q').'%';
+            $query->where(function ($inner) use ($term) {
+                $inner->where('name', 'like', $term)->orWhere('slug', 'like', $term);
+            });
+        }
+
+        $rows = $query->get()->map(function (Tenant $tenant) use ($users, $devices) {
             $saas = $this->saas->saas($tenant);
 
             return [
@@ -77,7 +91,7 @@ class PlatformAdminController extends Controller
     {
         $this->assertSuperAdmin($request);
         $data = $request->validate([
-            'status' => ['sometimes', 'string', 'max:40'],
+            'status' => ['sometimes', Rule::in(SaasCatalog::LIFECYCLE)],
             'plan' => ['sometimes', 'nullable', Rule::in(array_keys(SaasCatalog::PLANS))],
             'modules' => ['sometimes', 'array'],
             'modules.*' => ['string', Rule::in(SaasCatalog::MODULES)],
@@ -90,6 +104,8 @@ class PlatformAdminController extends Controller
 
         $settings = $tenant->settings ?? [];
         $saas = is_array($settings['saas'] ?? null) ? $settings['saas'] : [];
+        $saas['license'] = is_array($saas['license'] ?? null) ? $saas['license'] : [];
+        $saas['subscription'] = is_array($saas['subscription'] ?? null) ? $saas['subscription'] : [];
         $modules = $saas['modules'] ?? $this->saas->modules($tenant);
         if (array_key_exists('plan', $data) && $data['plan']) {
             $modules = SaasCatalog::PLANS[$data['plan']];
@@ -116,6 +132,12 @@ class PlatformAdminController extends Controller
             $tenant->status = $data['status'];
         }
         $tenant->save();
+
+        $this->audit->record($request->user(), 'tenant.updated', $tenant->id, [
+            'status' => $tenant->status,
+            'plan' => $saas['subscription']['plan'] ?? null,
+            'modules' => $saas['modules'],
+        ], $request->ip());
 
         return response()->json(['data' => ['id' => $tenant->id, 'modules' => $saas['modules'], 'license' => $saas['license'], 'subscription' => $saas['subscription']]]);
     }
@@ -182,6 +204,7 @@ class PlatformAdminController extends Controller
         $tenant = Tenant::query()->findOrFail($data['tenant_id']);
         $settings = $tenant->settings ?? [];
         $saas = is_array($settings['saas'] ?? null) ? $settings['saas'] : [];
+        $saas['support'] = is_array($saas['support'] ?? null) ? $saas['support'] : [];
         $saas['support'][] = [
             'id' => (string) Str::uuid(),
             'subject' => $data['subject'],
@@ -192,6 +215,10 @@ class PlatformAdminController extends Controller
         $settings['saas'] = $saas;
         $tenant->settings = $settings;
         $tenant->save();
+
+        $this->audit->record($request->user(), 'tenant.support.opened', $tenant->id, [
+            'subject' => $data['subject'],
+        ], $request->ip());
 
         return response()->json(['data' => ['stored' => true]], 201);
     }
@@ -219,10 +246,39 @@ class PlatformAdminController extends Controller
             $tenant->settings = $settings;
             $tenant->save();
 
+            $this->audit->record($request->user(), 'tenant.support.closed', $tenant->id, [
+                'ticket' => $ticket,
+            ], $request->ip());
+
             return response()->json(['data' => ['closed' => true]]);
         }
 
         abort(404);
+    }
+
+    public function audit(Request $request): JsonResponse
+    {
+        $this->assertSuperAdmin($request);
+
+        $rows = PlatformAuditLog::query()
+            ->with(['actor' => fn ($query) => $query->withoutGlobalScopes()->select('id', 'name', 'email')])
+            ->latest('created_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (PlatformAuditLog $log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'tenant_id' => $log->tenant_id,
+                'payload' => $log->payload,
+                'ip_address' => $log->ip_address,
+                'created_at' => $log->created_at,
+                'actor' => $log->actor ? [
+                    'name' => $log->actor->name,
+                    'email' => $log->actor->email,
+                ] : null,
+            ]);
+
+        return response()->json(['data' => $rows]);
     }
 
     /** @return list<array<string, mixed>> */

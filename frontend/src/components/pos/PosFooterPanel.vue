@@ -814,11 +814,10 @@ const discountLabel = () => {
   gap: 0.75rem;
   align-items: stretch;
   flex: 0 0 auto;
-  background: #fff;
+  background: var(--color-surface);
   border-top: 1px solid #e7edf3;
   padding: 0.7rem 0.9rem;
-  box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.05);
-}
+  box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.05);}
 .pos-footer--compact {
   display: flex;
   flex-direction: column;
@@ -854,20 +853,18 @@ const discountLabel = () => {
   padding: 0.55rem 0.75rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
-  background: #f8fafc;
+  background: var(--color-table-header);
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #334155;
+  color: var(--color-text-secondary);
   cursor: pointer;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
+  text-overflow: ellipsis;}
 .pos-chip:hover {
   border-color: color-mix(in srgb, var(--color-brand-500, var(--color-brand-500)) 40%, white);
-  background: #fff;
-}
+  background: var(--color-surface);}
 .pos-footer__summary {
   font-size: 0.8rem;
   display: flex;
@@ -879,9 +876,8 @@ const discountLabel = () => {
   display: flex;
   justify-content: space-between;
   padding: 0.12rem 0;
-  color: #334155;
-}
-.pos-footer__row--muted { color: #64748b; }
+  color: var(--color-text-secondary);}
+.pos-footer__row--muted { color: var(--color-text-muted);}
 .pos-footer__total {
   display: flex;
   justify-content: space-between;
@@ -897,8 +893,7 @@ const discountLabel = () => {
   font-size: 1.45rem;
   letter-spacing: -0.03em;
   font-family: var(--font-mono);
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 .pos-footer__buttons {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -915,17 +910,14 @@ const discountLabel = () => {
 .pos-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .pos-btn--outline {
   border: 1px solid #dbe3ea;
-  background: #fff;
-  color: #475569;
-}
+  background: var(--color-surface);
+  color: var(--color-text-secondary);}
 .pos-btn--outline:hover:not(:disabled) {
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 .pos-btn--danger {
   border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #dc2626;
-}
+  background: var(--color-danger-bg);
+  color: light-dark(#dc2626, #f0a4a4);}
 .pos-btn--danger:hover:not(:disabled) {
   background: #dc2626;
   border-color: #dc2626;
@@ -1027,30 +1019,28 @@ const discountLabel = () => {
   padding: 0.625rem 0.75rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
-  background: white;
+  background: var(--color-surface);
   cursor: pointer;
   text-align: left;
-  width: 100%;
-}
-.pos-modal__item span { font-size: 0.75rem; color: #64748b; }
-.pos-modal__item--danger { color: #dc2626; border-color: #fecaca; }
-.pos-modal__item--create { color: var(--color-brand-600, var(--color-brand-600)); border-color: #c5d4df; font-weight: 600; }
+  width: 100%;}
+.pos-modal__item span { font-size: 0.75rem; color: var(--color-text-muted);}
+.pos-modal__item--danger { color: light-dark(#dc2626, #f0a4a4); border-color: #fecaca;}
+.pos-modal__item--create { color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600))); border-color: #c5d4df; font-weight: 600;}
 .pos-modal__tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
 .pos-modal__tab {
   flex: 1;
   padding: 0.5rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
-  background: #f8fafc;
+  background: var(--color-table-header);
   font-size: 0.8125rem;
-  cursor: pointer;
-}
+  cursor: pointer;}
 .pos-modal__tab--active {
   background: var(--color-brand-600, var(--color-brand-600));
   color: white;
   border-color: var(--color-brand-600, var(--color-brand-600));
 }
-.pos-modal__empty { color: #94a3b8; text-align: center; padding: 1rem; }
+.pos-modal__empty { color: var(--color-text-faint); text-align: center; padding: 1rem;}
 .pos-modal__row { display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.875rem; }
 .pos-modal__actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 .pos-held {
@@ -1068,25 +1058,23 @@ const discountLabel = () => {
   justify-content: space-between;
   gap: 0.75rem;
 }
-.pos-held__date { margin: 0.125rem 0 0; font-size: 0.75rem; color: #94a3b8; }
-.pos-held__meta { margin: 0.2rem 0 0; font-size: 0.75rem; color: #64748b; }
-.pos-held__total { font-weight: 700; color: var(--color-brand-600); white-space: nowrap; }
+.pos-held__date { margin: 0.125rem 0 0; font-size: 0.75rem; color: var(--color-text-faint);}
+.pos-held__meta { margin: 0.2rem 0 0; font-size: 0.75rem; color: var(--color-text-muted);}
+.pos-held__total { font-weight: 700; color: var(--color-ink-brand, var(--color-brand-600)); white-space: nowrap;}
 .pos-held__items {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   padding: 0.6rem 0.7rem;
   border-radius: 0.6rem;
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 .pos-held__items-title {
   margin: 0;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 .pos-held__item {
   display: flex;
   align-items: flex-start;
@@ -1097,8 +1085,7 @@ const discountLabel = () => {
 .pos-held__item small {
   display: block;
   margin-top: 0.1rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 .pos-held__actions { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .pos-payment-total {
   font-family: var(--font-mono);
@@ -1106,10 +1093,9 @@ const discountLabel = () => {
   font-weight: 700;
   text-align: center;
   margin: 0 0 1rem;
-  color: var(--color-brand-600, var(--color-brand-600));
-}
+  color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));}
 .pos-label { display: block; font-size: 0.8125rem; margin-bottom: 0.25rem; }
-.pos-change { font-size: 0.875rem; color: #16a34a; margin-top: 0.25rem; }
+.pos-change { font-size: 0.875rem; color: light-dark(#16a34a, #78ca96); margin-top: 0.25rem;}
 .pos-modal__methods {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1123,10 +1109,9 @@ const discountLabel = () => {
   padding: 0.625rem 0.75rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
-  background: #f8fafc;
+  background: var(--color-table-header);
   cursor: pointer;
-  font-size: 0.875rem;
-}
+  font-size: 0.875rem;}
 .pos-method--active {
   border-color: var(--color-brand-600, var(--color-brand-600));
   background: #e4edf2;
@@ -1135,18 +1120,17 @@ const discountLabel = () => {
   opacity: 0.55;
   cursor: not-allowed;
 }
-.pos-method small { color: #b45309; font-size: 0.7rem; }
-.pos-payment-error { color: #dc2626; font-size: 0.8125rem; margin: 0 0 0.5rem; }
+.pos-method small { color: light-dark(#b45309, #d49b70); font-size: 0.7rem;}
+.pos-payment-error { color: light-dark(#dc2626, #f0a4a4); font-size: 0.8125rem; margin: 0 0 0.5rem;}
 .pos-mixed-summary {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.75rem;
   font-size: 0.875rem;
-  color: #334155;
-}
-.pos-mixed-summary--ok { color: #16a34a; }
-.pos-mixed-summary--warn { color: #b45309; }
+  color: var(--color-text-secondary);}
+.pos-mixed-summary--ok { color: light-dark(#16a34a, #78ca96);}
+.pos-mixed-summary--warn { color: light-dark(#b45309, #d49b70);}
 .pos-mixed-line {
   display: grid;
   grid-template-columns: 1.4fr 1fr auto auto;

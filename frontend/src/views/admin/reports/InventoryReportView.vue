@@ -193,7 +193,7 @@ onMounted(async () => {
             <span>{{ t('reports.inventoryAnalytics.exportExcel') }}</span>
           </button>
           <button type="button" class="btn-secondary" :disabled="loading" @click="load">
-            <AppIcon name="import" :size="15" />
+            <AppIcon name="recycle" :size="15" />
             <span>{{ t('common.refresh') }}</span>
           </button>
         </div>
@@ -537,12 +537,11 @@ onMounted(async () => {
   padding: 0.28rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.95rem;
-  background: #f8fafc;
+  background: var(--color-table-header);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   overflow-x: auto;
   max-width: 100%;
-  scrollbar-width: none;
-}
+  scrollbar-width: none;}
 
 .inv__tabs::-webkit-scrollbar {
   display: none;
@@ -555,7 +554,7 @@ onMounted(async () => {
   gap: 0.45rem;
   border: 1px solid transparent;
   background: transparent;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1;
@@ -567,13 +566,11 @@ onMounted(async () => {
     color 0.18s ease,
     background 0.18s ease,
     border-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
+    box-shadow 0.18s ease;}
 
 .inv__tab:hover {
-  color: #0f172a;
-  background: rgba(255, 255, 255, 0.7);
-}
+  color: var(--color-text-primary);
+  background: var(--color-table-row-hover);}
 
 .inv__tab-icon {
   display: inline-flex;
@@ -587,18 +584,16 @@ onMounted(async () => {
 }
 
 .inv__tab.is-active {
-  color: #0f766e;
-  background: white;
+  color: light-dark(#0f766e, #9ac5c2);
+  background: var(--color-surface);
   border-color: #ccfbf1;
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.06),
-    0 4px 12px rgba(15, 118, 110, 0.08);
-}
+    0 4px 12px rgba(15, 118, 110, 0.08);}
 
 .inv__tab.is-active .inv__tab-icon {
-  background: #ecfdf5;
-  color: #0f766e;
-}
+  background: var(--color-success-bg);
+  color: light-dark(#0f766e, #9ac5c2);}
 
 .inv__tab.is-active::after {
   content: '';
@@ -644,9 +639,8 @@ onMounted(async () => {
 
 .btn-secondary {
   border: 1px solid #cbd5e1;
-  background: white;
-  color: #334155;
-}
+  background: var(--color-surface);
+  color: var(--color-text-secondary);}
 
 
 
@@ -659,9 +653,8 @@ onMounted(async () => {
 .kpi {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
-  padding: 1rem 1.05rem;
-}
+  background: var(--color-surface);
+  padding: 1rem 1.05rem;}
 
 .kpi__label {
   margin: 0;
@@ -669,18 +662,16 @@ onMounted(async () => {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .kpi__value {
   margin: 0.45rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
-.kpi__value--warn { color: #d97706; }
-.kpi__value--danger { color: #dc2626; }
+.kpi__value--warn { color: light-dark(#d97706, #e9b06f);}
+.kpi__value--danger { color: light-dark(#dc2626, #f0a4a4);}
 
 .inv__grid {
   display: grid;
@@ -702,10 +693,9 @@ onMounted(async () => {
 .panel {
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
-  background: white;
+  background: var(--color-surface);
   padding: 1rem 1.1rem 1.15rem;
-  min-height: 200px;
-}
+  min-height: 200px;}
 
 .panel--table {
   overflow: auto;
@@ -724,20 +714,17 @@ onMounted(async () => {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .panel__meta {
   font-size: 0.9rem;
-  color: #0f766e;
-}
+  color: light-dark(#0f766e, #9ac5c2);}
 
 .panel__empty {
   margin: 2rem 0 0;
   text-align: center;
-  color: #94a3b8;
-  font-size: 0.9rem;
-}
+  color: var(--color-text-faint);
+  font-size: 0.9rem;}
 
 .donut-wrap {
   display: flex;
@@ -758,26 +745,23 @@ onMounted(async () => {
   position: absolute;
   inset: 1.55rem;
   border-radius: 999px;
-  background: white;
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 0.15rem;
-}
+  gap: 0.15rem;}
 
 .donut__center strong {
   font-size: 1.1rem;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .donut__center span {
   font-size: 0.7rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   max-width: 5.5rem;
-  line-height: 1.2;
-}
+  line-height: 1.2;}
 
 .donut-legend {
   list-style: none;
@@ -796,8 +780,7 @@ onMounted(async () => {
   gap: 0.5rem;
   align-items: center;
   font-size: 0.85rem;
-  color: #475569;
-}
+  color: var(--color-text-secondary);}
 
 .dot {
   display: inline-block;
@@ -817,16 +800,14 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 0.75rem;
   font-size: 0.82rem;
-  color: #475569;
-  margin-bottom: 0.25rem;
-}
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;}
 
 .bar-list__track {
   height: 0.45rem;
   border-radius: 999px;
-  background: #f1f5f9;
-  overflow: hidden;
-}
+  background: var(--color-table-header);
+  overflow: hidden;}
 
 .bar-list__fill {
   height: 100%;
@@ -854,23 +835,20 @@ onMounted(async () => {
   flex-direction: column;
   gap: 0.15rem;
   font-size: 0.78rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .warehouse__name {
   font-weight: 600;
-  color: #334155;
-}
+  color: var(--color-text-secondary);}
 
 .warehouse__track {
   flex: 1;
   min-height: 100px;
   display: flex;
   align-items: flex-end;
-  background: #f8fafc;
+  background: var(--color-table-header);
   border-radius: 0.5rem;
-  overflow: hidden;
-}
+  overflow: hidden;}
 
 .warehouse__fill {
   width: 100%;
@@ -896,12 +874,11 @@ onMounted(async () => {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #64748b;
-  font-weight: 600;
-}
+  color: var(--color-text-muted);
+  font-weight: 600;}
 
 .text-right { text-align: right !important; }
-.text-danger { color: #dc2626; }
+.text-danger { color: light-dark(#dc2626, #f0a4a4);}
 
 .product {
   display: flex;
@@ -911,14 +888,12 @@ onMounted(async () => {
 
 .product strong {
   font-weight: 600;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-sans);
   font-size: 0.75rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .badge {
   display: inline-flex;
@@ -929,10 +904,10 @@ onMounted(async () => {
   font-weight: 700;
 }
 
-.badge--healthy { background: #ecfdf5; color: #047857; }
-.badge--low { background: #fffbeb; color: #b45309; }
-.badge--out { background: #fef2f2; color: #b91c1c; }
-.badge--over { background: #eff6ff; color: #1d4ed8; }
+.badge--healthy { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
+.badge--low { background: var(--color-warning-bg); color: light-dark(#b45309, #d49b70);}
+.badge--out { background: var(--color-danger-bg); color: light-dark(#b91c1c, #e2a0a0);}
+.badge--over { background: var(--color-info-bg); color: light-dark(#1d4ed8, #a0b5ef);}
 
 .aging {
   display: grid;
@@ -955,9 +930,8 @@ onMounted(async () => {
   gap: 0.3rem;
   height: 100%;
   font-size: 0.75rem;
-  color: #64748b;
-  text-align: center;
-}
+  color: var(--color-text-muted);
+  text-align: center;}
 
 .aging__bar-wrap {
   flex: 1;

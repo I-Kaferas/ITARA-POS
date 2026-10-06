@@ -53,6 +53,22 @@ class DatabaseSeeder extends Seeder
 
         $this->call(RoleSeeder::class);
 
+        $platformAdmin = User::query()->updateOrCreate(
+            ['email' => 'platform@pos.local'],
+            [
+                'tenant_id' => null,
+                'name' => 'Administration SaaS',
+                'password' => Hash::make('password'),
+                'is_active' => true,
+            ],
+        );
+        $superAdminRole = Role::query()->whereNull('tenant_id')->where('slug', 'super_admin')->first();
+        if ($superAdminRole) {
+            $platformAdmin->roles()->syncWithoutDetaching([
+                $superAdminRole->id => ['branch_id' => null, 'store_id' => null],
+            ]);
+        }
+
         $admin = User::query()->updateOrCreate(
             ['email' => 'admin@pos.local'],
             [

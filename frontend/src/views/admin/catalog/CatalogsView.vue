@@ -169,7 +169,7 @@ async function remove(catalog: Catalog) {
         <p v-if="formError" class="m-0 text-sm text-red-600">{{ formError }}</p>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">
             <AppIcon v-if="saving" name="spinner" :size="14" class="animate-spin" />
             {{ t('common.save') }}
           </button>
@@ -184,5 +184,5 @@ async function remove(catalog: Catalog) {
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .bg-brand-600 { background-color: var(--color-brand-600); }
-.text-brand-600 { color: var(--color-brand-600); }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

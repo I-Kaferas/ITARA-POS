@@ -558,10 +558,10 @@ watch(
           <button
             type="button"
             class="ui-btn ui-btn--primary"
-            :disabled="saving || !canSave"
+            :class="{ 'is-busy': saving }" :disabled="saving || !canSave"
             @click="save"
           >
-            {{ saving ? t('common.loading') : t('common.save') }}
+            {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>
       </div>

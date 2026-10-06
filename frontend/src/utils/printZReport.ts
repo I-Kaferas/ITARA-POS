@@ -78,8 +78,9 @@ export function printZReport(payload: ZReportPayload, title: string, existingWin
 <head>
   <meta charset="utf-8" />
   <title>${escapeHtml(title)}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
   <style>
-    body { font-family: Arial, sans-serif; color: #0f172a; margin: 24px; max-width: 720px; }
+    body { font-family: Inter, system-ui, sans-serif; color: #0f172a; margin: 24px; max-width: 720px; }
     h1 { font-size: 20px; margin: 0 0 4px; }
     h2 { font-size: 13px; margin: 20px 0 8px; color: #334155; text-transform: uppercase; letter-spacing: .04em; }
     .meta { font-size: 12px; color: #64748b; margin-bottom: 16px; line-height: 1.5; }

@@ -59,7 +59,9 @@ class ReceiptPayloadService
                 'phone' => $company?->phone,
                 'email' => $company?->email,
                 'website' => $company?->website,
-                'logo_url' => $company?->logo_url,
+                'logo_url' => (is_string($settings['invoice_logo_url'] ?? null) && $settings['invoice_logo_url'] !== '')
+                    ? $settings['invoice_logo_url']
+                    : $company?->logo_url,
                 'address' => $company?->address,
                 'currency_code' => $company?->currency_code ?? $sale->currency,
                 'receipt_footer' => $settings['receipt_footer'] ?? null,

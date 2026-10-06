@@ -197,7 +197,7 @@ async function remove(row: Doc) {
 
         <div class="hotel-crud__actions">
           <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -224,9 +224,8 @@ async function remove(row: Doc) {
   margin: 0;
   max-width: 40rem;
   font-size: 0.875rem;
-  color: #66727c;
-  line-height: 1.45;
-}
+  color: var(--color-text-muted);
+  line-height: 1.45;}
 
 .hotel-crud__form {
   display: flex;
@@ -237,10 +236,9 @@ async function remove(row: Doc) {
   margin: 0;
   padding: 0.7rem 0.85rem;
   border-radius: 0.7rem;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 0.85rem;
-}
+  background: var(--color-danger-bg);
+  color: light-dark(#b91c1c, #e2a0a0);
+  font-size: 0.85rem;}
 
 .hotel-crud__grid {
   display: grid;
@@ -261,9 +259,8 @@ async function remove(row: Doc) {
   gap: 0.65rem;
   margin-top: 1.05rem;
   font-size: 0.875rem;
-  color: #334155;
-  cursor: pointer;
-}
+  color: var(--color-text-secondary);
+  cursor: pointer;}
 
 .hotel-switch input {
   position: absolute;
@@ -288,10 +285,9 @@ async function remove(row: Doc) {
   width: 1.02rem;
   height: 1.02rem;
   border-radius: 999px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
-  transition: transform 0.16s ease;
-}
+  transition: transform 0.16s ease;}
 
 .hotel-switch input:checked + .hotel-switch__track {
   background: #0f766e;
@@ -321,11 +317,10 @@ async function remove(row: Doc) {
   margin: 0;
   padding: 1.4rem;
   text-align: center;
-  color: #66727c;
-  font-size: 0.875rem;
-}
+  color: var(--color-text-muted);
+  font-size: 0.875rem;}
 
 .font-semibold { font-weight: 600; }
-.text-brand-600 { color: var(--color-brand-600); }
-.text-red-600 { color: #dc2626; }
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
+.text-red-600 { color: light-dark(#dc2626, #f0a4a4);}
 </style>

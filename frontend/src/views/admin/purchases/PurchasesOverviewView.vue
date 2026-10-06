@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { RouterLink } from 'vue-router'
 import PurchasingLayout from '../../../components/purchasing/PurchasingLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import DataTableShell from '../../../components/ui/DataTableShell.vue'
-import KpiCard from '../../../components/ui/KpiCard.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Supplier, Warehouse } from '../../../types'
 import { formatMoney } from '../../../utils/money'
@@ -55,67 +55,128 @@ onMounted(async () => {
   await load()
 })
 
-const primaryCards = [
-  { key: 'purchases_total', label: 'total', icon: 'purchases', accent: 'var(--color-brand-600)', iconBg: '#e4edf2' },
-  { key: 'amount_due', label: 'due', icon: 'receipt', accent: '#dc2626', iconBg: '#fef2f2' },
-  { key: 'payments_total', label: 'payments', icon: 'card', accent: '#059669', iconBg: '#ecfdf5' },
-  { key: 'open_orders', label: 'orders', icon: 'package', accent: '#2563eb', iconBg: '#eff6ff' },
-  { key: 'unpaid_invoices', label: 'unpaid', icon: 'bell', accent: '#c4841d', iconBg: '#f8efdc' },
-  { key: 'pending_purchases', label: 'pending', icon: 'filter', accent: 'var(--color-brand-500)', iconBg: '#f3f6f8' },
-] as const
+const signals = computed(() => [
+  {
+    to: '/admin/purchases/requisitions',
+    label: t('purchases.hub.requisitions'),
+    value: Number(data.value.pending_requisitions ?? 0),
+    icon: 'note',
+    tone: 'blue',
+  },
+  {
+    to: '/admin/purchases/orders',
+    label: t('purchases.hub.orders'),
+    value: Number(data.value.open_orders ?? 0),
+    icon: 'purchases',
+    tone: 'green',
+  },
+  {
+    to: '/admin/purchases/invoices',
+    label: t('purchases.hub.invoices'),
+    value: Number(data.value.unpaid_invoices ?? 0),
+    icon: 'receipt',
+    tone: 'red',
+  },
+])
 
-function display(key: string) {
-  const value = Number(data.value[key] ?? 0)
-  return ['purchases_total', 'amount_due', 'payments_total', 'returns_total', 'month_purchases'].includes(key)
-    ? formatMoney(value)
-    : value
-}
+const shortcuts = [
+  { to: '/admin/purchases/requisitions', icon: 'note', key: 'requisitions' },
+  { to: '/admin/purchases/proformas', icon: 'receipt', key: 'proformas' },
+  { to: '/admin/purchases/orders', icon: 'purchases', key: 'orders' },
+  { to: '/admin/purchases/invoices', icon: 'receipt', key: 'invoices' },
+  { to: '/admin/purchases/payments', icon: 'coins', key: 'payments' },
+  { to: '/admin/purchases/returns', icon: 'transfer', key: 'returns' },
+] as const
 </script>
 
 <template>
   <PurchasingLayout>
-    <div class="space-y-5">
-      <div class="ui-toolbar !mb-0">
-        <button type="button" class="ui-btn ui-btn--secondary ml-auto" @click="showFilters = !showFilters">
+    <div class="purchase-hub">
+      <div class="purchase-hub__toolbar">
+        <button type="button" class="ui-btn ui-btn--secondary" @click="showFilters = !showFilters">
           <AppIcon name="filter" :size="15" />
           {{ showFilters ? t('filters.hide') : t('filters.show') }}
         </button>
-        <div v-show="showFilters" class="flex w-full flex-wrap gap-2">
-          <select v-model="period" class="ui-select" @change="load">
-            <option value="today">{{ t('purchases.hub.today') }}</option>
-            <option value="week">{{ t('purchases.hub.week') }}</option>
-            <option value="month">{{ t('purchases.hub.month') }}</option>
-            <option value="quarter">{{ t('purchases.hub.quarter') }}</option>
-            <option value="year">{{ t('purchases.hub.year') }}</option>
-            <option value="custom">{{ t('purchases.hub.custom') }}</option>
-          </select>
-          <input v-if="period === 'custom'" v-model="from" type="date" class="ui-input" />
-          <input v-if="period === 'custom'" v-model="to" type="date" class="ui-input" />
-          <select v-model="supplierId" class="ui-select" @change="load">
-            <option value="">{{ t('purchases.hub.allSuppliers') }}</option>
-            <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">{{ supplier.name }}</option>
-          </select>
-          <select v-model="warehouseId" class="ui-select" @change="load">
-            <option value="">{{ t('purchases.hub.allWarehouses') }}</option>
-            <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">{{ warehouse.name }}</option>
-          </select>
-          <button type="button" class="ui-btn ui-btn--primary" :disabled="loading" @click="load">
-            {{ t('purchases.hub.refresh') }}
-          </button>
-        </div>
+        <button type="button" class="ui-btn purchase-hub__refresh" :disabled="loading" @click="load">
+          <AppIcon name="refresh" :size="15" :class="{ 'purchase-hub__spin': loading }" />
+          {{ t('purchases.hub.refresh') }}
+        </button>
       </div>
 
-      <div class="hub-strip">
-        <KpiCard
-          v-for="card in primaryCards"
-          :key="card.key"
-          :label="t(`purchases.hub.kpi.${card.label}`)"
-          :value="display(card.key)"
-          :icon="card.icon"
-          :accent="card.accent"
-          :icon-bg="card.iconBg"
-        />
+      <div v-show="showFilters" class="purchase-hub__filters">
+        <select v-model="period" class="ui-select" @change="load">
+          <option value="today">{{ t('purchases.hub.today') }}</option>
+          <option value="week">{{ t('purchases.hub.week') }}</option>
+          <option value="month">{{ t('purchases.hub.month') }}</option>
+          <option value="quarter">{{ t('purchases.hub.quarter') }}</option>
+          <option value="year">{{ t('purchases.hub.year') }}</option>
+          <option value="custom">{{ t('purchases.hub.custom') }}</option>
+        </select>
+        <input v-if="period === 'custom'" v-model="from" type="date" class="ui-input" />
+        <input v-if="period === 'custom'" v-model="to" type="date" class="ui-input" />
+        <select v-model="supplierId" class="ui-select" @change="load">
+          <option value="">{{ t('purchases.hub.allSuppliers') }}</option>
+          <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">{{ supplier.name }}</option>
+        </select>
+        <select v-model="warehouseId" class="ui-select" @change="load">
+          <option value="">{{ t('purchases.hub.allWarehouses') }}</option>
+          <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">{{ warehouse.name }}</option>
+        </select>
       </div>
+
+      <div class="signal-row stagger-in" :aria-busy="loading">
+        <RouterLink
+          v-for="card in signals"
+          :key="card.to"
+          :to="card.to"
+          class="signal-tile"
+          :class="`signal-tile--${card.tone}`"
+        >
+          <span>
+            <span class="signal-tile__label">{{ card.label }}</span>
+            <span class="signal-tile__value" :key="card.value">{{ card.value }}</span>
+          </span>
+          <span class="signal-tile__icon" aria-hidden="true">
+            <AppIcon :name="card.icon" :size="22" />
+          </span>
+        </RouterLink>
+      </div>
+
+      <div class="metric-row stagger-in">
+        <article class="metric-tile">
+          <p class="metric-tile__label">{{ t('purchases.hub.outstanding') }}</p>
+          <p class="metric-tile__value metric-tile__value--due" :key="String(data.amount_due ?? 0)">
+            {{ formatMoney(Number(data.amount_due ?? 0)) }}
+          </p>
+        </article>
+        <article class="metric-tile">
+          <p class="metric-tile__label">{{ t('purchases.hub.kpi.month') }}</p>
+          <p class="metric-tile__value metric-tile__value--month" :key="String(data.month_purchases ?? 0)">
+            {{ formatMoney(Number(data.month_purchases ?? 0)) }}
+          </p>
+        </article>
+      </div>
+
+      <section class="purchase-hub__links">
+        <h2 class="text-section-title">{{ t('purchases.hub.quickLinks') }}</h2>
+        <div class="quick-grid stagger-in">
+          <RouterLink
+            v-for="link in shortcuts"
+            :key="link.to"
+            :to="link.to"
+            class="quick-link"
+          >
+            <span class="quick-link__icon" aria-hidden="true">
+              <AppIcon :name="link.icon" :size="18" />
+            </span>
+            <span class="quick-link__copy">
+              <span class="quick-link__title">{{ t(`purchases.hub.${link.key}`) }}</span>
+              <span class="quick-link__desc">{{ t(`purchases.hub.linkHint.${link.key}`) }}</span>
+            </span>
+            <AppIcon name="chevron-right" :size="16" class="quick-link__go" />
+          </RouterLink>
+        </div>
+      </section>
 
       <DataTableShell
         :title="t('purchases.hub.topSuppliers')"

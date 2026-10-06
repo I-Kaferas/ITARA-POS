@@ -34,12 +34,13 @@ class ResolveTenant
             return response()->json(['message' => 'Tenant not found.'], 404);
         }
 
-        if ($tenant->status !== 'active') {
-            return response()->json(['message' => 'Tenant is not active.'], 403);
-        }
-
         /** @var User|null $user */
         $user = $request->user();
+        $superAdmin = $user instanceof User && app(AuthorizationService::class)->isSuperAdmin($user);
+
+        if (! in_array($tenant->status, ['trial', 'active', 'past_due'], true) && ! $superAdmin) {
+            return response()->json(['message' => 'Tenant is not active.'], 403);
+        }
 
         if ($user && $user->tenant_id !== null && $user->tenant_id !== $tenant->id) {
             return response()->json(['message' => 'Forbidden tenant access.'], 403);

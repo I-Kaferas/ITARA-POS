@@ -7,6 +7,8 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import type { CompanyPaymentMethod } from '../../../types'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
+defineProps<{ embedded?: boolean }>()
+
 const { t, locale } = useI18n()
 const store = useBackofficeStore()
 const savingId = ref<string | null>(null)
@@ -81,9 +83,9 @@ async function move(row: CompanyPaymentMethod, direction: -1 | 1) {
 </script>
 
 <template>
-  <OrganizationLayout>
+  <component :is="embedded ? 'div' : OrganizationLayout">
     <div class="space-y-4">
-      <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div v-if="!embedded" class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h2 class="m-0 text-base font-semibold text-slate-800">{{ t('org.paymentMethodsTitle') }}</h2>
         <p class="mt-1 mb-0 text-sm text-slate-500">{{ t('org.paymentMethodsHint') }}</p>
         <p v-if="message" class="mt-2 mb-0 text-sm text-brand-700">{{ message }}</p>
@@ -144,5 +146,5 @@ async function move(row: CompanyPaymentMethod, direction: -1 | 1) {
         <p v-if="!methods.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
-  </OrganizationLayout>
+  </component>
 </template>

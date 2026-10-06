@@ -14,7 +14,7 @@ class BroadcastSaleReturnCompleted
         $saleReturn = $event->saleReturn;
 
         $this->publisher->notify(
-            type: 'sale.updated',
+            type: 'sale.refunded',
             tenantId: $saleReturn->tenant_id,
             storeId: $saleReturn->store_id ?? $saleReturn->sale?->store_id,
             entity: 'sale_return',

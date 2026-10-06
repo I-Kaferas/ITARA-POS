@@ -119,7 +119,8 @@ class SaleEngine
                 'total' => $cart->grandTotal,
                 'currency' => $cart->currency,
                 'idempotency_key' => $idempotencyKey,
-                'completed_at' => now(),
+                'order_date' => $this->orderDateFromPayload($payload) ?? now()->toDateString(),
+                'completed_at' => $this->completedAtFromPayload($payload),
                 'notes' => $payload['notes'] ?? null,
             ]);
 
@@ -618,7 +619,8 @@ class SaleEngine
                 'total' => $cart->grandTotal,
                 'currency' => $cart->currency,
                 'idempotency_key' => $payload['idempotency_key'] ?? $sale->idempotency_key,
-                'completed_at' => now(),
+                'order_date' => $this->orderDateFromPayload($payload) ?? $sale->order_date?->toDateString() ?? now()->toDateString(),
+                'completed_at' => $this->completedAtFromPayload($payload),
                 'notes' => $payload['notes'] ?? $sale->notes,
             ]);
 
@@ -1338,6 +1340,7 @@ class SaleEngine
             'payment_status' => SalePaymentStatus::Unpaid,
             'currency' => $cart->currency,
             'idempotency_key' => $payload['idempotency_key'] ?? null,
+            'order_date' => $this->orderDateFromPayload($payload),
             'completed_at' => null,
             'notes' => $payload['notes'] ?? null,
             'table_id' => $payload['table_id'] ?? null,
@@ -1373,6 +1376,7 @@ class SaleEngine
             'paid_amount' => 0,
             'payment_status' => SalePaymentStatus::Unpaid,
             'status' => SaleStatus::Pending,
+            'order_date' => $this->orderDateFromPayload($payload) ?? $sale->order_date?->toDateString(),
             'completed_at' => null,
         ]);
 
@@ -1573,6 +1577,30 @@ class SaleEngine
 
         $table->occupy($sale);
         $sale->update(['table_id' => $table->id]);
+    }
+
+    private function orderDateFromPayload(array $payload): ?string
+    {
+        $date = $payload['order_date'] ?? null;
+        if (! is_string($date) || trim($date) === '') {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($date)->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function completedAtFromPayload(array $payload): \Illuminate\Support\Carbon
+    {
+        $date = $this->orderDateFromPayload($payload);
+        if ($date === null) {
+            return now();
+        }
+
+        return \Illuminate\Support\Carbon::parse($date)->setTimeFrom(now());
     }
 
     private function nextReference(string $tenantId): string

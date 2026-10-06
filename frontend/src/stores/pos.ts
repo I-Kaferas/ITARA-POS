@@ -16,6 +16,12 @@ import { getAppCurrency } from '../utils/currency'
 import { needsSaleQuantity, cartLineStockUnits, catalogOnHand } from '../utils/product'
 import type { SaleDocPayload } from '../utils/printSaleDocument'
 
+function localOrderDate() {
+  const now = new Date()
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 10)
+}
+
 function emptyTotals(currency = getAppCurrency()): CartCalculation {
   return {
     currency,
@@ -41,6 +47,7 @@ export const usePosStore = defineStore('pos', () => {
   const totals = ref<CartCalculation>(emptyTotals())
   const customer = ref<PosCustomerOption | null>(null)
   const note = ref<string | null>(null)
+  const orderDate = ref(localOrderDate())
   const globalDiscount = ref<CartDiscountPayload | null>(null)
   const loyaltyPoints = ref(0)
   const fees = ref<{ label: string; amount: number; code?: string }[]>([])
@@ -464,6 +471,7 @@ export const usePosStore = defineStore('pos', () => {
       customer_id: customer.value?.id ?? undefined,
       cash_register_id: activeRegisterId.value ?? undefined,
       notes: note.value ?? undefined,
+      order_date: orderDate.value || undefined,
       apply_promotions: true,
       table_id: activeTable.value?.id ?? undefined,
       items: lines.value.map(line => ({
@@ -539,6 +547,7 @@ export const usePosStore = defineStore('pos', () => {
       reference: string
       status: string
       notes?: string | null
+      order_date?: string | null
       table_id?: string | null
       table?: { id: string; name: string; code?: string } | null
       customer?: { id: string; name: string } | null
@@ -565,6 +574,7 @@ export const usePosStore = defineStore('pos', () => {
       ? { id: sale.customer.id, name: sale.customer.name }
       : null
     note.value = sale.notes ?? null
+    orderDate.value = sale.order_date?.slice(0, 10) || localOrderDate()
 
     const discounts = sale.discounts ?? []
     const globalAmount = discounts
@@ -775,6 +785,7 @@ export const usePosStore = defineStore('pos', () => {
         loyalty_points: loyaltyPoints.value > 0 ? loyaltyPoints.value : undefined,
         fees: fees.value,
         sale_id: pendingSaleId.value ?? undefined,
+        order_date: orderDate.value || undefined,
         payments: paymentLines.map((line) => {
           const methodMeta = paymentMethods.value.find(m => m.value === line.method)
           const tendered = line.tendered ?? line.amount
@@ -823,6 +834,7 @@ export const usePosStore = defineStore('pos', () => {
     globalDiscount.value = null
     loyaltyPoints.value = 0
     fees.value = []
+    orderDate.value = localOrderDate()
     totals.value = emptyTotals(totals.value.currency)
     if (notify) scheduleCalculate()
   }
@@ -906,6 +918,7 @@ export const usePosStore = defineStore('pos', () => {
     decrementQuantity,
     setCustomer,
     setNote,
+    orderDate,
     setGlobalDiscount,
     applyLoyaltyReward,
     clearDiscount,

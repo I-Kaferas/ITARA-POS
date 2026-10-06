@@ -4,6 +4,7 @@ use App\Http\Middleware\AuthenticateApiToken;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\ResolveStore;
 use App\Http\Middleware\ResolveTenant;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -32,6 +33,9 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsurePermission::class,
             SubstituteBindings::class,
         ]);
+    })
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('realtime:flush')->everyMinute()->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -10,7 +10,15 @@ class AuthorizationService
 {
     public function isSuperAdmin(User $user): bool
     {
-        return $user->tenant_id === null && $this->hasRole($user, 'super_admin');
+        if ($user->tenant_id !== null) {
+            return false;
+        }
+
+        return $user->roles()
+            ->withoutGlobalScopes()
+            ->where('roles.slug', 'super_admin')
+            ->whereNull('roles.tenant_id')
+            ->exists();
     }
 
     public function hasRole(User $user, string $roleSlug): bool

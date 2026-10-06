@@ -183,8 +183,8 @@ async function submit() {
         <p v-if="error" class="m-0 text-sm text-red-600">{{ error }}</p>
         <div class="flex justify-end gap-2">
           <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="saving || !productId || !selectedIds.length">
-            {{ saving ? t('common.loading') : t('common.save') }}
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !productId || !selectedIds.length">
+            {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>
       </form>
@@ -196,6 +196,6 @@ async function submit() {
 
 
 
-.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; font-weight: 500; background: white; }
-.text-brand-600 { color: var(--color-brand-600); }
+.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; font-weight: 500; background: var(--color-surface);}
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

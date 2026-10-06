@@ -296,26 +296,23 @@ useRealtimeSync(realtimeTopics.posOverview, load)
   padding: 0.85rem 1rem;
   border: 1px solid #c5d4df;
   border-radius: 0.75rem;
-  background: #f4f8fb;
+  background: var(--color-table-row-hover);
   text-align: left;
-  cursor: pointer;
-}
-.connection-link strong { color: #1c2830; font-size: 0.9rem; }
-.connection-link span { color: #5b6b78; font-size: 0.8rem; }
+  cursor: pointer;}
+.connection-link strong { color: var(--color-text-primary); font-size: 0.9rem;}
+.connection-link span { color: var(--color-text-muted); font-size: 0.8rem;}
 .stat-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: #fff;
+  background: var(--color-surface);
   padding: 1rem 1.125rem;
-  box-shadow: none;
-}
+  box-shadow: none;}
 
 .stat-card__label {
   margin: 0;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .stat-card__value {
   margin: 0.35rem 0 0;
@@ -330,15 +327,13 @@ useRealtimeSync(realtimeTopics.posOverview, load)
 .stat-card__meta {
   margin: 0.25rem 0 0;
   font-size: 0.75rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .panel {
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
-  background: #fff;
-  overflow: hidden;
-}
+  background: var(--color-surface);
+  overflow: hidden;}
 
 .panel__header {
   display: flex;
@@ -353,30 +348,26 @@ useRealtimeSync(realtimeTopics.posOverview, load)
   margin: 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .panel__meta,
 .panel__link {
   font-size: 0.75rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .panel__link {
   background: none;
   border: 0;
   cursor: pointer;
-  color: var(--color-brand-600);
-  font-weight: 500;
-}
+  color: var(--color-ink-brand, var(--color-brand-600));
+  font-weight: 500;}
 
 .panel__empty {
   margin: 0;
   padding: 2rem 1rem;
   text-align: center;
   font-size: 0.8125rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 
 .mini-table {
   width: 100%;
@@ -395,15 +386,14 @@ useRealtimeSync(realtimeTopics.posOverview, load)
 .mini-table th {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: #f8fafc;
-}
+  background: var(--color-table-header);}
 
 .mini-table .num { text-align: right; white-space: nowrap; }
 .mini-table tr.clickable { cursor: pointer; }
-.mini-table tr.clickable:hover { background: #f8fafc; }
+.mini-table tr.clickable:hover { background: var(--color-table-header);}
 
 .rank {
   display: inline-flex;
@@ -414,10 +404,9 @@ useRealtimeSync(realtimeTopics.posOverview, load)
   margin-right: 0.5rem;
   border-radius: 999px;
   background: #e4edf2;
-  color: var(--color-brand-600);
+  color: var(--color-ink-brand, var(--color-brand-600));
   font-size: 0.6875rem;
-  font-weight: 700;
-}
+  font-weight: 700;}
 
 .pay-list { padding: 0.75rem 1rem 1rem; display: grid; gap: 0.875rem; }
 .pay-row__top,
@@ -427,14 +416,13 @@ useRealtimeSync(realtimeTopics.posOverview, load)
   gap: 0.75rem;
   font-size: 0.8125rem;
 }
-.pay-row__meta { margin-top: 0.25rem; color: #94a3b8; font-size: 0.75rem; }
+.pay-row__meta { margin-top: 0.25rem; color: var(--color-text-faint); font-size: 0.75rem;}
 .pay-row__bar {
   margin-top: 0.4rem;
   height: 0.375rem;
   border-radius: 999px;
-  background: #f1f5f9;
-  overflow: hidden;
-}
+  background: var(--color-table-header);
+  overflow: hidden;}
 .pay-row__fill {
   display: block;
   height: 100%;
@@ -471,15 +459,13 @@ useRealtimeSync(realtimeTopics.posOverview, load)
 .hour-col__label {
   margin-top: 0.35rem;
   font-size: 0.625rem;
-  color: #94a3b8;
-}
+  color: var(--color-text-faint);}
 .hour-legend {
   display: flex;
   justify-content: space-between;
   padding: 0 1rem 1rem;
   font-size: 0.75rem;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 
 .action-card {
   display: flex;
@@ -488,12 +474,11 @@ useRealtimeSync(realtimeTopics.posOverview, load)
   width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
-  background: #fff;
+  background: var(--color-surface);
   padding: 1rem;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;}
 
 .action-card:hover {
   border-color: #c5d4df;
@@ -508,21 +493,18 @@ useRealtimeSync(realtimeTopics.posOverview, load)
   height: 2.25rem;
   border-radius: 0.625rem;
   background: #e4edf2;
-  color: var(--color-brand-600);
-  flex-shrink: 0;
-}
+  color: var(--color-ink-brand, var(--color-brand-600));
+  flex-shrink: 0;}
 
 .action-card__title {
   margin: 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #0f172a;
-}
+  color: var(--color-text-primary);}
 
 .action-card__desc {
   margin: 0.2rem 0 0;
   font-size: 0.75rem;
   line-height: 1.35;
-  color: #64748b;
-}
+  color: var(--color-text-muted);}
 </style>
