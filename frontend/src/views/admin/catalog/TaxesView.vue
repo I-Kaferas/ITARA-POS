@@ -97,6 +97,7 @@ function emptyTax() {
     name: '',
     code: '',
     rate: 0,
+    kind: 'vat',
     type: 'percentage',
     priority: 1,
     country: '',
@@ -165,6 +166,7 @@ function openTax(tax?: Tax) {
         name: tax.name,
         code: tax.code,
         rate: Number(tax.rate),
+        kind: tax.kind || 'vat',
         type: tax.type || 'percentage',
         priority: tax.priority || 1,
         country: tax.country || '',
@@ -418,6 +420,7 @@ function toggleCalcTax(id: string, checked: boolean) {
               <tr>
                 <th>{{ t('catalog.tax.name') }}</th>
                 <th>{{ t('catalog.tax.code') }}</th>
+                <th>{{ t('catalog.tax.kind') }}</th>
                 <th>{{ t('catalog.rate') }}</th>
                 <th>{{ t('catalog.tax.priority') }}</th>
                 <th>{{ t('catalog.tax.country') }}</th>
@@ -430,6 +433,7 @@ function toggleCalcTax(id: string, checked: boolean) {
               <tr v-for="tax in filteredTaxes" :key="tax.id">
                 <td class="font-medium">{{ tax.name }}</td>
                 <td class="font-mono">{{ tax.code }}</td>
+                <td>{{ t(`catalog.tax.kinds.${tax.kind || 'vat'}`) }}</td>
                 <td>{{ tax.rate }}%</td>
                 <td>{{ tax.priority || 1 }}</td>
                 <td>{{ countryLabel(tax.country) }}<span v-if="tax.region" class="block text-xs text-slate-500">{{ tax.region }}</span></td>
@@ -642,6 +646,16 @@ function toggleCalcTax(id: string, checked: boolean) {
               <input v-model.number="taxForm.rate" type="number" min="0" max="100" step="0.01" required class="field" />
               <span>%</span>
             </span>
+          </div>
+          <div>
+            <FieldLabel icon="catalog">{{ t('catalog.tax.kind') }}</FieldLabel>
+            <select v-model="taxForm.kind" class="field">
+              <option value="vat">{{ t('catalog.tax.kinds.vat') }}</option>
+              <option value="tax">{{ t('catalog.tax.kinds.tax') }}</option>
+              <option value="withholding">{{ t('catalog.tax.kinds.withholding') }}</option>
+              <option value="exempt">{{ t('catalog.tax.kinds.exempt') }}</option>
+              <option value="zero_rated">{{ t('catalog.tax.kinds.zero_rated') }}</option>
+            </select>
           </div>
           <div>
             <FieldLabel icon="catalog">{{ t('catalog.tax.type') }}</FieldLabel>

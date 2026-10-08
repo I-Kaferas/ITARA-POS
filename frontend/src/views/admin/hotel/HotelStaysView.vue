@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { hospitalitySnapshotPath, HOTEL_STAY_KINDS } from '../../../api/hospitality'
-import { useRealtimeSync } from '../../../composables/useRealtimeSync'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -1493,11 +1493,11 @@ watch(signOpen, (open) => {
   if (!open) stopSignPoll()
 })
 
-useRealtimeSync(['stay.signed'], async () => {
+useRealtimeSync(realtimeTopics.hotel, async (payload) => {
   const id = signingStay.value?.id
     ? String(signingStay.value.id)
     : ''
-  if (id && signOpen.value) {
+  if (payload?.type === 'stay.signed' && id && signOpen.value) {
     await applySignedStay(id)
     return
   }

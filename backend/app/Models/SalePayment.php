@@ -17,6 +17,9 @@ class SalePayment extends Model
         'payment_transaction_id',
         'payment_method',
         'amount',
+        'amount_in_sale_currency',
+        'exchange_rate',
+        'sale_currency',
         'currency',
         'sort_order',
     ];
@@ -25,6 +28,8 @@ class SalePayment extends Model
     {
         return [
             'amount' => 'integer',
+            'amount_in_sale_currency' => 'integer',
+            'exchange_rate' => 'decimal:8',
             'sort_order' => 'integer',
         ];
     }

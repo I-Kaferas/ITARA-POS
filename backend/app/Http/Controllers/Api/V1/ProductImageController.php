@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\Tenant;
 use App\Services\Catalog\ProductImageService;
+use App\Services\Platform\SaasLimitGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,6 +26,11 @@ class ProductImageController extends Controller
             'image' => ['required', 'file', 'image', 'max:5120'],
             'is_primary' => ['boolean'],
         ]);
+
+        $tenant = Tenant::query()->find($product->tenant_id);
+        if ($tenant && $request->file('image')) {
+            app(SaasLimitGuard::class)->assertStorage($tenant, (int) $request->file('image')->getSize());
+        }
 
         $image = $this->imageService->upload(
             $product,

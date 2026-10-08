@@ -1,27 +1,31 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AppIcon from '../ui/AppIcon.vue'
 import LanguageSwitcher from '../ui/LanguageSwitcher.vue'
 import AppCalculator from './AppCalculator.vue'
 import ModuleSearch from './ModuleSearch.vue'
+import OfflineIndicator from './OfflineIndicator.vue'
 import RealtimeIndicator from './RealtimeIndicator.vue'
 import StockAlertBell from './StockAlertBell.vue'
 import { useAuthStore } from '../../stores/auth'
+import { moduleEnabled } from '../../modules/registry'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useBrandingStore } from '../../stores/branding'
 import { useContextStore } from '../../stores/context'
 import { usePageHeaderStore } from '../../stores/pageHeader'
+import { useOfflineStore } from '../../stores/offline'
 import { useRealtimeStore } from '../../stores/realtime'
 import { useTheme } from '../../composables/useTheme'
 
-type NavChild = { name: string; to: string; label: string; icon: string; color?: string }
+type NavChild = { name: string; to: string; label: string; icon: string; color?: string; module?: string | string[] }
 type NavItem = {
   name: string
   to: string
   label: string
   icon: string
+  module?: string | string[]
   children?: NavChild[]
 }
 
@@ -36,9 +40,16 @@ const route = useRoute()
 const router = useRouter()
 const slots = useSlots()
 const auth = useAuthStore()
+const billingBanner = computed(() => {
+  const status = auth.user?.subscription?.status
+  if (status === 'suspended') return t('subscriptionPage.bannerSuspended')
+  if (status === 'past_due') return t('subscriptionPage.bannerPastDue')
+  return ''
+})
 const brandingStore = useBrandingStore()
 const context = useContextStore()
 const backoffice = useBackofficeStore()
+const offline = useOfflineStore()
 const realtime = useRealtimeStore()
 const pageHeader = usePageHeaderStore()
 const moduleSearch = ref<InstanceType<typeof ModuleSearch> | null>(null)
@@ -78,6 +89,7 @@ const navSections = computed(() => [
           { name: 'platform-users', to: '/admin/platform/users', label: t('platform.nav.users'), icon: 'customers' },
           { name: 'platform-support', to: '/admin/platform/support', label: t('platform.nav.support'), icon: 'mail' },
           { name: 'platform-audit', to: '/admin/platform/audit', label: t('platform.nav.audit'), icon: 'receipt' },
+          { name: 'platform-backups', to: '/admin/platform/backups', label: t('platform.nav.backups'), icon: 'layers' },
         ],
       },
       { name: 'dashboard', to: '/admin', label: t('nav.dashboard'), icon: 'dashboard' },
@@ -86,6 +98,7 @@ const navSections = computed(() => [
         to: '/admin/hotel/rooms',
         label: t('nav.hotel'),
         icon: 'building',
+        module: 'hotel',
         children: [
           { name: 'hotel-room-config', to: '/admin/hotel/room-config', label: t('hotel.tabs.roomConfig'), icon: 'layers' },
           { name: 'hotel-rooms', to: '/admin/hotel/rooms', label: t('hotel.tabs.rooms'), icon: 'bed' },
@@ -109,6 +122,7 @@ const navSections = computed(() => [
           { name: 'product-catalog', to: '/admin/products', label: t('nav.products'), icon: 'products' },
           { name: 'catalog-gallery', to: '/admin/catalog/gallery', label: t('nav.catalogGallery'), icon: 'catalog' },
           { name: 'customers', to: '/admin/customers', label: t('nav.customers'), icon: 'customers' },
+          { name: 'crm', to: '/admin/crm', label: t('nav.crm'), icon: 'customers', module: 'crm' },
           { name: 'price-lists', to: '/admin/catalog/prices', label: t('nav.priceLists'), icon: 'tag' },
         ],
       },
@@ -117,6 +131,7 @@ const navSections = computed(() => [
         to: '/admin/pos/overview',
         label: t('nav.group.posOps'),
         icon: 'store-pin',
+        module: 'pos',
         children: [
           { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview'), icon: 'dashboard' },
           { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal'), icon: 'device-pos' },
@@ -130,6 +145,7 @@ const navSections = computed(() => [
         to: '/admin/inventory/stock',
         label: t('nav.inventoryHub'),
         icon: 'inventory',
+        module: 'inventory',
         children: [
           { name: 'inventory-overview', to: '/admin/reports/inventory', label: t('nav.inventoryItems.overview'), icon: 'dashboard' },
           { name: 'inventory-products', to: '/admin/inventory/stock', label: t('nav.inventoryItems.products'), icon: 'products' },
@@ -152,6 +168,7 @@ const navSections = computed(() => [
         to: '/admin/purchases/overview',
         label: t('nav.purchasingHub'),
         icon: 'purchases',
+        module: 'procurement',
         children: [
           { name: 'purchase-overview', to: '/admin/purchases/overview', label: t('purchases.hub.overview'), icon: 'dashboard' },
           { name: 'purchase-requisitions', to: '/admin/purchases/requisitions', label: t('purchases.hub.requisitions'), icon: 'note' },
@@ -167,6 +184,7 @@ const navSections = computed(() => [
         to: '/admin/expenses/dashboard',
         label: t('nav.expenseTrackerHub'),
         icon: 'coins',
+        module: 'expenses',
         children: [
           { name: 'expenses-dashboard', to: '/admin/expenses/dashboard', label: t('expenses.tabs.dashboard'), icon: 'dashboard' },
           { name: 'expenses-list', to: '/admin/expenses', label: t('expenses.tabs.list'), icon: 'note' },
@@ -182,11 +200,11 @@ const navSections = computed(() => [
         icon: 'dashboard',
         children: [
           { name: 'reports-dashboard', to: '/admin/reports/dashboard', label: t('reports.tabs.dashboard'), icon: 'dashboard' },
-          { name: 'reports-sales', to: '/admin/reports/sales', label: t('reports.tabs.sales'), icon: 'sales' },
-          { name: 'reports-inventory', to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), icon: 'inventory' },
-          { name: 'reports-purchases', to: '/admin/reports/purchases', label: t('reports.tabs.purchases'), icon: 'purchases' },
+          { name: 'reports-sales', to: '/admin/reports/sales', label: t('reports.tabs.sales'), icon: 'sales', module: 'pos' },
+          { name: 'reports-inventory', to: '/admin/reports/inventory', label: t('reports.tabs.inventory'), icon: 'inventory', module: 'inventory' },
+          { name: 'reports-purchases', to: '/admin/reports/purchases', label: t('reports.tabs.purchases'), icon: 'purchases', module: 'procurement' },
           { name: 'reports-forecasts', to: '/admin/reports/forecasts', label: t('reports.tabs.forecasts'), icon: 'sparkles' },
-          { name: 'reports-financial', to: '/admin/reports/financial', label: t('reports.tabs.revenue'), icon: 'coins' },
+          { name: 'reports-financial', to: '/admin/reports/financial', label: t('reports.tabs.revenue'), icon: 'coins', module: 'accounting' },
           { name: 'reports-condensed', to: '/admin/reports/condensed', label: t('reports.tabs.condensed'), icon: 'layers' },
           { name: 'reports-daily', to: '/admin/reports/daily', label: t('reports.tabs.daily'), icon: 'calendar' },
           { name: 'reports-user-performance', to: '/admin/reports/user-performance', label: t('reports.tabs.userPerformance'), icon: 'account' },
@@ -208,8 +226,11 @@ const navSections = computed(() => [
         icon: 'account',
         children: [
           { name: 'settings-subscription', to: '/admin/settings/subscription', label: t('nav.settingsItems.subscription'), icon: 'key' },
+          { name: 'settings-modules', to: '/admin/settings/modules', label: t('modules.title'), icon: 'layers' },
+          { name: 'notifications', to: '/admin/notifications', label: t('nav.notifications'), icon: 'bell' },
           { name: 'settings-currency', to: '/admin/organization/currencies', label: t('nav.settingsItems.company'), icon: 'building' },
           { name: 'settings-merchant-qr', to: '/admin/settings/merchant-qr', label: t('nav.settingsItems.merchantQr'), icon: 'tag' },
+          { name: 'design-system', to: '/admin/design', label: t('nav.settingsItems.design'), icon: 'sparkles' },
         ],
       },
       {
@@ -236,30 +257,42 @@ const navSections = computed(() => [
         ],
       },
       { name: 'app-versions', to: '/admin/settings/app-versions', label: t('nav.settingsItems.appVersions'), icon: 'device-tablet' },
+      { name: 'restaurant', to: '/admin/hospitality', label: t('nav.restaurant'), icon: 'store-pin', module: 'restaurant' },
+      { name: 'accounting', to: '/admin/accounting', label: t('nav.accounting'), icon: 'coins', module: 'accounting' },
+      { name: 'manufacturing', to: '/admin/production', label: t('nav.production'), icon: 'package', module: 'manufacturing' },
+      {
+        name: 'extensions',
+        to: '/admin/settings/modules',
+        label: t('modules.more'),
+        icon: 'layers',
+        children: [
+          { name: 'module-hr', to: '/admin/modules/hr', label: t('modules.names.hr'), icon: 'customers', module: 'hr' },
+          { name: 'module-projects', to: '/admin/modules/projects', label: t('modules.names.projects'), icon: 'layers', module: 'projects' },
+          { name: 'module-documents', to: '/admin/modules/documents', label: t('modules.names.documents'), icon: 'note', module: 'documents' },
+          { name: 'module-fleet', to: '/admin/modules/fleet', label: t('modules.names.fleet'), icon: 'transfer', module: 'fleet' },
+          { name: 'module-maintenance', to: '/admin/modules/maintenance', label: t('modules.names.maintenance'), icon: 'adjust', module: 'maintenance' },
+          { name: 'module-ecommerce', to: '/admin/modules/ecommerce', label: t('modules.names.ecommerce'), icon: 'catalog', module: 'ecommerce' },
+        ],
+      },
     ] as NavItem[],
   },
 ])
 
-function hasModule(code: string) {
-  const modules = auth.user?.modules
-  if (!modules?.length) return true
-  return modules.includes(code)
-}
-
 const visibleNav = computed(() => {
   const platformOnly = auth.user?.is_super_admin === true && !auth.user.tenant_id
+  const enabled = auth.user?.modules
   return navSections.value.map(section => ({
-  ...section,
-  items: section.items.filter(item => {
-    if (platformOnly) return item.name === 'platform' || item.name.startsWith('platform-')
-    if (item.name === 'platform') return false
-    if (item.name === 'pos-ops' || item.name === 'pos-sales') return hasModule('pos')
-    if (item.name === 'inventory' || item.name.startsWith('inventory-') || item.name === 'production') return hasModule('stock')
-    if (item.name === 'hotel') return hasModule('hotel')
-    if (item.name === 'restaurant') return hasModule('restaurant')
-    return true
-  }),
-})).filter(section => section.items.length > 0)
+    ...section,
+    items: section.items.flatMap(item => {
+      if (platformOnly) {
+        return item.name === 'platform' || item.name.startsWith('platform-') ? [item] : []
+      }
+      if (item.name === 'platform' || !moduleEnabled(enabled, item.module)) return []
+      if (!item.children) return [item]
+      const children = item.children.filter(child => moduleEnabled(enabled, child.module))
+      return children.length ? [{ ...item, children }] : []
+    }),
+  })).filter(section => section.items.length > 0)
 })
 
 const userInitials = computed(() => {
@@ -629,6 +662,7 @@ onMounted(() => {
   window.addEventListener('resize', syncViewport)
   window.addEventListener('pos-sidebar-pref', onSidebarPref)
   void brandingStore.loadCurrent().catch(() => undefined)
+  offline.start()
   realtime.connect()
 })
 
@@ -640,6 +674,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', syncViewport)
   window.removeEventListener('pos-sidebar-pref', onSidebarPref)
   document.body.classList.remove('nav-drawer-open')
+  offline.stop()
   realtime.disconnect()
 })
 
@@ -805,6 +840,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
         </div>
 
         <div class="topbar-tools">
+          <OfflineIndicator />
           <RealtimeIndicator />
           <StockAlertBell />
           <AppCalculator />
@@ -876,6 +912,11 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
         </div>
       </header>
 
+      <p v-if="billingBanner" class="billing-banner" :class="{ 'billing-banner--blocked': auth.user?.subscription?.status === 'suspended' }">
+        <span>{{ billingBanner }}</span>
+        <RouterLink to="/admin/settings/subscription">{{ t('subscriptionPage.bannerAction') }}</RouterLink>
+      </p>
+
       <main class="app-content">
         <Transition :name="pageMotion" mode="out-in">
           <div :key="route.path" class="page-stage">
@@ -889,6 +930,20 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
 
 <style scoped>
 .text-brand-500 { color: var(--color-ink-brand, var(--color-brand-500));}
+.billing-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0.7rem 1rem;
+  background: var(--color-warning-bg, #fffbeb);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+}
+.billing-banner--blocked { background: var(--color-danger-bg, #fef2f2); }
+.billing-banner a { font-weight: 650; color: inherit; }
 
 .topbar-start {
   display: flex;

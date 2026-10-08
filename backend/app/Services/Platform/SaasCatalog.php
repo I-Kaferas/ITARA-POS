@@ -2,54 +2,80 @@
 
 namespace App\Services\Platform;
 
+use App\Models\SaasSubscription;
 use App\Models\Tenant;
+use App\Modules\ModuleRegistry;
 
 class SaasCatalog
 {
     /** @var list<string> */
-    public const MODULES = ['pos', 'stock', 'restaurant', 'hotel'];
+    public const MODULES = ModuleRegistry::CODES;
 
     /** @var list<string> */
     public const LIFECYCLE = ['trial', 'active', 'past_due', 'suspended', 'cancelled', 'archived'];
 
     /** @var array<string, list<string>> */
     public const PLANS = [
-        'pos_stock' => ['pos', 'stock'],
-        'pos_stock_restaurant' => ['pos', 'stock', 'restaurant'],
-        'pos_stock_hotel_restaurant' => ['pos', 'stock', 'hotel', 'restaurant'],
+        'pos_stock' => ['pos', 'inventory'],
+        'pos_stock_restaurant' => ['pos', 'inventory', 'restaurant'],
+        'pos_stock_hotel_restaurant' => ['pos', 'inventory', 'hotel', 'restaurant'],
     ];
 
     /** @var array<string, string> */
     private const COMMERCIAL_PLAN_ALIASES = [
         'starter' => 'starter',
         'professional' => 'professional',
+        'business' => 'business',
         'enterprise' => 'enterprise',
         'pos_stock' => 'starter',
         'pos_stock_restaurant' => 'professional',
-        'pos_stock_hotel_restaurant' => 'enterprise',
+        'pos_stock_hotel_restaurant' => 'business',
     ];
 
     /** @var array<string, int> */
     public const COMMERCIAL_RANK = [
         'starter' => 1,
         'professional' => 2,
-        'enterprise' => 3,
+        'business' => 3,
+        'enterprise' => 4,
     ];
+
+    public static function toCommercial(?string $plan): string
+    {
+        if ($plan !== null && isset(self::COMMERCIAL_PLAN_ALIASES[$plan])) {
+            return self::COMMERCIAL_PLAN_ALIASES[$plan];
+        }
+
+        return 'starter';
+    }
 
     /** @return list<string> */
     public function modules(?Tenant $tenant): array
     {
-        $saved = $tenant?->settings['saas']['modules'] ?? null;
-        if (! is_array($saved) || $saved === []) {
-            return self::MODULES;
-        }
-
-        return array_values(array_intersect(self::MODULES, $saved));
+        return app(\App\Modules\ModuleManager::class)->enabledCodes($tenant);
     }
 
-    /** @return array{plan: string, status: string, billing_cycle: string, renews_on: ?string} */
+    /** @return array{plan: string, status: string, billing_cycle: string, renews_on: ?string, trial_ends_on?: ?string, grace_ends_on?: ?string} */
     public function commercialSubscription(?Tenant $tenant): array
     {
+        if ($tenant) {
+            $row = SaasSubscription::query()->where('tenant_id', $tenant->id)->first();
+            if ($row) {
+                $status = in_array($row->status, ['active', 'trial', 'past_due', 'cancelled', 'suspended'], true)
+                    ? $row->status
+                    : 'active';
+
+                return [
+                    'plan' => $this->resolveCommercialPlan($row->plan_code, $tenant),
+                    'status' => $status,
+                    'billing_cycle' => $row->billing_cycle === 'monthly' ? 'monthly' : 'yearly',
+                    'renews_on' => $row->period_ends_on?->toDateString(),
+                    'trial_ends_on' => $row->trial_ends_on?->toDateString(),
+                    'grace_ends_on' => $row->grace_ends_on?->toDateString(),
+                ];
+            }
+        }
+
         $saved = is_array($tenant?->settings['saas'] ?? null) ? $tenant->settings['saas'] : [];
         $subscription = is_array($saved['subscription'] ?? null) ? $saved['subscription'] : [];
         $rawPlan = $subscription['plan'] ?? null;

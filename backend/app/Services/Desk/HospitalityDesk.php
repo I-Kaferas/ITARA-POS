@@ -13,6 +13,9 @@ use Illuminate\Validation\ValidationException;
 
 class HospitalityDesk
 {
+    /** Seed data must not wake every open screen. */
+    private bool $suppressBroadcast = false;
+
     public function __construct(private readonly RealtimePublisher $realtime) {}
 
     /** @return array{docs: list<array<string, mixed>>} */
@@ -128,6 +131,16 @@ class HospitalityDesk
             return;
         }
 
+        $this->suppressBroadcast = true;
+        try {
+            $this->seedDefaults($store);
+        } finally {
+            $this->suppressBroadcast = false;
+        }
+    }
+
+    private function seedDefaults(Store $store): void
+    {
         $this->save($store, 'zone', 'zone-salle', ['name' => 'Salle']);
         $this->save($store, 'zone', 'zone-terrasse', ['name' => 'Terrasse']);
         foreach (range(1, 4) as $i) {
@@ -1955,10 +1968,14 @@ class HospitalityDesk
     private function openOrder(Store $store, array $action): void
     {
         $table = $this->doc($store, $this->required($action, 'table_id'));
+        $client = trim((string) ($action['client_uuid'] ?? ''));
+        if ($client !== '' && $this->documentCodeExists($store, $client)) {
+            return;
+        }
         if (($table['status'] ?? null) === 'occupied') {
             throw ValidationException::withMessages(['table_id' => ['Table déjà occupée.']]);
         }
-        $id = (string) Str::uuid();
+        $id = $client !== '' ? $client : (string) Str::uuid();
         $checkId = (string) Str::uuid();
         $this->save($store, 'order', $id, [
             'table_id' => $table['id'],
@@ -1977,13 +1994,22 @@ class HospitalityDesk
     private function addLine(Store $store, array $action): void
     {
         $order = $this->doc($store, $this->required($action, 'order_id'));
+        $client = trim((string) ($action['client_uuid'] ?? ''));
+        if ($client !== '') {
+            foreach ($order['lines'] ?? [] as $line) {
+                if (($line['id'] ?? null) === $client || ($line['client_uuid'] ?? null) === $client) {
+                    return;
+                }
+            }
+        }
         $check = collect($order['checks'] ?? [])->first(fn ($item) => ($item['status'] ?? null) === 'open');
         if (! is_array($check)) {
             throw ValidationException::withMessages(['order_id' => ['Aucune addition ouverte.']]);
         }
         $lines = $order['lines'] ?? [];
         $lines[] = [
-            'id' => (string) Str::uuid(),
+            'id' => $client !== '' ? $client : (string) Str::uuid(),
+            'client_uuid' => $client !== '' ? $client : null,
             'name' => $this->required($action, 'name'),
             'quantity' => (int) ($action['quantity'] ?? 1),
             'unit_price' => (int) ($action['unit_price'] ?? 0),
@@ -2019,9 +2045,10 @@ class HospitalityDesk
             'order_id' => $order['id'],
             'table_label' => $order['table_label'] ?? '',
             'course' => $course,
-            'status' => 'sent',
+            'status' => 'new',
+            'sent_at' => now()->toIso8601String(),
             'lines' => $pending->map(fn ($line) => ['name' => $line['name'], 'quantity' => $line['quantity']])->all(),
-        ], (string) $order['id'], 'sent');
+        ], (string) $order['id'], 'new');
         $order['status'] = 'kitchen';
         $this->save($store, 'order', (string) $order['id'], $order, $order['table_id'] ?? null, 'kitchen');
     }
@@ -2030,10 +2057,7 @@ class HospitalityDesk
     private function setTicketStatus(Store $store, array $action): void
     {
         $ticket = $this->doc($store, $this->required($action, 'ticket_id'));
-        $status = $this->required($action, 'status');
-        if (! in_array($status, ['sent', 'preparing', 'ready', 'served'], true)) {
-            throw ValidationException::withMessages(['status' => ['Statut cuisine invalide.']]);
-        }
+        $status = $this->normalizeKitchenStatus($this->required($action, 'status'));
         $ticket['status'] = $status;
         $this->save($store, 'ticket', (string) $ticket['id'], $ticket, $ticket['order_id'] ?? null, $status);
 
@@ -2044,12 +2068,35 @@ class HospitalityDesk
             ->where('parent_code', $order['id'])
             ->get()
             ->map(fn (DeskDocument $doc) => $this->present($doc));
-        $order['status'] = $tickets->every(fn ($item) => ($item['status'] ?? '') === 'served')
+        $active = $tickets->filter(fn ($item) => ! in_array($this->normalizeKitchenStatus((string) ($item['status'] ?? 'new'), soft: true), ['served', 'cancelled'], true));
+        $order['status'] = $tickets->every(fn ($item) => in_array($this->normalizeKitchenStatus((string) ($item['status'] ?? ''), soft: true), ['served', 'cancelled'], true))
             ? 'served'
-            : ($tickets->contains(fn ($item) => ($item['status'] ?? '') === 'ready')
+            : ($active->contains(fn ($item) => $this->normalizeKitchenStatus((string) ($item['status'] ?? ''), soft: true) === 'ready')
                 ? 'ready'
-                : ($tickets->contains(fn ($item) => ($item['status'] ?? '') === 'preparing') ? 'preparing' : 'kitchen'));
+                : ($active->contains(fn ($item) => in_array($this->normalizeKitchenStatus((string) ($item['status'] ?? ''), soft: true), ['preparing', 'new'], true)) ? 'preparing' : 'kitchen'));
         $this->save($store, 'order', (string) $order['id'], $order, $order['table_id'] ?? null, $order['status']);
+    }
+
+    /** Kitchen Display §24 — NEW / PREPARING / READY / SERVED / CANCELLED (legacy: sent → new). */
+    private function normalizeKitchenStatus(string $status, bool $soft = false): string
+    {
+        $key = strtolower(trim($status));
+        $normalized = match ($key) {
+            'sent', 'new', 'queued' => 'new',
+            'preparing' => 'preparing',
+            'ready' => 'ready',
+            'served' => 'served',
+            'cancelled', 'canceled' => 'cancelled',
+            default => null,
+        };
+        if ($normalized === null) {
+            if ($soft) {
+                return $key === '' ? 'new' : $key;
+            }
+            throw ValidationException::withMessages(['status' => ['Statut cuisine invalide.']]);
+        }
+
+        return $normalized;
     }
 
     /** @param  array<string, mixed>  $action */
@@ -2151,10 +2198,14 @@ class HospitalityDesk
     private function createReservation(Store $store, array $action): void
     {
         $room = $this->doc($store, $this->required($action, 'room_id'));
+        $client = trim((string) ($action['client_uuid'] ?? ''));
+        if ($client !== '' && $this->documentCodeExists($store, $client)) {
+            return;
+        }
         if (($room['status'] ?? '') === 'occupied') {
             throw ValidationException::withMessages(['room_id' => ['Chambre occupée.']]);
         }
-        $id = (string) Str::uuid();
+        $id = $client !== '' ? $client : (string) Str::uuid();
         $this->save($store, 'reservation', $id, [
             'room_id' => $room['id'],
             'room_number' => $room['number'] ?? '',
@@ -2182,10 +2233,16 @@ class HospitalityDesk
     /** @param  array<string, mixed>  $action */
     private function upsertReservation(Store $store, array $action): void
     {
-        $id = (string) ($action['id'] ?? '');
-        $isNew = $id === '';
-        if ($isNew) {
+        $explicitId = trim((string) ($action['id'] ?? ''));
+        $clientUuid = trim((string) ($action['client_uuid'] ?? ''));
+        if ($explicitId === '' && $clientUuid !== '' && $this->documentCodeExists($store, $clientUuid)) {
+            return;
+        }
+        $id = $explicitId !== '' ? $explicitId : $clientUuid;
+        $isNew = $explicitId === '';
+        if ($id === '') {
             $id = (string) Str::uuid();
+            $isNew = true;
         }
 
         $existing = null;
@@ -2561,7 +2618,11 @@ class HospitalityDesk
             : null;
 
         $customerId = trim((string) ($action['customer_id'] ?? ''));
-        $reservationId = (string) Str::uuid();
+        $reservationClient = trim((string) ($action['client_uuid'] ?? ''));
+        if ($reservationClient !== '' && $this->documentCodeExists($store, $reservationClient)) {
+            return;
+        }
+        $reservationId = $reservationClient !== '' ? $reservationClient : (string) Str::uuid();
         $folioId = (string) Str::uuid();
         $nights = max(1, $arrive->diffInDays($depart));
         $rate = (int) ($type?->payload['base_price_cents'] ?? $type?->payload['rate'] ?? $room['type_rate_cents'] ?? $room['price_override_cents'] ?? 0);
@@ -3152,13 +3213,18 @@ class HospitalityDesk
     }
 
     /** @param  array<string, mixed>  $payload */
+    private function documentCodeExists(Store $store, string $code): bool
+    {
+        return DeskDocument::query()->where('store_id', $store->id)->where('code', $code)->exists();
+    }
+
     private function save(Store $store, string $kind, string $code, array $payload, ?string $parent = null, ?string $status = null): void
     {
         $payload['id'] = $code;
         if ($status !== null) {
             $payload['status'] = $status;
         }
-        DeskDocument::query()->updateOrCreate(
+        $row = DeskDocument::query()->updateOrCreate(
             ['store_id' => $store->id, 'code' => $code],
             [
                 'tenant_id' => $store->tenant_id,
@@ -3167,6 +3233,47 @@ class HospitalityDesk
                 'status' => $status ?? ($payload['status'] ?? null),
                 'payload' => $payload,
             ],
+        );
+        $this->broadcastDeskChange($store, $row);
+    }
+
+    private function broadcastDeskChange(Store $store, DeskDocument $row): void
+    {
+        if ($this->suppressBroadcast) {
+            return;
+        }
+
+        $created = $row->wasRecentlyCreated;
+        if (! $created && ! $row->wasChanged(['status', 'payload'])) {
+            return;
+        }
+
+        $kind = (string) $row->kind;
+        $status = is_string($row->status) ? $row->status : null;
+        $type = match ($kind) {
+            'ticket' => match ($status) {
+                'new', 'sent' => 'kitchen.new',
+                'ready' => 'kitchen.ready',
+                'preparing', 'served', 'cancelled' => 'kitchen.updated',
+                default => null,
+            },
+            'order' => $created ? 'order.created' : 'order.updated',
+            'reservation' => $created ? 'hotel.reservation.created' : 'hotel.reservation.updated',
+            'room' => ($created || $row->wasChanged('status')) ? 'hotel.room.updated' : null,
+            default => null,
+        };
+
+        if ($type === null) {
+            return;
+        }
+
+        $this->realtime->notify(
+            $type,
+            (string) $store->tenant_id,
+            (string) $store->id,
+            $kind,
+            (string) $row->code,
+            $status,
         );
     }
 
@@ -3181,10 +3288,16 @@ class HospitalityDesk
             unset($payload['guest_signature_data'], $payload['id_document_data']);
         }
 
+        $status = $doc->status ?? ($payload['status'] ?? null);
+        if ($doc->kind === 'ticket' && is_string($status)) {
+            $status = $this->normalizeKitchenStatus($status, soft: true);
+        }
+
         return array_merge($payload, [
             'id' => $doc->code,
             'kind' => $doc->kind,
-            'status' => $doc->status ?? ($payload['status'] ?? null),
+            'status' => $status,
+            'updated_at' => $doc->updated_at?->toIso8601String(),
             'has_signature' => $hasSignature,
             'has_id_document' => $hasIdDocument,
         ]);

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { api, extractApiErrorMessage, type ApiItemResponse, type ApiListResponse } from '../api/client'
+import { isQueuedResponse } from '../offline/gateway'
 import type {
   CartCalculation,
   CartDiscountPayload,
@@ -68,7 +69,24 @@ export const usePosStore = defineStore('pos', () => {
   const registers = ref<Array<{ id: string; name: string; code?: string }>>([])
   const priceMode = ref('retail')
   const currencyCode = ref(getAppCurrency())
-  const currencies = computed(() => [{ code: currencyCode.value }])
+  const availableCurrencies = ref<{
+    code: string
+    name?: string
+    exchange_rate?: number
+    decimal_places?: number
+    is_default?: boolean
+  }[]>([])
+  const currencies = computed(() =>
+    availableCurrencies.value.length
+      ? availableCurrencies.value.map(c => ({
+          code: c.code,
+          name: c.name,
+          exchange_rate: c.exchange_rate,
+          decimal_places: c.decimal_places,
+          is_default: c.is_default,
+        }))
+      : [{ code: currencyCode.value }],
+  )
 
   watch(
     () => getAppCurrency(),
@@ -80,6 +98,15 @@ export const usePosStore = defineStore('pos', () => {
       }
     },
   )
+
+  watch(currencyCode, (code, previous) => {
+    if (!code || code === previous) return
+    if (!lines.value.length) {
+      totals.value = emptyTotals(code)
+      return
+    }
+    scheduleCalculate()
+  })
 
   let calculateTimer: ReturnType<typeof setTimeout> | null = null
   let calculateRequestId = 0
@@ -116,6 +143,28 @@ export const usePosStore = defineStore('pos', () => {
     }
   }
 
+  async function loadCurrencies() {
+    try {
+      const res = await api.get<ApiListResponse<{
+        code: string
+        name?: string
+        exchange_rate?: number
+        decimal_places?: number
+        is_default?: boolean
+        is_active?: boolean
+      }>>('/currencies?active_only=1')
+      availableCurrencies.value = (res.data ?? []).filter(c => c.is_active !== false)
+      const preferred = availableCurrencies.value.find(c => c.is_default)?.code
+        ?? availableCurrencies.value.find(c => c.code === getAppCurrency())?.code
+        ?? availableCurrencies.value[0]?.code
+      if (preferred && !availableCurrencies.value.some(c => c.code === currencyCode.value)) {
+        currencyCode.value = preferred
+      }
+    } catch {
+      availableCurrencies.value = [{ code: currencyCode.value || getAppCurrency(), is_default: true }]
+    }
+  }
+
   async function loadPaymentMethods(storeId: string) {
     try {
       const res = await api.get<ApiListResponse<PosPaymentMethod>>(
@@ -127,7 +176,7 @@ export const usePosStore = defineStore('pos', () => {
         { value: 'cash', label: 'Cash', label_fr: 'Espèces', requires_customer: false, supports_change: true },
         { value: 'mobile_money', label: 'Mobile Money', label_fr: 'Mobile Money', requires_customer: false, supports_change: false },
         { value: 'card', label: 'Card', label_fr: 'Carte', requires_customer: false, supports_change: false },
-        { value: 'bank_transfer', label: 'Bank transfer', label_fr: 'Virement', requires_customer: false, supports_change: false },
+        { value: 'bank_transfer', label: 'Bank', label_fr: 'Banque', requires_customer: false, supports_change: false },
         { value: 'credit', label: 'Credit', label_fr: 'Crédit', requires_customer: true, supports_change: false },
       ]
     }
@@ -182,6 +231,15 @@ export const usePosStore = defineStore('pos', () => {
     })
   }
 
+  async function refreshCatalogQuiet(storeId: string) {
+    currentStoreId.value = storeId
+    try {
+      await fetchCatalog(storeId)
+    } catch {
+      // Keep the catalog already on screen when a background refresh fails.
+    }
+  }
+
   async function loadCatalog(storeId: string) {
     currentStoreId.value = storeId
     loading.value = true
@@ -193,6 +251,7 @@ export const usePosStore = defineStore('pos', () => {
         loadActiveRegister(storeId),
         loadPaymentMethods(storeId),
         loadSession(storeId),
+        loadCurrencies(),
       ]).catch(() => undefined)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur catalogue'
@@ -430,6 +489,7 @@ export const usePosStore = defineStore('pos', () => {
 
     try {
       const payload = {
+        currency: currencyCode.value || getAppCurrency(),
         customer_id: customer.value?.id ?? undefined,
         apply_promotions: true,
         items: lines.value.map(line => ({
@@ -468,6 +528,7 @@ export const usePosStore = defineStore('pos', () => {
 
   function cartPayload() {
     return {
+      currency: currencyCode.value || getAppCurrency(),
       customer_id: customer.value?.id ?? undefined,
       cash_register_id: activeRegisterId.value ?? undefined,
       notes: note.value ?? undefined,
@@ -532,6 +593,21 @@ export const usePosStore = defineStore('pos', () => {
     pendingSaleId.value = null
     activeTable.value = null
     clearCurrentSale(false)
+    if (isQueuedResponse(saved)) {
+      heldSales.value.unshift({
+        id: saved.id,
+        label,
+        heldAt: new Date().toISOString(),
+        lines: [],
+        customerId: null,
+        customerName: null,
+        note: null,
+        globalDiscount: null,
+        fees: [],
+      })
+      setStatus('Commande enregistrée hors ligne')
+      return label
+    }
     await refreshHeldSales(storeId)
     setStatus(`Commande mise en attente: ${label}`)
     return label
@@ -662,7 +738,7 @@ export const usePosStore = defineStore('pos', () => {
     shift.value = res.data
     shiftSummary.value = res.summary
     activeRegisterId.value = registerId
-    await loadSession(storeId)
+    if (!isQueuedResponse(res)) await loadSession(storeId)
   }
 
   async function closeShiftWithPin(storeId: string, pin: string, counted: number, notes: string, varianceReason = '') {
@@ -681,7 +757,7 @@ export const usePosStore = defineStore('pos', () => {
     shift.value = null
     shiftSummary.value = null
     activeRegisterId.value = null
-    await loadSession(storeId)
+    if (!isQueuedResponse(res)) await loadSession(storeId)
     return summary
   }
 
@@ -694,12 +770,14 @@ export const usePosStore = defineStore('pos', () => {
       `/cash-registers/${registerId}/cashier-shifts/${shiftId}/movements`,
       { movement_type: type, amount, description },
     )
-    shiftSummary.value = res.summary
-    await loadSession(storeId)
+    if (!isQueuedResponse(res)) {
+      shiftSummary.value = res.summary
+      await loadSession(storeId)
+    }
   }
 
   async function pay(
-    methodOrPayments: string | { method: string; amount: number; tendered?: number }[],
+    methodOrPayments: string | { method: string; amount: number; tendered?: number; currency?: string }[],
     amountTendered = 0,
   ): Promise<{ success: boolean; message: string; change: number; saleId?: string; receipt?: SaleDocPayload | null; loyalty?: { earned: number; points: number } | null }> {
     if (lines.value.length === 0) {
@@ -732,7 +810,26 @@ export const usePosStore = defineStore('pos', () => {
       return { success: false, message: 'Ajoutez au moins un mode de paiement', change: 0 }
     }
 
-    const paidTotal = paymentLines.reduce((sum, line) => sum + line.amount, 0)
+    const saleCurrency = currencyCode.value || getAppCurrency()
+    const metaOf = (code: string) => {
+      const row = availableCurrencies.value.find(c => c.code === code)
+      return {
+        rate: Number(row?.exchange_rate ?? 1) || 1,
+        decimals: row?.decimal_places ?? (code === 'FBU' ? 0 : 2),
+      }
+    }
+    const toSale = (amount: number, from?: string) => {
+      const code = (from || saleCurrency).toUpperCase()
+      const target = saleCurrency.toUpperCase()
+      if (code === target || amount === 0) return amount
+      const src = metaOf(code)
+      const dst = metaOf(target)
+      if (src.rate <= 0 || dst.rate <= 0) return amount
+      const scale = dst.decimals - src.decimals
+      return Math.round(amount * src.rate / dst.rate * (10 ** scale))
+    }
+
+    const paidTotal = paymentLines.reduce((sum, line) => sum + toSale(line.amount, line.currency), 0)
     if (paidTotal !== total) {
       return {
         success: false,
@@ -752,7 +849,8 @@ export const usePosStore = defineStore('pos', () => {
         if (tendered < line.amount) {
           return { success: false, message: 'Montant reçu insuffisant pour les espèces', change: 0 }
         }
-        change += Math.max(0, tendered - line.amount)
+        // Change is reported in sale currency for the receipt strip.
+        change += toSale(Math.max(0, tendered - line.amount), line.currency)
       }
     }
 
@@ -765,6 +863,7 @@ export const usePosStore = defineStore('pos', () => {
         receipt?: SaleDocPayload | null
         loyalty?: { earned: number; redeemed: number; points: number } | null
       }>>(`/stores/${storeId}/sales`, {
+        currency: currencyCode.value || getAppCurrency(),
         customer_id: customer.value?.id ?? undefined,
         cash_register_id: shift.value?.cash_register_id ?? activeRegisterId.value ?? undefined,
         cashier_shift_id: shift.value?.id ?? undefined,
@@ -792,6 +891,7 @@ export const usePosStore = defineStore('pos', () => {
           return {
             method: line.method,
             amount: line.amount,
+            currency: line.currency || currencyCode.value || getAppCurrency(),
             metadata: methodMeta?.supports_change && tendered > 0
               ? { tendered }
               : undefined,
@@ -803,7 +903,7 @@ export const usePosStore = defineStore('pos', () => {
       receipt = created.data.receipt ?? null
       loyalty = created.data.loyalty ?? null
     } catch (e) {
-      return { success: false, message: extractApiErrorMessage(e, 'Paiement refusé'), change: 0 }
+      return { success: false, message: extractApiErrorMessage(e, 'errors.payment_refused'), change: 0 }
     }
 
     const soldLines = [...lines.value]
@@ -824,7 +924,17 @@ export const usePosStore = defineStore('pos', () => {
         /* keep optimistic stock if silent refresh fails */
       })
     }
-    return { success: true, message: 'Paiement accepté', change, saleId, receipt, loyalty }
+    const queued = isQueuedResponse(created)
+    return {
+      success: true,
+      message: queued
+        ? 'Vente enregistrée hors ligne. Elle sera synchronisée dès le retour de la connexion.'
+        : 'Paiement accepté',
+      change,
+      saleId,
+      receipt,
+      loyalty,
+    }
   }
 
   function clearCurrentSale(notify = true) {
@@ -905,6 +1015,7 @@ export const usePosStore = defineStore('pos', () => {
     closeShiftWithPin,
     recordDrawerMovement,
     loadCatalog,
+    refreshCatalogQuiet,
     loadPaymentMethods,
     searchCustomers,
     createCustomer,

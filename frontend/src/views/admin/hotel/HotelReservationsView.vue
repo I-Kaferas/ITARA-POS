@@ -5,6 +5,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { hospitalitySnapshotPath, HOTEL_RESERVATION_KINDS } from '../../../api/hospitality'
 import { useConfirm } from '../../../composables/useConfirm'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -215,6 +216,7 @@ onMounted(async () => {
   await Promise.all([load(), store.loadCustomers().catch(() => undefined)])
   if (route.query.new === '1') openCreate()
 })
+useRealtimeSync(realtimeTopics.hotel, () => load(true))
 
 function blankForm() {
   const tomorrow = new Date()
@@ -388,8 +390,8 @@ function canOpenStay(row: Doc) {
   return ['checked_in', 'confirmed', 'reserved'].includes(String(row.status || ''))
 }
 
-async function load() {
-  loading.value = true
+async function load(silent?: boolean) {
+  if (silent !== true) loading.value = true
   error.value = ''
   try {
     docs.value = (await api.get<{ data: { docs: Doc[] } }>(hospitalitySnapshotPath([...HOTEL_RESERVATION_KINDS]))).data.docs

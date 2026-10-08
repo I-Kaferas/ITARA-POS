@@ -40,8 +40,21 @@ class CashMovement extends Model
     {
         return match ($this->movement_type) {
             CashMovementType::CashOut, CashMovementType::Expense, CashMovementType::Refund => -$this->amount,
+            CashMovementType::CashCount => 0,
+            CashMovementType::CashAdjustment => $this->isAdjustmentDecrease() ? -$this->amount : $this->amount,
             default => $this->amount,
         };
+    }
+
+    public function isAdjustmentDecrease(): bool
+    {
+        if ($this->movement_type !== CashMovementType::CashAdjustment) {
+            return false;
+        }
+
+        $direction = strtolower(trim((string) ($this->reference ?? $this->reference_type ?? '')));
+
+        return in_array($direction, ['out', 'decrease', 'down', '-'], true);
     }
 
     public function register(): BelongsTo

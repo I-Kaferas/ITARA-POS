@@ -10,5 +10,10 @@ class SaleCompleted
 {
     use Dispatchable, SerializesModels;
 
-    public function __construct(public Sale $sale) {}
+    public string $tenantId;
+
+    public function __construct(public Sale $sale)
+    {
+        $this->tenantId = (string) $sale->tenant_id;
+    }
 }

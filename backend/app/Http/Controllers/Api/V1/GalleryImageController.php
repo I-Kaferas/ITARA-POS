@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Catalog;
 use App\Models\GalleryImage;
+use App\Models\Tenant;
 use App\Services\Catalog\GalleryImageService;
+use App\Services\Platform\SaasLimitGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -30,6 +32,12 @@ class GalleryImageController extends Controller
             'image' => ['required', 'file', 'image', 'max:5120'],
             'catalog_id' => ['nullable', 'uuid'],
         ]);
+
+        $tenantId = app()->bound('tenant.id') ? app('tenant.id') : null;
+        $tenant = $tenantId ? Tenant::query()->find($tenantId) : null;
+        if ($tenant && $request->file('image')) {
+            app(SaasLimitGuard::class)->assertStorage($tenant, (int) $request->file('image')->getSize());
+        }
 
         $catalog = $request->filled('catalog_id')
             ? Catalog::query()->findOrFail((string) $request->string('catalog_id'))

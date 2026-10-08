@@ -18,6 +18,7 @@ use App\Models\CashMovement;
 use App\Models\Category;
 use App\Models\Expense;
 use App\Models\InventoryMovement;
+use App\Models\PosReservation;
 use App\Models\PosTable;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
@@ -31,6 +32,7 @@ use App\Observers\Realtime\CategoryObserver;
 use App\Observers\Realtime\ExpenseObserver;
 use App\Observers\Realtime\InventoryMovementObserver;
 use App\Observers\Realtime\ProductObserver;
+use App\Observers\Realtime\PosReservationObserver;
 use App\Observers\Realtime\PosTableObserver;
 use App\Observers\Realtime\PurchaseOrderObserver;
 use App\Observers\Realtime\SaleItemObserver;
@@ -50,6 +52,7 @@ class RealtimeServiceProvider extends ServiceProvider
         }
 
         PosTable::observe(PosTableObserver::class);
+        PosReservation::observe(PosReservationObserver::class);
         Sale::observe(SaleObserver::class);
         SaleItem::observe(SaleItemObserver::class);
         SalePayment::observe(SalePaymentObserver::class);

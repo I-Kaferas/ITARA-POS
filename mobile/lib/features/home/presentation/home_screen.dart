@@ -9,6 +9,7 @@ import '../../expenses/presentation/expenses_screen.dart';
 import '../../notifications/presentation/notification_badge.dart';
 import '../../notifications/presentation/notifications_screen.dart';
 import '../../hospitality/presentation/hospitality_screen.dart';
+import '../../kitchen/presentation/kitchen_display_screen.dart';
 import '../../production/presentation/production_screen.dart';
 import '../../reports/presentation/reports_screen.dart';
 import '../../services/presentation/services_screen.dart';
@@ -163,6 +164,18 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               icon: const Icon(Icons.table_restaurant),
               label: const Text('Restaurant & hôtel'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const KitchenDisplayScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.soup_kitchen),
+              label: const Text('Kitchen Display'),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(

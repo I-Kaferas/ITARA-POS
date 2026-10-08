@@ -1,0 +1,2 @@
+﻿/// sales domain layer.
+library;

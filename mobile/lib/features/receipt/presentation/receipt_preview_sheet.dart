@@ -88,7 +88,8 @@ class ReceiptPreviewSheet extends StatelessWidget {
   Future<void> _print(BuildContext context, ReceiptDocumentFormat format) async {
     final updated = _copyWithFormat(payload, format);
     final config = TerminalConfigRepository.instance.config;
-    final useNetwork = config.printerEnabled && config.printerConnection == PrinterConnection.network.name;
+    final useNetwork = config.printerEnabled &&
+        PrinterConnectionType.fromString(config.printerConnection).isNetwork;
     try {
       await printService.print(
         updated,
@@ -208,7 +209,8 @@ Future<void> showReceiptPreviewSheet({
       NetworkPrinterConfig(
         host: config.printerHost,
         port: config.printerPort,
-        enabled: config.printerEnabled && config.printerConnection == PrinterConnection.network.name,
+        enabled: config.printerEnabled &&
+            PrinterConnectionType.fromString(config.printerConnection).isNetwork,
       );
 
   return showDialog<void>(

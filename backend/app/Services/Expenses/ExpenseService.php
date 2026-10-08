@@ -3,12 +3,15 @@
 namespace App\Services\Expenses;
 
 use App\Enums\CashMovementType;
+use App\Enums\NumberingDocumentType;
 use App\Models\Branch;
 use App\Models\CashRegisterSession;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\User;
+use App\Services\Numbering\ReferenceNumberGenerator;
 use App\Services\Registers\CashRegisterSessionService;
+use App\Services\Transactions\TransactionEngine;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -16,6 +19,8 @@ class ExpenseService
 {
     public function __construct(
         private readonly CashRegisterSessionService $sessions,
+        private readonly ReferenceNumberGenerator $numbering,
+        private readonly TransactionEngine $transactionEngine,
     ) {}
 
     /**
@@ -69,6 +74,11 @@ class ExpenseService
                 'cash_register_session_id' => $session?->id,
                 'user_id' => $data['user_id'] ?? $actor->id,
                 'recorded_by' => $actor->id,
+                'reference' => $this->numbering->next(
+                    NumberingDocumentType::Expense,
+                    (string) $branch->tenant_id,
+                    $branch->id,
+                ),
                 'category' => $category->code,
                 'description' => $data['description'],
                 'amount' => $data['amount'],
@@ -90,6 +100,8 @@ class ExpenseService
                     referenceId: $expense->id,
                 );
             }
+
+            $this->transactionEngine->recordExpense($expense);
 
             return $expense->load(['expenseCategory', 'branch', 'user', 'cashRegisterSession.register']);
         });

@@ -31,7 +31,7 @@ class StockBalanceController extends Controller
             $query->where('product_id', $request->string('product_id'));
         }
 
-        $balances = $query->paginate($request->integer('per_page', 25));
+        $balances = $query->paginate($request->pageSize());
 
         $balances->getCollection()->transform(function (StockBalance $balance) {
             return [

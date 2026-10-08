@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../api/client'
 import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
+import { useOfflineStore } from '../../stores/offline'
 import { formatDateTime } from '../../utils/format'
 
 type Device = { id: string; name: string; code?: string; platform?: string | null; device_type?: string | null; status?: string | null; last_sync_at?: string | null; is_active?: boolean }
@@ -11,6 +12,7 @@ type EventRow = { id: string; event_type: string; entity_type: string; occurred_
 type Status = { server_sequence: number; sales: number; server_time: string; devices: Device[]; events: EventRow[] }
 
 const { t } = useI18n()
+const offline = useOfflineStore()
 const status = ref<Status | null>(null)
 const error = ref('')
 
@@ -53,6 +55,27 @@ async function load() {
           </tbody>
         </table>
         <p v-if="status && !status.devices.length" class="px-4 py-6 text-sm text-slate-500">{{ t('desk.noDevices') }}</p>
+      </section>
+      <section class="rounded-2xl border border-slate-200 bg-white">
+        <h3 class="m-0 px-4 pt-4">{{ t('offline.title') }}</h3>
+        <p class="px-4 pt-2 text-sm text-slate-500">{{ t('offline.architecture') }}</p>
+        <p v-if="!offline.transactions.length" class="px-4 py-6 text-sm text-slate-500">{{ t('offline.empty') }}</p>
+        <table v-else class="min-w-full text-sm">
+          <thead>
+            <tr>
+              <th class="px-4 py-3 text-left">{{ t('offline.domainLabel') }}</th>
+              <th class="px-4 py-3 text-left">{{ t('offline.uuid') }}</th>
+              <th class="px-4 py-3 text-left">{{ t('offline.state') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in offline.transactions" :key="item.uuid">
+              <td class="px-4 py-3">{{ t(`offline.domain.${item.domain}`) }} · {{ item.operation }}</td>
+              <td class="px-4 py-3 font-mono text-xs">{{ item.uuid }}</td>
+              <td class="px-4 py-3">{{ t(`offline.status.${item.status}`) }}</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
       <section class="rounded-2xl border border-slate-200 bg-white">
         <h3 class="m-0 px-4 pt-4">{{ t('desk.events') }}</h3>

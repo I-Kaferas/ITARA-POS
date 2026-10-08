@@ -2,17 +2,23 @@
 
 namespace App\Services\Purchase;
 
+use App\Enums\NumberingDocumentType;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Numbering\ReferenceNumberGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PurchaseOrderService
 {
+    public function __construct(
+        private readonly ReferenceNumberGenerator $numbering,
+    ) {}
+
     /**
      * @param  list<array{
      *     product_id: string,
@@ -38,11 +44,16 @@ class PurchaseOrderService
         }
 
         return DB::transaction(function () use ($warehouse, $items, $supplierId, $branchId, $createdBy, $notes, $expectedAt): PurchaseOrder {
-            $orderNumber = $this->nextOrderNumber($warehouse->tenant_id);
+            $resolvedBranchId = $branchId ?? $warehouse->branch_id;
+            $orderNumber = $this->numbering->next(
+                NumberingDocumentType::PurchaseOrder,
+                (string) $warehouse->tenant_id,
+                $resolvedBranchId,
+            );
 
             $purchaseOrder = PurchaseOrder::query()->create([
                 'tenant_id' => $warehouse->tenant_id,
-                'branch_id' => $branchId ?? $warehouse->branch_id,
+                'branch_id' => $resolvedBranchId,
                 'supplier_id' => $supplierId,
                 'warehouse_id' => $warehouse->id,
                 'order_number' => $orderNumber,
@@ -205,10 +216,4 @@ class PurchaseOrderService
         }
     }
 
-    private function nextOrderNumber(string $tenantId): string
-    {
-        $count = PurchaseOrder::query()->where('tenant_id', $tenantId)->count();
-
-        return 'PO-'.str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
-    }
 }

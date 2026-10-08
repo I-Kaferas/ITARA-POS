@@ -5,6 +5,7 @@ import { RouterLink } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { hospitalitySnapshotPath, HOTEL_ROOM_KINDS } from '../../../api/hospitality'
 import { useConfirm } from '../../../composables/useConfirm'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -195,6 +196,7 @@ const galleryItems = computed(() => {
 onMounted(async () => {
   await Promise.all([load(), loadGallery()])
 })
+useRealtimeSync(['hotel.room.updated', 'hotel.reservation.created', 'hotel.reservation.updated'], () => load(true))
 
 watch(() => form.value.building_id, () => {
   if (form.value.wing_id && !wingOptions.value.some(item => item.id === form.value.wing_id)) {
@@ -267,8 +269,8 @@ function closeForm() {
   resetForm()
 }
 
-async function load() {
-  loading.value = true
+async function load(silent?: boolean) {
+  if (silent !== true) loading.value = true
   error.value = ''
   try {
     docs.value = (await api.get<{ data: { docs: Doc[] } }>(hospitalitySnapshotPath([...HOTEL_ROOM_KINDS]))).data.docs

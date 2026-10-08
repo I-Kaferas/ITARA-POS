@@ -4,11 +4,18 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../core/config/app_config.dart';
+import '../core/config/terminal_config.dart';
 import '../core/config/terminal_config_repository.dart';
+import '../core/network/operating_mode.dart';
+import '../core/network/operation_router.dart';
 import '../features/auth/data/pin_auth_service.dart';
 import '../features/pos/data/pos_api_service.dart';
 import '../features/pos/domain/pos_models.dart';
+import 'cloud/cloud_sync_engine.dart';
 import 'local_master_server.dart';
+import 'local_realtime.dart';
+import 'master_config_store.dart';
 import 'offline_store.dart';
 import 'sync_models.dart';
 import 'sync_numbers.dart';
@@ -29,6 +36,7 @@ class SyncEngine extends ChangeNotifier {
 
   final _client = http.Client();
   Timer? _timer;
+  StreamSubscription? _realtimeSub;
   bool _running = false;
   bool _started = false;
 
@@ -38,6 +46,10 @@ class SyncEngine extends ChangeNotifier {
   /// Bumped only when local catalog rows actually change (POS should reload local cache).
   int catalogRevision = 0;
   String? activeTarget;
+  /// Master LAN reachable (probe réel, pas seulement config).
+  bool masterReachable = false;
+  /// ITARA ERP Cloud reachable.
+  bool cloudReachable = false;
   int pending = 0;
   int failed = 0;
   int synced = 0;
@@ -46,6 +58,20 @@ class SyncEngine extends ChangeNotifier {
   int lastAcknowledged = 0;
   int lastKept = 0;
   SyncReport lastReport = const SyncReport();
+
+  OperatingMode get operatingMode {
+    final role = TerminalConfigRepository.instance.config.posRole;
+    return OperatingModeResolver.resolve(
+      role: role,
+      masterReachable: masterReachable,
+      cloudReachable: cloudReachable,
+    );
+  }
+
+  OperationRouter get router {
+    final role = TerminalConfigRepository.instance.config.posRole;
+    return OperationRouter(mode: operatingMode, role: role);
+  }
 
   SyncSnapshot get snapshot => SyncSnapshot(
         connectivity: connectivity,
@@ -56,6 +82,9 @@ class SyncEngine extends ChangeNotifier {
         lastSyncAt: lastSyncAt,
         lastError: lastError,
         target: activeTarget,
+        mode: operatingMode,
+        masterReachable: masterReachable,
+        cloudReachable: cloudReachable,
       );
 
   void start() {
@@ -66,15 +95,110 @@ class SyncEngine extends ChangeNotifier {
 
   Future<void> _boot() async {
     await OfflineStore.instance.releaseStuck();
+    await _bindRealtime();
     await refreshCounts();
     await runCycle();
     _arm();
+  }
+
+  Future<void> _bindRealtime() async {
+    await _realtimeSub?.cancel();
+    final config = TerminalConfigRepository.instance.config;
+    if (config.isMaster) {
+      LocalRealtimeHub.instance.start();
+      _realtimeSub = LocalRealtimeHub.instance.events.listen(_onRealtimeEvent);
+      return;
+    }
+    if (config.isSlave) {
+      await LocalRealtimeClient.instance.startIfSlave();
+      _realtimeSub = LocalRealtimeClient.instance.events.listen(_onRealtimeEvent);
+    }
+  }
+
+  Future<void> _onRealtimeEvent(RealtimeEvent event) async {
+    switch (event.type) {
+      case RealtimeEventType.stockUpdated:
+        final stock = event.payload['stock'];
+        if (stock is List && stock.isNotEmpty) {
+          await OfflineStore.instance.applyAuthoritativeStock(stock);
+          catalogRevision++;
+          notifyListeners();
+        } else {
+          await _pullMasterStock();
+        }
+      case RealtimeEventType.configUpdated:
+        await pullMasterConfig();
+      case RealtimeEventType.deviceCommand:
+        await _onDeviceCommand(event);
+      case RealtimeEventType.newSale:
+      case RealtimeEventType.saleUpdated:
+      case RealtimeEventType.paymentReceived:
+      case RealtimeEventType.orderCreated:
+      case RealtimeEventType.orderUpdated:
+      case RealtimeEventType.kitchenOrderCreated:
+      case RealtimeEventType.kitchenOrderReady:
+      case RealtimeEventType.tableUpdated:
+      case RealtimeEventType.notificationCreated:
+      case RealtimeEventType.deviceConnected:
+      case RealtimeEventType.deviceDisconnected:
+        notifyListeners();
+        if (!_running && TerminalConfigRepository.instance.config.isSlave) {
+          unawaited(runCycle());
+        }
+      default:
+        break;
+    }
+  }
+
+  Future<void> pullMasterConfig() async {
+    final target = activeTarget ?? _internalBase;
+    if (target == null || target != _internalBase) return;
+    try {
+      final response = await _client
+          .get(Uri.parse('$target/config'), headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return;
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = body['data'] is Map
+          ? Map<String, dynamic>.from(body['data'] as Map)
+          : body;
+      await MasterConfigStore.instance.applyToTerminal(data);
+    } catch (_) {}
+  }
+
+  /// Master §45 commands pushed to this slave over realtime.
+  Future<void> _onDeviceCommand(RealtimeEvent event) async {
+    final config = TerminalConfigRepository.instance.config;
+    if (!config.isSlave) return;
+    final targetId = event.payload['device_id']?.toString() ?? '';
+    if (targetId.isNotEmpty &&
+        config.deviceId.isNotEmpty &&
+        targetId != config.deviceId) {
+      return;
+    }
+    final action = event.payload['action']?.toString() ?? '';
+    switch (action) {
+      case 'sync':
+        if (!_running) unawaited(runCycle());
+      case 'reconnect':
+        await LocalRealtimeClient.instance.stop();
+        await LocalRealtimeClient.instance.startIfSlave();
+      case 'send_configuration':
+        await pullMasterConfig();
+      case 'disable':
+        // Master revoked LAN access; drop the realtime socket.
+        await LocalRealtimeClient.instance.stop();
+      default:
+        break;
+    }
   }
 
   void disposeEngine() {
     _started = false;
     _timer?.cancel();
     _timer = null;
+    unawaited(_realtimeSub?.cancel());
+    _realtimeSub = null;
   }
 
   void _arm() {
@@ -128,15 +252,17 @@ class SyncEngine extends ChangeNotifier {
     try {
       await _probe();
       if (activeTarget == null) {
-        lastError = 'Serveur indisponible';
-        connectivity = ConnectivityState.offline;
+        lastError = operatingMode == OperatingMode.isolatedOffline
+            ? 'Mode C — Master indisponible. File offline active.'
+            : 'Serveur indisponible';
+        connectivity = _connectivityForIdle();
         return lastReport = SyncReport(ok: false, message: lastError!);
       }
       final catalog = await _refreshCatalogCounts();
       final refs = await _pullReferenceCounts();
       lastSyncAt = DateTime.now();
       lastError = null;
-      connectivity = ConnectivityState.online;
+      connectivity = _connectivityForIdle();
       return lastReport = SyncReport(
         message: 'Téléchargement terminé',
         products: catalog.products,
@@ -170,8 +296,10 @@ class SyncEngine extends ChangeNotifier {
     try {
       await _probe();
       if (activeTarget == null) {
-        lastError = 'Serveur indisponible';
-        connectivity = ConnectivityState.offline;
+        lastError = operatingMode == OperatingMode.isolatedOffline
+            ? 'Mode C — Master indisponible. File offline active.'
+            : 'Serveur indisponible';
+        connectivity = _connectivityForIdle();
         return lastReport = SyncReport(ok: false, message: lastError!);
       }
       final sent = await _drainQueue();
@@ -179,7 +307,7 @@ class SyncEngine extends ChangeNotifier {
       final refs = await _pullReferenceCounts();
       lastSyncAt = DateTime.now();
       lastError = null;
-      connectivity = ConnectivityState.online;
+      connectivity = _connectivityForIdle();
       await refreshCounts();
       return lastReport = SyncReport(
         message: pending == 0 ? 'Stock envoyé et téléchargé' : 'Stock téléchargé · $pending en attente',
@@ -215,8 +343,10 @@ class SyncEngine extends ChangeNotifier {
     try {
       await _probe();
       if (activeTarget == null) {
-        lastError = 'Serveur indisponible. Vérifiez l’URL API et la connexion.';
-        connectivity = ConnectivityState.offline;
+        lastError = operatingMode == OperatingMode.isolatedOffline
+            ? 'Mode C — opérations en file locale. Sync au retour du Master.'
+            : 'Serveur indisponible. Vérifiez l’URL API et la connexion.';
+        connectivity = _connectivityForIdle();
         return lastReport = SyncReport(ok: false, message: lastError!);
       }
       await _prepareAuth();
@@ -236,7 +366,7 @@ class SyncEngine extends ChangeNotifier {
 
       lastSyncAt = DateTime.now();
       lastError = null;
-      connectivity = ConnectivityState.online;
+      connectivity = _connectivityForIdle();
       final message = pending == 0
           ? (sent == 0 ? 'Rien à envoyer' : 'Ventes et stock envoyés')
           : 'Envoi partiel · $pending en attente';
@@ -277,14 +407,33 @@ class SyncEngine extends ChangeNotifier {
       final hadTarget = activeTarget != null;
       await _probe();
       if (!hadTarget && activeTarget != null) {
+        // Mode C → Master/Cloud revenu : rejouer la file.
         await OfflineStore.instance.retryAllFailed();
       }
       if (activeTarget == null) {
-        if (connectivity != ConnectivityState.offline) {
-          connectivity = ConnectivityState.offline;
+        final next = _connectivityForIdle();
+        if (connectivity != next) {
+          connectivity = next;
           notifyListeners();
         }
         lastError = null;
+        return;
+      }
+
+      // Master / Standalone → ITARA ERP Cloud (mobile.md §35).
+      if (router.allowsDirectCloud && activeTarget == _cloudBase) {
+        final cloud = await CloudSyncEngine.instance.syncNow(
+          pull: forcePull || await _shouldPull() || await _shouldPullReference(),
+          push: pushOutbound,
+        );
+        lastSyncAt = CloudSyncEngine.instance.lastSyncAt ?? DateTime.now();
+        lastError = cloud.ok ? null : cloud.message;
+        connectivity = cloud.ok ? _connectivityForIdle() : ConnectivityState.syncError;
+        lastReport = cloud.toSyncReport();
+        if (cloud.totalPulled > 0) catalogRevision++;
+        if (showBusy || !cloud.ok || cloud.totalPushed > 0 || cloud.totalPulled > 0) {
+          notifyListeners();
+        }
         return;
       }
 
@@ -321,15 +470,15 @@ class SyncEngine extends ChangeNotifier {
             final stockTouched = await _pullMasterStock();
             catalogChanged = catalogChanged || stockTouched;
           } catch (_) {}
+          try {
+            await pullMasterConfig();
+          } catch (_) {}
         }
       }
       lastSyncAt = DateTime.now();
       lastError = null;
       if (catalogChanged) catalogRevision++;
-      final nextConnectivity = activeTarget == _internalBase
-          ? ConnectivityState.localAvailable
-          : ConnectivityState.online;
-      connectivity = nextConnectivity;
+      connectivity = _connectivityForIdle();
       lastReport = SyncReport(
         message: 'Synchronisation terminée',
         products: products,
@@ -364,17 +513,51 @@ class SyncEngine extends ChangeNotifier {
     return value.replaceAll(RegExp(r'/$'), '');
   }
 
+  /// Probe Master + Cloud, puis choisit la cible selon Mode A/B/C.
+  ///
+  /// - Slave : Master uniquement (jamais Cloud direct).
+  /// - Master / Standalone : Cloud quand disponible ; sinon file locale.
   Future<void> _probe() async {
+    final config = TerminalConfigRepository.instance.config;
+    final role = config.posRole;
     final internal = _internalBase;
-    if (internal != null && await _healthy(internal)) {
-      activeTarget = internal;
-      return;
+    final cloud = _cloudBase;
+
+    if (role == PosRole.master) {
+      masterReachable = LocalMasterServer.instance.listening;
+    } else if (internal != null && internal.isNotEmpty) {
+      masterReachable = await _healthy(internal);
+    } else {
+      masterReachable = false;
     }
-    if (await _healthy(_cloudBase)) {
-      activeTarget = _cloudBase;
-      return;
+
+    cloudReachable = cloud.isNotEmpty && await _healthy(cloud);
+
+    final path = OperationRouter(
+      mode: OperatingModeResolver.resolve(
+        role: role,
+        masterReachable: masterReachable,
+        cloudReachable: cloudReachable,
+      ),
+      role: role,
+    );
+
+    switch (path.outboundTarget) {
+      case SyncTargetKind.master:
+        activeTarget = masterReachable ? internal : null;
+      case SyncTargetKind.cloud:
+        activeTarget = cloudReachable ? cloud : null;
+      case SyncTargetKind.localQueue:
+        activeTarget = null;
     }
-    activeTarget = null;
+  }
+
+  ConnectivityState _connectivityForIdle() {
+    return switch (operatingMode) {
+      OperatingMode.fullOnline => ConnectivityState.online,
+      OperatingMode.localOffline => ConnectivityState.localAvailable,
+      OperatingMode.isolatedOffline => ConnectivityState.offline,
+    };
   }
 
   Future<bool> _healthy(String base) async {
@@ -402,6 +585,8 @@ class SyncEngine extends ChangeNotifier {
       if (config.tenantId.isNotEmpty) 'X-Tenant-ID': config.tenantId,
       if (config.storeId.isNotEmpty) 'X-Store-ID': config.storeId,
       if (config.deviceId.isNotEmpty) 'X-Device-ID': config.deviceId,
+      if (config.masterPairToken.isNotEmpty) 'X-Pair-Token': config.masterPairToken,
+      if (config.deviceName.isNotEmpty) 'X-Device-Name': config.deviceName,
     };
   }
 
@@ -761,8 +946,12 @@ class SyncEngine extends ChangeNotifier {
           .post(Uri.parse('$target/sync/push'), headers: _headers, body: payload)
           .timeout(const Duration(seconds: 40)),
     );
+    // Slave : jamais de fallback Cloud direct (Mode A/B via Master uniquement).
     final cloud = _cloudBase;
-    if (response.statusCode == 401 && cloud.isNotEmpty && cloud != target) {
+    if (response.statusCode == 401 &&
+        router.allowsDirectCloud &&
+        cloud.isNotEmpty &&
+        cloud != target) {
       activeTarget = cloud;
       response = await _authorized(
         () => _client
@@ -957,10 +1146,18 @@ class SyncEngine extends ChangeNotifier {
             'device_id': config.deviceId.isNotEmpty ? config.deviceId : config.deviceIdentifier,
             'identifier': config.deviceIdentifier,
             'name': config.deviceName,
+            'device_type': 'pos',
+            'os': defaultTargetPlatform.name,
+            'tenant_id': config.tenantId,
+            'branch_id': config.storeId,
+            'store_id': config.storeId,
             'cash_register_id': config.cashRegisterId,
             'cash_session_id': config.cashSessionId,
             'user_id': config.cashierId,
-            'app_version': '0.1.0',
+            'user_name': config.cashierName,
+            'role': config.posRole.name,
+            'app_version': AppConfig.appVersion,
+            'version': AppConfig.appVersion,
             'pending': pending,
           }),
         )

@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Catalog;
 use App\Models\Product;
 use App\Models\StockBalance;
+use App\Models\Tenant;
 use App\Services\Catalog\ProductCatalogService;
+use App\Services\Platform\SaasLimitGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -20,7 +22,7 @@ class ProductController extends Controller
     public function index(Request $request, Catalog $catalog): JsonResponse
     {
         $query = $catalog->products()
-            ->with(['category', 'brand', 'unitModel', 'tax', 'images', 'variants'])
+            ->with($this->listWith($request))
             ->orderBy('name');
 
         if ($type = $request->string('product_type')->toString()) {
@@ -51,12 +53,33 @@ class ProductController extends Controller
             });
         }
 
-        return response()->json(['data' => $this->withStock($query->get())]);
+        if ($request->has('per_page') || $request->has('page')) {
+            $page = $query->paginate($request->pageSize(40));
+            $rows = $this->presentList($this->withStock(collect($page->items())), $request->boolean('compact'));
+
+            return response()->json([
+                'data' => $rows->values(),
+                'meta' => [
+                    'current_page' => $page->currentPage(),
+                    'last_page' => $page->lastPage(),
+                    'per_page' => $page->perPage(),
+                    'total' => $page->total(),
+                ],
+            ]);
+        }
+
+        return response()->json([
+            'data' => $this->presentList($this->withStock($query->get()), $request->boolean('compact'))->values(),
+        ]);
     }
 
     public function store(Request $request, Catalog $catalog): JsonResponse
     {
         $data = $this->validateProduct($request);
+        $tenant = Tenant::query()->find($catalog->tenant_id);
+        if ($tenant) {
+            app(SaasLimitGuard::class)->assertWithin($tenant, 'products');
+        }
 
         $product = $this->catalog->create($catalog, $data);
         $product = $this->withStock(collect([$product]))->first() ?? $product;
@@ -112,6 +135,47 @@ class ProductController extends Controller
         });
 
         return $products;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function listWith(Request $request): array
+    {
+        $with = [
+            'category:id,name',
+            'brand:id,name',
+            'unitModel:id,name,code,symbol',
+            'tax:id,name,code,rate,is_inclusive',
+        ];
+
+        if ($request->boolean('compact')) {
+            $with['images'] = fn ($query) => $query->where('is_primary', true);
+
+            return $with;
+        }
+
+        $with['images'] = fn ($query) => $query->select([
+            'id', 'product_id', 'tenant_id', 'cdn_url', 'storage_path', 'is_primary', 'sort_order', 'alt_text',
+        ]);
+        $with['variants'] = fn ($query) => $query->select([
+            'id', 'product_id', 'sku', 'name', 'base_price', 'is_active', 'sort_order',
+        ]);
+
+        return $with;
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     * @return Collection<int, Product>
+     */
+    private function presentList(Collection $products, bool $compact): Collection
+    {
+        if (! $compact) {
+            return $products;
+        }
+
+        return $products->each(fn (Product $product) => $product->makeHidden(['description']));
     }
 
     /** @return array<string, mixed> */

@@ -22,8 +22,8 @@ return [
             'supports_change' => false,
         ],
         'bank_transfer' => [
-            'label' => 'Bank transfer',
-            'label_fr' => 'Virement',
+            'label' => 'Bank',
+            'label_fr' => 'Banque',
             'provider' => 'bank_transfer',
             'supports_change' => false,
         ],

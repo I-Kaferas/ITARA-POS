@@ -7,8 +7,9 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
 use App\Models\Store;
+use App\Services\Performance\ReadCache;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class PosOverviewService
 {
@@ -17,17 +18,34 @@ class PosOverviewService
     {
         $day = $date->copy()->startOfDay();
 
+        return app(ReadCache::class)->remember(
+            'sales',
+            'pos-overview:'.$store->id.':'.$day->toDateString(),
+            fn () => $this->build($store, $day),
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function build(Store $store, Carbon $day): array
+    {
+        $end = $day->copy()->endOfDay();
         $sales = Sale::query()
             ->where('store_id', $store->id)
             ->where('status', 'completed')
-            ->whereBetween('completed_at', [$day, $day->copy()->endOfDay()])
+            ->whereBetween('completed_at', [$day, $end]);
+
+        $totals = (clone $sales)->toBase()->selectRaw(
+            'COUNT(*) as sales_count, COALESCE(SUM(total), 0) as revenue, COALESCE(SUM(paid_amount), 0) as paid_amount'
+        )->first();
+
+        $salesCount = (int) $totals->sales_count;
+        $revenue = (int) $totals->revenue;
+
+        $recent = (clone $sales)
             ->with('customer:id,name,email')
             ->orderByDesc('completed_at')
+            ->limit(8)
             ->get();
-
-        $salesCount = $sales->count();
-        $revenue = (int) $sales->sum('total');
-        $paidAmount = (int) $sales->sum('paid_amount');
 
         return [
             'date' => $day->toDateString(),
@@ -35,28 +53,33 @@ class PosOverviewService
             'kpis' => [
                 'sales_count' => $salesCount,
                 'revenue' => $revenue,
-                'paid_amount' => $paidAmount,
+                'paid_amount' => (int) $totals->paid_amount,
                 'average_ticket' => $salesCount > 0 ? (int) round($revenue / $salesCount) : 0,
             ],
-            'best_selling_products' => $this->bestSellingProducts($sales),
-            'recent_orders' => $sales->take(8)->map(fn (Sale $sale) => $sale->toSummaryArray())->values(),
-            'payment_methods' => $this->paymentMethods($sales),
-            'sales_by_hour' => $this->salesByHour($sales),
+            'best_selling_products' => $salesCount > 0 ? $this->bestSellingProducts($store, $day, $end) : [],
+            'recent_orders' => $recent->map(fn (Sale $sale) => $sale->toSummaryArray())->values(),
+            'payment_methods' => $salesCount > 0 ? $this->paymentMethods($store, $day, $end) : [],
+            'sales_by_hour' => $this->salesByHour($store, $day, $end),
         ];
     }
 
     /**
-     * @param  Collection<int, Sale>  $sales
      * @return list<array<string, mixed>>
      */
-    private function bestSellingProducts(Collection $sales): array
+    private function bestSellingProducts(Store $store, Carbon $start, Carbon $end): array
     {
-        if ($sales->isEmpty()) {
+        $saleIds = Sale::query()
+            ->where('store_id', $store->id)
+            ->where('status', 'completed')
+            ->whereBetween('completed_at', [$start, $end])
+            ->pluck('id');
+
+        if ($saleIds->isEmpty()) {
             return [];
         }
 
         $items = SaleItem::query()
-            ->whereIn('sale_id', $sales->pluck('id'))
+            ->whereIn('sale_id', $saleIds)
             ->get(['product_id', 'product_name', 'product_sku', 'quantity', 'line_total']);
 
         $grouped = [];
@@ -80,48 +103,41 @@ class PosOverviewService
     }
 
     /**
-     * @param  Collection<int, Sale>  $sales
      * @return list<array<string, mixed>>
      */
-    private function paymentMethods(Collection $sales): array
+    private function paymentMethods(Store $store, Carbon $start, Carbon $end): array
     {
-        if ($sales->isEmpty()) {
-            return [];
-        }
+        $rows = SalePayment::query()
+            ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->where('sales.store_id', $store->id)
+            ->where('sales.status', 'completed')
+            ->whereBetween('sales.completed_at', [$start, $end])
+            ->whereNull('sales.deleted_at')
+            ->selectRaw('sale_payments.payment_method as payment_method, SUM(sale_payments.amount) as amount, COUNT(*) as payment_count')
+            ->groupBy('sale_payments.payment_method')
+            ->get();
 
-        $payments = SalePayment::query()
-            ->whereIn('sale_id', $sales->pluck('id'))
-            ->get(['payment_method', 'amount']);
+        $total = (int) $rows->sum(fn ($row) => (int) $row->amount);
+        $grouped = $rows->map(function ($row) use ($total) {
+            $amount = (int) $row->amount;
+            $code = (string) $row->payment_method;
 
-        $grouped = [];
-        foreach ($payments as $payment) {
-            $code = (string) $payment->payment_method;
-            $grouped[$code] ??= [
+            return [
                 'payment_method' => $code,
                 'label' => $this->paymentLabel($code),
-                'amount' => 0,
-                'count' => 0,
+                'amount' => $amount,
+                'count' => (int) $row->payment_count,
+                'share' => $total > 0 ? (int) round($amount / $total * 100) : 0,
             ];
-            $grouped[$code]['amount'] += (int) $payment->amount;
-            $grouped[$code]['count']++;
-        }
+        })->sortByDesc('amount')->values()->all();
 
-        $total = array_sum(array_column($grouped, 'amount'));
-        $rows = array_values($grouped);
-        usort($rows, fn (array $a, array $b) => $b['amount'] <=> $a['amount']);
-
-        return array_map(function (array $row) use ($total) {
-            $row['share'] = $total > 0 ? (int) round($row['amount'] / $total * 100) : 0;
-
-            return $row;
-        }, $rows);
+        return $grouped;
     }
 
     /**
-     * @param  Collection<int, Sale>  $sales
      * @return list<array<string, mixed>>
      */
-    private function salesByHour(Collection $sales): array
+    private function salesByHour(Store $store, Carbon $start, Carbon $end): array
     {
         $buckets = [];
         for ($hour = 0; $hour < 24; $hour++) {
@@ -133,10 +149,25 @@ class PosOverviewService
             ];
         }
 
-        foreach ($sales as $sale) {
-            $hour = (int) ($sale->completed_at?->format('G') ?? 0);
-            $buckets[$hour]['sales_count']++;
-            $buckets[$hour]['revenue'] += (int) $sale->total;
+        $hourSql = DB::connection()->getDriverName() === 'sqlite'
+            ? "CAST(strftime('%H', completed_at) AS INTEGER)"
+            : 'HOUR(completed_at)';
+
+        $rows = Sale::query()
+            ->where('store_id', $store->id)
+            ->where('status', 'completed')
+            ->whereBetween('completed_at', [$start, $end])
+            ->selectRaw($hourSql.' as hour_bucket, COUNT(*) as sales_count, COALESCE(SUM(total), 0) as revenue')
+            ->groupBy(DB::raw($hourSql))
+            ->get();
+
+        foreach ($rows as $row) {
+            $hour = (int) $row->hour_bucket;
+            if (! isset($buckets[$hour])) {
+                continue;
+            }
+            $buckets[$hour]['sales_count'] = (int) $row->sales_count;
+            $buckets[$hour]['revenue'] = (int) $row->revenue;
         }
 
         return array_values($buckets);
@@ -150,7 +181,7 @@ class PosOverviewService
             SalePaymentMethod::Cash => 'Espèces',
             SalePaymentMethod::MobileMoney => 'Mobile Money',
             SalePaymentMethod::Card => 'Carte',
-            SalePaymentMethod::BankTransfer => 'Virement',
+            SalePaymentMethod::BankTransfer => 'Banque',
             SalePaymentMethod::Credit => 'Crédit',
             SalePaymentMethod::Wallet => 'Portefeuille',
             default => $code !== '' ? ucfirst(str_replace('_', ' ', $code)) : 'Autre',

@@ -3,8 +3,10 @@
 namespace App\Services\Authorization;
 
 use App\Models\User;
+use App\Modules\ModuleManager;
+use App\Modules\ModuleRegistry;
 use App\Services\Rbac\PermissionCatalog;
-use Illuminate\Support\Facades\Cache;
+use App\Tenancy\TenantCache;
 
 class AuthorizationService
 {
@@ -37,6 +39,10 @@ class AuthorizationService
             return true;
         }
 
+        if (! $this->moduleAllows($user, $permission)) {
+            return false;
+        }
+
         return $this->matches($permission, $this->getPermissionSlugs($user));
     }
 
@@ -49,7 +55,7 @@ class AuthorizationService
         $userPermissions = $this->getPermissionSlugs($user);
 
         foreach ($permissions as $permission) {
-            if ($this->matches($permission, $userPermissions)) {
+            if ($this->moduleAllows($user, $permission) && $this->matches($permission, $userPermissions)) {
                 return true;
             }
         }
@@ -66,7 +72,7 @@ class AuthorizationService
         $userPermissions = $this->getPermissionSlugs($user);
 
         foreach ($permissions as $permission) {
-            if (! $this->matches($permission, $userPermissions)) {
+            if (! $this->moduleAllows($user, $permission) || ! $this->matches($permission, $userPermissions)) {
                 return false;
             }
         }
@@ -79,7 +85,7 @@ class AuthorizationService
      */
     public function getPermissionSlugs(User $user): array
     {
-        return Cache::remember(
+        return app(TenantCache::class)->remember(
             $this->cacheKey($user),
             config('rbac.permission_cache_ttl', 900),
             fn () => $this->resolvePermissionSlugs($user),
@@ -112,6 +118,7 @@ class AuthorizationService
                 'name' => $permission->name,
                 'group' => $permission->group,
             ])
+            ->filter(fn (array $permission) => $this->moduleAllows($user, $permission['slug']))
             ->values()
             ->all();
     }
@@ -133,7 +140,7 @@ class AuthorizationService
 
     public function forgetCachedPermissions(User $user): void
     {
-        Cache::forget($this->cacheKey($user));
+        app(TenantCache::class)->forget($this->cacheKey($user));
     }
 
     /**
@@ -184,6 +191,16 @@ class AuthorizationService
         }
 
         return array_values(array_unique($related));
+    }
+
+    private function moduleAllows(User $user, string $permission): bool
+    {
+        $owners = ModuleRegistry::modulesForPermission($permission);
+        if ($owners === []) {
+            return true;
+        }
+
+        return app(ModuleManager::class)->allowsAny($owners, $user->tenant);
     }
 
     private function cacheKey(User $user): string

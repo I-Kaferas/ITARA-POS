@@ -25,6 +25,9 @@ class PaymentTransaction extends Model
         'transaction_type',
         'payment_method',
         'amount',
+        'amount_in_sale_currency',
+        'exchange_rate',
+        'sale_currency',
         'currency',
         'status',
         'provider_type',
@@ -41,6 +44,8 @@ class PaymentTransaction extends Model
     {
         return [
             'amount' => 'integer',
+            'amount_in_sale_currency' => 'integer',
+            'exchange_rate' => 'decimal:8',
             'transaction_type' => PaymentTransactionType::class,
             'payment_method' => SalePaymentMethod::class,
             'status' => PaymentTransactionStatus::class,

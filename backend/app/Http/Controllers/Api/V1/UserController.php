@@ -7,6 +7,7 @@ use App\Models\AuthToken;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Auth\AuthTokenService;
+use App\Services\Platform\SaasLimitGuard;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -80,6 +81,8 @@ class UserController extends Controller
             'role_id' => ['nullable', 'uuid', 'exists:roles,id'],
             'store_id' => ['nullable', 'uuid', 'exists:stores,id'],
         ], $this->pinMessages());
+
+        app(SaasLimitGuard::class)->assertWithin($tenant, 'users');
 
         $user = User::query()->create([
             'tenant_id' => $tenant->id,

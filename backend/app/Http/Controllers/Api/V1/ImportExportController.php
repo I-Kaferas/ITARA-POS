@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Catalog;
 use App\Models\Product;
+use App\Models\Tenant;
+use App\Services\Platform\SaasLimitGuard;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -137,6 +140,16 @@ class ImportExportController extends Controller
                         $skipped++;
                     }
                 } else {
+                    $tenant = Tenant::query()->find($catalog->tenant_id);
+                    if ($tenant) {
+                        try {
+                            app(SaasLimitGuard::class)->assertWithin($tenant, 'products');
+                        } catch (ValidationException) {
+                            $skipped++;
+                            $errors[] = "Row {$rowNumber}: saas.limit_products";
+                            break;
+                        }
+                    }
                     Product::query()->create([
                         ...$payload,
                         'tenant_id' => $catalog->tenant_id,

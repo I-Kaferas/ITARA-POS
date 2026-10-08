@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../kitchen/presentation/kitchen_display_screen.dart';
 import '../../pos/services/pos_pending_intent.dart';
 import '../data/hospitality_api.dart';
+import '../domain/restaurant_models.dart';
 
 class HospitalityScreen extends StatefulWidget {
   const HospitalityScreen({super.key});
@@ -96,7 +98,7 @@ class _HospitalityScreenState extends State<HospitalityScreen> {
                     ),
                     Expanded(
                       child: switch (_section) {
-                        'kitchen' => _KitchenBoard(tickets: _kind('ticket'), onAdvance: _run),
+                        'kitchen' => const KitchenDisplayScreen(embedded: true),
                         'hotel' => _HotelBoard(
                             rooms: _kind('room'),
                             types: _kind('room_type'),
@@ -202,7 +204,8 @@ class _FloorBoard extends StatelessWidget {
   }
 
   Future<void> _openTable(BuildContext context, Map<String, dynamic> table) async {
-    if (table['status'] != 'occupied') {
+    final status = RestaurantStatus.fromWire(table['status']?.toString());
+    if (!status.isActive) {
       final server = await _pickServer(context);
       if (server == null) return;
       await onAction({
@@ -223,6 +226,8 @@ class _FloorBoard extends StatelessWidget {
       isScrollControlled: true,
       builder: (context) => _OrderSheet(
         order: order,
+        tables: tables,
+        orders: orders,
         rooms: rooms,
         money: money,
         onAction: onAction,
@@ -305,23 +310,28 @@ class _TableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final occupied = table['status'] == 'occupied';
+    final status = RestaurantStatus.fromWire(
+      order?['status']?.toString() ?? table['status']?.toString(),
+    );
+    final active = status.isActive;
+    final colors = _statusColors(status);
     return InkWell(
       onTap: onTap,
       child: Container(
         width: 140,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: occupied ? const Color(0xFFFFF7ED) : const Color(0xFFECFDF3),
+          color: colors.$1,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: occupied ? const Color(0xFFFDBA74) : const Color(0xFF86EFAC)),
+          border: Border.all(color: colors.$2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(table['label']?.toString() ?? 'Table', style: const TextStyle(fontWeight: FontWeight.w700)),
-            Text(occupied ? _orderStep(order?['status']?.toString()) : 'libre'),
-            if (occupied && (serverName ?? '').isNotEmpty)
+            Text(status.wire, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            Text(status.label, style: const TextStyle(fontSize: 12)),
+            if (active && (serverName ?? '').isNotEmpty)
               Text(serverName!, style: const TextStyle(fontSize: 12)),
             Text('${table['seats']} places', style: const TextStyle(fontSize: 12)),
           ],
@@ -331,15 +341,30 @@ class _TableCard extends StatelessWidget {
   }
 }
 
+(Color, Color) _statusColors(RestaurantStatus status) => switch (status) {
+      RestaurantStatus.free => (const Color(0xFFECFDF3), const Color(0xFF86EFAC)),
+      RestaurantStatus.occupied => (const Color(0xFFFFF7ED), const Color(0xFFFDBA74)),
+      RestaurantStatus.ordering => (const Color(0xFFEFF6FF), const Color(0xFF93C5FD)),
+      RestaurantStatus.preparing => (const Color(0xFFFFFBEB), const Color(0xFFFCD34D)),
+      RestaurantStatus.ready => (const Color(0xFFF0FDF4), const Color(0xFF4ADE80)),
+      RestaurantStatus.served => (const Color(0xFFF5F3FF), const Color(0xFFC4B5FD)),
+      RestaurantStatus.paying => (const Color(0xFFFFF1F2), const Color(0xFFFDA4AF)),
+      RestaurantStatus.closed => (const Color(0xFFF8FAFC), const Color(0xFFCBD5E1)),
+    };
+
 class _OrderSheet extends StatefulWidget {
   const _OrderSheet({
     required this.order,
+    required this.tables,
+    required this.orders,
     required this.rooms,
     required this.money,
     required this.onAction,
   });
 
   final Map<String, dynamic> order;
+  final List<Map<String, dynamic>> tables;
+  final List<Map<String, dynamic>> orders;
   final List<Map<String, dynamic>> rooms;
   final String Function(int amount) money;
   final Future<void> Function(Map<String, dynamic> action) onAction;
@@ -351,6 +376,10 @@ class _OrderSheet extends StatefulWidget {
 class _OrderSheetState extends State<_OrderSheet> {
   final _name = TextEditingController();
   final _price = TextEditingController();
+  final _modifiers = TextEditingController();
+  final _sides = TextEditingController();
+  final _extraName = TextEditingController();
+  final _extraPrice = TextEditingController();
   String _course = 'plat';
   final _selected = <String>{};
 
@@ -358,30 +387,80 @@ class _OrderSheetState extends State<_OrderSheet> {
   void dispose() {
     _name.dispose();
     _price.dispose();
+    _modifiers.dispose();
+    _sides.dispose();
+    _extraName.dispose();
+    _extraPrice.dispose();
     super.dispose();
   }
 
   List<Map<String, dynamic>> get _lines =>
-      (widget.order['lines'] as List<dynamic>? ?? []).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+      (widget.order['lines'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
 
   List<Map<String, dynamic>> get _checks =>
-      (widget.order['checks'] as List<dynamic>? ?? []).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+      (widget.order['checks'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+
+  List<String> _csv(String raw) => raw
+      .split(RegExp(r'[,;|]'))
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
+
+  String _lineSubtitle(Map<String, dynamic> line) {
+    final parts = <String>[
+      line['course']?.toString() ?? '',
+      ...(line['modifiers'] as List<dynamic>? ?? const []).map((e) => e.toString()),
+      ...(line['sides'] as List<dynamic>? ??
+              line['accompagnements'] as List<dynamic>? ??
+              const [])
+          .map((e) => e.toString()),
+      ...(line['extras'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => '+${e['name']}'),
+    ].where((item) => item.trim().isNotEmpty);
+    return parts.join(' · ');
+  }
+
+  int _lineAmount(Map<String, dynamic> line) {
+    final qty = (line['quantity'] as num?)?.toInt() ?? 1;
+    final unit = (line['unit_price'] as num?)?.toInt() ?? 0;
+    final extras = (line['extras'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .fold<int>(0, (sum, item) => sum + ((item['unit_price'] as num?)?.toInt() ?? 0));
+    return (unit + extras) * qty;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final status = RestaurantStatus.fromWire(widget.order['status']?.toString());
     return Padding(
-      padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: MediaQuery.viewInsetsOf(context).bottom + 16),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+      ),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Table ${widget.order['table_label']} · ${_orderStep(widget.order['status']?.toString())}'
+              'Table ${widget.order['table_label']} · ${status.wire}'
               '${(widget.order['server_name']?.toString() ?? '').isEmpty ? '' : ' · ${widget.order['server_name']}'}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
+            Text(status.label),
             const SizedBox(height: 8),
-            const Text('Table → commande → cuisine → préparation → service → paiement'),
+            const Text(
+              'FREE → OCCUPIED → ORDERING → PREPARING → READY → SERVED → PAYING → CLOSED',
+              style: TextStyle(fontSize: 11),
+            ),
             const SizedBox(height: 12),
             for (final line in _lines)
               CheckboxListTile(
@@ -396,11 +475,49 @@ class _OrderSheetState extends State<_OrderSheet> {
                     }
                   });
                 },
-                title: Text('${line['quantity']} × ${line['name']} · ${line['course']}'),
-                subtitle: Text(widget.money(((line['unit_price'] as num?)?.toInt() ?? 0) * ((line['quantity'] as num?)?.toInt() ?? 0))),
+                title: Text('${line['quantity']} × ${line['name']}'),
+                subtitle: Text('${_lineSubtitle(line)}\n${widget.money(_lineAmount(line))}'),
+                isThreeLine: true,
               ),
             TextField(controller: _name, decoration: const InputDecoration(labelText: 'Article')),
-            TextField(controller: _price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Prix')),
+            TextField(
+              controller: _price,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Prix'),
+            ),
+            TextField(
+              controller: _modifiers,
+              decoration: const InputDecoration(
+                labelText: 'Modifiers',
+                hintText: 'saignant, sans oignon',
+              ),
+            ),
+            TextField(
+              controller: _sides,
+              decoration: const InputDecoration(
+                labelText: 'Accompagnements',
+                hintText: 'frites, riz',
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _extraName,
+                    decoration: const InputDecoration(labelText: 'Extra'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 100,
+                  child: TextField(
+                    controller: _extraPrice,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Prix'),
+                  ),
+                ),
+              ],
+            ),
             DropdownButton<String>(
               value: _course,
               items: const [
@@ -417,7 +534,20 @@ class _OrderSheetState extends State<_OrderSheet> {
               children: [
                 FilledButton(
                   onPressed: () async {
-                    final price = ((double.tryParse(_price.text.replaceAll(',', '.')) ?? 0) * 100).round();
+                    final price =
+                        ((double.tryParse(_price.text.replaceAll(',', '.')) ?? 0) * 100)
+                            .round();
+                    final extras = <Map<String, dynamic>>[];
+                    final extraLabel = _extraName.text.trim();
+                    if (extraLabel.isNotEmpty) {
+                      extras.add({
+                        'name': extraLabel,
+                        'unit_price':
+                            ((double.tryParse(_extraPrice.text.replaceAll(',', '.')) ?? 0) *
+                                    100)
+                                .round(),
+                      });
+                    }
                     await widget.onAction({
                       'action': 'add_line',
                       'order_id': widget.order['id'],
@@ -425,6 +555,10 @@ class _OrderSheetState extends State<_OrderSheet> {
                       'unit_price': price,
                       'quantity': 1,
                       'course': _course,
+                      'modifiers': _csv(_modifiers.text),
+                      'sides': _csv(_sides.text),
+                      'accompagnements': _csv(_sides.text),
+                      'extras': extras,
                     });
                     if (context.mounted) Navigator.pop(context);
                   },
@@ -432,14 +566,20 @@ class _OrderSheetState extends State<_OrderSheet> {
                 ),
                 OutlinedButton(
                   onPressed: () async {
-                    await widget.onAction({'action': 'send_course', 'order_id': widget.order['id'], 'course': _course});
+                    await widget.onAction({
+                      'action': 'send_course',
+                      'order_id': widget.order['id'],
+                      'course': _course,
+                    });
                     if (context.mounted) Navigator.pop(context);
                   },
                   child: const Text('Envoyer cuisine'),
                 ),
                 OutlinedButton(
                   onPressed: () {
-                    final saleId = widget.order['sale_id']?.toString() ?? widget.order['id']?.toString() ?? '';
+                    final saleId = widget.order['sale_id']?.toString() ??
+                        widget.order['id']?.toString() ??
+                        '';
                     final tableId = widget.order['table_id']?.toString();
                     if (saleId.isEmpty) return;
                     PosPendingIntent.notifier.value = PosHoldIntent(
@@ -463,7 +603,15 @@ class _OrderSheetState extends State<_OrderSheet> {
                           });
                           if (context.mounted) Navigator.pop(context);
                         },
-                  child: const Text('Séparer l’addition'),
+                  child: const Text('Split'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _transfer(context),
+                  child: const Text('Transfert'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _merge(context),
+                  child: const Text('Merge'),
                 ),
               ],
             ),
@@ -474,7 +622,11 @@ class _OrderSheetState extends State<_OrderSheet> {
                 children: [
                   FilledButton(
                     onPressed: () async {
-                      await widget.onAction({'action': 'pay_check', 'order_id': widget.order['id'], 'check_id': check['id']});
+                      await widget.onAction({
+                        'action': 'pay_check',
+                        'order_id': widget.order['id'],
+                        'check_id': check['id'],
+                      });
                       if (context.mounted) Navigator.pop(context);
                     },
                     child: Text('Payer ${check['label']}'),
@@ -499,133 +651,74 @@ class _OrderSheetState extends State<_OrderSheet> {
       ),
     );
   }
-}
 
-String _orderStep(String? status) => switch (status) {
-      'open' => 'Commande',
-      'kitchen' => 'Cuisine',
-      'preparing' => 'Préparation',
-      'ready' => 'Service',
-      'served' => 'Paiement',
-      'paid' => 'Payée',
-      _ => status ?? 'occupée',
-    };
-
-class _KitchenBoard extends StatelessWidget {
-  const _KitchenBoard({required this.tickets, required this.onAdvance});
-
-  final List<Map<String, dynamic>> tickets;
-  final Future<void> Function(Map<String, dynamic> action) onAdvance;
-
-  @override
-  Widget build(BuildContext context) {
-    final open = tickets.where((ticket) => ticket['status'] != 'served').toList();
-    const columns = [
-      ('sent', 'Cuisine'),
-      ('preparing', 'Préparation'),
-      ('ready', 'Service'),
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 840;
-        final board = columns
-            .map((column) => _KdsColumn(
-                  title: column.$2,
-                  tickets: open.where((ticket) => ticket['status'] == column.$1).toList(),
-                  onAdvance: onAdvance,
-                  scroll: wide,
-                ))
-            .toList();
-        if (wide) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final column in board) Expanded(child: column),
-            ],
-          );
-        }
-        return ListView(padding: const EdgeInsets.all(12), children: board);
-      },
-    );
-  }
-}
-
-class _KdsColumn extends StatelessWidget {
-  const _KdsColumn({
-    required this.title,
-    required this.tickets,
-    required this.onAdvance,
-    this.scroll = false,
-  });
-
-  final String title;
-  final List<Map<String, dynamic>> tickets;
-  final Future<void> Function(Map<String, dynamic> action) onAdvance;
-  final bool scroll;
-
-  @override
-  Widget build(BuildContext context) {
-    final children = <Widget>[
-      Text('$title · ${tickets.length}', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 8),
-      if (tickets.isEmpty)
-        const Text('Aucun bon')
-      else
-        for (final ticket in tickets) _KdsCard(ticket: ticket, onAdvance: onAdvance),
-    ];
-    if (!scroll) {
-      return Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+  Future<void> _transfer(BuildContext context) async {
+    final freeTables = widget.tables.where((table) {
+      final status = RestaurantStatus.fromWire(table['status']?.toString());
+      return !status.isActive && table['id'] != widget.order['table_id'];
+    }).toList();
+    if (freeTables.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune table libre pour le transfert')),
       );
+      return;
     }
-    return ListView(padding: const EdgeInsets.all(8), children: children);
-  }
-}
-
-class _KdsCard extends StatelessWidget {
-  const _KdsCard({required this.ticket, required this.onAdvance});
-
-  final Map<String, dynamic> ticket;
-  final Future<void> Function(Map<String, dynamic> action) onAdvance;
-
-  @override
-  Widget build(BuildContext context) {
-    final next = switch (ticket['status']) {
-      'sent' => 'preparing',
-      'preparing' => 'ready',
-      'ready' => 'served',
-      _ => null,
-    };
-    final label = switch (next) {
-      'preparing' => 'Préparation',
-      'ready' => 'Prêt',
-      'served' => 'Servi',
-      _ => '',
-    };
-    final lines = (ticket['lines'] as List<dynamic>? ?? []).whereType<Map>().toList();
-    final server = ticket['server_name']?.toString() ?? '';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${ticket['table_label']} · ${ticket['course']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-            if (server.isNotEmpty) Text(server),
-            const SizedBox(height: 4),
-            Text(lines.map((line) => '${line['quantity']} ${line['name']}').join('\n')),
-            if (next != null) ...[
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed: () => onAdvance({'action': 'set_ticket_status', 'ticket_id': ticket['id'], 'status': next}),
-                child: Text(label),
-              ),
-            ],
-          ],
-        ),
+    final picked = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Transférer vers'),
+        children: [
+          for (final table in freeTables)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, table),
+              child: Text(table['label']?.toString() ?? table['id'].toString()),
+            ),
+        ],
       ),
     );
+    if (picked == null) return;
+    await widget.onAction({
+      'action': 'transfer_table',
+      'order_id': widget.order['id'],
+      'to_table_id': picked['id'],
+    });
+    if (context.mounted) Navigator.pop(context);
+  }
+
+  Future<void> _merge(BuildContext context) async {
+    final others = widget.orders.where((order) {
+      if (order['id'] == widget.order['id']) return false;
+      final status = RestaurantStatus.fromWire(order['status']?.toString());
+      return status.isActive;
+    }).toList();
+    if (others.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune autre commande à fusionner')),
+      );
+      return;
+    }
+    final picked = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Fusionner depuis'),
+        children: [
+          for (final order in others)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, order),
+              child: Text(
+                'Table ${order['table_label']} · ${RestaurantStatus.fromWire(order['status']?.toString()).wire}',
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    await widget.onAction({
+      'action': 'merge_orders',
+      'target_order_id': widget.order['id'],
+      'source_order_id': picked['id'],
+    });
+    if (context.mounted) Navigator.pop(context);
   }
 }
 

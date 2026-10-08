@@ -26,7 +26,7 @@ final readonly class PaymentRequestInput
 
         return new self(
             expectedTotal: (int) ($data['expected_total'] ?? 0),
-            currency: $data['currency'] ?? 'FBU',
+            currency: strtoupper((string) ($data['currency'] ?? 'FBU')),
             lines: $lines,
             customerId: $data['customer_id'] ?? null,
             cashRegisterId: $data['cash_register_id'] ?? null,
@@ -36,9 +36,10 @@ final readonly class PaymentRequestInput
         );
     }
 
+    /** Paid total in sale currency (after FX conversion). */
     public function paidTotal(): int
     {
-        return array_sum(array_map(fn (PaymentLineInput $line) => $line->amount, $this->lines));
+        return array_sum(array_map(fn (PaymentLineInput $line) => $line->appliedAmount(), $this->lines));
     }
 
     public function isMixed(): bool
@@ -46,9 +47,35 @@ final readonly class PaymentRequestInput
         return count($this->lines) > 1;
     }
 
+    public function isMultiCurrency(): bool
+    {
+        foreach ($this->lines as $line) {
+            if ($line->currency !== null && strtoupper($line->currency) !== $this->currency) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @return list<string> */
     public function methods(): array
     {
         return array_map(fn (PaymentLineInput $line) => $line->method->value, $this->lines);
+    }
+
+    /** @param  list<PaymentLineInput>  $lines */
+    public function withLines(array $lines): self
+    {
+        return new self(
+            expectedTotal: $this->expectedTotal,
+            currency: $this->currency,
+            lines: $lines,
+            customerId: $this->customerId,
+            cashRegisterId: $this->cashRegisterId,
+            idempotencyKey: $this->idempotencyKey,
+            cart: $this->cart,
+            dueDate: $this->dueDate,
+        );
     }
 }

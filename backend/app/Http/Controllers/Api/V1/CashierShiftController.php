@@ -37,7 +37,7 @@ class CashierShiftController extends Controller
     {
         $shifts = CashierShift::query()
             ->whereHas('cashRegister', fn ($q) => $q->where('store_id', $store->id))
-            ->with(['cashier', 'cashRegister'])
+            ->with(['cashier', 'branch', 'cashRegister', 'device'])
             ->orderByDesc('opened_at')
             ->limit(50)
             ->get();
@@ -47,7 +47,7 @@ class CashierShiftController extends Controller
 
     public function showForStore(Store $store, CashierShift $cashierShift): JsonResponse
     {
-        $cashierShift->load(['cashier', 'cashRegister', 'registerSession', 'movements.performedBy']);
+        $cashierShift->load(['cashier', 'branch', 'cashRegister', 'device', 'registerSession', 'movements.performedBy']);
 
         if ($cashierShift->cashRegister?->store_id !== $store->id) {
             abort(404);
@@ -61,7 +61,7 @@ class CashierShiftController extends Controller
 
     public function showShift(CashierShift $cashierShift): JsonResponse
     {
-        $cashierShift->load(['cashier', 'cashRegister.store', 'registerSession', 'movements.performedBy']);
+        $cashierShift->load(['cashier', 'branch', 'cashRegister.store', 'device', 'registerSession', 'movements.performedBy']);
 
         return response()->json([
             'data' => $cashierShift,
@@ -77,6 +77,8 @@ class CashierShiftController extends Controller
             return response()->json(['data' => null]);
         }
 
+        $shift->loadMissing(['cashier', 'branch', 'cashRegister', 'device', 'registerSession']);
+
         return response()->json([
             'data' => $shift,
             'summary' => $this->shiftService->summary($shift),
@@ -89,6 +91,8 @@ class CashierShiftController extends Controller
             'opening_balance' => ['nullable', 'integer', 'min:0'],
             'opening_notes' => ['nullable', 'string'],
             'opened_at' => ['nullable', 'date'],
+            'client_uuid' => ['nullable', 'uuid'],
+            'device_id' => ['nullable', 'uuid', 'exists:devices,id'],
         ]);
 
         $shift = $this->shiftService->open(
@@ -97,6 +101,8 @@ class CashierShiftController extends Controller
             (int) ($data['opening_balance'] ?? 0),
             $data['opening_notes'] ?? null,
             isset($data['opened_at']) ? \Carbon\Carbon::parse($data['opened_at']) : null,
+            $data['client_uuid'] ?? $this->headerUuid($request),
+            $data['device_id'] ?? $this->headerDeviceId($request),
         );
 
         return response()->json([
@@ -135,6 +141,8 @@ class CashierShiftController extends Controller
             'pin' => ['required', 'regex:/^\d{4,6}$/'],
             'opening_balance' => ['nullable', 'integer', 'min:0'],
             'opening_notes' => ['nullable', 'string'],
+            'client_uuid' => ['nullable', 'uuid'],
+            'device_id' => ['nullable', 'uuid', 'exists:devices,id'],
         ]);
 
         $cashier = $this->userByPin($request, $data['pin']);
@@ -143,6 +151,9 @@ class CashierShiftController extends Controller
             $cashier,
             (int) ($data['opening_balance'] ?? 0),
             $data['opening_notes'] ?? null,
+            null,
+            $data['client_uuid'] ?? $this->headerUuid($request),
+            $data['device_id'] ?? $this->headerDeviceId($request),
         );
 
         return response()->json([
@@ -186,7 +197,7 @@ class CashierShiftController extends Controller
     public function index(CashRegister $cashRegister): JsonResponse
     {
         $shifts = $cashRegister->cashierShifts()
-            ->with(['cashier'])
+            ->with(['cashier', 'branch', 'device'])
             ->orderByDesc('opened_at')
             ->limit(50)
             ->get();
@@ -200,7 +211,7 @@ class CashierShiftController extends Controller
             abort(404);
         }
 
-        $cashierShift->load(['cashier', 'registerSession', 'movements.performedBy']);
+        $cashierShift->load(['cashier', 'branch', 'device', 'registerSession', 'movements.performedBy']);
 
         return response()->json([
             'data' => $cashierShift,
@@ -218,24 +229,34 @@ class CashierShiftController extends Controller
             'movement_type' => ['required', 'string', Rule::in([
                 CashMovementType::CashIn->value,
                 CashMovementType::CashOut->value,
+                CashMovementType::CashAdjustment->value,
                 CashMovementType::Expense->value,
             ])],
             'amount' => ['required', 'integer', 'min:1'],
+            'direction' => ['nullable', 'string', Rule::in(['in', 'out', 'increase', 'decrease'])],
             'description' => ['nullable', 'string', 'max:500'],
             'reference' => ['nullable', 'string', 'max:100'],
             'reference_type' => ['nullable', 'string', 'max:100'],
             'reference_id' => ['nullable', 'uuid'],
         ]);
 
+        $type = CashMovementType::from($data['movement_type']);
+        $reference = $data['reference'] ?? null;
+        $referenceType = $data['reference_type'] ?? null;
+        if ($type === CashMovementType::CashAdjustment) {
+            $reference = $data['direction'] ?? $reference ?? 'in';
+            $referenceType = $referenceType ?: 'adjustment_direction';
+        }
+
         $movement = $this->shiftService->recordMovement(
             $cashRegister,
             $cashierShift,
-            CashMovementType::from($data['movement_type']),
+            $type,
             (int) $data['amount'],
             $request->user(),
             $data['description'] ?? null,
-            $data['reference'] ?? null,
-            $data['reference_type'] ?? null,
+            $reference,
+            $referenceType,
             $data['reference_id'] ?? null,
         );
 
@@ -245,6 +266,20 @@ class CashierShiftController extends Controller
             'data' => $movement,
             'summary' => $this->shiftService->summary($cashierShift),
         ], 201);
+    }
+
+    private function headerUuid(Request $request): ?string
+    {
+        $uuid = (string) $request->header('X-Client-UUID', '');
+
+        return \Illuminate\Support\Str::isUuid($uuid) ? $uuid : null;
+    }
+
+    private function headerDeviceId(Request $request): ?string
+    {
+        $value = trim((string) $request->header('X-Device-ID', ''));
+
+        return $value !== '' ? $value : null;
     }
 
     private function userByPin(Request $request, string $pin): User

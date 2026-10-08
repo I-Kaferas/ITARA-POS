@@ -22,6 +22,8 @@ use App\Models\StockBalance;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\Payable\PayableService;
+use App\Services\Performance\ReadCache;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +35,25 @@ class ReportService
 
     /** @return array<string, mixed> */
     public function salesSummary(?string $storeId, ?Carbon $from, ?Carbon $to, bool $breakdowns = true): array
+    {
+        app(TenantContext::class)->requireId();
+
+        $key = implode('|', [
+            $storeId ?? '*',
+            $from?->toDateString() ?? '*',
+            $to?->toDateString() ?? '*',
+            $breakdowns ? 'full' : 'head',
+        ]);
+
+        return app(ReadCache::class)->remember(
+            'sales',
+            'sales-summary:'.$key,
+            fn () => $this->uncachedSalesSummary($storeId, $from, $to, $breakdowns),
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function uncachedSalesSummary(?string $storeId, ?Carbon $from, ?Carbon $to, bool $breakdowns): array
     {
         $query = Sale::query()->where('status', 'completed');
 
@@ -47,8 +68,6 @@ class ReportService
         if ($to) {
             $query->where('completed_at', '<=', $to->copy()->endOfDay());
         }
-
-        $sales = (clone $query)->get();
 
         $byDay = (clone $query)
             ->select(
@@ -80,18 +99,94 @@ class ReportService
             $returnsQuery->where('created_at', '<=', $to->copy()->endOfDay());
         }
 
+        if (! $breakdowns) {
+            $totals = (clone $query)->toBase()->selectRaw(
+                'COUNT(*) as sales_count, COALESCE(SUM(total), 0) as revenue, COALESCE(SUM(subtotal), 0) as subtotal, COALESCE(SUM(tax_total), 0) as tax_total, COALESCE(SUM(discount_total), 0) as discount_total, COALESCE(SUM(paid_amount), 0) as paid_amount, COALESCE(SUM(CASE WHEN total > COALESCE(paid_amount, 0) THEN total - COALESCE(paid_amount, 0) ELSE 0 END), 0) as outstanding_amount'
+            )->first();
+            $returnTotals = (clone $returnsQuery)->toBase()->selectRaw(
+                'COUNT(*) as returns_count, COALESCE(SUM(total), 0) as returns_total'
+            )->first();
+            $salesCount = (int) $totals->sales_count;
+            $revenue = (int) $totals->revenue;
+
+            return $this->salesSummaryPayload(
+                salesCount: $salesCount,
+                revenue: $revenue,
+                subtotal: (int) $totals->subtotal,
+                taxTotal: (int) $totals->tax_total,
+                discountTotal: (int) $totals->discount_total,
+                paidAmount: (int) $totals->paid_amount,
+                outstanding: (int) $totals->outstanding_amount,
+                returnsCount: (int) $returnTotals->returns_count,
+                returnsTotal: (int) $returnTotals->returns_total,
+                byDay: $byDay,
+            );
+        }
+
+        $sales = (clone $query)->get();
         $returns = (clone $returnsQuery)->get(['id', 'reason', 'total']);
         $salesCount = $sales->count();
         $revenue = (int) $sales->sum('total');
         $paidAmount = (int) $sales->sum('paid_amount');
         $outstanding = (int) $sales->sum(fn (Sale $s) => max(0, $s->total - $s->paid_amount));
 
+        return $this->salesSummaryPayload(
+            salesCount: $salesCount,
+            revenue: $revenue,
+            subtotal: (int) $sales->sum('subtotal'),
+            taxTotal: (int) $sales->sum('tax_total'),
+            discountTotal: (int) $sales->sum('discount_total'),
+            paidAmount: $paidAmount,
+            outstanding: $outstanding,
+            returnsCount: $returns->count(),
+            returnsTotal: (int) $returns->sum('total'),
+            byDay: $byDay,
+            byWeek: $this->groupSales($sales, 'week'),
+            byMonth: $this->groupSales($sales, 'month'),
+            byYear: $this->groupSales($sales, 'year'),
+            byWeekday: $this->salesByWeekday($sales),
+            aovByDay: $this->aovByDay($byDay),
+            monthlyRevenue: $this->monthlyRevenueBreakdown($sales),
+            invoiceStatus: $this->invoiceStatusDistribution($storeId, $from, $to),
+            orderStatus: $this->orderStatusDistribution($storeId, $from, $to),
+            returnsByType: $this->returnsByType($returns),
+            dimensions: $this->salesDimensions($sales),
+        );
+    }
+
+    /**
+     * @param  mixed  $byDay
+     * @param  array<string, mixed>|null  $dimensions
+     * @return array<string, mixed>
+     */
+    private function salesSummaryPayload(
+        int $salesCount,
+        int $revenue,
+        int $subtotal,
+        int $taxTotal,
+        int $discountTotal,
+        int $paidAmount,
+        int $outstanding,
+        int $returnsCount,
+        int $returnsTotal,
+        mixed $byDay,
+        array $byWeek = [],
+        array $byMonth = [],
+        array $byYear = [],
+        array $byWeekday = [],
+        array $aovByDay = [],
+        array $monthlyRevenue = [],
+        array $invoiceStatus = [],
+        array $orderStatus = [],
+        array $returnsByType = [],
+        ?array $dimensions = null,
+    ): array {
         return [
             'sales_count' => $salesCount,
             'revenue' => $revenue,
-            'subtotal' => (int) $sales->sum('subtotal'),
-            'tax_total' => (int) $sales->sum('tax_total'),
-            'discount_total' => (int) $sales->sum('discount_total'),
+            'subtotal' => $subtotal,
+            'tax_total' => $taxTotal,
+            'discount_total' => $discountTotal,
             'paid_amount' => $paidAmount,
             'outstanding_amount' => $outstanding,
             'average_order_value' => $salesCount > 0 ? (int) round($revenue / $salesCount) : 0,
@@ -100,20 +195,20 @@ class ReportService
                 'total' => 0,
                 'rate' => 0,
             ],
-            'returns_count' => $returns->count(),
-            'returns_total' => (int) $returns->sum('total'),
+            'returns_count' => $returnsCount,
+            'returns_total' => $returnsTotal,
             'by_day' => $byDay,
-            'by_week' => $breakdowns ? $this->groupSales($sales, 'week') : [],
-            'by_month' => $breakdowns ? $this->groupSales($sales, 'month') : [],
-            'by_year' => $breakdowns ? $this->groupSales($sales, 'year') : [],
-            'by_weekday' => $breakdowns ? $this->salesByWeekday($sales) : [],
-            'aov_by_day' => $breakdowns ? $this->aovByDay($byDay) : [],
-            'monthly_revenue' => $breakdowns ? $this->monthlyRevenueBreakdown($sales) : [],
-            'invoice_status' => $breakdowns ? $this->invoiceStatusDistribution($storeId, $from, $to) : [],
-            'order_status' => $breakdowns ? $this->orderStatusDistribution($storeId, $from, $to) : [],
+            'by_week' => $byWeek,
+            'by_month' => $byMonth,
+            'by_year' => $byYear,
+            'by_weekday' => $byWeekday,
+            'aov_by_day' => $aovByDay,
+            'monthly_revenue' => $monthlyRevenue,
+            'invoice_status' => $invoiceStatus,
+            'order_status' => $orderStatus,
             'delivery' => [],
-            'returns_by_type' => $breakdowns ? $this->returnsByType($returns) : [],
-            ...($breakdowns ? $this->salesDimensions($sales) : [
+            'returns_by_type' => $returnsByType,
+            ...($dimensions ?? [
                 'by_product' => [],
                 'by_category' => [],
                 'by_cashier' => [],
@@ -604,12 +699,15 @@ class ReportService
             $query->where('completed_at', '<=', $this->boundEnd($to));
         }
 
-        $sales = (clone $query)->get(['id', 'total', 'subtotal', 'tax_total', 'discount_total', 'completed_at']);
-        $salesCount = $sales->count();
-        $revenue = (int) $sales->sum('total');
-        $subtotal = (int) $sales->sum('subtotal');
-        $taxTotal = (int) $sales->sum('tax_total');
-        $discountTotal = (int) $sales->sum('discount_total');
+        $totals = (clone $query)->toBase()->selectRaw(
+            'COUNT(*) as sales_count, COALESCE(SUM(total), 0) as revenue, COALESCE(SUM(subtotal), 0) as subtotal, COALESCE(SUM(tax_total), 0) as tax_total, COALESCE(SUM(discount_total), 0) as discount_total'
+        )->first();
+        $saleIds = (clone $query)->pluck('id');
+        $salesCount = (int) $totals->sales_count;
+        $revenue = (int) $totals->revenue;
+        $subtotal = (int) $totals->subtotal;
+        $taxTotal = (int) $totals->tax_total;
+        $discountTotal = (int) $totals->discount_total;
 
         $byDay = (clone $query)
             ->select(
@@ -635,9 +733,9 @@ class ReportService
         $accompanimentCount = 0;
         $cogs = 0;
 
-        if (Schema::hasTable('sale_items') && $sales->isNotEmpty()) {
+        if (Schema::hasTable('sale_items') && $saleIds->isNotEmpty()) {
             $items = SaleItem::query()
-                ->whereIn('sale_id', $sales->pluck('id'))
+                ->whereIn('sale_id', $saleIds)
                 ->with(['product:id,name,sku,cost_price,category_id', 'product.category:id,name'])
                 ->get([
                     'id', 'sale_id', 'product_id', 'product_name', 'product_sku',
@@ -814,12 +912,23 @@ class ReportService
                 'net' => (int) $row->total_debit - (int) $row->total_credit,
             ]);
 
-        $revenue = (int) (clone $query)->where('account_code', '4000')->sum('credit')
-            - (int) (clone $query)->where('account_code', '4000')->sum('debit');
-        $cogs = (int) (clone $query)->where('account_code', '5000')->sum('debit')
-            - (int) (clone $query)->where('account_code', '5000')->sum('credit');
-        $tax = (int) (clone $query)->where('account_code', '2200')->sum('credit')
-            - (int) (clone $query)->where('account_code', '2200')->sum('debit');
+        $accountTotals = function (string $code) use ($byAccount): array {
+            $row = $byAccount->firstWhere('account_code', $code);
+            if (! is_array($row)) {
+                return ['debit' => 0, 'credit' => 0];
+            }
+
+            return [
+                'debit' => (int) ($row['total_debit'] ?? 0),
+                'credit' => (int) ($row['total_credit'] ?? 0),
+            ];
+        };
+        $salesAccount = $accountTotals('4000');
+        $cogsAccount = $accountTotals('5000');
+        $taxAccount = $accountTotals('2200');
+        $revenue = $salesAccount['credit'] - $salesAccount['debit'];
+        $cogs = $cogsAccount['debit'] - $cogsAccount['credit'];
+        $tax = $taxAccount['credit'] - $taxAccount['debit'];
 
         $operations = $this->operationalFinance($from, $to);
         if ($revenue === 0 && $operations['revenue'] > 0) {
@@ -1193,7 +1302,9 @@ class ReportService
             $shiftQuery = CashierShift::query()
                 ->with([
                     'cashier:id,name,email',
+                    'branch:id,name,code',
                     'cashRegister:id,name,code',
+                    'device:id,name,code',
                 ])
                 ->where('opened_at', '>=', $fromBound)
                 ->where('opened_at', '<=', $toBound)
@@ -1236,8 +1347,16 @@ class ReportService
                     'cashier_id' => (string) $shift->cashier_id,
                     'cashier_name' => $shift->cashier?->name,
                     'cashier_email' => $shift->cashier?->email,
+                    'branch_id' => $shift->branch_id ? (string) $shift->branch_id : null,
+                    'branch_name' => $shift->branch?->name,
+                    'device_id' => $shift->device_id ? (string) $shift->device_id : null,
+                    'terminal_name' => $shift->device?->name,
+                    'terminal_code' => $shift->device?->code,
                     'register_name' => $shift->cashRegister?->name,
                     'register_code' => $shift->cashRegister?->code,
+                    'shift_date' => $shift->shift_date,
+                    'opened_time' => $shift->opened_time,
+                    'closed_time' => $shift->closed_time,
                     'status' => $status,
                     'orders_count' => (int) $stats['orders_count'],
                     'sales_total' => (int) $stats['sales_total'],
@@ -2079,19 +2198,37 @@ class ReportService
     /** @return list<array<string, mixed>> */
     public function salesByStore(?Carbon $from, ?Carbon $to): array
     {
-        $stores = Store::query()->orderBy('name')->get(['id', 'name', 'code']);
+        app(TenantContext::class)->requireId();
 
-        return $stores->map(function (Store $store) use ($from, $to) {
-            $summary = $this->salesSummary($store->id, $from, $to, false);
+        $key = ($from?->toDateString() ?? '*').'|'.($to?->toDateString() ?? '*');
 
-            return [
-                'store_id' => $store->id,
-                'store_name' => $store->name,
-                'store_code' => $store->code,
-                'sales_count' => $summary['sales_count'],
-                'revenue' => $summary['revenue'],
-            ];
-        })->values()->all();
+        return app(ReadCache::class)->remember('sales', 'sales-by-store:'.$key, function () use ($from, $to) {
+            $query = Sale::query()->where('status', 'completed');
+            if ($from) {
+                $query->where('completed_at', '>=', $from->copy()->startOfDay());
+            }
+            if ($to) {
+                $query->where('completed_at', '<=', $to->copy()->endOfDay());
+            }
+
+            $totals = $query->toBase()
+                ->selectRaw('store_id, COUNT(*) as sales_count, COALESCE(SUM(total), 0) as revenue')
+                ->groupBy('store_id')
+                ->get()
+                ->keyBy('store_id');
+
+            return Store::query()->orderBy('name')->get(['id', 'name', 'code'])->map(function (Store $store) use ($totals) {
+                $row = $totals->get($store->id);
+
+                return [
+                    'store_id' => $store->id,
+                    'store_name' => $store->name,
+                    'store_code' => $store->code,
+                    'sales_count' => (int) ($row->sales_count ?? 0),
+                    'revenue' => (int) ($row->revenue ?? 0),
+                ];
+            })->values()->all();
+        });
     }
 
     /**

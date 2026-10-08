@@ -46,6 +46,12 @@ class CashierShiftObserver
             id: $shift->id,
             status: $shift->status?->value,
             data: [
+                'cashier_id' => $shift->cashier_id,
+                'branch_id' => $shift->branch_id,
+                'cash_register_id' => $shift->cash_register_id,
+                'device_id' => $shift->device_id,
+                'opened_at' => $shift->opened_at?->toIso8601String(),
+                'closed_at' => $shift->closed_at?->toIso8601String(),
                 'expected_cash' => $shift->expected_cash,
                 'sales_total' => $shift->sales_total,
                 'variance' => $shift->variance,

@@ -25,6 +25,11 @@ class PosFooterPanel extends StatelessWidget {
     required this.onPayment,
     this.requestPayment = false,
     this.onPaymentRequestHandled,
+    this.requestCustomer = false,
+    this.onCustomerRequestHandled,
+    this.requestRetrieve = false,
+    this.onRetrieveRequestHandled,
+    this.showShortcutLabels = false,
   });
 
   final PosCartEngine cart;
@@ -37,6 +42,11 @@ class PosFooterPanel extends StatelessWidget {
   final ValueChanged<PosPaymentResult> onPayment;
   final bool requestPayment;
   final VoidCallback? onPaymentRequestHandled;
+  final bool requestCustomer;
+  final VoidCallback? onCustomerRequestHandled;
+  final bool requestRetrieve;
+  final VoidCallback? onRetrieveRequestHandled;
+  final bool showShortcutLabels;
 
   String _money(int amount) =>
       MoneyFormatter.format(amount, currencyCode: AppConfig.currencyCode);
@@ -56,6 +66,20 @@ class PosFooterPanel extends StatelessWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         onPaymentRequestHandled?.call();
         if (context.mounted) _showPaymentDialog(context);
+      });
+    }
+    if (requestCustomer) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onCustomerRequestHandled?.call();
+        if (context.mounted) _showCustomerSheet(context);
+      });
+    }
+    if (requestRetrieve) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onRetrieveRequestHandled?.call();
+        if (context.mounted && cart.heldSales.isNotEmpty) {
+          _showHeldSalesSheet(context);
+        }
       });
     }
     return DecoratedBox(
@@ -81,7 +105,9 @@ class PosFooterPanel extends StatelessWidget {
                       Expanded(
                         child: _ActionChip(
                           icon: Icons.person_outline_rounded,
-                          label: cart.customer?.displayLabel ?? 'Client',
+                          label: showShortcutLabels
+                              ? '${cart.customer?.displayLabel ?? 'Client'} · F3'
+                              : (cart.customer?.displayLabel ?? 'Client'),
                           onTap: () => _showCustomerSheet(context),
                         ),
                       ),
@@ -207,14 +233,14 @@ class PosFooterPanel extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: cart.isEmpty ? null : onHold,
-                          child: const Text('Attente'),
+                          child: Text(showShortcutLabels ? 'Attente · F5' : 'Attente'),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: OutlinedButton(
                           onPressed: onNewSale,
-                          child: const Text('Nouvelle'),
+                          child: Text(showShortcutLabels ? 'Nouvelle · F2' : 'Nouvelle'),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -223,7 +249,11 @@ class PosFooterPanel extends StatelessWidget {
                           onPressed: cart.heldSales.isEmpty
                               ? null
                               : () => _showHeldSalesSheet(context),
-                          child: Text('Récup. (${cart.heldSales.length})'),
+                          child: Text(
+                            showShortcutLabels
+                                ? 'Récup. (${cart.heldSales.length}) · F6'
+                                : 'Récup. (${cart.heldSales.length})',
+                          ),
                         ),
                       ),
                     ],
@@ -246,7 +276,7 @@ class PosFooterPanel extends StatelessWidget {
                             side: BorderSide(color: AppColors.danger.withValues(alpha: 0.35)),
                             backgroundColor: AppColors.dangerBg,
                           ),
-                          child: const Text('Annuler'),
+                          child: Text(showShortcutLabels ? 'Annuler · ESC' : 'Annuler'),
                         ),
                       ),
                     ],
@@ -265,7 +295,7 @@ class PosFooterPanel extends StatelessWidget {
                           letterSpacing: 0.8,
                         ),
                       ),
-                      child: const Text('PAYER'),
+                      child: Text(showShortcutLabels ? 'PAYER · F4' : 'PAYER'),
                     ),
                   ),
                 ],
@@ -636,7 +666,7 @@ class PosFooterPanel extends StatelessWidget {
     controller.dispose();
   }
 
-  Future<void> _printKitchen(PosHeldSale sale) async {
+  Future<void> _printKitchen(BuildContext context, PosHeldSale sale) async {
     var ticket = sale;
     if (sale.lines.isEmpty && (sale.serverId?.isNotEmpty ?? false)) {
       final remote = await api.fetchSale(sale.serverId!);
@@ -674,7 +704,18 @@ class PosFooterPanel extends StatelessWidget {
         );
       }
     }
-    await KitchenTicketService().printHeldSale(ticket);
+    try {
+      await KitchenTicketService().printHeldSale(ticket);
+    } catch (_) {
+      // §41 — kitchen print failure must not cancel the sale / hold.
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impression cuisine échouée — la commande reste ouverte'),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _showHeldSalesSheet(BuildContext context) async {
@@ -852,7 +893,7 @@ class PosFooterPanel extends StatelessWidget {
                                           child: const Text('Payer'),
                                         ),
                                         OutlinedButton.icon(
-                                          onPressed: () => _printKitchen(sale),
+                                          onPressed: () => _printKitchen(ctx, sale),
                                           icon: const Icon(Icons.restaurant, size: 16),
                                           label: const Text('Bon de cuisine'),
                                         ),

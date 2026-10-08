@@ -50,6 +50,14 @@ class ReceiptCompany {
   final String? taxId;
   final dynamic address;
   final String? currencyCode;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'legal_name': legalName,
+        'tax_id': taxId,
+        'address': address,
+        'currency_code': currencyCode,
+      };
 }
 
 class ReceiptBranch {
@@ -67,6 +75,12 @@ class ReceiptBranch {
   final String? name;
   final String? code;
   final dynamic address;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'code': code,
+        'address': address,
+      };
 }
 
 class ReceiptPerson {
@@ -86,6 +100,13 @@ class ReceiptPerson {
   final String? name;
   final String? email;
   final String? phone;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'email': email,
+        'phone': phone,
+      };
 }
 
 class ReceiptLineItem {
@@ -118,6 +139,16 @@ class ReceiptLineItem {
   final int lineDiscount;
   final int lineTax;
   final int lineTotal;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'sku': sku,
+        'quantity': quantity,
+        'unit_price': unitPrice,
+        'line_discount': lineDiscount,
+        'line_tax': lineTax,
+        'line_total': lineTotal,
+      };
 }
 
 class ReceiptPaymentLine {
@@ -144,6 +175,14 @@ class ReceiptPaymentLine {
   final int amount;
   final int? tendered;
   final int? change;
+
+  Map<String, dynamic> toJson() => {
+        'method': method,
+        'method_label': methodLabel,
+        'amount': amount,
+        'tendered': tendered,
+        'change': change,
+      };
 }
 
 class ReceiptPrintPayload {
@@ -234,6 +273,33 @@ class ReceiptPrintPayload {
   final int change;
   final String? footer;
   final String? notes;
+
+  Map<String, dynamic> toJson() => {
+        'document_type': documentType,
+        'format': format.value,
+        'company': company.toJson(),
+        'branch': branch.toJson(),
+        'receipt_number': receiptNumber,
+        'invoice_number': invoiceNumber,
+        'document_number': documentNumber,
+        'sale_reference': saleReference,
+        'sale_id': saleId,
+        'date': date,
+        'cashier': cashier?.toJson(),
+        'customer': customer?.toJson(),
+        'items': items.map((e) => e.toJson()).toList(),
+        'subtotal': subtotal,
+        'discount_total': discountTotal,
+        'tax_total': taxTotal,
+        'fees_total': feesTotal,
+        'total': total,
+        'currency': currency,
+        'payments': payments.map((e) => e.toJson()).toList(),
+        'amount_paid': amountPaid,
+        'change': change,
+        'footer': footer,
+        'notes': notes,
+      };
 
   ReceiptPrintPayload copyWith({ReceiptDocumentFormat? format}) {
     return ReceiptPrintPayload(

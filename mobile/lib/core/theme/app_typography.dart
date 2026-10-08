@@ -33,6 +33,13 @@ abstract final class AppTypography {
         height: height,
       );
 
+  static TextStyle display({Color? color}) => plex(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+        color: color ?? AppColors.textPrimary,
+      );
+
   static TextStyle pageTitle({Color? color}) => plex(
         fontSize: 22,
         fontWeight: FontWeight.w600,
@@ -72,6 +79,12 @@ abstract final class AppTypography {
         color: color ?? AppColors.textSecondary,
       );
 
+  static TextStyle button({Color? color}) => plex(
+        fontSize: 13.5,
+        fontWeight: FontWeight.w600,
+        color: color ?? AppColors.textPrimary,
+      );
+
   static TextStyle money({
     double size = 14,
     FontWeight weight = FontWeight.w600,
@@ -82,26 +95,4 @@ abstract final class AppTypography {
         fontWeight: weight,
         color: color ?? AppColors.brandInk,
       );
-}
-
-/// Consistent spacing scale (4–48).
-abstract final class AppSpace {
-  static const double xs = 4;
-  static const double sm = 8;
-  static const double md = 12;
-  static const double lg = 16;
-  static const double xl = 20;
-  static const double xxl = 24;
-  static const double xxxl = 32;
-  static const double huge = 40;
-  static const double massive = 48;
-}
-
-/// Consistent corner radii.
-abstract final class AppRadius {
-  static const double sm = 8;
-  static const double md = 10;
-  static const double lg = 12;
-  static const double xl = 16;
-  static const double pill = 99;
 }

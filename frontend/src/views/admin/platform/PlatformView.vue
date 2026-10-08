@@ -14,6 +14,9 @@ import { api, extractApiErrorMessage } from '../../../api/client'
 import { useAuthStore } from '../../../stores/auth'
 import { useBrandingStore } from '../../../stores/branding'
 import { useContextStore } from '../../../stores/context'
+import { MODULE_CODES } from '../../../modules/registry'
+import PlatformBackupsPanel from './PlatformBackupsPanel.vue'
+import PlatformPlansPanel from './PlatformPlansPanel.vue'
 import { formatDateTime, formatMoney } from '../../../utils/format'
 
 type Company = {
@@ -24,6 +27,16 @@ type Company = {
   modules: string[]
   license: { key?: string | null; status: string; seats: number; expires_on?: string | null }
   subscription: { plan?: string | null; status: string; renews_on?: string | null }
+  billing?: {
+    plan: string
+    status: string
+    billing_cycle?: string
+    renews_on?: string | null
+    grace_ends_on?: string | null
+    trial_ends_on?: string | null
+    pending_plan?: string | null
+    open_invoice?: { id: string; number: string; amount: number } | null
+  } | null
   users: number
   devices: number
   open_support: number
@@ -33,17 +46,17 @@ type UserRow = { id: string; company?: string | null; name: string; email: strin
 type Ticket = { id: string; company: string; tenant_id: string; subject: string; message: string; status: string; created_at?: string }
 type AuditRow = { id: string; action: string; tenant_id?: string | null; payload?: Record<string, unknown> | null; ip_address?: string | null; created_at?: string; actor?: { name: string; email: string } | null }
 type Overview = { companies: number; users: number; devices: number; sales: number; revenue: number; plans?: Record<string, number> }
-type Tab = 'companies' | 'licenses' | 'subscriptions' | 'devices' | 'modules' | 'users' | 'stats' | 'support' | 'audit'
+type Tab = 'companies' | 'licenses' | 'subscriptions' | 'devices' | 'modules' | 'users' | 'stats' | 'support' | 'audit' | 'backups'
 type BadgeVariant = 'success' | 'neutral' | 'brand' | 'warning' | 'danger' | 'info'
 
-const moduleCodes = ['pos', 'stock', 'restaurant', 'hotel'] as const
-const subscriptionStatuses = ['active', 'trial', 'past_due', 'cancelled'] as const
+const moduleCodes = MODULE_CODES
+const subscriptionStatuses = ['active', 'trial', 'past_due', 'suspended', 'cancelled'] as const
 const licenseStatuses = ['active', 'suspended', 'expired'] as const
 const companyStatuses = ['trial', 'active', 'past_due', 'suspended', 'cancelled', 'archived'] as const
 const plans = [
-  { id: 'pos_stock', modules: ['pos', 'stock'] },
-  { id: 'pos_stock_restaurant', modules: ['pos', 'stock', 'restaurant'] },
-  { id: 'pos_stock_hotel_restaurant', modules: ['pos', 'stock', 'hotel', 'restaurant'] },
+  { id: 'pos_stock', modules: ['pos', 'inventory'] },
+  { id: 'pos_stock_restaurant', modules: ['pos', 'inventory', 'restaurant'] },
+  { id: 'pos_stock_hotel_restaurant', modules: ['pos', 'inventory', 'hotel', 'restaurant'] },
 ]
 const tabs: { id: Tab; icon: string }[] = [
   { id: 'companies', icon: 'building' },
@@ -55,6 +68,7 @@ const tabs: { id: Tab; icon: string }[] = [
   { id: 'stats', icon: 'dashboard' },
   { id: 'support', icon: 'mail' },
   { id: 'audit', icon: 'receipt' },
+  { id: 'backups', icon: 'layers' },
 ]
 
 const { t } = useI18n()
@@ -95,6 +109,13 @@ function emptyCreate() {
     timezone: 'Africa/Bujumbura',
     email: '',
     phone: '',
+    legal_name: '',
+    trade_name: '',
+    website: '',
+    country_code: 'BI',
+    tax_regime: '',
+    tax_id: '',
+    registration_number: '',
     status: 'trial',
     plan: 'pos_stock',
     admin_name: '',
@@ -109,7 +130,7 @@ function emptyEditor() {
     name: '',
     status: 'active',
     plan: '',
-    modules: ['pos', 'stock'] as string[],
+    modules: ['pos', 'inventory'] as string[],
     license_status: 'active',
     seats: 0,
     expires_on: '',
@@ -236,6 +257,7 @@ const sectionByRoute: Record<string, Tab> = {
   'platform-users': 'users',
   'platform-support': 'support',
   'platform-audit': 'audit',
+  'platform-backups': 'backups',
 }
 const routeByTab: Partial<Record<Tab, string>> = {
   stats: 'platform',
@@ -244,6 +266,7 @@ const routeByTab: Partial<Record<Tab, string>> = {
   users: 'platform-users',
   support: 'platform-support',
   audit: 'platform-audit',
+  backups: 'platform-backups',
 }
 
 function applyRouteSection() {
@@ -275,6 +298,13 @@ async function createCompany() {
       timezone: form.timezone.trim() || undefined,
       email: form.email.trim() || undefined,
       phone: form.phone.trim() || undefined,
+      legal_name: form.legal_name.trim() || undefined,
+      trade_name: form.trade_name.trim() || undefined,
+      website: form.website.trim() || undefined,
+      country_code: form.country_code.trim() || undefined,
+      tax_regime: form.tax_regime.trim() || undefined,
+      tax_id: form.tax_id.trim() || undefined,
+      registration_number: form.registration_number.trim() || undefined,
       status: form.status,
       plan: form.plan,
       admin_name: form.admin_name.trim() || undefined,
@@ -337,6 +367,28 @@ async function saveCompany() {
 
 async function setCompanyStatus(company: Company, status: string) {
   await run(() => api.patch(`/platform/companies/${company.id}`, { status }).then(() => undefined))
+}
+
+function commercialPlan(company: Company) {
+  return company.billing?.plan || company.subscription.plan
+}
+
+function commercialStatus(company: Company) {
+  return company.billing?.status || company.subscription.status
+}
+
+async function startGrace(company: Company) {
+  await run(() => api.post(`/platform/tenants/${company.id}/subscription/grace`).then(() => undefined))
+}
+
+async function suspendBilling(company: Company) {
+  await run(() => api.post(`/platform/tenants/${company.id}/subscription/suspend`).then(() => undefined))
+}
+
+async function collectInvoice(company: Company) {
+  const invoice = company.billing?.open_invoice
+  if (!invoice) return
+  await run(() => api.post(`/platform/invoices/${invoice.id}/payments`, { method: 'manual', status: 'succeeded' }).then(() => undefined))
 }
 
 async function copyId(id: string) {
@@ -505,8 +557,9 @@ onMounted(() => {
         </table>
       </DataTableShell>
 
+      <div v-else-if="tab === 'subscriptions'" class="platform-billing">
+      <PlatformPlansPanel />
       <DataTableShell
-        v-else-if="tab === 'subscriptions'"
         :title="t('platform.tabs.subscriptions')"
         :loading="loading"
         :empty="!loading && !filteredCompanies.length"
@@ -530,16 +583,23 @@ onMounted(() => {
           <tbody>
             <tr v-for="company in filteredCompanies" :key="company.id">
               <td class="font-medium">{{ company.name }}</td>
-              <td>{{ planLabel(company.subscription.plan) }}</td>
-              <td><Badge :variant="statusVariant(company.subscription.status)" dot>{{ statusLabel(company.subscription.status) }}</Badge></td>
-              <td>{{ company.subscription.renews_on || '—' }}</td>
-              <td class="text-right">
+              <td>
+                {{ planLabel(commercialPlan(company)) }}
+                <span v-if="company.billing?.pending_plan" class="platform-muted">{{ t('platform.billing.pending', { plan: planLabel(company.billing.pending_plan) }) }}</span>
+              </td>
+              <td><Badge :variant="statusVariant(commercialStatus(company))" dot>{{ statusLabel(commercialStatus(company)) }}</Badge></td>
+              <td>{{ company.billing?.renews_on || company.subscription.renews_on || company.billing?.grace_ends_on || '—' }}</td>
+              <td class="text-right platform-actions">
+                <button v-if="company.billing?.open_invoice" class="btn-secondary" type="button" @click="collectInvoice(company)">{{ t('platform.billing.collect') }}</button>
+                <button v-if="commercialStatus(company) !== 'past_due'" class="btn-secondary" type="button" @click="startGrace(company)">{{ t('platform.billing.grace') }}</button>
+                <button v-if="commercialStatus(company) !== 'suspended'" class="btn-secondary" type="button" @click="suspendBilling(company)">{{ t('platform.billing.suspend') }}</button>
                 <button class="btn-secondary" type="button" @click="openManage(company)">{{ t('platform.edit') }}</button>
               </td>
             </tr>
           </tbody>
         </table>
       </DataTableShell>
+      </div>
 
       <DataTableShell
         v-else-if="tab === 'modules'"
@@ -651,6 +711,8 @@ onMounted(() => {
         </article>
         <p v-if="!planRows.length && !loading" class="platform-muted">{{ t('platform.empty') }}</p>
       </section>
+
+      <PlatformBackupsPanel v-else-if="tab === 'backups'" />
 
       <DataTableShell
         v-else-if="tab === 'audit'"
@@ -772,6 +834,34 @@ onMounted(() => {
             <input v-model="createForm.phone" class="field" />
           </div>
           <div>
+            <FieldLabel icon="building">{{ t('platform.legalName') }}</FieldLabel>
+            <input v-model="createForm.legal_name" class="field" />
+          </div>
+          <div>
+            <FieldLabel icon="tag">{{ t('platform.tradeName') }}</FieldLabel>
+            <input v-model="createForm.trade_name" class="field" />
+          </div>
+          <div>
+            <FieldLabel icon="mail">{{ t('platform.website') }}</FieldLabel>
+            <input v-model="createForm.website" class="field" />
+          </div>
+          <div>
+            <FieldLabel icon="building">{{ t('platform.country') }}</FieldLabel>
+            <input v-model="createForm.country_code" class="field" maxlength="2" />
+          </div>
+          <div>
+            <FieldLabel icon="receipt">{{ t('platform.taxRegime') }}</FieldLabel>
+            <input v-model="createForm.tax_regime" class="field" />
+          </div>
+          <div>
+            <FieldLabel icon="receipt">{{ t('platform.taxId') }}</FieldLabel>
+            <input v-model="createForm.tax_id" class="field" />
+          </div>
+          <div>
+            <FieldLabel icon="receipt">{{ t('platform.registrationNumber') }}</FieldLabel>
+            <input v-model="createForm.registration_number" class="field" />
+          </div>
+          <div>
             <FieldLabel icon="building">{{ t('platform.status') }}</FieldLabel>
             <select v-model="createForm.status" class="field">
               <option v-for="status in companyStatuses" :key="status" :value="status">{{ statusLabel(status) }}</option>
@@ -882,6 +972,8 @@ onMounted(() => {
 
 <style scoped>
 .platform { display: flex; flex-direction: column; gap: var(--section-gap, 1rem); width: 100%; min-width: 0; }
+.platform-billing { display: flex; flex-direction: column; gap: 1rem; }
+.platform-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; }
 .platform-kpis { display: grid; gap: 0.75rem; width: 100%; grid-template-columns: repeat(auto-fit, minmax(9.25rem, 1fr)); }
 .platform-search { min-width: 14rem; }
 .platform-alert { margin: 0; color: var(--color-danger, #b91c1c); font-size: 0.875rem; }

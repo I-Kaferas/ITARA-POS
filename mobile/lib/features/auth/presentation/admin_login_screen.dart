@@ -167,7 +167,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           controller: _apiUrlCtrl,
                           decoration: const InputDecoration(
                             labelText: 'URL API',
-                            hintText: 'http://localhost:8000/api/v1',
+                            hintText: 'http://localhost:8001/api/v1',
                             prefixIcon: Icon(Icons.cloud_outlined),
                           ),
                           validator: (v) => (v == null || v.trim().isEmpty) ? 'URL requise' : null,

@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/network/network_bloc.dart';
+import '../../../core/network/operating_mode.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../sync/offline_store.dart';
 import '../../../sync/sync_engine.dart';
@@ -66,6 +69,10 @@ class _SyncScreenState extends State<SyncScreen> {
           child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
         children: [
+          BlocBuilder<NetworkBloc, NetworkState>(
+            builder: (context, network) => _OperatingModeCard(state: network),
+          ),
+          const SizedBox(height: 16),
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -80,12 +87,16 @@ class _SyncScreenState extends State<SyncScreen> {
           _ChainCard(ledger: _ledger, latest: _latestChain),
           const SizedBox(height: 16),
           Text(
-            snapshot.label,
+            snapshot.modeLabel,
             style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
-            'Cible: ${snapshot.target ?? 'aucune'}',
+            'Chemin: ${snapshot.mode.syncPath}',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          Text(
+            'Cible: ${snapshot.target ?? 'file locale (SQLite)'}',
             style: TextStyle(color: AppColors.textSecondary),
           ),
           Text(
@@ -94,12 +105,18 @@ class _SyncScreenState extends State<SyncScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'File → API → serveur → ACK → marqué synchronisé',
+            snapshot.mode == OperatingMode.isolatedOffline
+                ? 'Slave → Sync Queue → Master → Cloud (au retour)'
+                : 'File → API → serveur → ACK → marqué synchronisé',
             style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600),
           ),
           Text(
             engine.lastSent == 0 && engine.lastAcknowledged == 0
-                ? 'En attente du retour Internet. Rien n’est supprimé avant l’ACK.'
+                ? (snapshot.mode == OperatingMode.isolatedOffline
+                    ? 'Mode C — opérations en file locale. Rien n'est perdu.'
+                    : snapshot.mode == OperatingMode.localOffline
+                        ? 'Mode B — commerce local. Sync cloud en attente du réseau.'
+                        : 'En attente du retour réseau. Rien n'est supprimé avant l'ACK.')
                 : 'Dernier passage : ${engine.lastSent} envoyés · ${engine.lastAcknowledged} ACK · ${engine.lastKept} conservés · 0 perdu',
             style: TextStyle(color: AppColors.textSecondary),
           ),
@@ -164,7 +181,7 @@ class _SyncScreenState extends State<SyncScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          Text('File d’attente', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
+          Text('File d'attente', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           if (_items.isEmpty)
             Text('Aucune transaction locale.', style: TextStyle(color: AppColors.textMuted))
@@ -194,6 +211,118 @@ class _SyncScreenState extends State<SyncScreen> {
             }),
         ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OperatingModeCard extends StatelessWidget {
+  const _OperatingModeCard({required this.state});
+
+  final NetworkState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final mode = state.mode;
+    final color = switch (mode) {
+      OperatingMode.fullOnline => AppColors.success,
+      OperatingMode.localOffline => AppColors.accent,
+      OperatingMode.isolatedOffline => AppColors.warning,
+    };
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                mode.label,
+                style: GoogleFonts.ibmPlexSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            mode.description,
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            state.status.wire,
+            style: GoogleFonts.ibmPlexMono(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Rôle ${state.role.label} · Master ${state.masterReachable ? 'OK' : '—'} · Cloud ${state.internetReachable ? 'OK' : '—'}',
+            style: GoogleFonts.ibmPlexMono(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Chemin: ${mode.syncPath}',
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _CapChip('CanSell', state.canSell),
+              _CapChip('CanSyncMaster', state.canSyncMaster),
+              _CapChip('CanSyncCloud', state.canSyncCloud),
+              _CapChip('CanPrint', state.canPrint),
+              _CapChip('CanUseKitchen', state.canUseKitchen),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CapChip extends StatelessWidget {
+  const _CapChip(this.label, this.enabled);
+
+  final String label;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled ? AppColors.success : AppColors.textMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        '$label ${enabled ? '✓' : '—'}',
+        style: GoogleFonts.ibmPlexSans(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
         ),
       ),
     );
@@ -302,3 +431,4 @@ class _Stat extends StatelessWidget {
     );
   }
 }
+

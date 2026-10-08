@@ -2,18 +2,23 @@
 
 namespace App\Models;
 
+use App\Enums\PartyContext;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\SyncsWithParty;
+use App\Services\BusinessCore\PartyRegistry;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Customer extends Model
 {
-    use BelongsToTenant, HasUuids, SoftDeletes;
+    use BelongsToTenant, HasUuids, SoftDeletes, SyncsWithParty;
 
     protected $fillable = [
         'tenant_id',
+        'party_id',
         'code',
         'name',
         'company_name',
@@ -29,6 +34,9 @@ class Customer extends Model
         'notes',
         'metadata',
         'is_active',
+        'crm_role',
+        'job_title',
+        'crm_account_id',
     ];
 
     protected function casts(): array
@@ -55,6 +63,27 @@ class Customer extends Model
 
             $tenantId = (string) ($customer->tenant_id ?: app('tenant.id'));
             $customer->code = static::nextCode($tenantId);
+        });
+
+        static::created(function (Customer $customer): void {
+            if (! $customer->party_id || ! app(\App\Tenancy\TenantContext::class)->isBound()) {
+                return;
+            }
+
+            $registry = app(PartyRegistry::class);
+            $party = $customer->party;
+            if (! $party) {
+                return;
+            }
+
+            $context = match ($customer->crm_role) {
+                'prospect', 'client' => PartyContext::Crm,
+                default => PartyContext::Pos,
+            };
+            $registry->attachContext($party, PartyContext::Pos);
+            if ($customer->crm_account_id || in_array($customer->crm_role, ['prospect', 'client'], true)) {
+                $registry->attachContext($party, $context);
+            }
         });
     }
 
@@ -90,6 +119,16 @@ class Customer extends Model
         );
 
         return $candidate;
+    }
+
+    public function party(): BelongsTo
+    {
+        return $this->belongsTo(Party::class);
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(CrmAccount::class, 'crm_account_id');
     }
 
     public function addresses(): HasMany

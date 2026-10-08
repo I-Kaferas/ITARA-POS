@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Product;
 use App\Models\PurchaseInvoice;
 use App\Models\Supplier;
+use App\Services\BusinessCore\PartyRegistry;
 use App\Services\Supplier\SupplierLedgerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ class SupplierController extends Controller
 {
     public function __construct(
         private readonly SupplierLedgerService $ledger,
+        private readonly PartyRegistry $parties,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -35,7 +37,7 @@ class SupplierController extends Controller
             });
         }
 
-        return response()->json(['data' => $query->paginate($request->integer('per_page', 25))]);
+        return response()->json(['data' => $query->paginate($request->pageSize())]);
     }
 
     public function store(Request $request): JsonResponse
@@ -63,11 +65,25 @@ class SupplierController extends Controller
         $contactPerson = $this->blankToNull($data['contact_person'] ?? null);
         unset($data['contact_person']);
 
-        $supplier = Supplier::query()->create([
+        $code = $this->uniqueCode($data['code'] ?? null, $data['name']);
+        $address = $this->normalizeAddress($data['address'] ?? null);
+
+        $party = $this->parties->findOrCreate([
+            'name' => $data['name'],
+            'legal_name' => $data['legal_name'] ?? null,
+            'email' => $data['email'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'tax_id' => $data['tax_id'] ?? null,
+            'address' => $address,
+            'notes' => $data['notes'] ?? null,
+            'code' => $code,
+            'is_active' => $data['is_active'] ?? true,
+        ], \App\Enums\PartyKind::Organization);
+
+        $supplier = $this->parties->ensureSupplier($party, [
             ...$data,
-            'code' => $this->uniqueCode($data['code'] ?? null, $data['name']),
-            'address' => $this->normalizeAddress($data['address'] ?? null),
-            'tenant_id' => app('tenant.id'),
+            'code' => $code,
+            'address' => $address,
             'payment_terms_days' => $data['payment_terms_days'] ?? 30,
             'currency_code' => strtoupper($data['currency_code'] ?? $this->defaultCurrencyCode()),
             'is_active' => $data['is_active'] ?? true,
@@ -75,7 +91,7 @@ class SupplierController extends Controller
 
         $this->syncContactPerson($supplier, $contactPerson);
 
-        return response()->json(['data' => $supplier->fresh(['contacts'])], 201);
+        return response()->json(['data' => $supplier->fresh(['contacts', 'party'])], 201);
     }
 
     private function blankToNull(mixed $value): ?string

@@ -2,11 +2,13 @@
 
 namespace App\Services\Receipts;
 
+use App\Enums\NumberingDocumentType;
 use App\Enums\SaleDocumentFormat;
 use App\Enums\SaleInvoiceStatus;
 use App\Models\Sale;
 use App\Models\SaleInvoice;
 use App\Models\User;
+use App\Services\Numbering\ReferenceNumberGenerator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -14,6 +16,7 @@ class SaleInvoiceService
 {
     public function __construct(
         private readonly ReceiptPayloadService $payloadService,
+        private readonly ReferenceNumberGenerator $numbering,
     ) {}
 
     /** @return array<string, mixed> */
@@ -46,10 +49,16 @@ class SaleInvoiceService
             return $existing;
         }
 
+        $sale->loadMissing('store:id,branch_id');
+
         return SaleInvoice::query()->create([
             'tenant_id' => $sale->tenant_id,
             'sale_id' => $sale->id,
-            'invoice_number' => $this->nextInvoiceNumber($sale->tenant_id),
+            'invoice_number' => $this->numbering->next(
+                NumberingDocumentType::Invoice,
+                (string) $sale->tenant_id,
+                $sale->store?->branch_id,
+            ),
             'status' => SaleInvoiceStatus::Issued,
             'format' => $format,
             'issued_by' => $issuedBy?->id,
@@ -80,11 +89,4 @@ class SaleInvoiceService
         return $sale->invoices()->with(['issuedBy', 'cancelledBy'])->get();
     }
 
-    private function nextInvoiceNumber(string $tenantId): string
-    {
-        $prefix = config('receipts.invoice_prefix', 'INV');
-        $count = SaleInvoice::query()->where('tenant_id', $tenantId)->count();
-
-        return $prefix.'-'.str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
-    }
 }

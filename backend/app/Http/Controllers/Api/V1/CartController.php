@@ -19,6 +19,7 @@ class CartController extends Controller
     {
         $data = $request->validate([
             'items' => ['required', 'array', 'min:1'],
+            'currency' => ['nullable', 'string', 'size:3'],
             'customer_id' => ['nullable', 'uuid', 'exists:customers,id'],
             'items.*.line_id' => ['nullable', 'string', 'max:120'],
             'items.*.product_id' => ['nullable', 'uuid', 'exists:products,id'],

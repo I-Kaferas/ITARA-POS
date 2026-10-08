@@ -61,22 +61,24 @@ class ReceiptsPhase26Test extends TestCase
     {
         $saleId = $this->createCompletedSale();
         $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+        $year = now()->year;
+        $expected = "REC-{$year}-000001";
 
+        // Completed sales are sealed with a receipt; re-issue returns the same numbered record.
         $response = $this->postJson("/api/v1/sales/{$saleId}/receipt", [
             'format' => 'thermal_58',
         ], $headers)->assertCreated();
 
-        $response->assertJsonPath('data.receipt.format', 'thermal_58');
-        $this->assertStringStartsWith('REC-', $response->json('data.receipt.receipt_number'));
-        $this->assertSame('REC-000001', $response->json('data.receipt.receipt_number'));
-        $this->assertSame('REC-000001', $response->json('data.payload.receipt_number'));
-        $this->assertSame('thermal_58', $response->json('data.payload.format'));
+        $response->assertJsonPath('data.receipt.format', 'thermal_80');
+        $this->assertSame($expected, $response->json('data.receipt.receipt_number'));
+        $this->assertSame($expected, $response->json('data.payload.receipt_number'));
 
         $this->assertDatabaseHas('sale_receipts', [
             'sale_id' => $saleId,
-            'receipt_number' => 'REC-000001',
-            'format' => 'thermal_58',
+            'receipt_number' => $expected,
+            'format' => 'thermal_80',
         ]);
+        $this->assertDatabaseCount('sale_receipts', 1);
     }
 
     public function test_receipt_reprint_increments_counter(): void
@@ -108,13 +110,14 @@ class ReceiptsPhase26Test extends TestCase
 
         $response->assertJsonPath('data.invoice.format', 'a4');
         $response->assertJsonPath('data.invoice.status', 'issued');
-        $this->assertSame('INV-000001', $response->json('data.invoice.invoice_number'));
+        $year = now()->year;
+        $this->assertSame("INV-{$year}-000001", $response->json('data.invoice.invoice_number'));
         $this->assertSame('invoice', $response->json('data.payload.document_type'));
-        $this->assertSame('INV-000001', $response->json('data.payload.invoice_number'));
+        $this->assertSame("INV-{$year}-000001", $response->json('data.payload.invoice_number'));
 
         $this->assertDatabaseHas('sale_invoices', [
             'sale_id' => $saleId,
-            'invoice_number' => 'INV-000001',
+            'invoice_number' => "INV-{$year}-000001",
             'status' => 'issued',
         ]);
     }

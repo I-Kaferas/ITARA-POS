@@ -1,0 +1,2 @@
+﻿/// settings domain layer.
+library;

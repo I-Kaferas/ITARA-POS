@@ -9,7 +9,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
-import type { Currency } from '../../../types'
+import type { Currency, CurrencyExchangeRate } from '../../../types'
 import { getAppCurrency, setAppCurrency } from '../../../utils/currency'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
@@ -29,6 +29,10 @@ const filtered = computed(() => store.currencies.filter(currency =>
   matchesSearch(`${currency.code} ${currency.name} ${currency.symbol}`, filters.value.search)
   && matchesActive(currency.is_active, filters.value.active),
 ))
+const showHistory = ref(false)
+const historyCurrency = ref<Currency | null>(null)
+const rateHistory = ref<CurrencyExchangeRate[]>([])
+const historyLoading = ref(false)
 const form = ref({
   code: getAppCurrency(),
   name: '',
@@ -37,6 +41,7 @@ const form = ref({
   exchange_rate: 1,
   is_default: false,
   is_active: true,
+  note: '',
 })
 
 const activeCurrencies = computed(() =>
@@ -107,6 +112,7 @@ function openCreate() {
     exchange_rate: 1,
     is_default: !store.currencies.some(c => c.is_default),
     is_active: true,
+    note: '',
   }
   showModal.value = true
 }
@@ -121,18 +127,45 @@ function openEdit(currency: Currency) {
     exchange_rate: Number(currency.exchange_rate),
     is_default: currency.is_default,
     is_active: currency.is_active,
+    note: '',
   }
   showModal.value = true
+}
+
+async function openHistory(currency: Currency) {
+  historyCurrency.value = currency
+  showHistory.value = true
+  historyLoading.value = true
+  try {
+    rateHistory.value = await store.loadCurrencyRates(currency.id)
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function formatRateDate(value?: string | null) {
+  if (!value) return '—'
+  try {
+    return new Date(value).toLocaleString()
+  } catch {
+    return value
+  }
 }
 
 async function save() {
   saving.value = true
   try {
-    const saved = await store.saveCurrency({
-      ...form.value,
+    const payload = {
       code: form.value.code.toUpperCase(),
+      name: form.value.name,
       symbol: form.value.symbol || form.value.code.toUpperCase(),
-    }, editing.value?.id)
+      decimal_places: form.value.decimal_places,
+      exchange_rate: form.value.exchange_rate,
+      is_default: form.value.is_default,
+      is_active: form.value.is_active,
+      ...(form.value.note ? { note: form.value.note } : {}),
+    }
+    const saved = await store.saveCurrency(payload, editing.value?.id)
     await store.loadCurrencies()
     if (saved.is_default) {
       await store.loadCompanies()
@@ -217,6 +250,8 @@ function closeModal() {
               <th class="px-4 py-3 text-left font-medium">{{ t('org.name') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.symbol') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.decimalPlaces') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('org.exchangeRate') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('org.role') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.default') }}</th>
               <th class="px-4 py-3 text-right">{{ t('common.edit') }}</th>
             </tr>
@@ -227,8 +262,11 @@ function closeModal() {
               <td class="px-4 py-3">{{ currency.name }}</td>
               <td class="px-4 py-3">{{ currency.symbol }}</td>
               <td class="px-4 py-3">{{ currency.decimal_places }}</td>
+              <td class="px-4 py-3 tabular-nums">{{ Number(currency.exchange_rate) }}</td>
+              <td class="px-4 py-3">{{ currency.is_default ? t('org.primaryCurrency') : t('org.secondaryCurrency') }}</td>
               <td class="px-4 py-3">{{ currency.is_default ? '✓' : '—' }}</td>
               <td class="px-4 py-3 text-right space-x-2">
+                <button class="text-slate-600" @click="openHistory(currency)">{{ t('org.rateHistory') }}</button>
                 <button class="text-brand-600" @click="openEdit(currency)">{{ t('common.edit') }}</button>
                 <button class="text-red-600" @click="remove(currency)">{{ t('common.delete') }}</button>
               </td>
@@ -267,8 +305,20 @@ function closeModal() {
           </div>
           <div>
             <FieldLabel icon="coins">{{ t('org.exchangeRate') }}</FieldLabel>
-            <input v-model.number="form.exchange_rate" type="number" min="0" step="0.00000001" required class="field" />
+            <input
+              v-model.number="form.exchange_rate"
+              type="number"
+              min="0"
+              step="0.00000001"
+              required
+              class="field"
+              :disabled="form.is_default"
+            />
             <p class="mt-1 text-xs text-slate-500">{{ t('org.exchangeRateHint') }}</p>
+          </div>
+          <div v-if="editing" class="col-span-2">
+            <FieldLabel icon="tag">{{ t('org.rateNote') }}</FieldLabel>
+            <input v-model="form.note" class="field" :placeholder="t('org.rateNotePlaceholder')" />
           </div>
         </div>
 
@@ -291,6 +341,37 @@ function closeModal() {
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
+    </AppModal>
+
+    <AppModal
+      :open="showHistory"
+      :title="t('org.rateHistoryTitle', { code: historyCurrency?.code || '' })"
+      icon="coins"
+      tone="accent"
+      @close="showHistory = false"
+    >
+      <p v-if="historyLoading" class="text-sm text-slate-500">{{ t('common.loading') }}</p>
+      <div v-else class="overflow-hidden rounded-lg ring-1 ring-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">{{ t('org.effectiveAt') }}</th>
+              <th class="px-3 py-2 text-left font-medium">{{ t('org.exchangeRate') }}</th>
+              <th class="px-3 py-2 text-left font-medium">{{ t('org.previousRate') }}</th>
+              <th class="px-3 py-2 text-left font-medium">{{ t('org.rateNote') }}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="row in rateHistory" :key="row.id">
+              <td class="px-3 py-2">{{ formatRateDate(row.effective_at) }}</td>
+              <td class="px-3 py-2 tabular-nums">{{ Number(row.rate) }}</td>
+              <td class="px-3 py-2 tabular-nums">{{ row.previous_rate != null ? Number(row.previous_rate) : '—' }}</td>
+              <td class="px-3 py-2 text-slate-600">{{ row.note || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!rateHistory.length" class="px-3 py-6 text-center text-slate-500">{{ t('org.noRateHistory') }}</p>
+      </div>
     </AppModal>
   </component>
 </template>

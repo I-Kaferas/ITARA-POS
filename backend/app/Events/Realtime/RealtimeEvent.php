@@ -35,6 +35,11 @@ class RealtimeEvent implements ShouldBroadcastNow
             return [];
         }
 
+        $current = app(\App\Tenancy\TenantContext::class)->id();
+        if (is_string($current) && $current !== '' && $current !== $tenantId) {
+            return [];
+        }
+
         $channels = [new PrivateChannel('tenant.'.$tenantId)];
         $storeId = $this->payload['store_id'] ?? null;
         if (is_string($storeId) && $storeId !== '') {

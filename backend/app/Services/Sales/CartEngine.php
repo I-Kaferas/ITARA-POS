@@ -29,6 +29,8 @@ use App\Models\Store;
 
 use App\Models\StoreProduct;
 
+use App\Services\Catalog\CurrencyConverter;
+
 use App\Services\Catalog\PriceService;
 
 use App\Services\Promotions\PromotionEngine;
@@ -46,6 +48,8 @@ class CartEngine
         private readonly PriceService $priceService,
 
         private readonly PromotionEngine $promotionEngine,
+
+        private readonly CurrencyConverter $currencyConverter,
 
     ) {}
 
@@ -357,7 +361,10 @@ class CartEngine
 
         $store->loadMissing('branch.company');
 
-        $currency = $store->branch?->company?->currency_code ?? 'FBU';
+        $defaultCurrency = strtoupper($store->branch?->company?->currency_code ?? $this->currencyConverter->defaultCode());
+        $currency = isset($payload['currency']) && trim((string) $payload['currency']) !== ''
+            ? $this->currencyConverter->assertActive((string) $payload['currency'])
+            : $defaultCurrency;
 
 
 
@@ -379,7 +386,7 @@ class CartEngine
 
         foreach ($payload['items'] ?? [] as $index => $itemPayload) {
 
-            $items[] = $this->resolveStoreLine($store, $itemPayload, $index, $defaultPriceType);
+            $items[] = $this->resolveStoreLine($store, $itemPayload, $index, $defaultPriceType, $currency);
 
         }
 
@@ -425,11 +432,12 @@ class CartEngine
 
 
 
-    private function resolveStoreLine(Store $store, array $payload, int $index, string $defaultPriceType = 'retail'): CartItemInput
+    private function resolveStoreLine(Store $store, array $payload, int $index, string $defaultPriceType = 'retail', ?string $currency = null): CartItemInput
 
     {
 
         $priceType = $payload['price_type'] ?? $defaultPriceType;
+        $currency = $currency ? strtoupper($currency) : null;
 
         $quantity = max(1, (int) ($payload['quantity'] ?? 1));
 
@@ -495,7 +503,14 @@ class CartEngine
                     throw new \InvalidArgumentException('Sale unit is not available for this product.');
                 }
 
-                $payload['unit_price'] = $saleUnit->price;
+                $unitPrice = (int) $saleUnit->price;
+                if ($currency) {
+                    $defaultCode = $this->currencyConverter->defaultCode();
+                    if ($currency !== $defaultCode) {
+                        $unitPrice = $this->currencyConverter->convert($unitPrice, $defaultCode, $currency);
+                    }
+                }
+                $payload['unit_price'] = $unitPrice;
                 $payload['volume_ml'] = $saleUnit->volume_ml;
                 $payload['sale_unit_id'] = $saleUnit->id;
                 $payload['price_type'] = 'retail';
@@ -513,13 +528,13 @@ class CartEngine
 
                 $resolved = $storeProduct->price_override !== null
 
-                    ? $this->priceService->resolveForStoreProduct($storeProduct, $priceType, $quantity)
+                    ? $this->priceService->resolveForStoreProduct($storeProduct, $priceType, $quantity, currency: $currency)
 
-                    : $this->priceService->resolve($variant, $store, $priceType, $quantity);
+                    : $this->priceService->resolve($variant, $store, $priceType, $quantity, currency: $currency);
 
             } else {
 
-                $resolved = $this->priceService->resolveForStoreProduct($storeProduct, $priceType, $quantity);
+                $resolved = $this->priceService->resolveForStoreProduct($storeProduct, $priceType, $quantity, currency: $currency);
 
             }
 

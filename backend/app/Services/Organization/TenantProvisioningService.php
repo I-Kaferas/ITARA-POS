@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Payments\CompanyPaymentMethodService;
 use App\Services\Platform\SaasCatalog;
+use App\Services\Platform\SaasSubscriptionService;
 use App\Services\Rbac\RoleProvisioningService;
 use App\Support\TenantBranding;
 use App\Tenancy\TenantContext;
@@ -22,6 +23,7 @@ class TenantProvisioningService
         private readonly CompanyTaxDefaults $taxes,
         private readonly CompanyPaymentMethodService $paymentMethods,
         private readonly TenantContext $tenantContext,
+        private readonly SaasSubscriptionService $subscriptions,
     ) {}
 
     /**
@@ -64,10 +66,14 @@ class TenantProvisioningService
             $locale = $data['locale'] ?? 'fr';
             $timezone = $data['timezone'] ?? 'Africa/Bujumbura';
             $status = $data['status'] ?? 'trial';
-            $plan = array_key_exists($data['plan'] ?? '', SaasCatalog::PLANS) ? $data['plan'] : 'pos_stock';
+            $requestedPlan = $data['plan'] ?? 'pos_stock';
+            $bundle = array_key_exists($requestedPlan, SaasCatalog::PLANS) ? $requestedPlan : null;
+            $commercial = SaasCatalog::toCommercial(is_string($requestedPlan) ? $requestedPlan : null);
+            $this->subscriptions->ensureCatalog();
+            $commercialPlan = $this->subscriptions->plan($commercial);
             $settings = TenantBranding::demoSettings($name);
             $settings['saas'] = [
-                'modules' => SaasCatalog::PLANS[$plan],
+                'modules' => $commercialPlan->modules(),
                 'license' => [
                     'key' => 'ITARA-'.strtoupper(Str::random(4)).'-'.strtoupper(Str::random(4)),
                     'status' => 'active',
@@ -75,20 +81,39 @@ class TenantProvisioningService
                     'expires_on' => null,
                 ],
                 'subscription' => [
-                    'plan' => $plan,
+                    'plan' => $bundle ?? $commercial,
+                    'commercial_plan' => $commercial,
                     'status' => $status === 'trial' ? 'trial' : 'active',
+                    'billing_cycle' => 'yearly',
                     'renews_on' => null,
                 ],
                 'support' => [],
             ];
 
+            $subscription = $settings['saas']['subscription'];
             $tenant = Tenant::create([
                 'name' => $name,
+                'legal_name' => $data['legal_name'] ?? $name,
+                'trade_name' => $data['trade_name'] ?? $name,
                 'slug' => $slug,
+                'logo_url' => $data['logo_url'] ?? null,
+                'address' => $data['address'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'email' => $data['email'] ?? null,
+                'website' => $data['website'] ?? null,
+                'country_code' => strtoupper($data['country_code'] ?? 'BI'),
+                'currency_code' => $currency,
+                'timezone' => $timezone,
+                'locale' => $locale,
+                'tax_regime' => $data['tax_regime'] ?? null,
+                'tax_id' => $data['tax_id'] ?? null,
+                'registration_number' => $data['registration_number'] ?? null,
                 'status' => $status,
                 'settings' => $settings,
+                'subscription' => $subscription,
             ]);
 
+            $this->subscriptions->openForProvision($tenant, $commercial, $status);
             $this->roles->provisionForTenant($tenant);
             $this->tenantContext->bind($tenant);
             $admin = null;
@@ -97,9 +122,15 @@ class TenantProvisioningService
                 $company = Company::create([
                     'tenant_id' => $tenant->id,
                     'name' => $name,
-                    'trade_name' => $name,
+                    'legal_name' => $data['legal_name'] ?? $name,
+                    'trade_name' => $data['trade_name'] ?? $name,
+                    'tax_id' => $data['tax_id'] ?? null,
+                    'registration_number' => $data['registration_number'] ?? null,
                     'email' => $data['email'] ?? null,
                     'phone' => $data['phone'] ?? null,
+                    'website' => $data['website'] ?? null,
+                    'logo_url' => $data['logo_url'] ?? null,
+                    'address' => $data['address'] ?? null,
                     'currency_code' => $currency,
                     'locale' => $locale,
                     'timezone' => $timezone,

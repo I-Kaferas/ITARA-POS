@@ -11,7 +11,7 @@ import EmptyState from '../../components/ui/EmptyState.vue'
 import LoadingBlock from '../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useContextStore } from '../../stores/context'
-import type { Catalog, Company } from '../../types'
+import type { Catalog, Company, Product } from '../../types'
 import { isStockableProduct } from '../../utils/product'
 import { formatMoney } from '../../utils/format'
 
@@ -24,6 +24,12 @@ const context = useContextStore()
 const search = ref('')
 const selectedCompany = ref<Company | null>(null)
 const selectedCatalog = ref<Catalog | null>(null)
+const rows = ref<Product[]>([])
+const page = ref(1)
+const lastPage = ref(1)
+const total = ref(0)
+const loadingProducts = ref(false)
+const perPage = 40
 
 onMounted(async () => {
   await context.loadStores()
@@ -42,15 +48,27 @@ async function selectCompany(companyId: string) {
   selectedCompany.value = store.companies.find(c => c.id === companyId) ?? null
   const catalogs = await store.loadCatalogs(companyId, context.currentStoreId)
   selectedCatalog.value = catalogs.find(c => c.is_default) ?? catalogs[0] ?? null
-  if (selectedCatalog.value) {
-    await store.loadProducts(selectedCatalog.value.id, search.value)
+  page.value = 1
+  if (selectedCatalog.value) await loadPage(1)
+}
+
+async function loadPage(next = page.value) {
+  if (!selectedCatalog.value) return
+  loadingProducts.value = true
+  page.value = next
+  try {
+    const response = await store.loadProductPage(selectedCatalog.value.id, search.value, next, perPage)
+    rows.value = response.data
+    lastPage.value = response.meta.last_page
+    total.value = response.meta.total
+  } finally {
+    loadingProducts.value = false
   }
 }
 
 async function onSearch() {
-  if (selectedCatalog.value) {
-    await store.loadProducts(selectedCatalog.value.id, search.value)
-  }
+  page.value = 1
+  await loadPage(1)
 }
 
 watchLiveSearch(search, onSearch)
@@ -58,9 +76,7 @@ watchLiveSearch(search, onSearch)
 async function removeProduct(id: string) {
   if (!(await confirmDialog(t('products.confirmDelete')))) return
   await store.deleteProduct(id)
-  if (selectedCatalog.value) {
-    await store.loadProducts(selectedCatalog.value.id, search.value)
-  }
+  await loadPage(page.value)
 }
 
 
@@ -69,7 +85,9 @@ function primaryImage(product: { images?: { cdn_url: string; is_primary: boolean
 }
 
 const catalogOptions = computed(() => store.catalogs)
-const productCount = computed(() => store.products.length)
+const productCount = computed(() => total.value)
+const pageFrom = computed(() => (total.value === 0 ? 0 : (page.value - 1) * perPage + 1))
+const pageTo = computed(() => Math.min(page.value * perPage, total.value))
 </script>
 
 <template>
@@ -86,7 +104,7 @@ const productCount = computed(() => store.products.length)
         <select
           class="ui-select"
           :value="selectedCatalog?.id"
-          @change="selectedCatalog = catalogOptions.find(c => c.id === ($event.target as HTMLSelectElement).value) ?? null; selectedCatalog && store.loadProducts(selectedCatalog.id, search)"
+          @change="selectedCatalog = catalogOptions.find(c => c.id === ($event.target as HTMLSelectElement).value) ?? null; page = 1; selectedCatalog && loadPage(1)"
         >
           <option v-for="c in catalogOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
@@ -113,13 +131,18 @@ const productCount = computed(() => store.products.length)
       </button>
     </div>
 
-    <LoadingBlock v-if="store.loading" variant="table" :label="t('common.loading')" />
+    <LoadingBlock v-if="loadingProducts" variant="table" :label="t('common.loading')" />
 
     <div v-else class="ui-table-wrap">
       <div v-if="productCount" class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <p class="m-0 text-xs font-medium text-slate-500">
-          {{ productCount }} {{ productCount > 1 ? 'produits' : 'produit' }}
+          {{ pageFrom }}–{{ pageTo }} / {{ total }}
         </p>
+        <div v-if="lastPage > 1" class="flex items-center gap-2">
+          <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" :disabled="page <= 1" @click="loadPage(page - 1)">‹</button>
+          <span class="text-xs text-slate-500">{{ page }} / {{ lastPage }}</span>
+          <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" :disabled="page >= lastPage" @click="loadPage(page + 1)">›</button>
+        </div>
       </div>
 
       <table v-if="productCount" class="ui-table">
@@ -138,11 +161,13 @@ const productCount = computed(() => store.products.length)
           </tr>
         </thead>
         <tbody>
-          <tr v-for="product in store.products" :key="product.id">
+          <tr v-for="product in rows" :key="product.id">
             <td>
               <img
                 v-if="primaryImage(product)"
                 :src="primaryImage(product)"
+                loading="lazy"
+                decoding="async"
                 class="h-10 w-10 rounded-lg object-cover ring-1 ring-slate-200"
                 alt=""
               />

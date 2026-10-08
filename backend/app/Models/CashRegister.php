@@ -57,6 +57,11 @@ class CashRegister extends Model
         return $this->hasMany(CashMovement::class);
     }
 
+    public function cashierShifts(): HasMany
+    {
+        return $this->hasMany(CashierShift::class);
+    }
+
     public function openCashierShift(): HasOne
     {
         return $this->hasOne(CashierShift::class)->where('status', 'open')->latest('opened_at');

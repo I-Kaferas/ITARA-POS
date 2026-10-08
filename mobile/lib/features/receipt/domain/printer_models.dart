@@ -1,31 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../printers/domain/printer_connection_type.dart';
 import 'receipt_models.dart';
 
-enum PrinterConnection {
-  system,
-  network,
-  bluetooth;
-
-  static PrinterConnection fromString(String? value) {
-    return PrinterConnection.values.firstWhere(
-      (item) => item.name == value,
-      orElse: () => PrinterConnection.system,
-    );
-  }
-
-  String get label => switch (this) {
-        PrinterConnection.system => 'Système',
-        PrinterConnection.network => 'Réseau',
-        PrinterConnection.bluetooth => 'Bluetooth',
-      };
-
-  String get hint => switch (this) {
-        PrinterConnection.system => 'Imprimante Windows ou Android déjà installée',
-        PrinterConnection.network => 'Imprimante ticket sur le réseau, port 9100',
-        PrinterConnection.bluetooth => 'Imprimante appairée en Bluetooth',
-      };
-}
+export '../../printers/domain/printer_connection_type.dart';
 
 class PrinterModelPreset {
   const PrinterModelPreset({
@@ -35,7 +13,7 @@ class PrinterModelPreset {
     required this.format,
     required this.hint,
     this.defaultPort = 9100,
-    this.connection = PrinterConnection.network,
+    this.connection = PrinterConnectionType.lan,
   });
 
   final String id;
@@ -44,7 +22,7 @@ class PrinterModelPreset {
   final ReceiptDocumentFormat format;
   final int defaultPort;
   final String hint;
-  final PrinterConnection connection;
+  final PrinterConnectionType connection;
 
   static const all = <PrinterModelPreset>[
     PrinterModelPreset(
@@ -53,7 +31,7 @@ class PrinterModelPreset {
       brand: 'Générique',
       format: ReceiptDocumentFormat.thermal58,
       hint: 'Petite caisse, souvent Bluetooth',
-      connection: PrinterConnection.bluetooth,
+      connection: PrinterConnectionType.bluetooth,
     ),
     PrinterModelPreset(
       id: 'generic_80',
@@ -89,7 +67,7 @@ class PrinterModelPreset {
       brand: 'Star',
       format: ReceiptDocumentFormat.thermal80,
       hint: 'Souvent en USB système',
-      connection: PrinterConnection.system,
+      connection: PrinterConnectionType.usb,
     ),
     PrinterModelPreset(
       id: 'star_tsp143',
@@ -111,7 +89,7 @@ class PrinterModelPreset {
       brand: 'Xprinter',
       format: ReceiptDocumentFormat.thermal58,
       hint: 'Bluetooth ou USB',
-      connection: PrinterConnection.bluetooth,
+      connection: PrinterConnectionType.bluetooth,
     ),
     PrinterModelPreset(
       id: 'xprinter_80',
@@ -140,7 +118,7 @@ class PrinterModelPreset {
       brand: 'Sunmi',
       format: ReceiptDocumentFormat.thermal58,
       hint: 'Imprimante du terminal Android',
-      connection: PrinterConnection.system,
+      connection: PrinterConnectionType.system,
     ),
     PrinterModelPreset(
       id: 'a4',
@@ -148,7 +126,7 @@ class PrinterModelPreset {
       brand: 'Bureau',
       format: ReceiptDocumentFormat.a4,
       hint: 'Facture laser ou jet d’encre',
-      connection: PrinterConnection.system,
+      connection: PrinterConnectionType.system,
     ),
   ];
 
@@ -157,8 +135,5 @@ class PrinterModelPreset {
   }
 }
 
-IconData printerConnectionIcon(PrinterConnection connection) => switch (connection) {
-      PrinterConnection.system => Icons.print_outlined,
-      PrinterConnection.network => Icons.lan_outlined,
-      PrinterConnection.bluetooth => Icons.bluetooth,
-    };
+IconData printerConnectionIcon(PrinterConnectionType connection) =>
+    connection.icon;

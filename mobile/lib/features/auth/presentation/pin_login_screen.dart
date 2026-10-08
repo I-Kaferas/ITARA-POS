@@ -1,14 +1,13 @@
-import 'dart:convert';
-
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/config/terminal_config_repository.dart';
+import '../../../core/config/terminal_bloc.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
-import '../data/pin_auth_service.dart';
+import 'bloc/authentication_bloc.dart';
 
 class PinLoginScreen extends StatefulWidget {
   const PinLoginScreen({super.key});
@@ -18,11 +17,8 @@ class PinLoginScreen extends StatefulWidget {
 }
 
 class _PinLoginScreenState extends State<PinLoginScreen> {
-  final _auth = PinAuthService();
   final _pinCtrl = TextEditingController();
   final _pinFocus = FocusNode();
-  bool _loading = false;
-  String? _error;
 
   String get _pin => _pinCtrl.text;
 
@@ -47,52 +43,14 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (_pin.length != 4 || _loading) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final session = await _auth.login(_pin);
-      final repo = TerminalConfigRepository.instance;
-      final profile = await _auth.downloadCompanyProfile(
-        token: session.token,
-        tenantId: repo.config.tenantId,
-      );
-      final currency = (profile?['currency_code'] as String?)?.trim();
-      final locale = (profile?['locale'] as String?)?.trim();
-      final timezone = (profile?['timezone'] as String?)?.trim();
-      await repo.save(repo.config.copyWith(
-        authToken: session.token,
-        refreshToken: session.refreshToken,
-        tokenExpiresAt: DateTime.now().add(Duration(seconds: session.expiresIn)).toIso8601String(),
-        cashierId: session.id,
-        cashierName: session.name,
-        permissions: session.permissions,
-        roles: session.roles,
-        pinVerifier: PinAuthService.pinVerifier(session.id, _pin),
-        isSignedIn: true,
-        currencyCode: currency == null || currency.isEmpty ? repo.config.currencyCode : currency,
-        locale: locale == null || locale.isEmpty ? repo.config.locale : locale,
-        timezone: timezone == null || timezone.isEmpty ? repo.config.timezone : timezone,
-        companyProfile: profile == null ? repo.config.companyProfile : jsonEncode(profile),
-      ));
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _error = error.toString().replaceFirst('Exception: ', '');
-        _pinCtrl.clear();
-        _loading = false;
-      });
-      _pinFocus.requestFocus();
-    }
+  void _submit() {
+    if (_pin.length != 4) return;
+    context.read<AuthenticationBloc>().add(AuthenticationPinSubmitted(_pin));
   }
 
   void _append(String digit) {
-    if (_loading || _pin.length >= 4) return;
-    setState(() => _error = null);
+    final loading = context.read<AuthenticationBloc>().state.isLoading;
+    if (loading || _pin.length >= 4) return;
     _pinCtrl.text = '$_pin$digit';
     _pinCtrl.selection = TextSelection.collapsed(offset: _pinCtrl.text.length);
     if (_pinCtrl.text.length == 4) {
@@ -101,117 +59,134 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
   }
 
   void _backspace() {
-    if (_loading || _pin.isEmpty) return;
+    final loading = context.read<AuthenticationBloc>().state.isLoading;
+    if (loading || _pin.isEmpty) return;
     _pinCtrl.text = _pin.substring(0, _pin.length - 1);
     _pinCtrl.selection = TextSelection.collapsed(offset: _pinCtrl.text.length);
   }
 
   void _clear() {
-    if (_loading) return;
+    if (context.read<AuthenticationBloc>().state.isLoading) return;
     _pinCtrl.clear();
     _pinFocus.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
-    final config = TerminalConfigRepository.instance.config;
-    final name = config.deviceName.trim().isEmpty ? 'Terminal POS' : config.deviceName.trim();
-    final brandName = config.brandName;
-    final logoUrl = config.brandLogoUrl;
+    final terminal = context.watch<TerminalBloc>().state.config;
+    final name = terminal.deviceName.trim().isEmpty ? 'Terminal POS' : terminal.deviceName.trim();
+    final brandName = terminal.brandName;
+    final logoUrl = terminal.brandLogoUrl;
     final wide = PosUi.isWide(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Scaffold(
-      backgroundColor: AppColors.canvas,
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            const Positioned(
-              top: 12,
-              right: 12,
-              child: ThemeModeButton(),
-            ),
-            // Capture clavier physique / HID sans occuper de place visible.
-            Positioned(
-              left: 0,
-              top: 0,
-              width: 1,
-              height: 1,
-              child: TextField(
-                controller: _pinCtrl,
-                focusNode: _pinFocus,
-                autofocus: true,
-                enabled: !_loading,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  counterText: '',
+    return BlocConsumer<AuthenticationBloc, AuthenticationState>(
+      listenWhen: (prev, next) =>
+          prev.status != next.status || prev.errorMessage != next.errorMessage,
+      listener: (context, state) {
+        if (state.status == AuthenticationStatus.failure) {
+          _pinCtrl.clear();
+          _pinFocus.requestFocus();
+        }
+      },
+      builder: (context, auth) {
+        final loading = auth.isLoading;
+        final error = auth.status == AuthenticationStatus.failure
+            ? auth.errorMessage
+            : null;
+
+        return Scaffold(
+          backgroundColor: AppColors.canvas,
+          resizeToAvoidBottomInset: true,
+          body: SafeArea(
+            child: Stack(
+              children: [
+                const Positioned(
+                  top: 12,
+                  right: 12,
+                  child: ThemeModeButton(),
                 ),
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onSubmitted: (_) => _submit(),
-              ),
-            ),
-            Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(20, 28, 20, 24 + bottomInset),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: wide ? 880 : 400),
-                  child: wide
-                      ? Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: _BrandPanel(
-                                name: name,
-                                brandName: brandName,
-                                logoUrl: logoUrl,
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            Expanded(
-                              child: _AuthPanel(
-                                pinLength: _pin.length,
-                                loading: _loading,
-                                error: _error,
-                                onDigit: _append,
-                                onBack: _backspace,
-                                onClear: _clear,
-                                onSubmit: _submit,
-                                showPad: true,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          children: [
-                            _BrandPanel(
-                              name: name,
-                              brandName: brandName,
-                              logoUrl: logoUrl,
-                              compact: true,
-                            ),
-                            const SizedBox(height: 16),
-                            _AuthPanel(
-                              pinLength: _pin.length,
-                              loading: _loading,
-                              error: _error,
-                              onDigit: _append,
-                              onBack: _backspace,
-                              onClear: _clear,
-                              onSubmit: _submit,
-                              showPad: true,
-                            ),
-                          ],
-                        ),
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  width: 1,
+                  height: 1,
+                  child: TextField(
+                    controller: _pinCtrl,
+                    focusNode: _pinFocus,
+                    autofocus: true,
+                    enabled: !loading,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                    ),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onSubmitted: (_) => _submit(),
+                  ),
                 ),
-              ),
+                Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(20, 28, 20, 24 + bottomInset),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: wide ? 880 : 400),
+                      child: wide
+                          ? Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _BrandPanel(
+                                    name: name,
+                                    brandName: brandName,
+                                    logoUrl: logoUrl,
+                                  ),
+                                ),
+                                const SizedBox(width: 20),
+                                Expanded(
+                                  child: _AuthPanel(
+                                    pinLength: _pin.length,
+                                    loading: loading,
+                                    error: error,
+                                    onDigit: _append,
+                                    onBack: _backspace,
+                                    onClear: _clear,
+                                    onSubmit: _submit,
+                                    showPad: true,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Column(
+                              children: [
+                                _BrandPanel(
+                                  name: name,
+                                  brandName: brandName,
+                                  logoUrl: logoUrl,
+                                  compact: true,
+                                ),
+                                const SizedBox(height: 16),
+                                _AuthPanel(
+                                  pinLength: _pin.length,
+                                  loading: loading,
+                                  error: error,
+                                  onDigit: _append,
+                                  onBack: _backspace,
+                                  onClear: _clear,
+                                  onSubmit: _submit,
+                                  showPad: true,
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -480,7 +455,7 @@ class _Pad extends StatelessWidget {
         final isAction = key == 'clear' || key == 'back';
         final label = switch (key) {
           'clear' => 'C',
-          'back' => '⌫',
+          'back' => 'âŒ«',
           _ => key,
         };
         return Material(
@@ -521,3 +496,4 @@ class _Pad extends StatelessWidget {
     );
   }
 }
+

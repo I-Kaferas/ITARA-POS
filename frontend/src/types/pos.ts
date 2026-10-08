@@ -153,4 +153,6 @@ export interface PosPaymentLine {
   method: string
   amount: number
   tendered?: number
+  /** Tender currency when different from the sale/cart currency */
+  currency?: string
 }

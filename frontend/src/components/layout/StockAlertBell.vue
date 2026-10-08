@@ -1,53 +1,55 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppIcon from '../ui/AppIcon.vue'
 import { api } from '../../api/client'
+import { realtimeTopics, useRealtimeSync } from '../../composables/useRealtimeSync'
+import { useRealtimeStore } from '../../stores/realtime'
 
-type WatchItem = { kind: string; title: string; detail: string }
+type InboxItem = {
+  id: string
+  event: string
+  title: string
+  body: string
+  context?: { link?: string } | null
+  read_at: string | null
+}
 
 const { t } = useI18n()
 const router = useRouter()
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
-const alerts = ref<WatchItem[]>([])
+const alerts = ref<InboxItem[]>([])
+const unread = ref(0)
+const realtime = useRealtimeStore()
 let timer: ReturnType<typeof setInterval> | undefined
 
-const visible = computed(() => alerts.value.slice(0, 12))
+useRealtimeSync(realtimeTopics.notifications, () => load())
 
-const targets: Record<string, string> = {
-  low_stock: '/admin/inventory/alerts',
-  expired: '/admin/inventory/alerts',
-  sync_failed: '/admin/organization/devices',
-  cash_open: '/admin/pos/shifts',
-  credit_overdue: '/admin/customers',
-  order_pending: '/admin/pos/orders',
-}
+const visible = computed(() => alerts.value.slice(0, 8))
 
 async function load() {
   try {
-    alerts.value = (await api.get<{ data: WatchItem[] }>('/notifications')).data ?? []
+    const payload = await api.get<{ data: InboxItem[]; meta?: { unread?: number } }>('/notification-center?per_page=8')
+    alerts.value = payload.data ?? []
+    unread.value = payload.meta?.unread ?? alerts.value.filter(item => !item.read_at).length
   } catch {
     alerts.value = []
+    unread.value = 0
   }
 }
 
-function typeLabel(kind: string): string {
-  const labels: Record<string, string> = {
-    low_stock: t('stockAlerts.lowStock'),
-    expired: t('stockAlerts.expired'),
-    sync_failed: t('stockAlerts.syncFailed'),
-    cash_open: t('stockAlerts.cashOpen'),
-    credit_overdue: t('stockAlerts.creditOverdue'),
-    order_pending: t('stockAlerts.orderPending'),
-  }
-  return labels[kind] ?? kind
+function typeLabel(event: string): string {
+  const key = `notifications.events.${event}`
+  const label = t(key)
+  return label === key ? event : label
 }
 
-function openItem(item: WatchItem) {
+function openItem(item: InboxItem) {
   open.value = false
-  void router.push(targets[item.kind] ?? '/admin/inventory/alerts')
+  if (!item.read_at) void api.post(`/notification-center/${item.id}/read`).catch(() => undefined)
+  void router.push(item.context?.link || '/admin/notifications')
 }
 
 function onDocumentClick(event: MouseEvent) {
@@ -56,12 +58,18 @@ function onDocumentClick(event: MouseEvent) {
 
 function seeAll() {
   open.value = false
-  void router.push('/admin/inventory/alerts')
+  void router.push('/admin/notifications')
 }
+
+watch(open, (isOpen) => {
+  if (isOpen) void load()
+})
 
 onMounted(() => {
   void load()
-  timer = setInterval(() => void load(), 60_000)
+  timer = setInterval(() => {
+    if (realtime.status !== 'connected') void load()
+  }, 60_000)
   document.addEventListener('click', onDocumentClick)
 })
 
@@ -75,22 +83,22 @@ onBeforeUnmount(() => {
   <div ref="root" class="stock-bell">
     <div v-if="open" class="stock-bell__panel" role="dialog" :aria-label="t('stockAlerts.title')">
       <div class="stock-bell__head">
-        <p class="stock-bell__title">{{ t('stockAlerts.title') }}</p>
-        <p class="stock-bell__count">{{ t('stockAlerts.count', { count: visible.length }) }}</p>
+        <p class="stock-bell__title">{{ t('notifications.title') }}</p>
+        <p class="stock-bell__count">{{ t('notifications.unread', { count: unread }) }}</p>
       </div>
 
       <ul v-if="visible.length" class="stock-bell__list">
-        <li v-for="(alert, index) in visible" :key="`${alert.kind}-${index}`">
+        <li v-for="alert in visible" :key="alert.id">
           <button type="button" class="stock-bell__item" @click="openItem(alert)">
             <span class="stock-bell__name">{{ alert.title }}</span>
-            <span class="stock-bell__meta">{{ typeLabel(alert.kind) }} · {{ alert.detail }}</span>
+            <span class="stock-bell__meta">{{ typeLabel(alert.event) }} · {{ alert.body }}</span>
           </button>
         </li>
       </ul>
-      <p v-else class="stock-bell__empty">{{ t('stockAlerts.empty') }}</p>
+      <p v-else class="stock-bell__empty">{{ t('notifications.empty') }}</p>
 
       <button type="button" class="stock-bell__all" @click="seeAll">
-        {{ t('stockAlerts.seeAll') }}
+        {{ t('notifications.openCenter') }}
       </button>
     </div>
 
@@ -98,12 +106,12 @@ onBeforeUnmount(() => {
       type="button"
       class="stock-bell__btn"
       :class="{ 'stock-bell__btn--open': open }"
-      :aria-label="t('stockAlerts.title')"
-      :title="t('stockAlerts.title')"
+      :aria-label="t('notifications.title')"
+      :title="t('notifications.title')"
       @click="open = !open"
     >
       <AppIcon name="bell" :size="16" />
-      <span v-if="visible.length" class="stock-bell__badge">{{ visible.length > 9 ? '9+' : visible.length }}</span>
+      <span v-if="unread" class="stock-bell__badge">{{ unread > 9 ? '9+' : unread }}</span>
     </button>
   </div>
 </template>

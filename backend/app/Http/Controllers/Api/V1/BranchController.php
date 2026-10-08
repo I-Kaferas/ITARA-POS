@@ -2,17 +2,24 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\NumberingDocumentType;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\BranchExpense;
 use App\Models\Company;
+use App\Models\Tenant;
+use App\Services\Numbering\ReferenceNumberGenerator;
 use App\Services\Organization\BranchProfileService;
+use App\Services\Platform\SaasLimitGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class BranchController extends Controller
 {
-    public function __construct(private readonly BranchProfileService $profiles) {}
+    public function __construct(
+        private readonly BranchProfileService $profiles,
+        private readonly ReferenceNumberGenerator $numbering,
+    ) {}
 
     public function index(Company $company): JsonResponse
     {
@@ -31,6 +38,11 @@ class BranchController extends Controller
             'settings.receipt_footer' => ['nullable', 'string', 'max:500'],
             'is_active' => ['boolean'],
         ]);
+
+        $tenant = Tenant::query()->find($company->tenant_id);
+        if ($tenant) {
+            app(SaasLimitGuard::class)->assertWithin($tenant, 'branches');
+        }
 
         $branch = $company->branches()->create([
             ...$data,
@@ -93,6 +105,11 @@ class BranchController extends Controller
             ...$data,
             'tenant_id' => $branch->tenant_id,
             'branch_id' => $branch->id,
+            'reference' => $this->numbering->next(
+                NumberingDocumentType::Expense,
+                (string) $branch->tenant_id,
+                $branch->id,
+            ),
             'category' => $data['category'] ?? 'other',
             'currency_code' => strtoupper($data['currency_code'] ?? 'FBU'),
             'occurred_on' => $data['occurred_on'] ?? now()->toDateString(),

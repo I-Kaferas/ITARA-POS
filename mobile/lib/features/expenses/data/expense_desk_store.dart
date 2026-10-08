@@ -4,6 +4,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../data/local/audit_log_store.dart';
 import '../../../data/local/local_database.dart';
 import '../../accounting/data/ledger_store.dart';
 
@@ -26,9 +27,8 @@ class ExpenseDeskStore {
   Future<Map<String, dynamic>> snapshot() async {
     final db = await _db;
     final rows = await db.query(
-      'hospitality_docs',
-      where: "kind = 'expense_ticket'",
-      orderBy: 'updated_at DESC',
+      'expenses',
+      orderBy: 'created_at DESC',
       limit: 40,
     );
     final config = TerminalConfigRepository.instance.config;
@@ -42,7 +42,11 @@ class ExpenseDeskStore {
         'user': config.cashierName.isEmpty ? 'Caissier' : config.cashierName,
       },
       'expenses': rows.map((row) {
-        final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
+        Map<String, dynamic> json = {};
+        try {
+          final decoded = jsonDecode(row['json'] as String? ?? '{}');
+          if (decoded is Map) json = Map<String, dynamic>.from(decoded);
+        } catch (_) {}
         return {...json, 'id': row['id']};
       }).toList(),
     };
@@ -73,6 +77,7 @@ class ExpenseDeskStore {
     final linkSession = action['link_session'] == false ? '' : sessionId;
 
     final id = const Uuid().v4();
+    final now = DateTime.now().toIso8601String();
     final json = {
       'id': id,
       'category': category[0],
@@ -83,22 +88,46 @@ class ExpenseDeskStore {
       'cash_session_id': linkSession,
       'user_id': config.cashierId,
       'user_name': userName,
-      'created_at': DateTime.now().toIso8601String(),
+      'created_at': now,
     };
     final db = await _db;
-    await db.insert('hospitality_docs', {
+    await db.insert('expenses', {
       'id': id,
-      'kind': 'expense_ticket',
-      'parent_id': linkSession.isEmpty ? null : linkSession,
+      'category': category[0],
+      'description': description,
+      'amount': amount,
+      'cash_session_id': linkSession.isEmpty ? null : linkSession,
+      'user_id': config.cashierId,
+      'branch': branch,
       'status': 'recorded',
       'json': jsonEncode(json),
-      'updated_at': DateTime.now().toIso8601String(),
+      'created_at': now,
     });
+    // Keep legacy hospitality mirror for Master API consumers still filtering by kind.
+    await db.insert(
+      'hospitality_docs',
+      {
+        'id': id,
+        'kind': 'expense_ticket',
+        'parent_id': linkSession.isEmpty ? null : linkSession,
+        'status': 'recorded',
+        'json': jsonEncode(json),
+        'updated_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     await LedgerStore.instance.expense({
       'amount': amount,
       'memo': '${category[1]} · $description',
       'settlement': linkSession.isEmpty ? 'payable' : 'cash',
     });
+    await AuditLogStore.instance.record(
+      action: 'expense.recorded',
+      actorId: config.cashierId,
+      entityType: 'expense',
+      entityId: id,
+      meta: {'amount': amount, 'category': category[0]},
+    );
     return snapshot();
   }
 

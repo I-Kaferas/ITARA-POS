@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\PartyContext;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Services\BusinessCore\PartyRegistry;
 use App\Services\Customer\CustomerLedgerService;
 use App\Services\Customer\CustomerLoyaltyService;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +17,7 @@ class CustomerController extends Controller
     public function __construct(
         private readonly CustomerLedgerService $ledger,
         private readonly CustomerLoyaltyService $loyalty,
+        private readonly PartyRegistry $parties,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -34,7 +37,7 @@ class CustomerController extends Controller
             });
         }
 
-        return response()->json(['data' => $query->paginate($request->integer('per_page', 25))]);
+        return response()->json(['data' => $query->paginate($request->pageSize())]);
     }
 
     public function store(Request $request): JsonResponse
@@ -70,14 +73,25 @@ class CustomerController extends Controller
             $data['code'] = $code !== '' ? $code : null;
         }
 
-        $customer = Customer::query()->create([
+        $party = $this->parties->findOrCreate([
+            'name' => $data['name'],
+            'company_name' => $data['company_name'] ?? null,
+            'email' => $data['email'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'tax_id' => $data['tax_id'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'code' => $data['code'] ?? null,
+            'is_active' => $data['is_active'] ?? true,
+        ]);
+
+        $customer = $this->parties->ensureCustomer($party, [
             ...$data,
             'tenant_id' => $tenantId,
             'payment_terms_days' => $data['payment_terms_days'] ?? 0,
             'is_active' => $data['is_active'] ?? true,
-        ]);
+        ], PartyContext::Pos);
 
-        return response()->json(['data' => $customer], 201);
+        return response()->json(['data' => $customer->load('party')], 201);
     }
 
     public function show(Customer $customer): JsonResponse

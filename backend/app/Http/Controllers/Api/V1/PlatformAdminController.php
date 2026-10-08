@@ -5,12 +5,16 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\PlatformAuditLog;
+use App\Models\SaasInvoice;
+use App\Models\SaasSubscription;
 use App\Models\Sale;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Platform\PlatformAuditLogger;
+use App\Modules\ModuleRegistry;
 use App\Services\Platform\SaasCatalog;
+use App\Services\Platform\SaasSubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -23,6 +27,7 @@ class PlatformAdminController extends Controller
         private readonly AuthorizationService $authorization,
         private readonly SaasCatalog $saas,
         private readonly PlatformAuditLogger $audit,
+        private readonly SaasSubscriptionService $subscriptions,
     ) {}
 
     public function overview(Request $request): JsonResponse
@@ -66,18 +71,24 @@ class PlatformAdminController extends Controller
             });
         }
 
-        $rows = $query->get()->map(function (Tenant $tenant) use ($users, $devices) {
+        $billingRows = SaasSubscription::query()->get()->keyBy('tenant_id');
+        $openInvoices = SaasInvoice::query()->where('status', 'open')->orderBy('due_on')->get()->groupBy('tenant_id');
+
+        $rows = $query->get()->map(function (Tenant $tenant) use ($users, $devices, $billingRows, $openInvoices) {
             $saas = $this->saas->saas($tenant);
+            $open = $openInvoices->get($tenant->id)?->first();
 
             return [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
                 'slug' => $tenant->slug,
                 'status' => $tenant->status,
+                'profile' => $tenant->profile(),
                 'modules' => $saas['modules'],
                 'modules_locked' => $saas['modules_locked'],
                 'license' => $saas['license'],
                 'subscription' => $saas['subscription'],
+                'billing' => $this->subscriptions->summarize($billingRows->get($tenant->id), $open),
                 'open_support' => collect($saas['support'])->where('status', 'open')->count(),
                 'users' => (int) ($users[$tenant->id] ?? 0),
                 'devices' => (int) ($devices[$tenant->id] ?? 0),
@@ -94,11 +105,11 @@ class PlatformAdminController extends Controller
             'status' => ['sometimes', Rule::in(SaasCatalog::LIFECYCLE)],
             'plan' => ['sometimes', 'nullable', Rule::in(array_keys(SaasCatalog::PLANS))],
             'modules' => ['sometimes', 'array'],
-            'modules.*' => ['string', Rule::in(SaasCatalog::MODULES)],
+            'modules.*' => ['string', Rule::in(array_merge(ModuleRegistry::CODES, array_keys(ModuleRegistry::ALIASES)))],
             'license_status' => ['sometimes', Rule::in(['active', 'suspended', 'expired'])],
             'license_seats' => ['sometimes', 'integer', 'min:0'],
             'license_expires_on' => ['sometimes', 'nullable', 'date'],
-            'subscription_status' => ['sometimes', Rule::in(['active', 'trial', 'past_due', 'cancelled'])],
+            'subscription_status' => ['sometimes', Rule::in(['active', 'trial', 'past_due', 'suspended', 'cancelled'])],
             'renews_on' => ['sometimes', 'nullable', 'date'],
         ]);
 
@@ -114,7 +125,10 @@ class PlatformAdminController extends Controller
         if (array_key_exists('modules', $data)) {
             $modules = array_values(array_unique($data['modules']));
         }
-        $saas['modules'] = array_values(array_intersect(SaasCatalog::MODULES, $modules));
+        $saas['modules'] = ModuleRegistry::normalize($modules);
+        if ($saas['modules'] === []) {
+            return response()->json(['message' => 'At least one module must stay on.'], 422);
+        }
         $saas['license']['key'] = $saas['license']['key'] ?? ('ITARA-'.strtoupper(Str::random(4)).'-'.strtoupper(Str::random(4)));
         $saas['license']['status'] = $data['license_status'] ?? ($saas['license']['status'] ?? 'active');
         $saas['license']['seats'] = $data['license_seats'] ?? ($saas['license']['seats'] ?? 0);
@@ -128,10 +142,25 @@ class PlatformAdminController extends Controller
             : ($saas['subscription']['renews_on'] ?? null);
         $settings['saas'] = $saas;
         $tenant->settings = $settings;
+        $tenant->subscription = $saas['subscription'];
         if (isset($data['status'])) {
             $tenant->status = $data['status'];
         }
         $tenant->save();
+
+        $legacy = [];
+        if (isset($data['subscription_status'])) {
+            $legacy['status'] = $data['subscription_status'];
+        }
+        if (array_key_exists('renews_on', $data)) {
+            $legacy['renews_on'] = $saas['subscription']['renews_on'] ?? null;
+        }
+        if (isset($data['status']) && in_array($data['status'], ['trial', 'active', 'past_due', 'suspended', 'cancelled'], true)) {
+            $legacy['status'] = $data['status'];
+        }
+        if ($legacy !== []) {
+            $this->subscriptions->alignLegacy($tenant, $legacy);
+        }
 
         $this->audit->record($request->user(), 'tenant.updated', $tenant->id, [
             'status' => $tenant->status,

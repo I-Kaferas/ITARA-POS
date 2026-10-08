@@ -19,6 +19,7 @@ use App\Services\Accounting\AccountingEntryService;
 use App\Services\Audit\AuditLogService;
 use App\Services\Inventory\InventoryMovementService;
 use App\Services\Supplier\SupplierLedgerService;
+use App\Services\Transactions\TransactionEngine;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -30,6 +31,7 @@ class GoodsReceiptService
         private readonly AccountingEntryService $accountingService,
         private readonly AuditLogService $auditLogService,
         private readonly PurchaseOrderService $purchaseOrderService,
+        private readonly TransactionEngine $transactionEngine,
     ) {}
 
     /**
@@ -192,7 +194,7 @@ class GoodsReceiptService
             'recorded_by' => $recordedBy?->id,
         ]);
 
-        return PurchaseInvoice::query()->create([
+        $invoice = PurchaseInvoice::query()->create([
             'tenant_id' => $purchaseOrder->tenant_id,
             'purchase_order_id' => $purchaseOrder->id,
             'goods_receipt_id' => $receipt->id,
@@ -207,6 +209,10 @@ class GoodsReceiptService
             'due_date' => now()->addDays($supplier->payment_terms_days),
             'invoiced_at' => now(),
         ]);
+
+        $this->transactionEngine->recordPurchase($invoice->load('purchaseOrder'));
+
+        return $invoice;
     }
 
     private function nextReceiptNumber(string $tenantId): string

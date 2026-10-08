@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/pos_models.dart';
+import '../../services/pos_favorites_store.dart';
 import 'pos_ui.dart';
 
 class PosCategorySidebar extends StatelessWidget {
@@ -13,6 +14,7 @@ class PosCategorySidebar extends StatelessWidget {
     required this.onCategorySelected,
     this.counts = const {},
     this.totalCount = 0,
+    this.favoritesCount = 0,
   });
 
   final List<PosCategory> categories;
@@ -20,6 +22,7 @@ class PosCategorySidebar extends StatelessWidget {
   final ValueChanged<String?> onCategorySelected;
   final Map<String, int> counts;
   final int totalCount;
+  final int favoritesCount;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +45,14 @@ class PosCategorySidebar extends StatelessWidget {
             selected: selectedCategoryId == null,
             onTap: () => onCategorySelected(null),
           ),
+          _CategoryTile(
+            label: 'Favoris',
+            count: favoritesCount,
+            depth: 0,
+            selected: selectedCategoryId == PosFavoritesStore.favoritesCategoryId,
+            onTap: () => onCategorySelected(PosFavoritesStore.favoritesCategoryId),
+            icon: Icons.star_rounded,
+          ),
           for (final category in categories)
             _CategoryTile(
               label: category.name,
@@ -63,6 +74,7 @@ class _CategoryTile extends StatelessWidget {
     required this.depth,
     required this.selected,
     required this.onTap,
+    this.icon,
   });
 
   final String label;
@@ -70,6 +82,7 @@ class _CategoryTile extends StatelessWidget {
   final int depth;
   final bool selected;
   final VoidCallback onTap;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +101,14 @@ class _CategoryTile extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(10 + depth * 10.0, 10, 10, 10),
               child: Row(
                 children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      size: 15,
+                      color: selected ? Colors.white : AppColors.accent,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   Expanded(
                     child: Text(
                       label,

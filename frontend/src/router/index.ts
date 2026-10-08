@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '../api/client'
+import { moduleEnabled, moduleRequiredForPath } from '../modules/registry'
 import { useAuthStore } from '../stores/auth'
 import { useContextStore } from '../stores/context'
 
@@ -464,6 +465,12 @@ const router = createRouter({
               meta: { requiresAuth: true },
             },
         {
+              path: 'crm',
+              name: 'crm',
+              component: () => import('../views/admin/crm/CrmView.vue'),
+              meta: { requiresAuth: true },
+            },
+        {
               path: 'customers/:id',
               name: 'customer-detail',
               component: () => import('../views/admin/customers/CustomerDetailView.vue'),
@@ -740,6 +747,12 @@ const router = createRouter({
               meta: { requiresAuth: true, platformSection: 'audit' },
             },
         {
+              path: 'platform/backups',
+              name: 'platform-backups',
+              component: () => import('../views/admin/platform/PlatformView.vue'),
+              meta: { requiresAuth: true, platformSection: 'backups' },
+            },
+        {
               path: 'customer-hub/dashboard',
               name: 'customer-hub-dashboard',
               component: () => import('../views/admin/customer-hub/CustomerHubDashboardView.vue'),
@@ -770,6 +783,18 @@ const router = createRouter({
               meta: { requiresAuth: true, titleKey: 'nav.customerHubItems.payments' },
             },
         {
+              path: 'settings/modules',
+              name: 'settings-modules',
+              component: () => import('../views/admin/settings/ModulesView.vue'),
+              meta: { requiresAuth: true, titleKey: 'modules.title' },
+            },
+        {
+              path: 'modules/:code',
+              name: 'module-home',
+              component: () => import('../views/admin/modules/ModuleHomeView.vue'),
+              meta: { requiresAuth: true },
+            },
+        {
               path: 'settings/subscription',
               name: 'settings-subscription',
               component: () => import('../views/admin/settings/SubscriptionView.vue'),
@@ -794,6 +819,12 @@ const router = createRouter({
               meta: { requiresAuth: true, titleKey: 'nav.settingsItems.analytics' },
             },
             {
+              path: 'notifications',
+              name: 'notifications',
+              component: () => import('../views/admin/notifications/NotificationCenterView.vue'),
+              meta: { requiresAuth: true, titleKey: 'notifications.title' },
+            },
+            {
               path: 'settings/merchant-qr',
               name: 'settings-merchant-qr',
               component: () => import('../views/admin/settings/MerchantQrView.vue'),
@@ -810,6 +841,12 @@ const router = createRouter({
               name: 'settings',
               component: () => import('../views/admin/account/SettingsView.vue'),
               meta: { requiresAuth: true },
+            },
+        {
+              path: 'design',
+              name: 'design-system',
+              component: () => import('../views/admin/DesignSystemView.vue'),
+              meta: { requiresAuth: true, titleKey: 'design.title' },
             },
         {
               path: 'profile',
@@ -852,6 +889,10 @@ router.beforeEach(async (to) => {
     }
     if (auth.user?.tenant_id && !context.stores.length) {
       await context.loadStores()
+    }
+    const required = moduleRequiredForPath(to.path)
+    if (required && !moduleEnabled(auth.user?.modules, required)) {
+      return { name: 'dashboard' }
     }
   }
 

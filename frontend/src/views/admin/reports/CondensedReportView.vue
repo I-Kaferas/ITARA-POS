@@ -638,18 +638,11 @@ onMounted(() => {
 
 
 
-.btn-secondary,
-
-
 .btn-secondary {
   border: 1px solid #cbd5e1;
   background: var(--color-surface);
-  color: var(--color-text-secondary);}
-
-.btn-secondary:disabled,
-
-
-
+  color: var(--color-text-secondary);
+}
 
 @media (max-width: 720px) {
   .donut {

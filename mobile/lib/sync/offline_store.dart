@@ -10,6 +10,7 @@ import '../core/config/app_config.dart';
 import '../core/config/terminal_config_repository.dart';
 import '../data/local/local_database.dart';
 import '../features/pos/domain/pos_models.dart';
+import 'outbox/sync_outbox.dart';
 import 'sync_models.dart';
 import 'sync_numbers.dart';
 
@@ -251,17 +252,13 @@ class OfflineStore {
         'sync_status': SyncQueueStatus.pending.name,
         'created_at': now,
       });
-      await txn.insert('sync_queue', {
-        'id': const Uuid().v4(),
-        'entity_type': 'customer',
-        'entity_id': id,
-        'operation': 'create',
-        'payload': jsonEncode(payload),
-        'priority': 0,
-        'status': SyncQueueStatus.pending.name,
-        'attempts': 0,
-        'created_at': now,
-      });
+      await SyncOutbox.instance.enqueue(
+        entity: 'customer',
+        entityId: id,
+        operation: 'create',
+        payload: payload,
+        executor: txn,
+      );
     });
 
     return customer;
@@ -490,14 +487,18 @@ class OfflineStore {
         );
       }
 
-      final queued = await txn.query('sync_queue', where: "entity_type = 'sale' AND status != 'synced'");
+      final queued = await txn.query(
+        SyncOutbox.table,
+        where: "entity = 'sale' AND status != ?",
+        whereArgs: [OutboxStatus.synced.wire],
+      );
       for (final row in queued) {
         final payload = jsonDecode(row['payload'] as String) as Map<String, dynamic>;
         if (!_payloadUsesCustomer(payload, localId)) continue;
         payload['customer_id'] = serverId;
         payload['customer_client_id'] = localId;
         await txn.update(
-          'sync_queue',
+          SyncOutbox.table,
           {'payload': jsonEncode(payload)},
           where: 'id = ?',
           whereArgs: [row['id']],
@@ -657,6 +658,8 @@ class OfflineStore {
         await txn.insert('payments', row);
       }
 
+      await _insertSaleItems(txn, saleId: id, items: items);
+
       final movementIds = <String>[];
       for (final item in items) {
         final productId = item['product_id']?.toString() ?? '';
@@ -689,17 +692,13 @@ class OfflineStore {
         'sync_status': SyncQueueStatus.pending.name,
       });
 
-      await txn.insert('sync_queue', {
-        'id': const Uuid().v4(),
-        'entity_type': 'sale',
-        'entity_id': id,
-        'operation': 'create',
-        'payload': jsonEncode(payload),
-        'priority': 1,
-        'status': SyncQueueStatus.pending.name,
-        'attempts': 0,
-        'created_at': now,
-      });
+      await SyncOutbox.instance.enqueue(
+        entity: 'sale',
+        entityId: id,
+        operation: 'create',
+        payload: payload,
+        executor: txn,
+      );
     }));
 
     final registerId = payload['cash_register_id']?.toString() ?? '';
@@ -907,6 +906,7 @@ class OfflineStore {
           'created_at': now,
         });
       }
+      await _insertSaleItems(txn, saleId: entityId, items: items);
       for (final item in items) {
         final productId = item['product_id']?.toString();
         final quantity = _asInt(item['quantity']);
@@ -944,19 +944,21 @@ class OfflineStore {
         'occurred_at': now,
         'sync_status': SyncQueueStatus.pending.name,
       });
-      await txn.insert('sync_queue', {
-        'id': const Uuid().v4(),
-        'entity_type': 'sale',
-        'entity_id': entityId,
-        'operation': 'create',
-        'payload': jsonEncode(payload),
-        'priority': 1,
-        'status': SyncQueueStatus.pending.name,
-        'attempts': 0,
-        'created_at': now,
-      });
+      await SyncOutbox.instance.enqueue(
+        entity: 'sale',
+        entityId: entityId,
+        operation: 'create',
+        payload: payload,
+        executor: txn,
+      );
     }));
     } on StockConflict catch (error) {
+      await recordSyncConflict(
+        entityType: 'sale',
+        entityId: entityId,
+        reason: error.message,
+        remote: incoming,
+      );
       return {
         'id': queueId,
         'entity_id': entityId,
@@ -1026,17 +1028,13 @@ class OfflineStore {
         'sync_status': SyncQueueStatus.pending.name,
         'created_at': now,
       });
-      await txn.insert('sync_queue', {
-        'id': const Uuid().v4(),
-        'entity_type': 'customer',
-        'entity_id': entityId,
-        'operation': 'create',
-        'payload': jsonEncode(payload),
-        'priority': 0,
-        'status': SyncQueueStatus.pending.name,
-        'attempts': 0,
-        'created_at': now,
-      });
+      await SyncOutbox.instance.enqueue(
+        entity: 'customer',
+        entityId: entityId,
+        operation: 'create',
+        payload: payload,
+        executor: txn,
+      );
     });
     return {
       'id': queueId,
@@ -1046,55 +1044,19 @@ class OfflineStore {
     };
   }
 
-  Future<void> releaseStuck() async {
-    final db = await _db;
-    await db.update(
-      'sync_queue',
-      {'status': SyncQueueStatus.pending.name},
-      where: 'status = ?',
-      whereArgs: [SyncQueueStatus.processing.name],
-    );
-  }
+  Future<void> releaseStuck() => SyncOutbox.instance.releaseStuck();
 
-  Future<List<Map<String, dynamic>>> pendingQueue({int limit = 50}) async {
-    final db = await _db;
-    final now = DateTime.now().toIso8601String();
-    return db.query(
-      'sync_queue',
-      where: "status IN ('pending', 'retrying', 'failed') AND (next_retry_at IS NULL OR next_retry_at <= ?)",
-      whereArgs: [now],
-      orderBy: 'priority ASC, created_at ASC',
-      limit: limit,
-    );
-  }
+  Future<List<Map<String, dynamic>>> pendingQueue({int limit = 50}) =>
+      SyncOutbox.instance.pendingCompat(limit: limit);
 
-  Future<void> markProcessing(String id) async {
-    final db = await _db;
-    await db.update(
-      'sync_queue',
-      {
-        'status': SyncQueueStatus.processing.name,
-        'last_attempt_at': DateTime.now().toIso8601String(),
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
+  Future<void> markProcessing(String id) => SyncOutbox.instance.markSyncing(id);
 
   Future<void> markSynced(String queueId, String entityId, {String? serverId, String? serverReference}) async {
     final db = await _db;
     await db.transaction((txn) async {
-      final queueRows = await txn.query('sync_queue', where: 'id = ?', whereArgs: [queueId], limit: 1);
-      final entityType = queueRows.isEmpty ? 'sale' : queueRows.first['entity_type'] as String? ?? 'sale';
-      await txn.update(
-        'sync_queue',
-        {
-          'status': SyncQueueStatus.synced.name,
-          'error_message': null,
-        },
-        where: 'id = ?',
-        whereArgs: [idArg(queueId)],
-      );
+      final entry = await SyncOutbox.instance.find(queueId);
+      final entityType = entry?.entity ?? 'sale';
+      await SyncOutbox.instance.markSynced(queueId, executor: txn);
       if (entityType == 'customer') {
         await txn.update(
           'customers',
@@ -1124,9 +1086,8 @@ class OfflineStore {
       }
     });
     if (serverId != null) {
-      final queueRows = await db.query('sync_queue', where: 'id = ?', whereArgs: [queueId], limit: 1);
-      final entityType = queueRows.isEmpty ? '' : queueRows.first['entity_type'] as String? ?? '';
-      if (entityType == 'customer') {
+      final entry = await SyncOutbox.instance.find(queueId);
+      if (entry?.entity == 'customer') {
         await applyCustomerServerId(entityId, serverId);
       }
     }
@@ -1137,87 +1098,25 @@ class OfflineStore {
   String idArg(String id) => id;
 
   Future<void> markFailed(String queueId, String error, {required int attempts}) async {
-    final db = await _db;
-    final delay = Duration(seconds: _backoffSeconds(attempts));
-    await db.update(
-      'sync_queue',
-      {
-        'status': SyncQueueStatus.retrying.name,
-        'attempts': attempts,
-        'error_message': error,
-        'last_attempt_at': DateTime.now().toIso8601String(),
-        'next_retry_at': DateTime.now().add(delay).toIso8601String(),
-      },
-      where: 'id = ?',
-      whereArgs: [queueId],
-    );
+    await SyncOutbox.instance.markFailed(queueId, error, retryCount: attempts);
     await log('error', error);
   }
 
-  Future<void> retryNow(String queueId) async {
-    final db = await _db;
-    await db.update(
-      'sync_queue',
-      {
-        'status': SyncQueueStatus.pending.name,
-        'next_retry_at': null,
-        'error_message': null,
-      },
-      where: 'id = ?',
-      whereArgs: [queueId],
-    );
-  }
+  Future<void> retryNow(String queueId) => SyncOutbox.instance.retryNow(queueId);
 
-  Future<String?> latestQueueError() async {
-    final db = await _db;
-    final rows = await db.query(
-      'sync_queue',
-      columns: ['error_message'],
-      where: "status IN ('failed', 'retrying', 'conflict') AND error_message IS NOT NULL",
-      orderBy: 'last_attempt_at DESC',
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    return rows.first['error_message'] as String?;
-  }
+  Future<String?> latestQueueError() => SyncOutbox.instance.latestError();
 
-  Future<void> retryAllFailed() async {
-    final db = await _db;
-    await db.update(
-      'sync_queue',
-      {
-        'status': SyncQueueStatus.pending.name,
-        'next_retry_at': null,
-      },
-      where: "status IN ('failed', 'retrying', 'conflict')",
-    );
-  }
+  Future<void> retryAllFailed() => SyncOutbox.instance.retryAllFailed();
 
-  Future<Map<String, int>> counts() async {
-    final db = await _db;
-    final rows = await db.rawQuery(
-      "SELECT status, COUNT(*) AS c FROM sync_queue GROUP BY status",
-    );
-    final byStatus = <String, int>{
-      for (final row in rows) (row['status']?.toString() ?? ''): syncAsInt(row['c']),
-    };
-    return {
-      'pending': (byStatus['pending'] ?? 0) + (byStatus['processing'] ?? 0) + (byStatus['retrying'] ?? 0),
-      'failed': byStatus['failed'] ?? 0,
-      'synced': byStatus['synced'] ?? 0,
-      'conflicts': byStatus['conflict'] ?? 0,
-    };
-  }
+  Future<Map<String, int>> counts() => SyncOutbox.instance.counts();
 
   Future<List<Map<String, dynamic>>> listLocalSales({int limit = 80}) async {
     final db = await _db;
     return db.query('sales', orderBy: 'created_at DESC', limit: limit);
   }
 
-  Future<List<Map<String, dynamic>>> queueDetails({int limit = 50}) async {
-    final db = await _db;
-    return db.query('sync_queue', orderBy: 'created_at DESC', limit: limit);
-  }
+  Future<List<Map<String, dynamic>>> queueDetails({int limit = 50}) =>
+      SyncOutbox.instance.details(limit: limit);
 
   static const localHoldsKey = 'local_holds_v1';
   final ValueNotifier<int> holdsRevision = ValueNotifier(0);
@@ -1535,11 +1434,79 @@ class OfflineStore {
       where: 'product_id = ?',
       whereArgs: [productId],
     );
+    final storeId = rows.first['store_id']?.toString() ?? '';
+    final stockId = '$productId:${storeId.isEmpty ? '_' : storeId}:_';
+    await txn.insert(
+      'stocks',
+      {
+        'id': stockId,
+        'product_id': productId,
+        'store_id': storeId.isEmpty ? null : storeId,
+        'warehouse_id': null,
+        'quantity': next,
+        'reserved': 0,
+        'json': jsonEncode({
+          'product_id': productId,
+          'store_id': storeId,
+          'quantity': next,
+          'stock_version': version,
+        }),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return {
       'product_id': productId,
       'quantity_on_hand': next,
       'stock_version': version,
     };
+  }
+
+  Future<void> _insertSaleItems(
+    Transaction txn, {
+    required String saleId,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    for (final item in items) {
+      final productId = item['product_id']?.toString() ?? '';
+      final quantity = _asInt(item['quantity']);
+      final unitPrice = _asInt(item['unit_price']);
+      if (productId.isEmpty || quantity <= 0) continue;
+      final id = item['id']?.toString().isNotEmpty == true
+          ? item['id'].toString()
+          : const Uuid().v4();
+      await txn.insert('sale_items', {
+        'id': id,
+        'sale_id': saleId,
+        'product_id': productId,
+        'quantity': quantity,
+        'unit_price': unitPrice,
+        'line_total': unitPrice * quantity,
+        'json': jsonEncode({...item, 'id': id, 'sale_id': saleId}),
+      });
+    }
+  }
+
+  Future<void> recordSyncConflict({
+    required String entityType,
+    required String entityId,
+    String? reason,
+    Map<String, dynamic>? local,
+    Map<String, dynamic>? remote,
+  }) async {
+    final db = await _db;
+    final id = const Uuid().v4();
+    final now = DateTime.now().toIso8601String();
+    await db.insert('sync_conflicts', {
+      'id': id,
+      'entity_type': entityType,
+      'entity_id': entityId,
+      'reason': reason,
+      'local_json': local == null ? null : jsonEncode(local),
+      'remote_json': remote == null ? null : jsonEncode(remote),
+      'status': 'open',
+      'created_at': now,
+    });
   }
 
   Map<String, dynamic> _productToJson(PosProduct product) {
@@ -1569,10 +1536,5 @@ class OfflineStore {
       'product_type': product.productType,
       'variants': product.variants.map((variant) => variant.toJson()).toList(),
     };
-  }
-
-  int _backoffSeconds(int attempts) {
-    final seconds = 2 << (attempts.clamp(1, 8) - 1);
-    return seconds.clamp(2, 300);
   }
 }

@@ -2,10 +2,12 @@
 
 namespace App\Services\Receipts;
 
+use App\Enums\NumberingDocumentType;
 use App\Enums\SaleDocumentFormat;
 use App\Models\Sale;
 use App\Models\SaleReceipt;
 use App\Models\User;
+use App\Services\Numbering\ReferenceNumberGenerator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -13,6 +15,7 @@ class SaleReceiptService
 {
     public function __construct(
         private readonly ReceiptPayloadService $payloadService,
+        private readonly ReferenceNumberGenerator $numbering,
     ) {}
 
     /** @return array<string, mixed> */
@@ -48,10 +51,16 @@ class SaleReceiptService
             return $existing->fresh(['printedBy', 'device']);
         }
 
+        $sale->loadMissing('store:id,branch_id');
+
         return SaleReceipt::query()->create([
             'tenant_id' => $sale->tenant_id,
             'sale_id' => $sale->id,
-            'receipt_number' => $this->nextReceiptNumber($sale->tenant_id),
+            'receipt_number' => $this->numbering->next(
+                NumberingDocumentType::Receipt,
+                (string) $sale->tenant_id,
+                $sale->store?->branch_id,
+            ),
             'format' => $format,
             'printed_by' => $printedBy?->id,
             'device_id' => $deviceId,
@@ -64,13 +73,5 @@ class SaleReceiptService
     public function listForSale(Sale $sale): Collection
     {
         return $sale->receipts()->with(['printedBy', 'device'])->get();
-    }
-
-    private function nextReceiptNumber(string $tenantId): string
-    {
-        $prefix = config('receipts.receipt_prefix', 'REC');
-        $count = SaleReceipt::query()->where('tenant_id', $tenantId)->count();
-
-        return $prefix.'-'.str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
     }
 }

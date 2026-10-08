@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\NumberingDocumentType;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\PosReservation;
 use App\Models\PosTable;
 use App\Models\Store;
+use App\Services\Numbering\ReferenceNumberGenerator;
 use App\Services\Pos\PosTableService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +18,7 @@ class PosReservationController extends Controller
 {
     public function __construct(
         private readonly PosTableService $tables,
+        private readonly ReferenceNumberGenerator $numbering,
     ) {}
     public function index(Request $request, Store $store): JsonResponse
     {
@@ -62,7 +65,11 @@ class PosReservationController extends Controller
             'tenant_id' => $store->tenant_id,
             'store_id' => $store->id,
             'customer_id' => $data['customer_id'] ?? null,
-            'reference' => $this->nextReference($store->tenant_id),
+            'reference' => $this->numbering->next(
+                NumberingDocumentType::Reservation,
+                (string) $store->tenant_id,
+                $store->branch_id,
+            ),
             'guest_name' => $guest['name'],
             'phone' => $guest['phone'],
             'party_size' => $data['party_size'],
@@ -155,22 +162,6 @@ class PosReservationController extends Controller
             'name' => trim((string) ($data['guest_name'] ?? '')) ?: ($customer?->name ?? 'Client'),
             'phone' => $data['phone'] ?? $customer?->phone,
         ];
-    }
-
-    private function nextReference(string $tenantId): string
-    {
-        $prefix = 'RES-'.now()->year.'-';
-        $last = PosReservation::query()
-            ->where('tenant_id', $tenantId)
-            ->where('reference', 'like', $prefix.'%')
-            ->orderByDesc('reference')
-            ->value('reference');
-        $next = 1;
-        if (is_string($last) && preg_match('/(\d+)$/', $last, $matches)) {
-            $next = ((int) $matches[1]) + 1;
-        }
-
-        return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
     private function syncReservationTable(?PosReservation $reservation, ?string $previousTableId): void

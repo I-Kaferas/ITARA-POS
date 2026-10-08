@@ -36,7 +36,7 @@ enum PosRole {
 
 class TerminalConfig {
   const TerminalConfig({
-    this.apiBaseUrl = 'http://localhost:8000/api/v1',
+    this.apiBaseUrl = 'http://localhost:8001/api/v1',
     this.internalApiBaseUrl = '',
     this.authToken = '',
     this.refreshToken = '',
@@ -54,6 +54,7 @@ class TerminalConfig {
     this.posRole = PosRole.standalone,
     this.masterDeviceId = '',
     this.masterHost = '',
+    this.masterPairToken = '',
     this.currencyCode = 'USD',
     this.locale = 'fr',
     this.timezone = 'Africa/Bujumbura',
@@ -78,7 +79,7 @@ class TerminalConfig {
 
   factory TerminalConfig.fromJson(Map<String, dynamic> json) {
     return TerminalConfig(
-      apiBaseUrl: _string(json['api_base_url'], 'http://localhost:8000/api/v1'),
+      apiBaseUrl: _string(json['api_base_url'], 'http://localhost:8001/api/v1'),
       internalApiBaseUrl: _string(json['internal_api_base_url']),
       authToken: _string(json['auth_token']),
       refreshToken: _string(json['refresh_token']),
@@ -96,6 +97,7 @@ class TerminalConfig {
       posRole: PosRole.fromString(_string(json['pos_role'], 'standalone')),
       masterDeviceId: _string(json['master_device_id']),
       masterHost: _string(json['master_host']),
+      masterPairToken: _string(json['master_pair_token']),
       currencyCode: _string(json['currency_code'], 'USD'),
       locale: _string(json['locale'], 'fr'),
       timezone: _string(json['timezone'], 'Africa/Bujumbura'),
@@ -158,6 +160,8 @@ class TerminalConfig {
   final PosRole posRole;
   final String masterDeviceId;
   final String masterHost;
+  /// LAN pair token issued by the Master after secure pairing.
+  final String masterPairToken;
   final String currencyCode;
   final String locale;
   final String timezone;
@@ -205,6 +209,7 @@ class TerminalConfig {
         'pos_role': posRole.name,
         'master_device_id': masterDeviceId,
         'master_host': masterHost,
+        'master_pair_token': masterPairToken,
         'currency_code': currencyCode,
         'locale': locale,
         'timezone': timezone,
@@ -246,6 +251,7 @@ class TerminalConfig {
     PosRole? posRole,
     String? masterDeviceId,
     String? masterHost,
+    String? masterPairToken,
     String? currencyCode,
     String? locale,
     String? timezone,
@@ -286,6 +292,7 @@ class TerminalConfig {
       posRole: posRole ?? this.posRole,
       masterDeviceId: masterDeviceId ?? this.masterDeviceId,
       masterHost: masterHost ?? this.masterHost,
+      masterPairToken: masterPairToken ?? this.masterPairToken,
       currencyCode: currencyCode ?? this.currencyCode,
       locale: locale ?? this.locale,
       timezone: timezone ?? this.timezone,

@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\SalePaymentMethod;
 use App\Enums\SalePaymentStatus;
 use App\Enums\SaleStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Sale;
 use App\Models\Store;
+use App\Models\Tenant;
 use App\Services\Payments\CompanyPaymentMethodService;
+use App\Services\Platform\SaasLimitGuard;
 use App\Services\Sales\SaleEngine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -104,10 +107,16 @@ class SaleController extends Controller
         if (! empty($data['sale_id'])) {
             $result = $this->saleEngine->completePending($store, $data, $request->user());
         } else {
+            $tenant = Tenant::query()->find($store->tenant_id);
+            if ($tenant) {
+                app(SaasLimitGuard::class)->assertWithin($tenant, 'transactions');
+            }
             $result = $this->saleEngine->create($store, $data, $request->user());
         }
 
-        return response()->json(['data' => $result->toArray()], 201);
+        $status = $result->alreadyProcessed ? 200 : 201;
+
+        return response()->json(['data' => $result->toArray()], $status);
     }
 
     public function hold(Request $request, Store $store): JsonResponse
@@ -232,6 +241,7 @@ class SaleController extends Controller
     {
         return $request->validate([
             'items' => ['required', 'array', 'min:1'],
+            'currency' => ['nullable', 'string', 'size:3'],
             'customer_id' => ['nullable', 'uuid', 'exists:customers,id'],
             'warehouse_id' => ['nullable', 'uuid', 'exists:warehouses,id'],
             'cash_register_id' => ['nullable', 'uuid', 'exists:cash_registers,id'],
@@ -253,8 +263,9 @@ class SaleController extends Controller
             'apply_promotions' => ['nullable', 'boolean'],
             'loyalty_points' => ['nullable', 'integer', 'min:0'],
             'payments' => ['required', 'array', 'min:1'],
-            'payments.*.method' => ['required', 'string', 'max:30'],
+            'payments.*.method' => ['required', Rule::in(SalePaymentMethod::values())],
             'payments.*.amount' => ['required', 'integer', 'min:1'],
+            'payments.*.currency' => ['nullable', 'string', 'size:3'],
             'payments.*.metadata' => ['nullable', 'array'],
             'due_date' => ['nullable', 'date'],
             'order_date' => ['nullable', 'date'],

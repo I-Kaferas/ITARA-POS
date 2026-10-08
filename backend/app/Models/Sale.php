@@ -184,6 +184,9 @@ class Sale extends Model
     {
         return [
             'id' => $this->id,
+            'uuid' => $this->id,
+            'transaction_id' => $this->id,
+            'idempotency_key' => $this->idempotency_key,
             'reference' => $this->reference,
             'status' => $this->status->value,
             'store_id' => $this->store_id,

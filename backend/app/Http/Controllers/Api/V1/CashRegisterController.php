@@ -11,6 +11,7 @@ use App\Services\Registers\CashRegisterSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class CashRegisterController extends Controller
 {
@@ -105,6 +106,7 @@ class CashRegisterController extends Controller
         return response()->json([
             'data' => $session,
             'summary' => $this->sessionService->summary($session),
+            'reconciliation' => $this->sessionService->reconciliation($session),
         ]);
     }
 
@@ -125,6 +127,7 @@ class CashRegisterController extends Controller
         return response()->json([
             'data' => $session,
             'summary' => $this->sessionService->summary($session),
+            'reconciliation' => $this->sessionService->reconciliation($session),
         ], 201);
     }
 
@@ -149,7 +152,47 @@ class CashRegisterController extends Controller
         return response()->json([
             'data' => $session,
             'summary' => $summary,
+            'reconciliation' => $this->sessionService->reconciliation($session),
             'z_report' => $summary,
+        ]);
+    }
+
+    public function countCash(Request $request, CashRegister $cashRegister): JsonResponse
+    {
+        $data = $request->validate([
+            'actual_cash' => ['required', 'integer', 'min:0'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $openShift = $cashRegister->openCashierShift()->first();
+
+        $session = $this->sessionService->recordCount(
+            $cashRegister,
+            $request->user(),
+            (int) $data['actual_cash'],
+            $data['notes'] ?? null,
+            $openShift?->id,
+        );
+
+        return response()->json([
+            'data' => $session,
+            'summary' => $this->sessionService->summary($session),
+            'reconciliation' => $this->sessionService->reconciliation($session),
+        ]);
+    }
+
+    public function reconcile(CashRegister $cashRegister): JsonResponse
+    {
+        $session = $this->sessionService->currentSession($cashRegister);
+
+        if ($session === null) {
+            return response()->json(['data' => null, 'reconciliation' => null]);
+        }
+
+        return response()->json([
+            'data' => $session,
+            'summary' => $this->sessionService->summary($session),
+            'reconciliation' => $this->sessionService->reconciliation($session),
         ]);
     }
 
@@ -175,6 +218,7 @@ class CashRegisterController extends Controller
         return response()->json([
             'data' => $session,
             'summary' => $this->sessionService->summary($session),
+            'reconciliation' => $this->sessionService->reconciliation($session),
         ]);
     }
 
@@ -197,9 +241,11 @@ class CashRegisterController extends Controller
             'movement_type' => ['required', 'string', Rule::in([
                 CashMovementType::CashIn->value,
                 CashMovementType::CashOut->value,
+                CashMovementType::CashAdjustment->value,
                 CashMovementType::Expense->value,
             ])],
             'amount' => ['required', 'integer', 'min:1'],
+            'direction' => ['nullable', 'string', Rule::in(['in', 'out', 'increase', 'decrease'])],
             'description' => ['nullable', 'string', 'max:500'],
             'reference' => ['nullable', 'string', 'max:100'],
             'reference_type' => ['nullable', 'string', 'max:100'],
@@ -214,17 +260,26 @@ class CashRegisterController extends Controller
             ]);
         }
 
+        $type = CashMovementType::from($data['movement_type']);
+        $reference = $data['reference'] ?? null;
+        $referenceType = $data['reference_type'] ?? null;
+
+        if ($type === CashMovementType::CashAdjustment) {
+            $reference = $data['direction'] ?? $reference ?? 'in';
+            $referenceType = $referenceType ?: 'adjustment_direction';
+        }
+
         $openShift = $cashRegister->openCashierShift()->first();
 
         $movement = $this->sessionService->recordMovement(
             $cashRegister,
             $session,
-            CashMovementType::from($data['movement_type']),
+            $type,
             (int) $data['amount'],
             $request->user(),
             $data['description'] ?? null,
-            $data['reference'] ?? null,
-            $data['reference_type'] ?? null,
+            $reference,
+            $referenceType,
             $data['reference_id'] ?? null,
             $openShift?->id,
         );
@@ -234,6 +289,7 @@ class CashRegisterController extends Controller
         return response()->json([
             'data' => $movement,
             'summary' => $this->sessionService->summary($session),
+            'reconciliation' => $this->sessionService->reconciliation($session),
         ], 201);
     }
 }

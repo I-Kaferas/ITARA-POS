@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../data/local/local_database.dart';
+import '../../../data/local/notification_store.dart';
 import '../../../sync/offline_store.dart';
 
 class NotificationWatch {
@@ -12,6 +13,16 @@ class NotificationWatch {
   Future<List<Map<String, dynamic>>> snapshot() async {
     final db = await LocalDatabase.instance.database;
     final items = <Map<String, dynamic>>[];
+
+    final durable = await NotificationStore.instance.unread(limit: 20);
+    for (final row in durable) {
+      items.add({
+        'kind': row['kind']?.toString() ?? 'info',
+        'title': row['title']?.toString() ?? 'Notification',
+        'detail': row['body']?.toString() ?? '',
+      });
+    }
+
     final products = await db.query('products');
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -36,15 +47,15 @@ class NotificationWatch {
     items.addAll(expired.take(12));
 
     final failed = await db.query(
-      'sync_queue',
-      where: "status IN ('failed', 'retrying', 'conflict')",
+      'sync_outbox',
+      where: "status IN ('FAILED', 'CONFLICT')",
       limit: 12,
     );
     for (final row in failed) {
       items.add({
         'kind': 'sync_failed',
-        'title': row['entity_type']?.toString() ?? 'Sync',
-        'detail': row['error_message']?.toString() ?? 'Sync échouée',
+        'title': row['entity']?.toString() ?? 'Sync',
+        'detail': row['last_error']?.toString() ?? 'Sync échouée',
       });
     }
 

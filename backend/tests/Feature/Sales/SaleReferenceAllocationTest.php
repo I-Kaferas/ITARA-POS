@@ -2,8 +2,12 @@
 
 namespace Tests\Feature\Sales;
 
+use App\Enums\NumberingDocumentType;
 use App\Enums\SaleStatus;
+use App\Models\NumberingSequence;
+use App\Models\NumberingRule;
 use App\Models\Sale;
+use App\Services\Numbering\ReferenceNumberGenerator;
 use App\Services\Sales\SaleEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -21,9 +25,10 @@ class SaleReferenceAllocationTest extends TestCase
     {
         parent::setUp();
         $this->fixture = $this->createTenantFixture('saleref', 'saleref@test.local');
+        $this->travelTo(now()->setDate(2026, 6, 1)->setTime(10, 0));
     }
 
-    public function test_next_reference_uses_max_suffix_not_count(): void
+    public function test_next_reference_uses_sequence_not_sale_count(): void
     {
         $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
         $store = $this->fixture['store'];
@@ -40,13 +45,13 @@ class SaleReferenceAllocationTest extends TestCase
             'unit_cost' => 500,
         ], $headers)->assertCreated();
 
-        // Gap: only one sale exists, but its reference is SAL-000009 (count+1 would wrongly reuse 000009).
+        // Gap: only one sale row exists, but the numbering sequence is already at 44.
         Sale::query()->create([
             'tenant_id' => $store->tenant_id,
             'store_id' => $store->id,
             'warehouse_id' => $warehouse->id,
             'processed_by' => $user->id,
-            'reference' => 'SAL-000009',
+            'reference' => 'POS-2026-000044',
             'status' => SaleStatus::Completed,
             'subtotal' => 1000,
             'tax_total' => 0,
@@ -56,6 +61,15 @@ class SaleReferenceAllocationTest extends TestCase
             'currency' => 'USD',
             'idempotency_key' => (string) Str::uuid(),
             'completed_at' => now(),
+        ]);
+
+        NumberingSequence::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'branch_id' => null,
+            'scope_key' => NumberingRule::TENANT_SCOPE,
+            'document_type' => NumberingDocumentType::Pos,
+            'period_key' => '2026',
+            'last_value' => 44,
         ]);
 
         $this->assertSame(1, Sale::query()->where('tenant_id', $store->tenant_id)->count());
@@ -70,7 +84,7 @@ class SaleReferenceAllocationTest extends TestCase
             ],
         ], $user);
 
-        $this->assertSame('SAL-000010', $result->sale->reference);
+        $this->assertSame('POS-2026-000045', $result->sale->reference);
     }
 
     public function test_sync_push_is_idempotent_for_same_key(): void
@@ -117,6 +131,8 @@ class SaleReferenceAllocationTest extends TestCase
         $first->assertJsonPath('data.results.0.status', 'synced');
         $serverId = $first->json('data.results.0.server_id');
         $reference = $first->json('data.results.0.reference');
+        $this->assertNotEmpty($reference);
+        $this->assertStringStartsWith('POS-2026-', $reference);
 
         $second = $this->postJson('/api/v1/sync/push', [
             'operations' => [$operation],
@@ -130,5 +146,16 @@ class SaleReferenceAllocationTest extends TestCase
             1,
             Sale::query()->where('tenant_id', $store->tenant_id)->where('idempotency_key', $idempotencyKey)->count()
         );
+    }
+
+    public function test_generator_preview_matches_next_allocation(): void
+    {
+        $preview = app(ReferenceNumberGenerator::class)->preview(
+            NumberingDocumentType::Pos,
+            $this->fixture['tenant']->id,
+            $this->fixture['branch']->id,
+        );
+
+        $this->assertSame('POS-2026-000001', $preview);
     }
 }

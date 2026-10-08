@@ -9,6 +9,7 @@ use App\Models\StockAdjustment;
 use App\Models\StockAdjustmentItem;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Transactions\TransactionEngine;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -18,6 +19,7 @@ class StockAdjustmentService
         private readonly InventoryMovementService $movementService,
         private readonly OpeningStockService $openingStock,
         private readonly StockBalanceService $stockBalanceService,
+        private readonly TransactionEngine $transactionEngine,
     ) {}
 
     /**
@@ -136,7 +138,10 @@ class StockAdjustmentService
                 'completed_at' => now(),
             ]);
 
-            return $adjustment->fresh(['warehouse', 'items.product:id,sku,name']);
+            $completed = $adjustment->fresh(['warehouse', 'items.product:id,sku,name']);
+            $this->transactionEngine->recordAdjustment($completed);
+
+            return $completed;
         });
     }
 

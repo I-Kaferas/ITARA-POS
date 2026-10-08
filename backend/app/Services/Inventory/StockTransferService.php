@@ -9,6 +9,7 @@ use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Transactions\TransactionEngine;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -16,6 +17,7 @@ class StockTransferService
 {
     public function __construct(
         private readonly InventoryMovementService $movementService,
+        private readonly TransactionEngine $transactionEngine,
     ) {}
 
     /**
@@ -186,7 +188,10 @@ class StockTransferService
                 'received_at' => now(),
             ]);
 
-            return $transfer->fresh(['items.product:id,sku,name', 'sourceWarehouse', 'destinationWarehouse']);
+            $completed = $transfer->fresh(['items.product:id,sku,name', 'sourceWarehouse', 'destinationWarehouse']);
+            $this->transactionEngine->recordTransfer($completed);
+
+            return $completed;
         });
     }
 

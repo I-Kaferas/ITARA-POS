@@ -19,7 +19,10 @@ use App\Models\PaymentTransaction;
 use App\Models\Sale;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\Catalog\CurrencyConverter;
 use App\Services\Sales\CartEngine;
+use App\Services\Transactions\TransactionEngine;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,6 +32,8 @@ class PaymentEngine
         private readonly CartEngine $cartEngine,
         private readonly PaymentProviderRegistry $registry,
         private readonly CompanyPaymentMethodService $companyPaymentMethods,
+        private readonly CurrencyConverter $converter,
+        private readonly TransactionEngine $transactionEngine,
     ) {}
 
     /** @param  array<string, mixed>  $payload */
@@ -68,6 +73,24 @@ class PaymentEngine
             throw ValidationException::withMessages(['payments' => $errors]);
         }
 
+        try {
+            return $this->executePayment($store, $input, $user);
+        } catch (UniqueConstraintViolationException $exception) {
+            if ($input->idempotencyKey === null) {
+                throw $exception;
+            }
+
+            $existing = $this->findByIdempotencyKey($store->tenant_id, $input->idempotencyKey);
+            if ($existing === null) {
+                throw $exception;
+            }
+
+            return $existing;
+        }
+    }
+
+    private function executePayment(Store $store, PaymentRequestInput $input, User $user): PaymentResult
+    {
         $customer = $input->customerId
             ? Customer::query()->findOrFail($input->customerId)
             : null;
@@ -88,7 +111,7 @@ class PaymentEngine
             dueDate: $input->dueDate,
         );
 
-        return DB::transaction(function () use ($store, $input, $context, $user, $customer, $cashRegister): PaymentResult {
+        return DB::transaction(function () use ($store, $input, $context): PaymentResult {
             return $this->executePaymentLines($store, $input, $context);
         });
     }
@@ -129,7 +152,6 @@ class PaymentEngine
         return $this->executePaymentLines($store, $input, $context);
     }
 
-    /** @return list<PaymentLineResult> */
     private function executePaymentLines(Store $store, PaymentRequestInput $input, PaymentContext $context): PaymentResult
     {
         $lineResults = [];
@@ -137,6 +159,8 @@ class PaymentEngine
 
         foreach ($input->lines as $line) {
             $provider = $this->registry->resolve($line->method);
+            $paymentCurrency = $line->paymentCurrency($input->currency);
+            $amountInSale = $line->appliedAmount();
 
             $transaction = PaymentTransaction::query()->create([
                 'tenant_id' => $store->tenant_id,
@@ -146,14 +170,25 @@ class PaymentEngine
                 'transaction_type' => PaymentTransactionType::Payment,
                 'payment_method' => $line->method,
                 'amount' => $line->amount,
-                'currency' => $input->currency,
+                'amount_in_sale_currency' => $amountInSale,
+                'exchange_rate' => $line->exchangeRate ?? 1,
+                'sale_currency' => $input->currency,
+                'currency' => $paymentCurrency,
                 'status' => PaymentTransactionStatus::Pending,
                 'provider_type' => PaymentProviderType::forMethod($line->method),
                 'idempotency_key' => $isFirst ? $input->idempotencyKey : null,
                 'customer_id' => $context->customer?->id,
                 'cash_register_id' => $context->cashRegister?->id,
                 'processed_by' => $context->processedBy?->id,
-                'metadata' => $line->metadata,
+                'metadata' => [
+                    ...$line->metadata,
+                    'fx' => [
+                        'payment_currency' => $paymentCurrency,
+                        'sale_currency' => $input->currency,
+                        'amount_in_sale_currency' => $amountInSale,
+                        'exchange_rate' => $line->exchangeRate ?? 1,
+                    ],
+                ],
             ]);
 
             $lineResults[] = $provider->initiate($line, $context, $transaction);
@@ -169,6 +204,10 @@ class PaymentEngine
             lines: $lineResults,
             idempotencyKey: $input->idempotencyKey,
         );
+
+        foreach ($lineResults as $lineResult) {
+            $this->transactionEngine->recordPayment($lineResult->transaction->fresh());
+        }
 
         if ($context->sale === null) {
             event(new PaymentProcessed($result, $store));
@@ -210,7 +249,34 @@ class PaymentEngine
             'cart' => $cartPayload,
         ]);
 
+        $input = $this->resolveLineFx($input);
+
         return $this->normalizeCreditBalance($input);
+    }
+
+    private function resolveLineFx(PaymentRequestInput $input): PaymentRequestInput
+    {
+        $saleCurrency = $input->currency;
+        $lines = [];
+
+        foreach ($input->lines as $line) {
+            $paymentCurrency = $line->paymentCurrency($saleCurrency);
+            if ($paymentCurrency !== $saleCurrency) {
+                $this->converter->assertActive($paymentCurrency);
+            }
+
+            $amountInSale = $paymentCurrency === $saleCurrency
+                ? $line->amount
+                : $this->converter->convert($line->amount, $paymentCurrency, $saleCurrency);
+
+            $rate = $paymentCurrency === $saleCurrency
+                ? 1.0
+                : $this->converter->crossRate($paymentCurrency, $saleCurrency);
+
+            $lines[] = $line->withFx($paymentCurrency, $amountInSale, $rate);
+        }
+
+        return $input->withLines($lines);
     }
 
     private function normalizeCreditBalance(PaymentRequestInput $input): PaymentRequestInput
@@ -222,21 +288,13 @@ class PaymentEngine
         }
 
         $lines = $input->lines;
-        $lines[] = new PaymentLineInput(
+        $lines[] = (new PaymentLineInput(
             method: SalePaymentMethod::Credit,
             amount: $difference,
-        );
-
-        return new PaymentRequestInput(
-            expectedTotal: $input->expectedTotal,
             currency: $input->currency,
-            lines: $lines,
-            customerId: $input->customerId,
-            cashRegisterId: $input->cashRegisterId,
-            idempotencyKey: $input->idempotencyKey,
-            cart: $input->cart,
-            dueDate: $input->dueDate,
-        );
+        ))->withFx($input->currency, $difference, 1.0);
+
+        return $input->withLines($lines);
     }
 
     /** @return list<string> */
@@ -250,9 +308,10 @@ class PaymentEngine
 
         if ($input->paidTotal() !== $input->expectedTotal) {
             $errors[] = sprintf(
-                'Payment total (%d) does not match expected total (%d).',
+                'Payment total (%d) does not match expected total (%d) in %s.',
                 $input->paidTotal(),
                 $input->expectedTotal,
+                $input->currency,
             );
         }
 
@@ -329,14 +388,14 @@ class PaymentEngine
             metadata: $tx->metadata ?? [],
         ))->all();
 
-        $expectedTotal = $transactions->sum('amount');
+        $expectedTotal = (int) $transactions->sum(fn (PaymentTransaction $tx) => $tx->amount_in_sale_currency ?? $tx->amount);
 
         return new PaymentResult(
             transactionNumber: $first->transaction_number,
             expectedTotal: $expectedTotal,
             paidTotal: $expectedTotal,
             isMixed: $transactions->count() > 1,
-            currency: $first->currency,
+            currency: $first->sale_currency ?? $first->currency,
             lines: $lines,
             idempotencyKey: $key,
         );

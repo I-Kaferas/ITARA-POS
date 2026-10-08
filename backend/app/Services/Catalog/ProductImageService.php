@@ -4,6 +4,7 @@ namespace App\Services\Catalog;
 
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Tenancy\TenantStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -52,6 +53,7 @@ class ProductImageService
 
     public function delete(ProductImage $image): void
     {
+        app(TenantStorage::class)->assertOwned($image->storage_path, $image->tenant_id);
         $wasPrimary = $image->is_primary;
         $product = $image->product;
 

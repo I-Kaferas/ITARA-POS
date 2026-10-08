@@ -13,6 +13,7 @@ use App\Models\SaleItem;
 use App\Models\StockBalance;
 use App\Models\Store;
 use App\Models\Warehouse;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class StoreStockReportService
     /** @return array<string, mixed> */
     public function summarize(?string $storeId, ?Carbon $from, ?Carbon $to, int $idleDays = 30): array
     {
+        app(TenantContext::class)->requireId();
         $from = ($from ?? now()->startOfMonth())->copy()->startOfDay();
         $to = ($to ?? now())->copy()->endOfDay();
         $idleDays = max(1, $idleDays);

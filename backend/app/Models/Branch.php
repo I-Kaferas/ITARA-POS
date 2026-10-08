@@ -16,6 +16,7 @@ class Branch extends Model
     protected $fillable = [
         'tenant_id',
         'company_id',
+        'location_id',
         'name',
         'code',
         'address',
@@ -35,6 +36,11 @@ class Branch extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
     }
 
     public function stores(): HasMany

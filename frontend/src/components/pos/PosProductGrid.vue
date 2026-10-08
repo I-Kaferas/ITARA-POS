@@ -117,7 +117,7 @@ function onSelect(product: PosProduct) {
         @click="onSelect(product)"
       >
         <div class="pos-products__photo">
-          <img v-if="imageSrc(product)" :src="imageSrc(product)" :alt="product.name" />
+          <img v-if="imageSrc(product)" :src="imageSrc(product)" :alt="product.name" loading="lazy" decoding="async" />
           <span v-else class="pos-products__nophoto">
             <AppIcon name="products" :size="32" />
           </span>

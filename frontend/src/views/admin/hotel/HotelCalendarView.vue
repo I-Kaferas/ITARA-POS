@@ -7,6 +7,7 @@ import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { useContextStore } from '../../../stores/context'
 import HotelChrome from './HotelChrome.vue'
 
@@ -317,8 +318,8 @@ function loadLocal() {
   }
 }
 
-async function loadReservations() {
-  loading.value = true
+async function loadReservations(silent?: boolean) {
+  if (silent !== true) loading.value = true
   error.value = ''
   try {
     docs.value = (await api.get<{ data: { docs: Doc[] } }>(hospitalitySnapshotPath([...HOTEL_CALENDAR_KINDS]))).data.docs
@@ -456,6 +457,7 @@ onMounted(async () => {
   await loadReservations()
   window.addEventListener('mouseup', endResize)
 })
+useRealtimeSync(realtimeTopics.hotel, () => loadReservations(true))
 
 onUnmounted(() => {
   window.removeEventListener('mouseup', endResize)

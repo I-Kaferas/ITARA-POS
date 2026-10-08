@@ -1,15 +1,20 @@
 abstract final class AppRoutes {
   static const adminLogin = '/admin-login';
   static const setup = '/setup';
+  static const slaveSetup = '/setup/slave';
   static const pin = '/pin';
   static const dashboard = '/dashboard';
   static const pos = '/pos';
   static const orders = '/orders';
   static const returns = '/returns';
   static const shifts = '/shifts';
+  static const cashRegister = '/cash-register';
   static const reservations = '/reservations';
+  static const stock = '/stock';
+  static const menu = '/menu';
   static const configuration = '/configuration';
   static const hospitality = '/dashboard/hospitality';
+  static const kitchen = '/dashboard/kitchen';
   static const services = '/dashboard/services';
   static const production = '/dashboard/production';
   static const accounting = '/dashboard/accounting';

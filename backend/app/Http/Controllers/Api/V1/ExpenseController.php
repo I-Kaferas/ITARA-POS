@@ -37,6 +37,7 @@ class ExpenseController extends Controller
             $query->where(function ($builder) use ($term) {
                 $builder->where('description', 'like', $term)
                     ->orWhere('notes', 'like', $term)
+                    ->orWhere('reference', 'like', $term)
                     ->orWhereHas('expenseCategory', fn ($category) => $category->where('name', 'like', $term));
             });
         }

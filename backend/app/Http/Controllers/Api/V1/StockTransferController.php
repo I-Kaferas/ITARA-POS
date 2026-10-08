@@ -26,7 +26,7 @@ class StockTransferController extends Controller
         }
 
         return response()->json([
-            'data' => $query->paginate($request->integer('per_page', 25)),
+            'data' => $query->paginate($request->pageSize()),
         ]);
     }
 

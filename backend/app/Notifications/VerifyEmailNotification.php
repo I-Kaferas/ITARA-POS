@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\RejectsForeignTenant;
 use Illuminate\Auth\Notifications\VerifyEmail as BaseVerifyEmail;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Carbon;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\URL;
 
 class VerifyEmailNotification extends BaseVerifyEmail
 {
+    use RejectsForeignTenant;
+
     public function toMail($notifiable): MailMessage
     {
         $verificationUrl = $this->verificationUrl($notifiable);

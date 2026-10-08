@@ -18,7 +18,11 @@ class BackupService {
   Future<Map<String, dynamic>> create({bool upload = true}) async {
     final db = await LocalDatabase.instance.database;
     final events = await db.query('sync_events', orderBy: 'sequence ASC');
-    final failed = await db.query('sync_queue', where: "status IN ('failed', 'retrying', 'conflict')", limit: 40);
+    final failed = await db.query(
+      'sync_outbox',
+      where: "status IN ('FAILED', 'CONFLICT')",
+      limit: 40,
+    );
     final sales = _count(await db.rawQuery('SELECT COUNT(*) AS c FROM sales'));
     await LocalDatabase.instance.checkpoint();
 

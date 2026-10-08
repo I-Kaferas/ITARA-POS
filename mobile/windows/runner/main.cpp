@@ -25,9 +25,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(project);
-  Win32Window::Point origin(10, 10);
-  Win32Window::Size size(1280, 720);
-  if (!window.Create(L"pos_mobile", origin, size)) {
+  // §19 POS Windows — large desk default (mouse / keyboard / scanner).
+  Win32Window::Point origin(40, 40);
+  Win32Window::Size size(1440, 900);
+  if (!window.Create(L"ITARA POS", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

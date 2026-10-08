@@ -2,6 +2,7 @@
 
 namespace App\Services\Pos;
 
+use App\Enums\NumberingDocumentType;
 use App\Enums\PosTableStatus;
 use App\Enums\SaleStatus;
 use App\Models\PosReservation;
@@ -11,6 +12,7 @@ use App\Models\PosTableZone;
 use App\Models\Sale;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\Numbering\ReferenceNumberGenerator;
 use App\Services\Sales\SaleEngine;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,7 @@ class PosTableService
 {
     public function __construct(
         private readonly SaleEngine $saleEngine,
+        private readonly ReferenceNumberGenerator $numbering,
     ) {}
 
     /**
@@ -491,7 +494,11 @@ class PosTableService
                 'store_id' => $store->id,
                 'table_id' => $locked->id,
                 'customer_id' => $payload['customer_id'] ?? null,
-                'reference' => $this->nextReservationReference($store->tenant_id),
+                'reference' => $this->numbering->next(
+                    NumberingDocumentType::Reservation,
+                    (string) $store->tenant_id,
+                    $store->branch_id,
+                ),
                 'guest_name' => $guestName !== '' ? $guestName : 'Client',
                 'phone' => $payload['phone'] ?? null,
                 'party_size' => max(1, (int) ($payload['party_size'] ?? $locked->capacity)),
@@ -672,19 +679,4 @@ class PosTableService
         return $code;
     }
 
-    private function nextReservationReference(string $tenantId): string
-    {
-        $prefix = 'RES-'.now()->year.'-';
-        $last = PosReservation::query()
-            ->where('tenant_id', $tenantId)
-            ->where('reference', 'like', $prefix.'%')
-            ->orderByDesc('reference')
-            ->value('reference');
-        $next = 1;
-        if (is_string($last) && preg_match('/(\d+)$/', $last, $matches)) {
-            $next = ((int) $matches[1]) + 1;
-        }
-
-        return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
-    }
 }

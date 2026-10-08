@@ -198,6 +198,14 @@ class PosCartEngine extends ChangeNotifier {
     if (line != null) updateQuantity(lineId, line.quantity - 1);
   }
 
+  void setLineDiscount(String lineId, int amount) {
+    final line = _lineById(lineId);
+    if (line == null || line.isAccompaniment) return;
+    line.lineDiscountFixed = amount.clamp(0, line.lineSubtotal);
+    _clearServerTotals();
+    notifyListeners();
+  }
+
   void setCustomer(PosCustomer? value) {
     customer = value;
     loyaltyPoints = 0;
@@ -278,6 +286,29 @@ class PosCartEngine extends ChangeNotifier {
   }) {
     final existing = heldById(serverId);
     if (existing != null) return;
+
+    final localIndex = _heldSales.indexWhere(
+      (sale) =>
+          sale.label == label && (sale.serverId == null || sale.serverId!.isEmpty),
+    );
+    if (localIndex >= 0) {
+      final held = _heldSales[localIndex];
+      _heldSales[localIndex] = PosHeldSale(
+        id: held.id,
+        label: held.label,
+        lines: held.lines,
+        heldAt: held.heldAt,
+        serverId: serverId,
+        customer: held.customer,
+        note: held.note,
+        discountAmount: held.discountAmount,
+        discountPercent: held.discountPercent,
+        fees: held.fees,
+        tableId: held.tableId,
+      );
+      notifyListeners();
+      return;
+    }
 
     _heldSales.insert(
       0,

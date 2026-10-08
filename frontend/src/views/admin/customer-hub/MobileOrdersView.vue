@@ -1,37 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import { intlLocale } from '../../../i18n/locales'
 import { useContextStore } from '../../../stores/context'
-
-type OrderType = 'dine_in' | 'takeaway' | 'delivery'
-type OrderStatus = 'new' | 'processing' | 'completed' | 'cancelled'
-type PaymentStatus = 'paid' | 'unpaid' | 'partial'
-
-type MobileOrder = {
-  id: string
-  customer: string
-  items: number
-  type: OrderType
-  table: string | null
-  amount: number
-  status: OrderStatus
-  payment: PaymentStatus
-  at: string
-}
-
-const orders: MobileOrder[] = [
-  { id: '00001', customer: 'Jean Mobile', items: 3, type: 'dine_in', table: 'T5', amount: 45000, status: 'new', payment: 'paid', at: '2026-03-09T14:30:00' },
-  { id: '00002', customer: 'Marie App', items: 2, type: 'takeaway', table: null, amount: 18500, status: 'processing', payment: 'paid', at: '2026-03-09T13:15:00' },
-  { id: '00005', customer: 'Pierre Mobile', items: 5, type: 'dine_in', table: 'T2', amount: 72000, status: 'completed', payment: 'paid', at: '2026-03-08T21:45:00' },
-  { id: '00004', customer: 'Alice App', items: 4, type: 'delivery', table: null, amount: 35000, status: 'completed', payment: 'paid', at: '2026-03-08T20:00:00' },
-  { id: '00003', customer: 'Claude App', items: 1, type: 'dine_in', table: 'T8', amount: 12000, status: 'cancelled', payment: 'unpaid', at: '2026-03-08T16:20:00' },
-  { id: '00010', customer: 'David App', items: 8, type: 'dine_in', table: 'T1', amount: 95000, status: 'completed', payment: 'paid', at: '2026-03-07T22:10:00' },
-  { id: '00009', customer: 'Grace App', items: 2, type: 'takeaway', table: null, amount: 22000, status: 'completed', payment: 'partial', at: '2026-03-07T15:30:00' },
-]
+import {
+  cloneMobileOrders,
+  nextStatuses,
+  type MobileOrder,
+  type OrderStatus,
+  type PaymentStatus,
+} from './mobileOrdersData'
 
 const statusKeys: OrderStatus[] = ['new', 'processing', 'completed', 'cancelled']
 const paymentKeys: PaymentStatus[] = ['paid', 'unpaid', 'partial']
@@ -49,36 +30,54 @@ const paymentTone: Record<PaymentStatus, 'success' | 'neutral' | 'warning'> = {
   partial: 'warning',
 }
 
+const actionLabel: Record<OrderStatus, string> = {
+  new: 'markNew',
+  processing: 'startPreparing',
+  completed: 'markCompleted',
+  cancelled: 'markCancelled',
+}
+
 const { t, locale } = useI18n()
 const context = useContextStore()
+const orders = ref<MobileOrder[]>([])
 const query = ref('')
 const status = ref<OrderStatus | ''>('')
 const payment = ref<PaymentStatus | ''>('')
 const refreshing = ref(false)
 const selected = ref<MobileOrder | null>(null)
+const loaded = ref(false)
 
 const paidRevenue = computed(() =>
-  orders.filter(order => order.payment === 'paid').reduce((sum, order) => sum + order.amount, 0),
+  orders.value.filter(order => order.payment === 'paid').reduce((sum, order) => sum + order.amount, 0),
 )
 
 const stats = computed(() => [
-  { key: '' as const, label: t('mobileOrdersPage.total'), value: orders.length },
+  { key: '' as const, label: t('mobileOrdersPage.total'), value: orders.value.length },
   ...statusKeys.map(key => ({
     key,
     label: t(`mobileOrdersPage.${key}`),
-    value: orders.filter(order => order.status === key).length,
+    value: orders.value.filter(order => order.status === key).length,
   })),
 ])
 
 const visible = computed(() => {
   const q = query.value.trim().toLowerCase()
-  return orders.filter(order => {
+  return orders.value.filter(order => {
     if (status.value && order.status !== status.value) return false
     if (payment.value && order.payment !== payment.value) return false
     if (!q) return true
-    return order.id.toLowerCase().includes(q) || order.customer.toLowerCase().includes(q)
+    return (
+      order.reference.toLowerCase().includes(q)
+      || order.customer.toLowerCase().includes(q)
+      || order.phone.toLowerCase().includes(q)
+      || (order.table ?? '').toLowerCase().includes(q)
+    )
   })
 })
+
+const selectedActions = computed(() =>
+  selected.value ? nextStatuses(selected.value.status) : [],
+)
 
 function money(amount: number) {
   const formatted = new Intl.NumberFormat(intlLocale(locale.value)).format(amount)
@@ -99,8 +98,32 @@ function itemsLabel(count: number) {
     : t('mobileOrdersPage.itemMany', { n: count })
 }
 
+function typeLabel(order: MobileOrder) {
+  return t(`mobileOrdersPage.${order.type === 'dine_in' ? 'dineIn' : order.type}`)
+}
+
 function selectStatus(key: OrderStatus | '') {
   status.value = status.value === key ? '' : key
+}
+
+function openOrder(order: MobileOrder) {
+  selected.value = order
+}
+
+function setStatus(next: OrderStatus) {
+  if (!selected.value) return
+  const target = orders.value.find(order => order.id === selected.value?.id)
+  if (!target) return
+  target.status = next
+  if (next === 'cancelled' && target.payment === 'unpaid') {
+    // keep unpaid
+  }
+  selected.value = { ...target, lines: target.lines.map(line => ({ ...line })) }
+}
+
+function loadOrders() {
+  orders.value = cloneMobileOrders()
+  loaded.value = true
 }
 
 function refresh() {
@@ -109,10 +132,14 @@ function refresh() {
   query.value = ''
   status.value = ''
   payment.value = ''
+  selected.value = null
   window.setTimeout(() => {
+    loadOrders()
     refreshing.value = false
-  }, 350)
+  }, 280)
 }
+
+onMounted(loadOrders)
 </script>
 
 <template>
@@ -120,14 +147,18 @@ function refresh() {
     <template #title>{{ t('mobileOrdersPage.title') }}</template>
     <template #subtitle>{{ t('mobileOrdersPage.subtitle') }}</template>
 
-    <div class="orders">
+    <div class="orders" :aria-busy="refreshing">
       <div class="orders__toolbar">
         <button type="button" class="btn-secondary" :disabled="refreshing" @click="refresh">
           {{ t('mobileOrdersPage.refresh') }}
         </button>
+        <p class="orders__revenue">
+          <span>{{ t('mobileOrdersPage.paidRevenue') }}</span>
+          <strong>{{ money(paidRevenue) }}</strong>
+        </p>
       </div>
 
-      <section class="orders__stats" :aria-busy="refreshing">
+      <section class="orders__stats">
         <button
           v-for="stat in stats"
           :key="stat.label"
@@ -141,11 +172,6 @@ function refresh() {
           <span class="orders__label">{{ stat.label }}</span>
         </button>
       </section>
-
-      <p class="orders__revenue">
-        <span>{{ t('mobileOrdersPage.paidRevenue') }}</span>
-        <strong>{{ money(paidRevenue) }}</strong>
-      </p>
 
       <div class="orders__filters">
         <label class="orders__search">
@@ -188,25 +214,26 @@ function refresh() {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!visible.length">
+            <tr v-if="loaded && !visible.length">
               <td class="orders__empty" colspan="8">{{ t('mobileOrdersPage.empty') }}</td>
             </tr>
             <tr v-for="order in visible" :key="order.id">
-              <td class="orders__id">{{ order.id }}</td>
+              <td class="orders__id">{{ order.reference }}</td>
               <td>
                 <p class="orders__name">{{ order.customer }}</p>
-                <p class="orders__meta">{{ itemsLabel(order.items) }}</p>
+                <p class="orders__meta">{{ itemsLabel(order.lines.length) }} · {{ order.phone }}</p>
               </td>
               <td>
-                <p class="orders__name">{{ t(`mobileOrdersPage.${order.type === 'dine_in' ? 'dineIn' : order.type}`) }}</p>
+                <p class="orders__name">{{ typeLabel(order) }}</p>
                 <p v-if="order.table" class="orders__meta">{{ t('mobileOrdersPage.table', { name: order.table }) }}</p>
+                <p v-else-if="order.address" class="orders__meta">{{ order.address }}</p>
               </td>
               <td class="orders__amount">{{ money(order.amount) }}</td>
               <td><Badge :variant="statusTone[order.status]">{{ t(`mobileOrdersPage.${order.status}`) }}</Badge></td>
               <td><Badge :variant="paymentTone[order.payment]">{{ t(`mobileOrdersPage.${order.payment}`) }}</Badge></td>
               <td class="orders__when">{{ when(order.at) }}</td>
               <td>
-                <button type="button" class="btn-secondary orders__view" @click="selected = order">
+                <button type="button" class="btn-secondary orders__view" @click="openOrder(order)">
                   {{ t('mobileOrdersPage.view') }}
                 </button>
               </td>
@@ -218,41 +245,92 @@ function refresh() {
 
     <AppModal
       :open="selected !== null"
-      :title="selected ? selected.id : ''"
+      :title="selected ? `${t('mobileOrdersPage.orderNumber')} ${selected.reference}` : ''"
       :subtitle="selected ? selected.customer : ''"
-      size="sm"
+      size="md"
       icon="receipt"
       @close="selected = null"
     >
-      <dl v-if="selected" class="orders__detail">
-        <div>
-          <dt>{{ t('mobileOrdersPage.type') }}</dt>
-          <dd>
-            {{ t(`mobileOrdersPage.${selected.type === 'dine_in' ? 'dineIn' : selected.type}`) }}
-            <template v-if="selected.table"> · {{ t('mobileOrdersPage.table', { name: selected.table }) }}</template>
-          </dd>
+      <div v-if="selected" class="orders__detail">
+        <dl class="orders__facts">
+          <div>
+            <dt>{{ t('mobileOrdersPage.customer') }}</dt>
+            <dd>{{ selected.customer }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('mobileOrdersPage.phone') }}</dt>
+            <dd>{{ selected.phone }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('mobileOrdersPage.type') }}</dt>
+            <dd>
+              {{ typeLabel(selected) }}
+              <template v-if="selected.table"> · {{ t('mobileOrdersPage.table', { name: selected.table }) }}</template>
+            </dd>
+          </div>
+          <div v-if="selected.address">
+            <dt>{{ t('mobileOrdersPage.address') }}</dt>
+            <dd>{{ selected.address }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('mobileOrdersPage.status') }}</dt>
+            <dd><Badge :variant="statusTone[selected.status]">{{ t(`mobileOrdersPage.${selected.status}`) }}</Badge></dd>
+          </div>
+          <div>
+            <dt>{{ t('mobileOrdersPage.payment') }}</dt>
+            <dd><Badge :variant="paymentTone[selected.payment]">{{ t(`mobileOrdersPage.${selected.payment}`) }}</Badge></dd>
+          </div>
+          <div>
+            <dt>{{ t('mobileOrdersPage.amount') }}</dt>
+            <dd>{{ money(selected.amount) }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('mobileOrdersPage.date') }}</dt>
+            <dd>{{ when(selected.at) }}</dd>
+          </div>
+          <div v-if="selected.notes" class="orders__facts-full">
+            <dt>{{ t('mobileOrdersPage.notes') }}</dt>
+            <dd>{{ selected.notes }}</dd>
+          </div>
+        </dl>
+
+        <section class="orders__lines" aria-labelledby="mobile-order-lines">
+          <h3 id="mobile-order-lines">{{ t('mobileOrdersPage.lines') }}</h3>
+          <table class="ui-table">
+            <thead>
+              <tr>
+                <th>{{ t('mobileOrdersPage.lineItem') }}</th>
+                <th>{{ t('mobileOrdersPage.qty') }}</th>
+                <th>{{ t('mobileOrdersPage.unitPrice') }}</th>
+                <th>{{ t('mobileOrdersPage.lineTotal') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(line, index) in selected.lines" :key="`${selected.id}-${index}`">
+                <td>
+                  <p class="orders__name">{{ line.name }}</p>
+                  <p v-if="line.notes" class="orders__meta">{{ line.notes }}</p>
+                </td>
+                <td>{{ line.quantity }}</td>
+                <td>{{ money(line.unit_price) }}</td>
+                <td>{{ money(line.quantity * line.unit_price) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <div v-if="selectedActions.length" class="orders__actions">
+          <button
+            v-for="next in selectedActions"
+            :key="next"
+            type="button"
+            :class="next === 'cancelled' ? 'btn-secondary' : 'btn-primary'"
+            @click="setStatus(next)"
+          >
+            {{ t(`mobileOrdersPage.${actionLabel[next]}`) }}
+          </button>
         </div>
-        <div>
-          <dt>{{ t('mobileOrdersPage.customer') }}</dt>
-          <dd>{{ itemsLabel(selected.items) }}</dd>
-        </div>
-        <div>
-          <dt>{{ t('mobileOrdersPage.amount') }}</dt>
-          <dd>{{ money(selected.amount) }}</dd>
-        </div>
-        <div>
-          <dt>{{ t('mobileOrdersPage.status') }}</dt>
-          <dd>{{ t(`mobileOrdersPage.${selected.status}`) }}</dd>
-        </div>
-        <div>
-          <dt>{{ t('mobileOrdersPage.payment') }}</dt>
-          <dd>{{ t(`mobileOrdersPage.${selected.payment}`) }}</dd>
-        </div>
-        <div>
-          <dt>{{ t('mobileOrdersPage.date') }}</dt>
-          <dd>{{ when(selected.at) }}</dd>
-        </div>
-      </dl>
+      </div>
     </AppModal>
   </PageFrame>
 </template>
@@ -262,10 +340,18 @@ function refresh() {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  max-width: 76rem;
+  width: 100%;
+  min-height: calc(100vh - 11rem);
 }
 
-.orders__toolbar,
+.orders__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .orders__filters {
   display: flex;
   flex-wrap: wrap;
@@ -312,11 +398,13 @@ function refresh() {
 }
 
 .orders__stat:hover {
-  background: var(--color-table-header);}
+  background: var(--color-table-header);
+}
 
 .orders__stat.is-on {
   background: var(--color-canvas);
-  box-shadow: inset 0 -2px 0 #1c2430;}
+  box-shadow: inset 0 -2px 0 #1c2430;
+}
 
 .orders__stat:focus-visible,
 .orders__view:focus-visible {
@@ -356,8 +444,11 @@ function refresh() {
 }
 
 .orders__table-wrap {
-  overflow-x: auto;
-  border-top: 1px solid var(--color-border);
+  flex: 1;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
 }
 
 .orders__id,
@@ -389,27 +480,51 @@ function refresh() {
 
 .orders__detail {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--space-5);
+}
+
+.orders__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1rem;
   margin: 0;
 }
 
-.orders__detail div {
+.orders__facts div,
+.orders__facts-full {
   display: grid;
-  grid-template-columns: 8rem minmax(0, 1fr);
-  gap: 0.75rem;
+  gap: 0.25rem;
 }
 
-.orders__detail dt {
+.orders__facts-full {
+  grid-column: 1 / -1;
+}
+
+.orders__facts dt {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 
-.orders__detail dd {
+.orders__facts dd {
   margin: 0;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.orders__lines h3 {
+  margin: 0 0 0.75rem;
+  font-size: var(--text-sm);
+  font-weight: 650;
+  color: var(--color-text-primary);
+}
+
+.orders__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 @media (max-width: 960px) {
@@ -427,6 +542,10 @@ function refresh() {
 
   .orders__stat:last-child {
     border-bottom: 0;
+  }
+
+  .orders__facts {
+    grid-template-columns: 1fr;
   }
 }
 

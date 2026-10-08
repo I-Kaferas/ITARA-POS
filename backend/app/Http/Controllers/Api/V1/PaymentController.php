@@ -98,6 +98,7 @@ class PaymentController extends Controller
     {
         return $request->validate([
             'items' => ['required', 'array', 'min:1'],
+            'currency' => ['nullable', 'string', 'size:3'],
             'customer_id' => ['nullable', 'uuid', 'exists:customers,id'],
             'cash_register_id' => ['nullable', 'uuid', 'exists:cash_registers,id'],
             'idempotency_key' => ['nullable', 'string', 'max:100'],
@@ -115,6 +116,7 @@ class PaymentController extends Controller
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.method' => ['required', Rule::in(SalePaymentMethod::values())],
             'payments.*.amount' => ['required', 'integer', 'min:1'],
+            'payments.*.currency' => ['nullable', 'string', 'size:3'],
             'payments.*.metadata' => ['nullable', 'array'],
         ]);
     }

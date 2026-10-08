@@ -2,6 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../../stores/auth'
+import { moduleEnabled, moduleRequiredForPath } from '../../modules/registry'
 import AppIcon from '../ui/AppIcon.vue'
 import EmptyState from '../ui/EmptyState.vue'
 
@@ -20,6 +22,7 @@ const listRef = ref<HTMLElement | null>(null)
 
 const { t } = useI18n()
 const router = useRouter()
+const auth = useAuthStore()
 
 const modules = computed<ModuleItem[]>(() => [
   { to: '/admin', label: t('nav.dashboard'), group: t('nav.section.main'), keywords: 'accueil tableau board' },
@@ -121,6 +124,7 @@ const modules = computed<ModuleItem[]>(() => [
   { to: '/admin/customer-hub/payments', label: t('nav.customerHubItems.payments'), group: t('nav.customerHub'), keywords: 'payments paiements customer hub' },
   { to: '/admin/settings/orders', label: t('nav.settingsItems.orders'), group: t('nav.spaceOrdersHub'), keywords: 'itara space commandes orders' },
   { to: '/admin/settings/analytics', label: t('nav.settingsItems.analytics'), group: t('nav.spaceOrdersHub'), keywords: 'itara space analytics analytique' },
+  { to: '/admin/notifications', label: t('nav.notifications'), group: t('nav.settingsHub'), keywords: 'notifications centre alertes email sms whatsapp push' },
   { to: '/admin/settings/merchant-qr', label: t('nav.settingsItems.merchantQr'), group: t('nav.settingsHub'), keywords: 'qr marchand merchant settings parametres' },
   { to: '/admin/settings/app-versions', label: t('nav.settingsItems.appVersions'), group: t('nav.settingsHub'), keywords: 'versions application app' },
   { to: '/admin/organization/registers', label: t('org.tabs.registers'), group: t('nav.group.posHardware'), keywords: 'caisses' },
@@ -131,10 +135,12 @@ const modules = computed<ModuleItem[]>(() => [
   { to: '/admin/account', label: t('nav.account'), group: t('nav.section.system'), keywords: 'compte profil' },
 ])
 
+const visibleModules = computed(() => modules.value.filter(item => moduleEnabled(auth.user?.modules, moduleRequiredForPath(item.to))))
+
 const results = computed(() => {
   const q = query.value.trim().toLowerCase()
-  if (!q) return modules.value
-  return modules.value.filter((item) =>
+  if (!q) return visibleModules.value
+  return visibleModules.value.filter((item) =>
     `${item.label} ${item.group} ${item.keywords}`.toLowerCase().includes(q),
   )
 })

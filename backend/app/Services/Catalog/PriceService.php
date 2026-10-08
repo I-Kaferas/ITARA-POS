@@ -96,8 +96,10 @@ class PriceService
     ): ResolvedPrice {
         $at ??= now();
 
+        $preferCurrency = $currency ? strtoupper($currency) : null;
+
         foreach ($this->resolutionChain($priceType) as $type) {
-            $tier = $this->findActiveTier($model, $type, $store, $quantity, $at);
+            $tier = $this->findActiveTier($model, $type, $store, $quantity, $at, $preferCurrency);
 
             if ($tier !== null) {
                 return $this->inCurrency(new ResolvedPrice(
@@ -192,6 +194,7 @@ class PriceService
         ?Store $store,
         int $quantity,
         Carbon $at,
+        ?string $preferCurrency = null,
     ): ?Price {
         if ($model->relationLoaded('prices')) {
             $minQty = max(1, $quantity);
@@ -212,20 +215,28 @@ class PriceService
                 return true;
             });
 
+            $pick = function ($pool) use ($preferCurrency) {
+                $sorted = $pool->sortByDesc(fn (Price $price) => (int) $price->min_quantity)->values();
+                if ($preferCurrency) {
+                    $native = $sorted->first(
+                        fn (Price $price) => strtoupper((string) $price->currency_code) === $preferCurrency
+                    );
+                    if ($native) {
+                        return $native;
+                    }
+                }
+
+                return $sorted->first();
+            };
+
             if ($store) {
-                $storePrice = $candidates
-                    ->filter(fn (Price $price) => $price->store_id === $store->id)
-                    ->sortByDesc(fn (Price $price) => (int) $price->min_quantity)
-                    ->first();
+                $storePrice = $pick($candidates->filter(fn (Price $price) => $price->store_id === $store->id));
                 if ($storePrice) {
                     return $storePrice;
                 }
             }
 
-            return $candidates
-                ->filter(fn (Price $price) => $price->store_id === null)
-                ->sortByDesc(fn (Price $price) => (int) $price->min_quantity)
-                ->first();
+            return $pick($candidates->filter(fn (Price $price) => $price->store_id === null));
         }
 
         $query = $model->prices()
@@ -235,21 +246,29 @@ class PriceService
             ->where(fn ($q) => $q->whereNull('valid_from')->orWhere('valid_from', '<=', $at))
             ->where(fn ($q) => $q->whereNull('valid_until')->orWhere('valid_until', '>=', $at));
 
+        $pickQuery = function ($base) use ($preferCurrency) {
+            if ($preferCurrency) {
+                $native = (clone $base)
+                    ->where('currency_code', $preferCurrency)
+                    ->orderByDesc('min_quantity')
+                    ->first();
+                if ($native) {
+                    return $native;
+                }
+            }
+
+            return (clone $base)->orderByDesc('min_quantity')->first();
+        };
+
         if ($store) {
-            $storePrice = (clone $query)
-                ->where('store_id', $store->id)
-                ->orderByDesc('min_quantity')
-                ->first();
+            $storePrice = $pickQuery((clone $query)->where('store_id', $store->id));
 
             if ($storePrice) {
                 return $storePrice;
             }
         }
 
-        return $query
-            ->whereNull('store_id')
-            ->orderByDesc('min_quantity')
-            ->first();
+        return $pickQuery($query->whereNull('store_id'));
     }
 
     /** @var array<string, string> */

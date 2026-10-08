@@ -212,8 +212,15 @@ function onViewportChange() {
   if (window.innerWidth > 900) cartOpen.value = false
 }
 
-useRealtimeSync(realtimeTopics.posTerminal, async () => {
-  if (context.currentStoreId) await pos.loadCatalog(context.currentStoreId)
+useRealtimeSync(realtimeTopics.posTerminal, async (payload) => {
+  const storeId = context.currentStoreId
+  if (!storeId) return
+  const type = payload?.type ?? ''
+  if (type.startsWith('sale.')) {
+    await pos.refreshHeldSales(storeId)
+    return
+  }
+  await pos.refreshCatalogQuiet(storeId)
 })
 
 onMounted(async () => {
@@ -392,7 +399,7 @@ async function onRetrieve(id: string, options?: { openPayment?: boolean }) {
 }
 
 function onPay(
-  payments: { method: string; amount: number; tendered?: number }[],
+  payments: { method: string; amount: number; tendered?: number; currency?: string }[],
   done: (result: { success: boolean; message?: string }) => void,
 ) {
   void pos.pay(payments).then(async (result) => {
@@ -485,11 +492,13 @@ async function closeShift(payload: { pin: string; counted: number; notes: string
   if (!context.currentStoreId) return
   try {
     const report = await pos.closeShiftWithPin(context.currentStoreId, payload.pin, payload.counted, payload.notes, payload.reason)
-    const popup = openPrintWindow()
-    printZReport({
-      ...(report as ZReportPayload),
-      currency: pos.totals.currency,
-    }, t('pos.zReport'), popup)
+    if (report) {
+      const popup = openPrintWindow()
+      printZReport({
+        ...(report as ZReportPayload),
+        currency: pos.totals.currency,
+      }, t('pos.zReport'), popup)
+    }
     showClose.value = false
     pos.setStatus(t('pos.shiftClosed'))
   } catch (e) {

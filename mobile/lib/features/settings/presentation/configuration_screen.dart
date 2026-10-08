@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -17,11 +18,18 @@ import 'package:printing/printing.dart';
 
 import '../../auth/data/pin_auth_service.dart';
 import '../../backup/presentation/backup_screen.dart';
+import '../../printers/presentation/printer_routing_screen.dart';
+import '../../devices/presentation/bloc/master_discovery_bloc.dart';
+import '../../devices/presentation/bloc/master_pairing_bloc.dart';
+import '../../devices/presentation/widgets/devices_registry_panel.dart';
+import '../../devices/presentation/widgets/discovered_masters_panel.dart';
+import '../../devices/presentation/widgets/pairing_approval_panel.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../receipt/domain/printer_models.dart';
 import '../../settings/data/device_api_service.dart';
 import '../../../sync/local_master_discovery.dart';
 import '../../../sync/local_master_server.dart';
+import '../../../sync/pairing_models.dart';
 
 class ConfigurationScreen extends StatefulWidget {
   const ConfigurationScreen({super.key});
@@ -34,6 +42,87 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   void applyMasterHost(String host) {
     _masterHostCtrl.text = host;
     setState(() {});
+  }
+
+  Future<void> pairWithMaster(DiscoveredMaster master) async {
+    final codeCtrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Secure Pairing — ${master.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'La découverte ne suffit pas. Saisissez le code à 6 chiffres '
+              'du Master, puis attendez ACCEPT.',
+              style: GoogleFonts.ibmPlexSans(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Code d\'appairage',
+                counterText: '',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, codeCtrl.text.trim()),
+            child: const Text('Demander l\'accès'),
+          ),
+        ],
+      ),
+    );
+    codeCtrl.dispose();
+    if (code == null || code.length != 6 || !mounted) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                'Authorization… en attente ACCEPT sur le Master.',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final pairing = context.read<MasterPairingBloc>();
+    final done = pairing.stream.firstWhere(
+      (s) =>
+          !s.busy &&
+          (s.phase == PairingPhase.registered ||
+              s.phase == PairingPhase.rejected),
+    );
+    pairing.add(MasterPairingSlaveRequested(master: master, code: code));
+    await done;
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    final err = pairing.state.errorMessage;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    applyMasterHost('${master.host}:${master.port}');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Appareil enregistré — appairage réussi.')),
+    );
   }
 
   late final TerminalConfigRepository _repo;
@@ -52,7 +141,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   PosRole _role = PosRole.standalone;
   bool _printerEnabled = false;
   String _printerModel = 'generic_80';
-  PrinterConnection _printerConnection = PrinterConnection.system;
+  PrinterConnectionType _printerConnection = PrinterConnectionType.system;
   String _printerName = '';
   bool _testingPrint = false;
   bool _showToken = false;
@@ -62,11 +151,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   int _section = 0;
 
   static const _sections = <_Section>[
-    _Section(icon: Icons.memory_outlined, label: 'Terminal', caption: 'IdentitÃ© et mode'),
+    _Section(icon: Icons.memory_outlined, label: 'Terminal', caption: 'Identité et mode'),
     _Section(icon: Icons.storefront_outlined, label: 'Magasin', caption: 'Identifiants'),
     _Section(icon: Icons.lan_outlined, label: 'Connexion', caption: 'Serveurs, token, impression'),
-    _Section(icon: Icons.print_outlined, label: 'Impression', caption: 'Ticket rÃ©seau'),
-    _Section(icon: Icons.tune_outlined, label: 'ParamÃ¨tres', caption: 'Configurations'),
+    _Section(icon: Icons.print_outlined, label: 'Impression', caption: 'Ticket réseau'),
+    _Section(icon: Icons.tune_outlined, label: 'Paramètres', caption: 'Configurations'),
   ];
 
   @override
@@ -88,7 +177,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     _role = config.posRole;
     _printerEnabled = config.printerEnabled;
     _printerModel = config.printerModel;
-    _printerConnection = PrinterConnection.fromString(config.printerConnection);
+    _printerConnection = PrinterConnectionType.fromString(config.printerConnection);
     _printerName = config.printerName;
   }
 
@@ -180,7 +269,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
       await _repo.save(_repo.config.copyWith(deviceId: device.id));
 
       setState(() {
-        _message = 'RÃ©glages enregistrÃ©s';
+        _message = 'Réglages enregistrés';
         _messageOk = true;
         _saving = false;
       });
@@ -197,11 +286,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Se dÃ©connecter ?'),
-        content: const Text('Le caissier sera dÃ©connectÃ©. Le terminal reste configurÃ©.'),
+        title: const Text('Se déconnecter ?'),
+        content: const Text('Le caissier sera déconnecté. Le terminal reste configuré.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('DÃ©connexion')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Déconnexion')),
         ],
       ),
     );
@@ -215,7 +304,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Reconfigurer le terminal ?'),
-        content: const Text('Les identifiants locaux seront effacÃ©s. Le terminal devra Ãªtre configurÃ© Ã  nouveau.'),
+        content: const Text('Les identifiants locaux seront effacés. Le terminal devra être configuré à nouveau.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
           FilledButton(
@@ -330,9 +419,9 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   Widget _terminalSection(TerminalConfig config) {
     final wide = MediaQuery.sizeOf(context).width >= PosUi.tabletBreakpoint;
     final tiles = [
-      _Fact(label: 'Caissier', value: config.cashierName.isEmpty ? 'Non connectÃ©' : config.cashierName),
-      _Fact(label: 'Identifiant', value: config.deviceIdentifier.isEmpty ? 'â€”' : config.deviceIdentifier),
-      _Fact(label: 'Device ID', value: config.deviceId.isEmpty ? 'Non enregistrÃ©' : config.deviceId),
+      _Fact(label: 'Caissier', value: config.cashierName.isEmpty ? 'Non connecté' : config.cashierName),
+      _Fact(label: 'Identifiant', value: config.deviceIdentifier.isEmpty ? '—' : config.deviceIdentifier),
+      _Fact(label: 'Device ID', value: config.deviceId.isEmpty ? 'Non enregistré' : config.deviceId),
       _Fact(label: 'Plateforme', value: _platformLabel()),
       _Fact(label: 'Version', value: AppConfig.appVersion),
     ];
@@ -358,7 +447,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         Text('Mode du terminal', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text(
-          'Choisissez comment ce poste se comporte sur le rÃ©seau du magasin.',
+          'Choisissez comment ce poste se comporte sur le réseau du magasin.',
           style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
@@ -404,19 +493,24 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
 
   Widget _settingsHub() {
     final items = <(String, String, VoidCallback)>[
-      ('Entreprise', 'IdentitÃ© du magasin', () => setState(() => _section = 1)),
+      ('Entreprise', 'Identité du magasin', () => setState(() => _section = 1)),
       ('Magasin', 'Identifiants', () => setState(() => _section = 1)),
       ('POS', 'Mode du terminal', () => setState(() => _section = 0)),
-      ('Taxes', 'AppliquÃ©es par le catalogue', () => setState(() => _section = 1)),
+      ('Taxes', 'Appliquées par le catalogue', () => setState(() => _section = 1)),
       ('Devise', configCurrency(), () => setState(() => _section = 1)),
       ('Impression', 'Ticket', () => setState(() => _section = 3)),
+      ('Routage imprimantes', 'Catégorie / Produit / Document ? imprimante', () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const PrinterRoutingScreen()),
+        );
+      }),
       ('Stock', 'Mouvements du terminal', () => context.go(AppRoutes.reports)),
-      ('Sync', 'File et maÃ®tre local', () => context.go(AppRoutes.sync)),
+      ('Sync', 'File et maître local', () => context.go(AppRoutes.sync)),
       ('Sauvegardes', 'SQLite, sync, configuration, cloud', () {
         Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen()));
       }),
       ('Restaurant', 'Tables et cuisine', () => context.go(AppRoutes.hospitality)),
-      ('HÃ´tel', 'Chambres et folios', () => context.go(AppRoutes.hospitality)),
+      ('Hôtel', 'Chambres et folios', () => context.go(AppRoutes.hospitality)),
     ];
     return Column(
       children: [
@@ -450,7 +544,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            'Ã€ lâ€™enregistrement, le slug charge la marque et remplit le Tenant ID.',
+            'À l'enregistrement, le slug charge la marque et remplit le Tenant ID.',
             style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
           ),
         ),
@@ -477,7 +571,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'UtilisÃ© en prioritÃ©. Le cloud sert de secours si le rÃ©seau local ne rÃ©pond pas.',
+          'Utilisé en priorité. Le cloud sert de secours si le réseau local ne répond pas.',
           style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
@@ -485,7 +579,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         const SizedBox(height: 12),
         _field(
           _tokenCtrl,
-          'Token d\'accÃ¨s',
+          'Token d\'accès',
           icon: Icons.key_outlined,
           obscure: !_showToken,
           suffix: IconButton(
@@ -500,10 +594,10 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           const _DiscoveredMasters(),
         ],
         const SizedBox(height: 22),
-        Text('RÃ©glage impression', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
+        Text('Réglage impression', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Text(
-          'ModÃ¨le, connexion et ticket, configurÃ©s avec le terminal.',
+          'Modèle, connexion et ticket, configurés avec le terminal.',
           style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
@@ -524,7 +618,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     final printers = await Printing.listPrinters();
     if (!mounted) return;
     if (printers.isEmpty) {
-      setState(() => _message = 'Aucune imprimante systÃ¨me dÃ©tectÃ©e');
+      setState(() => _message = 'Aucune imprimante système détectée');
       _messageOk = false;
       return;
     }
@@ -577,9 +671,9 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         ),
       );
       final bytes = await doc.save();
-      if (_printerConnection == PrinterConnection.network) {
+      if (_printerConnection.isNetwork) {
         final host = _printerHostCtrl.text.trim();
-        if (host.isEmpty) throw Exception('Saisissez lâ€™adresse de lâ€™imprimante');
+        if (host.isEmpty) throw Exception('Saisissez l'adresse de l'imprimante');
         final port = int.tryParse(_printerPortCtrl.text.trim()) ?? 9100;
         await Printing.directPrintPdf(
           printer: Printer(url: 'socket://$host:$port', name: model.label),
@@ -595,7 +689,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
       }
       if (!mounted) return;
       setState(() {
-        _message = 'Ticket de test envoyÃ©';
+        _message = 'Ticket de test envoyé';
         _messageOk = true;
       });
     } catch (error) {
@@ -633,11 +727,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _printerEnabled ? 'Impression activÃ©e' : 'Impression dÃ©sactivÃ©e',
+                      _printerEnabled ? 'Impression activée' : 'Impression désactivée',
                       style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                     Text(
-                      '${model.brand} Â· ${model.label}',
+                      '${model.brand} · ${model.label}',
                       style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
@@ -651,7 +745,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        Text('ModÃ¨le', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text('Modèle', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         ...PrinterModelPreset.all.map((item) {
           final selected = _printerModel == item.id;
@@ -683,7 +777,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                           children: [
                             Text(item.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
                             Text(
-                              '${item.brand} Â· ${item.hint}',
+                              '${item.brand} · ${item.hint}',
                               style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary),
                             ),
                           ],
@@ -702,7 +796,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: PrinterConnection.values.map((connection) {
+          children: PrinterConnectionType.values.map((connection) {
             final selected = _printerConnection == connection;
             return ChoiceChip(
               label: Text(connection.label),
@@ -719,15 +813,23 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
-        if (_printerConnection == PrinterConnection.network) ...[
+        if (_printerConnection.isNetwork) ...[
           _field(_printerHostCtrl, 'Adresse IP', icon: Icons.dns_outlined, enabled: _printerEnabled, hint: '192.168.1.50'),
           const SizedBox(height: 12),
           _field(_printerPortCtrl, 'Port', icon: Icons.tag, enabled: _printerEnabled, hint: '9100'),
+        ] else if (_printerConnection == PrinterConnectionType.bluetooth) ...[
+          _field(
+            _printerHostCtrl,
+            'Adresse Bluetooth',
+            icon: Icons.bluetooth,
+            enabled: _printerEnabled,
+            hint: '00:11:22:33:44:55',
+          ),
         ] else ...[
           OutlinedButton.icon(
             onPressed: _printerEnabled ? _pickSystemPrinter : null,
             icon: Icon(printerConnectionIcon(_printerConnection), size: 18),
-            label: Text(_printerName.isEmpty ? 'Choisir lâ€™imprimante' : _printerName),
+            label: Text(_printerName.isEmpty ? 'Choisir l''imprimante' : _printerName),
           ),
         ],
         const SizedBox(height: 12),
@@ -829,7 +931,7 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$name Â· $platform Â· ${role.label}',
+                  '$name · $platform · ${role.label}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
@@ -862,7 +964,7 @@ class _StatusPill extends StatelessWidget {
         ),
       ),
       child: Text(
-        configured ? 'ConfigurÃ©' : 'Incomplet',
+        configured ? 'Configuré' : 'Incomplet',
         style: GoogleFonts.ibmPlexSans(
           fontSize: 11,
           fontWeight: FontWeight.w700,
@@ -1228,7 +1330,7 @@ class _Footer extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: saving ? null : onLogout,
                         icon: const Icon(Icons.logout, size: 18),
-                        label: const Text('DÃ©connexion'),
+                        label: const Text('Déconnexion'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1266,7 +1368,7 @@ class _Footer extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: saving ? null : onLogout,
                   icon: const Icon(Icons.logout, size: 18),
-                  label: const Text('DÃ©connexion'),
+                  label: const Text('Déconnexion'),
                 ),
                 const Spacer(),
                 TextButton.icon(
@@ -1306,26 +1408,23 @@ class _LocalMasterStatus extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                ready ? 'Serveur maÃ®tre local actif' : 'Serveur maÃ®tre local arrÃªtÃ©',
+                ready ? 'Serveur maître local actif' : 'Serveur maître local arrêté',
                 style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13),
               ),
               const SizedBox(height: 4),
               Text(
                 ready
-                    ? '$url â€” les autres caisses (Android ou Windows) se connectent ici, mÃªme sans Internet. Sous Windows, autorisez le port ${LocalMasterServer.port} (API) et ${LocalMasterDiscovery.beaconPort} (dÃ©couverte) si le pare-feu le demande.'
+                    ? '$url — les autres caisses (Android ou Windows) se connectent ici, même sans Internet. Sous Windows, autorisez le port ${LocalMasterServer.port} (API) et ${LocalMasterDiscovery.beaconPort} (découverte) si le pare-feu le demande.'
                     : server.listening
-                        ? 'Ã‰coute sur le port ${LocalMasterServer.port}, mais lâ€™adresse IP locale est introuvable.'
-                        : server.lastError ?? 'Le terminal maÃ®tre nâ€™Ã©coute pas encore sur le rÃ©seau local.',
+                        ? "Écoute sur le port ${LocalMasterServer.port}, mais l'adresse IP locale est introuvable."
+                        : server.lastError ?? "Le terminal maître n'écoute pas encore sur le réseau local.",
                 style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
               ),
               if (ready) ...[
+                const SizedBox(height: 12),
+                const PairingApprovalPanel(),
                 const SizedBox(height: 8),
-                Text(
-                  server.clients.isEmpty
-                      ? 'Aucune autre caisse connectÃ©e pour le moment. Elles apparaissent dÃ¨s quâ€™elles joignent cette adresse, sans Internet.'
-                      : 'Caisses connectÃ©es : ${server.clients.values.map((item) => item.name).join(', ')}',
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
+                const DevicesRegistryPanel(),
               ],
             ],
           ),
@@ -1340,36 +1439,24 @@ class _DiscoveredMasters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: LocalMasterDiscovery.instance,
-      builder: (context, _) {
-        final found = LocalMasterDiscovery.instance.visible;
-        if (found.isEmpty) {
-          return Text(
-            'Recherche du maÃ®tre sur le rÃ©seau localâ€¦',
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('MaÃ®tres trouvÃ©s sur le rÃ©seau', style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            ...found.map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: OutlinedButton(
-                    onPressed: () {
-                      context.findAncestorStateOfType<_ConfigurationScreenState>()?.applyMasterHost(item.host);
-                    },
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('${item.name} Â· ${item.host}'),
-                    ),
-                  ),
-                )),
-          ],
+    return BlocBuilder<MasterDiscoveryBloc, MasterDiscoveryState>(
+      builder: (context, state) {
+        return DiscoveredMastersPanel(
+          masters: state.masters,
+          searching: state.searching,
+          statusMessage: state.statusMessage,
+          onRefresh: () => context
+              .read<MasterDiscoveryBloc>()
+              .add(const MasterDiscoverySearchRequested()),
+          onConnect: (master) {
+            context
+                .findAncestorStateOfType<_ConfigurationScreenState>()
+                ?.pairWithMaster(master);
+          },
         );
       },
     );
   }
 }
+
+

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AccountingEntryController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BarcodeController;
+use App\Http\Controllers\Api\V1\PlatformBackupController;
 use App\Http\Controllers\Api\V1\TerminalBackupController;
 use App\Http\Controllers\Api\V1\BeverageController;
 use App\Http\Controllers\Api\V1\BatchController;
@@ -16,7 +17,10 @@ use App\Http\Controllers\Api\V1\CatalogAttributeController;
 use App\Http\Controllers\Api\V1\CatalogController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\CrmController;
+use App\Http\Controllers\Api\V1\PartyController;
 use App\Http\Controllers\Api\V1\PlatformAdminController;
+use App\Http\Controllers\Api\V1\PlatformSubscriptionController;
 use App\Http\Controllers\Api\V1\PlatformTenantController;
 use App\Http\Controllers\Api\V1\CompanyPaymentMethodController;
 use App\Http\Controllers\Api\V1\CurrencyController;
@@ -34,10 +38,14 @@ use App\Http\Controllers\Api\V1\InventoryAlertController;
 use App\Http\Controllers\Api\V1\InventoryCountController;
 use App\Http\Controllers\Api\V1\InventoryVerificationController;
 use App\Http\Controllers\Api\V1\InventoryMovementController;
+use App\Http\Controllers\Api\V1\ModuleController;
+use App\Http\Middleware\EnsureModuleEnabled;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PhoneVerificationController;
+use App\Http\Controllers\Api\V1\NotificationCenterController;
 use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\NumberingController;
 use App\Http\Controllers\Api\V1\PayableController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PosController;
@@ -78,6 +86,7 @@ use App\Http\Controllers\Api\V1\SupplierController;
 use App\Http\Controllers\Api\V1\SupplierPaymentController;
 use App\Http\Controllers\Api\V1\SupplierTransactionController;
 use App\Http\Controllers\Api\V1\TaxController;
+use App\Http\Controllers\Api\V1\TransactionController;
 use App\Http\Controllers\Api\V1\TenantBrandingController;
 use App\Http\Controllers\Api\V1\TenantSubscriptionController;
 use App\Http\Controllers\Api\V1\SyncController;
@@ -127,12 +136,26 @@ Route::prefix('v1')->group(function () {
         ->middleware(['signed', 'throttle:6,1'])
         ->name('verification.verify');
 
-    Route::middleware([AuthenticateApiToken::class, ResolveTenant::class, ResolveStore::class])->group(function () {
+    Route::middleware([AuthenticateApiToken::class, ResolveTenant::class, ResolveStore::class, EnsureModuleEnabled::class])->group(function () {
         // Auth (no extra permission — authenticated user)
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::get('notifications', [NotificationController::class, 'index']);
+        Route::get('notification-center', [NotificationCenterController::class, 'index']);
+        Route::post('notification-center/read-all', [NotificationCenterController::class, 'markAllRead']);
+        Route::get('notification-center/preferences', [NotificationCenterController::class, 'preferences']);
+        Route::put('notification-center/preferences', [NotificationCenterController::class, 'updatePreferences']);
+        Route::post('notification-center/push-tokens', [NotificationCenterController::class, 'storePushToken']);
+        Route::delete('notification-center/push-tokens', [NotificationCenterController::class, 'destroyPushToken']);
+        Route::post('notification-center/{inboxNotification}/read', [NotificationCenterController::class, 'markRead']);
+        Route::delete('notification-center/{inboxNotification}', [NotificationCenterController::class, 'destroy']);
+        Route::middleware('permission:settings.manage,notifications.manage')->group(function () {
+            Route::get('notification-center/channels', [NotificationCenterController::class, 'channels']);
+            Route::put('notification-center/channels/{channel}', [NotificationCenterController::class, 'updateChannel']);
+            Route::get('notification-center/deliveries', [NotificationCenterController::class, 'deliveries']);
+            Route::post('notification-center/test', [NotificationCenterController::class, 'test']);
+        });
         Route::post('broadcasting/auth', function (Request $request) {
             return Broadcast::auth($request);
         });
@@ -166,6 +189,13 @@ Route::prefix('v1')->group(function () {
         // RBAC management
         Route::get('/permissions', [PermissionController::class, 'index'])
             ->middleware('permission:roles.view,roles.manage');
+
+        Route::get('modules', [ModuleController::class, 'index'])
+            ->middleware('permission:dashboard.view,settings.view');
+        Route::put('modules/{code}/settings', [ModuleController::class, 'updateSettings'])
+            ->middleware('permission:settings.manage');
+        Route::put('modules/{code}', [ModuleController::class, 'update'])
+            ->middleware('permission:settings.manage');
 
         Route::get('/roles', [RoleController::class, 'index'])
             ->middleware('permission:roles.view,roles.manage');
@@ -210,6 +240,8 @@ Route::prefix('v1')->group(function () {
 
         // Dashboard
         Route::get('/dashboard/stats', [DashboardController::class, 'stats'])
+            ->middleware('permission:dashboard.view');
+        Route::get('/dashboard/home', [DashboardController::class, 'home'])
             ->middleware('permission:dashboard.view');
 
         // Reports
@@ -274,6 +306,16 @@ Route::prefix('v1')->group(function () {
         Route::post('/accounting/periods/close', [AccountingEntryController::class, 'closePeriod'])
             ->middleware('permission:accounting.manage');
 
+        // Transaction engine
+        Route::get('/transactions/types', [TransactionController::class, 'types'])
+            ->middleware('permission:transactions.view,transactions.manage');
+        Route::get('/transactions', [TransactionController::class, 'index'])
+            ->middleware('permission:transactions.view,transactions.manage');
+        Route::post('/transactions', [TransactionController::class, 'store'])
+            ->middleware('permission:transactions.manage');
+        Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
+            ->middleware('permission:transactions.view,transactions.manage');
+
         // Import / Export
         Route::get('/import-export/products/template', [ImportExportController::class, 'productTemplate'])
             ->middleware('permission:catalog.products.manage');
@@ -291,8 +333,23 @@ Route::prefix('v1')->group(function () {
         // Companies
         Route::get('tenant/profile', [CompanyController::class, 'current'])
             ->middleware('permission:dashboard.view');
+        Route::get('tenant/subscription', [TenantSubscriptionController::class, 'show'])
+            ->middleware('permission:settings.manage,dashboard.view');
         Route::patch('tenant/subscription', [TenantSubscriptionController::class, 'update'])
             ->middleware('permission:settings.manage,dashboard.view');
+        Route::post('tenant/subscription/subscribe', [TenantSubscriptionController::class, 'subscribe'])
+            ->middleware('permission:settings.manage,dashboard.view');
+        Route::post('tenant/subscription/payments', [TenantSubscriptionController::class, 'declarePayment'])
+            ->middleware('permission:settings.manage,dashboard.view');
+        Route::get('platform/plans', [PlatformSubscriptionController::class, 'plans']);
+        Route::patch('platform/plans/{code}', [PlatformSubscriptionController::class, 'updatePlan'])
+            ->where('code', '[a-z_]+');
+        Route::post('platform/tenants/{tenant}/subscription/subscribe', [PlatformSubscriptionController::class, 'subscribe']);
+        Route::post('platform/tenants/{tenant}/subscription/change', [PlatformSubscriptionController::class, 'change']);
+        Route::post('platform/tenants/{tenant}/subscription/grace', [PlatformSubscriptionController::class, 'grace']);
+        Route::post('platform/tenants/{tenant}/subscription/suspend', [PlatformSubscriptionController::class, 'suspend']);
+        Route::post('platform/invoices/{invoice}/payments', [PlatformSubscriptionController::class, 'storePayment']);
+        Route::post('platform/payments/{payment}/settle', [PlatformSubscriptionController::class, 'settlePayment']);
         Route::post('platform/tenants', [PlatformTenantController::class, 'store']);
         Route::get('platform/overview', [PlatformAdminController::class, 'overview']);
         Route::get('platform/companies', [PlatformAdminController::class, 'companies']);
@@ -303,6 +360,17 @@ Route::prefix('v1')->group(function () {
         Route::post('platform/support', [PlatformAdminController::class, 'storeSupport']);
         Route::post('platform/support/{ticket}/close', [PlatformAdminController::class, 'closeSupport']);
         Route::get('platform/audit', [PlatformAdminController::class, 'audit']);
+        Route::get('platform/backups', [PlatformBackupController::class, 'index']);
+        Route::post('platform/backups', [PlatformBackupController::class, 'store']);
+        Route::get('platform/backups/policy', [PlatformBackupController::class, 'policy']);
+        Route::patch('platform/backups/policy', [PlatformBackupController::class, 'updatePolicy']);
+        Route::get('platform/backups/disaster-recovery', [PlatformBackupController::class, 'disasterRecovery']);
+        Route::post('platform/backups/prune', [PlatformBackupController::class, 'prune']);
+        Route::get('platform/backups/{backup}', [PlatformBackupController::class, 'show']);
+        Route::delete('platform/backups/{backup}', [PlatformBackupController::class, 'destroy']);
+        Route::get('platform/backups/{backup}/download', [PlatformBackupController::class, 'download']);
+        Route::post('platform/backups/{backup}/verify', [PlatformBackupController::class, 'verify']);
+        Route::post('platform/backups/{backup}/restore', [PlatformBackupController::class, 'restore']);
 
         Route::get('companies', [CompanyController::class, 'index'])
             ->middleware('permission:organization.companies.view');
@@ -332,6 +400,17 @@ Route::prefix('v1')->group(function () {
         Route::delete('merchant-qr-codes/{merchantQrCode}', [MerchantQrController::class, 'destroy'])
             ->middleware('permission:settings.manage');
 
+        Route::get('numbering', [NumberingController::class, 'index'])
+            ->middleware('permission:settings.view,settings.manage');
+        Route::post('numbering/preview', [NumberingController::class, 'preview'])
+            ->middleware('permission:settings.view,settings.manage');
+        Route::post('numbering/rules', [NumberingController::class, 'store'])
+            ->middleware('permission:settings.manage');
+        Route::put('numbering/rules/{numberingRule}', [NumberingController::class, 'update'])
+            ->middleware('permission:settings.manage');
+        Route::delete('numbering/rules/{numberingRule}', [NumberingController::class, 'destroy'])
+            ->middleware('permission:settings.manage');
+
         // Company payment methods (POS tenders)
         Route::get('payment-method-catalog', [CompanyPaymentMethodController::class, 'catalog'])
             ->middleware('permission:organization.payment_methods.view,organization.companies.view,sales.view');
@@ -346,16 +425,22 @@ Route::prefix('v1')->group(function () {
         Route::post('companies/{company}/payment-methods/reorder', [CompanyPaymentMethodController::class, 'reorder'])
             ->middleware('permission:organization.payment_methods.manage,organization.companies.manage');
 
-        // Currencies
+        // Currencies (primary + secondary, rates, history, FX convert)
         Route::get('currencies', [CurrencyController::class, 'index'])
             ->middleware('permission:organization.currencies.view,organization.companies.view');
         Route::post('currencies', [CurrencyController::class, 'store'])
             ->middleware('permission:organization.currencies.manage');
+        Route::get('currencies/convert', [CurrencyController::class, 'convert'])
+            ->middleware('permission:organization.currencies.view,organization.companies.view,sales.create,sales.view');
         Route::get('currencies/{currency}', [CurrencyController::class, 'show'])
             ->middleware('permission:organization.currencies.view,organization.companies.view');
         Route::patch('currencies/{currency}', [CurrencyController::class, 'update'])
             ->middleware('permission:organization.currencies.manage');
         Route::delete('currencies/{currency}', [CurrencyController::class, 'destroy'])
+            ->middleware('permission:organization.currencies.manage');
+        Route::get('currencies/{currency}/rates', [CurrencyController::class, 'rates'])
+            ->middleware('permission:organization.currencies.view,organization.companies.view');
+        Route::post('currencies/{currency}/rates', [CurrencyController::class, 'storeRate'])
             ->middleware('permission:organization.currencies.manage');
 
         // Branches
@@ -539,6 +624,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:catalog.products.view');
         Route::post('taxes/calculate', [TaxController::class, 'calculate'])
             ->middleware('permission:catalog.products.view');
+        Route::get('tax-profiles', [TaxController::class, 'profiles'])
+            ->middleware('permission:catalog.products.view');
+        Route::post('tax-profiles/apply', [TaxController::class, 'applyProfile'])
+            ->middleware('permission:catalog.products.manage');
         Route::post('taxes', [TaxController::class, 'store'])
             ->middleware('permission:catalog.products.manage');
         Route::get('tax-groups', [TaxController::class, 'groups'])
@@ -651,6 +740,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:registers.session.open');
         Route::post('cash-registers/{cashRegister}/sessions/close', [CashRegisterController::class, 'closeSession'])
             ->middleware('permission:registers.session.close');
+        Route::post('cash-registers/{cashRegister}/sessions/count', [CashRegisterController::class, 'countCash'])
+            ->middleware('permission:registers.movement.record');
+        Route::get('cash-registers/{cashRegister}/reconciliation', [CashRegisterController::class, 'reconcile'])
+            ->middleware('permission:registers.view,registers.session.open');
         Route::get('cash-registers/{cashRegister}/sessions', [CashRegisterController::class, 'sessions'])
             ->middleware('permission:registers.view');
         Route::get('cash-registers/{cashRegister}/sessions/{session}', [CashRegisterController::class, 'showSession'])
@@ -1043,6 +1136,40 @@ Route::prefix('v1')->group(function () {
         Route::get('payables/payments', [PayableController::class, 'payments'])
             ->middleware('permission:suppliers.view');
 
+        // Business Core — shared Party identity (POS / restaurant / hotel / CRM / supplier / employee)
+        Route::get('business-core/entities', [PartyController::class, 'entities'])
+            ->middleware('permission:customers.view');
+        Route::get('parties', [PartyController::class, 'index'])
+            ->middleware('permission:customers.view');
+        Route::post('parties', [PartyController::class, 'store'])
+            ->middleware('permission:customers.manage');
+        Route::get('parties/{party}', [PartyController::class, 'show'])
+            ->middleware('permission:customers.view');
+        Route::post('parties/{party}/roles', [PartyController::class, 'attachRole'])
+            ->middleware('permission:customers.manage');
+        Route::post('parties/{party}/contexts', [PartyController::class, 'attachContext'])
+            ->middleware('permission:customers.manage');
+
+        Route::get('crm/overview', [CrmController::class, 'overview'])->middleware('permission:customers.view');
+        Route::get('crm/pipeline', [CrmController::class, 'pipeline'])->middleware('permission:customers.view');
+        Route::get('crm/accounts', [CrmController::class, 'accounts'])->middleware('permission:customers.view');
+        Route::post('crm/accounts', [CrmController::class, 'storeAccount'])->middleware('permission:customers.manage');
+        Route::get('crm/parties', [CrmController::class, 'parties'])->middleware('permission:customers.view');
+        Route::post('crm/parties', [CrmController::class, 'storeParty'])->middleware('permission:customers.manage');
+        Route::get('crm/leads', [CrmController::class, 'leads'])->middleware('permission:customers.view');
+        Route::post('crm/leads', [CrmController::class, 'storeLead'])->middleware('permission:customers.manage');
+        Route::post('crm/leads/{lead}/convert', [CrmController::class, 'convertLead'])->middleware('permission:customers.manage');
+        Route::get('crm/opportunities', [CrmController::class, 'opportunities'])->middleware('permission:customers.view');
+        Route::post('crm/opportunities', [CrmController::class, 'storeOpportunity'])->middleware('permission:customers.manage');
+        Route::patch('crm/opportunities/{opportunity}/stage', [CrmController::class, 'moveOpportunity'])->middleware('permission:customers.manage');
+        Route::get('crm/activities', [CrmController::class, 'activities'])->middleware('permission:customers.view');
+        Route::post('crm/activities', [CrmController::class, 'storeActivity'])->middleware('permission:customers.manage');
+        Route::post('crm/activities/{activity}/complete', [CrmController::class, 'completeActivity'])->middleware('permission:customers.manage');
+        Route::get('crm/campaigns', [CrmController::class, 'campaigns'])->middleware('permission:customers.view');
+        Route::post('crm/campaigns', [CrmController::class, 'storeCampaign'])->middleware('permission:customers.manage');
+        Route::post('crm/campaigns/{campaign}/members', [CrmController::class, 'addMember'])->middleware('permission:customers.manage');
+        Route::get('crm/customers/{customer}/dossier', [CrmController::class, 'dossier'])->middleware('permission:customers.view');
+
         // Customers (Phase 15 — MOD-CUSTOMER)
         Route::get('customers/transaction-types', [CustomerTransactionController::class, 'types'])
             ->middleware('permission:customers.view');
@@ -1098,6 +1225,10 @@ Route::prefix('v1')->group(function () {
 
         Route::post('sync/push', [SyncController::class, 'push'])
             ->middleware('permission:sales.create');
+        Route::post('sync/offline', [SyncController::class, 'offline'])
+            ->middleware('permission:sales.create,sales.view');
+        Route::post('sync/offline/resolve', [SyncController::class, 'resolveOffline'])
+            ->middleware('permission:sales.create,sales.view');
         Route::get('sync/pull', [SyncController::class, 'pull'])
             ->middleware('permission:sales.view');
         Route::get('sync/references', [SyncController::class, 'references'])

@@ -1,13 +1,23 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/architecture/business_continuity.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/di/service_locator.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../sync/offline_store.dart';
 import '../../../sync/sync_engine.dart';
+import 'bloc/cart_bloc.dart';
+import 'bloc/category_bloc.dart';
+import 'bloc/checkout_bloc.dart';
+import 'bloc/payment_bloc.dart';
+import 'bloc/product_bloc.dart';
 import '../../accounting/presentation/accounting_screen.dart';
 import '../../customers/presentation/customer_account_screen.dart';
 import '../../expenses/presentation/expenses_screen.dart';
@@ -20,35 +30,69 @@ import '../../services/presentation/services_screen.dart';
 import '../../barcode/presentation/widgets/hid_scanner_field.dart';
 import '../../barcode/services/hid_scanner_controller.dart';
 import '../../receipt/domain/receipt_models.dart';
+import '../../receipt/services/cash_drawer_service.dart';
 import '../../receipt/services/receipt_print_service.dart';
 import '../../shifts/data/shifts_api_service.dart';
 import '../data/pos_api_service.dart';
 import '../domain/pos_models.dart';
 import '../services/pos_cart_engine.dart';
+import '../services/pos_favorites_store.dart';
 import '../services/pos_pending_intent.dart';
 import 'widgets/pos_cart_panel.dart';
 import 'widgets/pos_category_sidebar.dart';
+import 'widgets/pos_desktop_shortcuts.dart';
 import 'widgets/pos_footer_panel.dart';
 import 'widgets/pos_product_grid.dart';
+import 'widgets/pos_quick_products_bar.dart';
 import 'widgets/pos_return_sheet.dart';
 import 'widgets/pos_search_bar.dart';
 import 'widgets/pos_session_gate.dart';
+import 'widgets/pos_ui.dart';
 
-class PosScreen extends StatefulWidget {
+class PosScreen extends StatelessWidget {
   const PosScreen({super.key, this.embedded = false});
 
   final bool embedded;
 
   @override
-  State<PosScreen> createState() => _PosScreenState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => sl<ProductBloc>()
+            ..add(const ProductCatalogLoadRequested()),
+        ),
+        BlocProvider(create: (_) => sl<CategoryBloc>()),
+        BlocProvider(create: (_) => sl<CartBloc>()),
+        BlocProvider(
+          create: (_) => sl<CheckoutBloc>()..add(const CheckoutStarted()),
+        ),
+        BlocProvider(
+          create: (_) => sl<PaymentBloc>()..add(const PaymentStarted()),
+        ),
+      ],
+      child: _PosScreenBody(embedded: embedded),
+    );
+  }
 }
 
-class _PosScreenState extends State<PosScreen> {
+class _PosScreenBody extends StatefulWidget {
+  const _PosScreenBody({this.embedded = false});
+
+  final bool embedded;
+
+  @override
+  State<_PosScreenBody> createState() => _PosScreenBodyState();
+}
+
+class _PosScreenBodyState extends State<_PosScreenBody> {
   final _api = PosApiService();
   final _cart = PosCartEngine();
   final _shiftsApi = ShiftsApiService();
   final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
   late final HidScannerController _hidScanner;
+  final _cashDrawer = CashDrawerService();
 
   List<PosProduct> _products = [];
   List<PosCategory> _categories = [];
@@ -59,7 +103,18 @@ class _PosScreenState extends State<PosScreen> {
   String? _statusMessage;
   bool _cartOpen = false;
   bool _requestPayment = false;
+  bool _requestCustomer = false;
+  bool _requestRetrieve = false;
   bool _shiftOpen = false;
+
+  bool get _isDesktopPos {
+    if (kIsWeb) return false;
+    try {
+      return Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+    } catch (_) {
+      return false;
+    }
+  }
   bool _shiftLoading = false;
   List<PosGateRegister> _registers = [];
   Timer? _recalcTimer;
@@ -69,6 +124,8 @@ class _PosScreenState extends State<PosScreen> {
   List<PosProduct> _filteredCache = const [];
   String? _filteredCategoryId;
   String _filteredQuery = '';
+  final _favorites = PosFavoritesStore.instance;
+  StreamSubscription<ProductState>? _productSub;
 
   @override
   void initState() {
@@ -77,9 +134,17 @@ class _PosScreenState extends State<PosScreen> {
     _cart.addListener(_onCartChanged);
     SyncEngine.instance.addListener(_onSyncChanged);
     PosPendingIntent.notifier.addListener(_onPendingIntent);
+    _favorites.addListener(_onFavoritesChanged);
+    unawaited(_favorites.ensureLoaded());
     unawaited(_loadPendingOrders().then((_) => _consumePendingIntent()));
     _catalogRevision = SyncEngine.instance.catalogRevision;
-    _loadCatalog(forceNetwork: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final products = context.read<ProductBloc>();
+      _productSub = products.stream.listen(_onProductState);
+      _onProductState(products.state);
+      products.add(const ProductCatalogLoadRequested());
+    });
     unawaited(_loadShiftSession());
   }
 
@@ -87,12 +152,164 @@ class _PosScreenState extends State<PosScreen> {
   void dispose() {
     _recalcTimer?.cancel();
     _searchDebounce?.cancel();
+    _productSub?.cancel();
     PosPendingIntent.notifier.removeListener(_onPendingIntent);
     SyncEngine.instance.removeListener(_onSyncChanged);
+    _favorites.removeListener(_onFavoritesChanged);
     _cart.removeListener(_onCartChanged);
     _searchController.dispose();
+    _searchFocus.dispose();
     _hidScanner.dispose();
     super.dispose();
+  }
+
+  void _onProductState(ProductState state) {
+    if (!mounted) return;
+    setState(() {
+      _products = state.products;
+      _categories = state.categories;
+      if (state.selectedCategoryId != null ||
+          state.searchQuery != _searchQuery) {
+        _selectedCategoryId = state.selectedCategoryId ?? _selectedCategoryId;
+        _searchQuery = state.searchQuery.isEmpty ? _searchQuery : state.searchQuery;
+      }
+      _loading = state.isLoading && state.products.isEmpty;
+      _error = state.errorMessage;
+      if (state.statusMessage != null) {
+        _statusMessage = state.statusMessage;
+      }
+      _rebuildFilters(productsChanged: true);
+    });
+    context.read<CategoryBloc>().add(CategoryCatalogUpdated(
+          categories: state.categories,
+          counts: state.categoryCounts,
+        ));
+  }
+
+  void _focusSearch() {
+    _searchFocus.requestFocus();
+    _searchController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _searchController.text.length,
+    );
+  }
+
+  void _onFavoritesChanged() {
+    if (!mounted) return;
+    _rebuildFilters(productsChanged: true);
+    setState(() {});
+  }
+
+  Future<void> _shortcutHold() async {
+    try {
+      final snapshot = _cart.lines.map((l) => l.copy()).toList();
+      final customer = _cart.customer;
+      final note = _cart.note;
+      final discountAmount = _cart.discountAmount;
+      final discountPercent = _cart.discountPercent;
+      final tableId = _cart.tableId;
+      final label = _cart.holdSale();
+      await _persistHolds();
+      unawaited(_syncHoldToServer(
+        label: label,
+        lines: snapshot,
+        customer: customer,
+        note: note,
+        discountAmount: discountAmount,
+        discountPercent: discountPercent,
+        tableId: tableId,
+      ));
+      _showStatus('Commande en attente: $label');
+    } catch (e) {
+      _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
+    }
+  }
+
+  Future<void> _syncHoldToServer({
+    required String label,
+    required List<PosCartLine> lines,
+    PosCustomer? customer,
+    String? note,
+    int discountAmount = 0,
+    double discountPercent = 0,
+    String? tableId,
+  }) async {
+    if (lines.isEmpty) return;
+    try {
+      final payload = {
+        'items': lines.map((line) => line.toSaleItem()).toList(),
+        if (customer != null) 'customer_id': customer.saleCustomerId,
+        if (discountPercent > 0)
+          'discount': {'type': 'percent', 'value': discountPercent}
+        else if (discountAmount > 0)
+          'discount': {'type': 'fixed', 'value': discountAmount},
+        if (note != null) 'notes': note,
+        if (tableId != null) 'table_id': tableId,
+        'label': label,
+      };
+      final data = await _api.holdSale(payload);
+      final serverId = data['id']?.toString() ?? data['sale_id']?.toString() ?? '';
+      if (serverId.isEmpty) return;
+      final local = _cart.heldSales.cast<PosHeldSale?>().firstWhere(
+            (sale) => sale!.label == label && (sale.serverId == null || sale.serverId!.isEmpty),
+            orElse: () => null,
+          );
+      if (local != null) {
+        _cart.rememberRemoteHold(serverId: serverId, label: label, heldAt: local.heldAt);
+        await _persistHolds();
+      }
+    } catch (_) {
+      // Keep local hold — offline-first.
+    }
+  }
+
+  Future<void> _shortcutNewSale() async {
+    try {
+      final label = _cart.startNewSale();
+      if (label == null) {
+        _showStatus('Déjà une nouvelle commande');
+        return;
+      }
+      await _persistHolds();
+      _showStatus('Commande mise en attente ($label) — nouvelle commande prête');
+    } catch (e) {
+      _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
+    }
+  }
+
+  void _shortcutPayment() {
+    if (_cart.isEmpty) {
+      _showStatus('Panier vide — ajoutez un article avant de payer');
+      return;
+    }
+    setState(() => _requestPayment = true);
+  }
+
+  void _shortcutCustomer() {
+    setState(() => _requestCustomer = true);
+  }
+
+  void _shortcutRetrieve() {
+    if (_cart.heldSales.isEmpty) {
+      _showStatus('Aucune commande en attente');
+      return;
+    }
+    setState(() => _requestRetrieve = true);
+  }
+
+  void _shortcutCancel() {
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    if (_searchFocus.hasFocus && _searchController.text.isNotEmpty) {
+      _searchController.clear();
+      setState(() => _searchQuery = '');
+      return;
+    }
+    if (_cart.isEmpty) {
+      _showStatus('Rien à annuler');
+      return;
+    }
+    _cart.cancel();
+    _showStatus('Vente annulée');
   }
 
   String _holdsSignature = '';
@@ -231,7 +448,9 @@ class _PosScreenState extends State<PosScreen> {
       _filteredCategoryId = _selectedCategoryId;
       _filteredQuery = _searchQuery;
       var result = _products;
-      if (_selectedCategoryId != null) {
+      if (_selectedCategoryId == PosFavoritesStore.favoritesCategoryId) {
+        result = result.where((p) => _favorites.isFavorite(p.productId)).toList();
+      } else if (_selectedCategoryId != null) {
         result = result.where((product) => product.categoryId == _selectedCategoryId).toList();
       }
       final query = _searchQuery.trim().toLowerCase();
@@ -255,56 +474,60 @@ class _PosScreenState extends State<PosScreen> {
     }
   }
 
+  List<PosProduct> get _quickProducts {
+    final byId = {for (final p in _products) p.productId: p};
+    return _favorites.quickProductIds
+        .map((id) => byId[id])
+        .whereType<PosProduct>()
+        .where((p) => p.isAvailable)
+        .toList();
+  }
+
+  Future<void> _showLineDiscountDialog(String lineId) async {
+    final line = _cart.lines.cast<PosCartLine?>().firstWhere(
+          (l) => l!.lineId == lineId,
+          orElse: () => null,
+        );
+    if (line == null) return;
+    final ctrl = TextEditingController(
+      text: line.lineDiscountFixed > 0 ? '${line.lineDiscountFixed}' : '',
+    );
+    final amount = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remise ligne'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Montant (max ${line.lineSubtotal})',
+            suffixText: AppConfig.currencyCode,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 0), child: const Text('Effacer')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () {
+              final value = int.tryParse(ctrl.text.trim()) ?? 0;
+              Navigator.pop(ctx, value);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (amount == null || !mounted) return;
+    _cart.setLineDiscount(lineId, amount);
+    _scheduleRecalc();
+  }
+
   Future<void> _loadCatalog({bool forceNetwork = false}) async {
-    final storeId = _api.storeId;
-    final showSpinner = _products.isEmpty;
-    if (showSpinner && mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
-
-    final cached = storeId.isEmpty ? null : await OfflineStore.instance.loadCatalog(storeId);
-    if (cached != null && mounted) {
-      setState(() {
-        _products = cached.products.where((p) => p.isAvailable).toList();
-        _categories = cached.categories;
-        _rebuildFilters(productsChanged: true);
-        _loading = false;
-        _error = null;
-      });
-    }
-
-    if (!forceNetwork) {
-      if (cached == null && mounted) {
-        setState(() => _loading = false);
-      }
-      return;
-    }
-
-    try {
-      final catalog = await _api.fetchCatalog();
-      await OfflineStore.instance.cacheCatalog(catalog);
-      if (!mounted) return;
-      setState(() {
-        _products = catalog.products.where((p) => p.isAvailable).toList();
-        _categories = catalog.categories;
-        _rebuildFilters(productsChanged: true);
-        _loading = false;
-        _error = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      if (cached != null) {
-        setState(() => _statusMessage = 'Catalogue local · sync en attente');
-        return;
-      }
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
+    context.read<ProductBloc>().add(
+          ProductCatalogLoadRequested(forceNetwork: forceNetwork),
+        );
   }
 
   List<PosProduct> get _filteredProducts {
@@ -469,11 +692,18 @@ class _PosScreenState extends State<PosScreen> {
         : '';
     _showStatus('${result.message}$change$balance$loyalty');
     _cart.cancel();
+    if (CashDrawerService.shouldOpenForPayment(
+      method: result.method,
+      change: result.change,
+    )) {
+      unawaited(_cashDrawer.openFromTerminalConfig());
+    }
     await _tryPrintReceipt(result);
   }
 
   Future<void> _tryPrintReceipt(PosPaymentResult result) async {
-    try {
+    // §74 — print is after commit; failures never cancel the sale.
+    await BusinessContinuity.afterSalePrint(null, () async {
       Map<String, dynamic>? receipt = result.receipt;
       final saleId = result.saleId;
       if (receipt == null && saleId != null && saleId.isNotEmpty) {
@@ -482,8 +712,8 @@ class _PosScreenState extends State<PosScreen> {
       if (receipt == null) return;
       final payload = _receiptPayloadFromMap(receipt);
       if (payload == null || !mounted) return;
-      await ReceiptPrintService().print(payload);
-    } catch (_) {}
+      await ReceiptPrintService().tryPrint(payload);
+    });
   }
 
   ReceiptPrintPayload? _receiptPayloadFromMap(Map<String, dynamic> map) {
@@ -565,6 +795,7 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   void _onSearchChanged(String value) {
+    context.read<ProductBloc>().add(ProductSearchChanged(value));
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 120), () {
       if (!mounted || _searchQuery == value) return;
@@ -581,48 +812,91 @@ class _PosScreenState extends State<PosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final content = Stack(
+    final desktop = _isDesktopPos || PosUi.isWindowsDesk(context);
+    final content = PosDesktopShortcuts(
+      onSearch: _focusSearch,
+      onNewSale: () => unawaited(_shortcutNewSale()),
+      onCustomer: _shortcutCustomer,
+      onPayment: _shortcutPayment,
+      onHold: () => unawaited(_shortcutHold()),
+      onRetrieve: _shortcutRetrieve,
+      onCancel: _shortcutCancel,
+      child: Stack(
       children: [
         Column(
           children: [
             PosSearchBar(
               controller: _searchController,
+              focusNode: _searchFocus,
+              showDesktopHint: desktop,
               onChanged: _onSearchChanged,
               onSubmitted: _onSearchSubmitted,
               onScanTap: () => _onSearchSubmitted(_searchController.text),
             ),
+            if (desktop) const PosShortcutHintBar(),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
                       ? _ErrorView(error: _error!, onRetry: () => _loadCatalog(forceNetwork: true))
                       : _PosWorkspace(
-                          wide: MediaQuery.sizeOf(context).width >= 980,
+                          threePane: PosUi.usePosThreePane(context),
+                          windowsDesk: PosUi.isWindowsDesk(context),
                           cartOpen: _cartOpen,
                           onToggleCart: () => setState(() => _cartOpen = !_cartOpen),
                           categories: PosCategorySidebar(
                             categories: _categories,
                             selectedCategoryId: _selectedCategoryId,
                             totalCount: _products.length,
+                            favoritesCount: _products
+                                .where((p) => _favorites.isFavorite(p.productId))
+                                .length,
                             counts: _categoryCounts,
                             onCategorySelected: (id) {
+                              context.read<ProductBloc>().add(
+                                    ProductCategoryFilterChanged(id),
+                                  );
+                              context.read<CategoryBloc>().add(
+                                    CategorySelected(id),
+                                  );
                               setState(() => _selectedCategoryId = id);
                             },
                           ),
-                          products: PosProductGrid(
-                            products: _filteredProducts,
-                            onProductTap: (product) {
-                              _addProduct(product);
-                              if (MediaQuery.sizeOf(context).width < 980) {
-                                setState(() => _cartOpen = true);
-                              }
-                            },
+                          products: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              PosQuickProductsBar(
+                                products: _quickProducts,
+                                onProductTap: (product) {
+                                  _addProduct(product);
+                                  if (!PosUi.usePosThreePane(context)) {
+                                    setState(() => _cartOpen = true);
+                                  }
+                                },
+                              ),
+                              Expanded(
+                                child: PosProductGrid(
+                                  products: _filteredProducts,
+                                  favoriteIds: _favorites.favorites,
+                                  onToggleFavorite: (product) => unawaited(
+                                    _favorites.toggleFavorite(product.productId),
+                                  ),
+                                  onProductTap: (product) {
+                                    _addProduct(product);
+                                    if (!PosUi.usePosThreePane(context)) {
+                                      setState(() => _cartOpen = true);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                           cart: PosCartPanel(
                             cart: _cart,
                             onIncrement: _cart.incrementQuantity,
                             onDecrement: _cart.decrementQuantity,
                             onRemove: _cart.removeLine,
+                            onLineDiscount: _showLineDiscountDialog,
                           ),
                           cartCount: _cart.itemCount,
                           cartTotal: MoneyFormatter.format(_cart.total),
@@ -631,32 +905,17 @@ class _PosScreenState extends State<PosScreen> {
             PosFooterPanel(
               cart: _cart,
               api: _api,
+              showShortcutLabels: desktop,
               requestPayment: _requestPayment,
               onPaymentRequestHandled: () => setState(() => _requestPayment = false),
-              onHold: () async {
-                try {
-                  final label = _cart.holdSale();
-                  await _persistHolds();
-                  _showStatus('Commande gardée en local: $label');
-                } catch (e) {
-                  _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
-                }
-              },
-              onNewSale: () async {
-                try {
-                  final label = _cart.startNewSale();
-                  if (label == null) {
-                    _showStatus('Déjà une nouvelle commande');
-                    return;
-                  }
-                  await _persistHolds();
-                  _showStatus('Commande mise en attente ($label) — nouvelle commande prête');
-                } catch (e) {
-                  _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
-                }
-              },
+              requestCustomer: _requestCustomer,
+              onCustomerRequestHandled: () => setState(() => _requestCustomer = false),
+              requestRetrieve: _requestRetrieve,
+              onRetrieveRequestHandled: () => setState(() => _requestRetrieve = false),
+              onHold: () => unawaited(_shortcutHold()),
+              onNewSale: () => unawaited(_shortcutNewSale()),
               onRetrieve: (id, {bool parkCurrentFirst = false}) async {
-                final openCartAfter = MediaQuery.sizeOf(context).width < 980;
+                final openCartAfter = !PosUi.usePosThreePane(context);
                 try {
                   final held = _cart.heldById(id);
                   if (held != null && held.lines.isEmpty && (held.serverId?.isNotEmpty ?? false)) {
@@ -690,10 +949,7 @@ class _PosScreenState extends State<PosScreen> {
                   _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
                 }
               },
-              onCancel: () {
-                _cart.cancel();
-                _showStatus('Vente annulée');
-              },
+              onCancel: _shortcutCancel,
               onPayment: (result) {
                 if (result.success) {
                   unawaited(_handlePaymentSuccess(result));
@@ -715,6 +971,7 @@ class _PosScreenState extends State<PosScreen> {
           ),
         if (_statusMessage != null) const SizedBox.shrink(),
       ],
+    ),
     );
 
     if (widget.embedded) {
@@ -723,7 +980,7 @@ class _PosScreenState extends State<PosScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Caisse POS'),
+        title: Text(desktop ? 'ITARA POS · Windows' : 'Caisse POS'),
         actions: [
           IconButton(
             tooltip: 'Retour',
@@ -818,7 +1075,8 @@ class _PosScreenState extends State<PosScreen> {
 
 class _PosWorkspace extends StatelessWidget {
   const _PosWorkspace({
-    required this.wide,
+    required this.threePane,
+    this.windowsDesk = false,
     required this.cartOpen,
     required this.onToggleCart,
     required this.categories,
@@ -828,7 +1086,10 @@ class _PosWorkspace extends StatelessWidget {
     required this.cartTotal,
   });
 
-  final bool wide;
+  /// Tablette / desk §18 : Sidebar + Product Grid + Cart.
+  final bool threePane;
+  /// §19 Windows : panneau panier / catégories élargis.
+  final bool windowsDesk;
   final bool cartOpen;
   final VoidCallback onToggleCart;
   final Widget categories;
@@ -839,7 +1100,14 @@ class _PosWorkspace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (wide) {
+    if (threePane) {
+      final tablet = PosUi.isTablet(context);
+      final categoryW = windowsDesk
+          ? PosUi.categoryWidthWindows
+          : (tablet ? 152.0 : PosUi.categoryWidth);
+      final cartW = windowsDesk
+          ? PosUi.cartWidthWindows
+          : (tablet ? 280.0 : PosUi.cartWidth);
       return Container(
         margin: const EdgeInsets.only(top: 10),
         decoration: BoxDecoration(
@@ -849,14 +1117,17 @@ class _PosWorkspace extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(width: 168, child: categories),
+            SizedBox(width: categoryW, child: categories),
             Expanded(child: products),
-            SizedBox(width: 248, child: cart),
+            SizedBox(width: cartW, child: cart),
           ],
         ),
       );
     }
 
+    // Smartphone : catégories + grille, panier en tiroir tactile.
+    final width = MediaQuery.sizeOf(context).width;
+    final cartWidth = width < 400 ? width * 0.92 : 280.0;
     return Container(
       margin: const EdgeInsets.only(top: 10),
       decoration: BoxDecoration(
@@ -868,7 +1139,7 @@ class _PosWorkspace extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(width: 168, child: categories),
+              SizedBox(width: width < 360 ? 100 : 120, child: categories),
               Expanded(child: products),
             ],
           ),
@@ -880,25 +1151,26 @@ class _PosWorkspace extends StatelessWidget {
               ),
             ),
           AnimatedPositioned(
-            duration: const Duration(milliseconds: 180),
+            duration: const Duration(milliseconds: 160),
             curve: Curves.easeOut,
             top: 0,
             bottom: 0,
-            right: cartOpen ? 0 : -280,
-            width: 260,
+            right: cartOpen ? 0 : -cartWidth - 20,
+            width: cartWidth,
             child: Material(
               color: AppColors.surface,
-              elevation: 12,
+              elevation: 8,
               child: cart,
             ),
           ),
           Positioned(
-            right: 16,
-            bottom: 16,
+            right: 12,
+            bottom: 12,
             child: FloatingActionButton.extended(
               onPressed: onToggleCart,
               backgroundColor: AppColors.brand600,
               foregroundColor: Colors.white,
+              extendedPadding: const EdgeInsets.symmetric(horizontal: 16),
               icon: Badge(
                 isLabelVisible: cartCount > 0,
                 label: Text('$cartCount'),

@@ -438,8 +438,9 @@ class PosPaymentMethod {
 
   static const defaults = <PosPaymentMethod>[
     PosPaymentMethod(value: 'cash', label: 'Cash', labelFr: 'Espèces', supportsChange: true),
-    PosPaymentMethod(value: 'card', label: 'Card', labelFr: 'Carte'),
     PosPaymentMethod(value: 'mobile_money', label: 'Mobile Money', labelFr: 'Mobile Money'),
+    PosPaymentMethod(value: 'card', label: 'Card', labelFr: 'Carte'),
+    PosPaymentMethod(value: 'bank_transfer', label: 'Bank', labelFr: 'Banque'),
     PosPaymentMethod(value: 'credit', label: 'Credit', labelFr: 'Crédit client', requiresCustomer: true),
   ];
 }
@@ -525,7 +526,7 @@ class PosCartLine {
   int quantity;
   final double taxRate;
   final bool taxInclusive;
-  final int lineDiscountFixed;
+  int lineDiscountFixed;
 
   int get lineSubtotal => unitPrice * quantity;
 
@@ -548,6 +549,7 @@ class PosCartLine {
         if (saleUnitId != null && saleUnitId!.isNotEmpty) 'sale_unit_id': saleUnitId,
         if (isAccompaniment) 'is_accompaniment': true,
         if (parentLineId != null && parentLineId!.isNotEmpty) 'parent_line_id': parentLineId,
+        if (lineDiscountFixed > 0) 'line_discount_fixed': lineDiscountFixed,
       };
 
   Map<String, dynamic> toJson() => {

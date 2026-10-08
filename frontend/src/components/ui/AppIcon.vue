@@ -851,6 +851,10 @@ defineProps<{
       <rect x="18" y="13" width="4" height="6" rx="1.5" />
     </template>
 
+    <template v-else-if="name === 'chevron-down'">
+      <polyline points="6 9 12 15 18 9" />
+    </template>
+
     <!-- Default fallback -->
     <template v-else>
       <circle cx="12" cy="12" r="10" />

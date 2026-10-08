@@ -82,6 +82,7 @@ class CashRegisterSessionService
                 'variance_reason' => $variance !== 0 ? trim((string) $varianceReason) : null,
                 'closing_notes' => $notes,
                 'closed_at' => now(),
+                'counted_at' => $session->counted_at ?? now(),
             ]);
 
             return $session->fresh(['openedByUser', 'closedByUser', 'movements']);
@@ -112,10 +113,37 @@ class CashRegisterSessionService
             ]);
         }
 
+        if ($referenceId !== null && $referenceId !== '') {
+            $existing = CashMovement::query()
+                ->where('tenant_id', $register->tenant_id)
+                ->where('reference_id', $referenceId)
+                ->first();
+            if ($existing !== null) {
+                return $existing;
+            }
+        }
+
         if ($type === CashMovementType::OpeningBalance) {
             throw ValidationException::withMessages([
                 'movement_type' => ['Opening balance is recorded when opening the session.'],
             ]);
+        }
+
+        if ($type === CashMovementType::CashCount) {
+            throw ValidationException::withMessages([
+                'movement_type' => ['Use the cash count endpoint to record a count.'],
+            ]);
+        }
+
+        if ($type === CashMovementType::CashAdjustment) {
+            $direction = strtolower(trim((string) $reference));
+            if (! in_array($direction, ['in', 'out', 'increase', 'decrease'], true)) {
+                throw ValidationException::withMessages([
+                    'direction' => ['Cash adjustment requires direction in or out.'],
+                ]);
+            }
+            $reference = in_array($direction, ['out', 'decrease'], true) ? 'out' : 'in';
+            $referenceType = $referenceType ?: 'adjustment_direction';
         }
 
         return DB::transaction(function () use (
@@ -158,6 +186,70 @@ class CashRegisterSessionService
         });
     }
 
+    /**
+     * Mid-session cash count for reconciliation (does not close the register).
+     */
+    public function recordCount(
+        CashRegister $register,
+        User $user,
+        int $actualCash,
+        ?string $notes = null,
+        ?string $cashierShiftId = null,
+    ): CashRegisterSession {
+        $session = $this->requireOpenSession($register);
+
+        return DB::transaction(function () use ($register, $session, $user, $actualCash, $notes, $cashierShiftId) {
+            $this->refreshTotals($session);
+            $session->refresh();
+
+            $expected = (int) $session->expected_cash;
+            $difference = $actualCash - $expected;
+
+            CashMovement::query()->create([
+                'tenant_id' => $register->tenant_id,
+                'cash_register_id' => $register->id,
+                'cash_register_session_id' => $session->id,
+                'cashier_shift_id' => $cashierShiftId,
+                'movement_type' => CashMovementType::CashCount,
+                'amount' => $actualCash,
+                'reference' => 'cash_count',
+                'description' => $notes ?: 'Cash count',
+                'performed_by' => $user->id,
+                'occurred_at' => now(),
+            ]);
+
+            $session->update([
+                'actual_cash' => $actualCash,
+                'variance' => $difference,
+                'counted_at' => now(),
+            ]);
+
+            return $session->fresh(['openedByUser', 'movements']);
+        });
+    }
+
+    public function reconciliation(CashRegisterSession $session): array
+    {
+        $this->refreshTotals($session);
+        $session->refresh();
+
+        $expected = (int) $session->expected_cash;
+        $actual = $session->actual_cash !== null ? (int) $session->actual_cash : null;
+        $difference = $actual !== null ? $actual - $expected : null;
+
+        return [
+            'session_id' => $session->id,
+            'status' => $session->status->value,
+            'expected_cash' => $expected,
+            'actual_cash' => $actual,
+            'difference' => $difference,
+            'variance' => $difference,
+            'counted_at' => $session->counted_at,
+            'opened_at' => $session->opened_at,
+            'closed_at' => $session->closed_at,
+        ];
+    }
+
     public function currentSession(CashRegister $register): ?CashRegisterSession
     {
         return $register->sessions()
@@ -174,6 +266,10 @@ class CashRegisterSessionService
 
         $report = ShiftReportBuilder::forRegisterSession($session);
 
+        $expected = (int) $session->expected_cash;
+        $actual = $session->actual_cash !== null ? (int) $session->actual_cash : null;
+        $difference = $actual !== null ? $actual - $expected : ($session->variance !== null ? (int) $session->variance : null);
+
         return [
             'session_id' => $session->id,
             'status' => $session->status->value,
@@ -182,12 +278,19 @@ class CashRegisterSessionService
             'cash_in_total' => $session->cash_in_total,
             'cash_out_total' => $session->cash_out_total,
             'expenses_total' => $session->expenses_total,
-            'expected_cash' => $session->expected_cash,
-            'actual_cash' => $session->actual_cash,
-            'variance' => $session->variance,
+            'expected_cash' => $expected,
+            'actual_cash' => $actual,
+            'difference' => $difference,
+            'variance' => $difference,
             'variance_reason' => $session->variance_reason,
+            'counted_at' => $session->counted_at,
             'opened_at' => $session->opened_at,
             'closed_at' => $session->closed_at,
+            'reconciliation' => [
+                'expected_cash' => $expected,
+                'actual_cash' => $actual,
+                'difference' => $difference,
+            ],
             'invoices_count' => $report['invoices_count'],
             'invoices_total' => $report['invoices_total'],
             'invoices' => $report['invoices'],
@@ -216,6 +319,9 @@ class CashRegisterSessionService
                 CashMovementType::Discount => $discounts += $movement->amount,
                 CashMovementType::CashIn => $cashIn += $movement->amount,
                 CashMovementType::CashOut => $cashOut += $movement->amount,
+                CashMovementType::CashAdjustment => $movement->isAdjustmentDecrease()
+                    ? $cashOut += $movement->amount
+                    : $cashIn += $movement->amount,
                 CashMovementType::Expense => $expenses += $movement->amount,
                 default => null,
             };

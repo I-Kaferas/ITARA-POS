@@ -7,6 +7,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../data/local/local_database.dart';
 import '../../../sync/offline_store.dart';
 import '../../pos/domain/pos_models.dart';
+import '../domain/restaurant_models.dart';
 
 class HospitalityStore {
   HospitalityStore._();
@@ -21,11 +22,18 @@ class HospitalityStore {
     final rows = await db.query('hospitality_docs', orderBy: 'kind ASC, updated_at ASC');
     final docs = rows.map((row) {
       final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
+      final kind = row['kind']?.toString() ?? '';
+      final status = row['status']?.toString() ?? json['status']?.toString();
+      final normalized = (kind == 'table' || kind == 'order')
+          ? RestaurantStatus.fromWire(status).wire
+          : status;
       return {
         ...json,
         'id': row['id'],
-        'kind': row['kind'],
-        'status': row['status'],
+        'kind': kind,
+        'status': normalized,
+        if (kind == 'table' || kind == 'order')
+          'status_label': RestaurantStatus.fromWire(status).label,
       };
     }).toList();
     return {'docs': docs};
@@ -47,6 +55,12 @@ class HospitalityStore {
         await _setTicketStatus(action);
       case 'split_lines':
         await _splitLines(action);
+      case 'merge_orders':
+        await _mergeOrders(action);
+      case 'transfer_table':
+        await _transferTable(action);
+      case 'set_status':
+        await _setRestaurantStatus(action);
       case 'pay_check':
         await _payCheck(action);
       case 'charge_room':
@@ -94,10 +108,32 @@ class HospitalityStore {
     await put('zone', 'zone-salle', {'name': 'Salle'});
     await put('zone', 'zone-terrasse', {'name': 'Terrasse'});
     for (var i = 1; i <= 4; i++) {
-      await put('table', 'table-$i', {'label': 'T$i', 'seats': 4, 'zone_id': 'zone-salle', 'status': 'free'}, parentId: 'zone-salle', status: 'free');
+      await put(
+        'table',
+        'table-$i',
+        {
+          'label': 'T$i',
+          'seats': 4,
+          'zone_id': 'zone-salle',
+          'status': RestaurantStatus.free.wire,
+        },
+        parentId: 'zone-salle',
+        status: RestaurantStatus.free.wire,
+      );
     }
     for (var i = 5; i <= 6; i++) {
-      await put('table', 'table-$i', {'label': 'T$i', 'seats': 2, 'zone_id': 'zone-terrasse', 'status': 'free'}, parentId: 'zone-terrasse', status: 'free');
+      await put(
+        'table',
+        'table-$i',
+        {
+          'label': 'T$i',
+          'seats': 2,
+          'zone_id': 'zone-terrasse',
+          'status': RestaurantStatus.free.wire,
+        },
+        parentId: 'zone-terrasse',
+        status: RestaurantStatus.free.wire,
+      );
     }
     await put('server', 'server-1', {'name': cashier.trim().isEmpty ? 'Service' : cashier.trim()});
     await put('server', 'server-2', {'name': 'Serveur salle'});
@@ -117,24 +153,26 @@ class HospitalityStore {
   Future<void> _openOrder(Map<String, dynamic> action) async {
     final tableId = _required(action, 'table_id');
     final table = await _doc(tableId);
-    if (table['status'] == 'occupied') throw Exception('Table déjà occupée');
+    final tableStatus = RestaurantStatus.fromWire(table['status']?.toString());
+    if (tableStatus.isActive) throw Exception('Table déjà occupée');
     final id = const Uuid().v4();
     final checkId = const Uuid().v4();
+    final status = RestaurantStatus.occupied.wire;
     final order = {
       'table_id': tableId,
       'table_label': table['label'],
       'server_id': action['server_id'],
       'server_name': action['server_name']?.toString() ?? '',
-      'status': 'open',
+      'status': status,
       'lines': <Map<String, dynamic>>[],
       'checks': [
         {'id': checkId, 'label': 'Addition 1', 'status': 'open'},
       ],
     };
-    await _save('order', id, order, parentId: tableId, status: 'open');
-    table['status'] = 'occupied';
+    await _save('order', id, order, parentId: tableId, status: status);
+    table['status'] = status;
     table['order_id'] = id;
-    await _save('table', tableId, table, parentId: table['zone_id']?.toString(), status: 'occupied');
+    await _save('table', tableId, table, parentId: table['zone_id']?.toString(), status: status);
   }
 
   Future<void> _addLine(Map<String, dynamic> action) async {
@@ -145,62 +183,121 @@ class HospitalityStore {
       orElse: () => null,
     );
     if (openCheck == null) throw Exception('Aucune addition ouverte');
+
+    final modifiers = (action['modifiers'] as List<dynamic>? ?? [])
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    final sides = (action['sides'] as List<dynamic>? ??
+            action['accompagnements'] as List<dynamic>? ??
+            const [])
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    final extras = (action['extras'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+
+    final draft = OrderLineDraft(
+      name: _required(action, 'name'),
+      quantity: (action['quantity'] as num?)?.toInt() ?? 1,
+      unitPrice: (action['unit_price'] as num?)?.toInt() ?? 0,
+      course: action['course']?.toString() ?? 'plat',
+      productId: action['product_id']?.toString(),
+      modifiers: modifiers,
+      extras: extras,
+      sides: sides,
+      notes: action['notes']?.toString() ?? '',
+    );
+
     final lines = _maps(order['lines']);
-    lines.add({
-      'id': const Uuid().v4(),
-      'name': _required(action, 'name'),
-      'quantity': (action['quantity'] as num?)?.toInt() ?? 1,
-      'unit_price': (action['unit_price'] as num?)?.toInt() ?? 0,
-      'course': action['course']?.toString() ?? 'plat',
-      'product_id': action['product_id'],
-      'check_id': openCheck['id'],
-    });
+    lines.add(draft.toJson(id: const Uuid().v4(), checkId: openCheck['id'].toString()));
     order['lines'] = lines;
-    if (order['status'] == 'served' || order['status'] == 'ready') order['status'] = 'open';
-    await _save('order', order['id'].toString(), order, parentId: order['table_id']?.toString(), status: order['status']?.toString());
+    await _setOrderAndTableStatus(order, RestaurantStatus.ordering);
   }
 
   Future<void> _sendCourse(Map<String, dynamic> action) async {
     final order = await _doc(_required(action, 'order_id'));
     final course = action['course']?.toString() ?? 'plat';
-    final pending = _maps(order['lines']).where((line) => line['course'] == course && line['ticket_id'] == null).toList();
+    final pending = _maps(order['lines'])
+        .where((line) => line['course'] == course && line['ticket_id'] == null)
+        .toList();
     if (pending.isEmpty) throw Exception('Rien à envoyer pour cette suite');
     final ticketId = const Uuid().v4();
     for (final line in pending) {
       line['ticket_id'] = ticketId;
     }
-    await _save('ticket', ticketId, {
-      'order_id': order['id'],
-      'table_label': order['table_label'],
-      'server_name': order['server_name'],
-      'course': course,
-      'status': 'sent',
-      'sent_at': DateTime.now().toIso8601String(),
-      'lines': pending.map((line) => {'name': line['name'], 'quantity': line['quantity']}).toList(),
-    }, parentId: order['id']?.toString(), status: 'sent');
-    order['status'] = 'kitchen';
-    await _save('order', order['id'].toString(), order, parentId: order['table_id']?.toString(), status: 'kitchen');
+    await _save(
+      'ticket',
+      ticketId,
+      {
+        'order_id': order['id'],
+        'table_label': order['table_label'],
+        'server_name': order['server_name'],
+        'course': course,
+        'status': 'new',
+        'sent_at': DateTime.now().toIso8601String(),
+        'lines': pending
+            .map(
+              (line) => {
+                'name': line['name'],
+                'quantity': line['quantity'],
+                'modifiers': line['modifiers'] ?? const [],
+                'extras': line['extras'] ?? const [],
+                'sides': line['sides'] ?? line['accompagnements'] ?? const [],
+                'notes': line['notes'],
+              },
+            )
+            .toList(),
+      },
+      parentId: order['id']?.toString(),
+      status: 'new',
+    );
+    await _setOrderAndTableStatus(order, RestaurantStatus.preparing);
   }
 
   Future<void> _setTicketStatus(Map<String, dynamic> action) async {
     final ticket = await _doc(_required(action, 'ticket_id'));
-    final status = _required(action, 'status');
-    const flow = ['sent', 'preparing', 'ready', 'served'];
-    if (!flow.contains(status)) throw Exception('Statut cuisine invalide');
+    final status = _normalizeKitchenStatus(_required(action, 'status'));
     ticket['status'] = status;
-    await _save('ticket', ticket['id'].toString(), ticket, parentId: ticket['order_id']?.toString(), status: status);
+    await _save(
+      'ticket',
+      ticket['id'].toString(),
+      ticket,
+      parentId: ticket['order_id']?.toString(),
+      status: status,
+    );
     final order = await _doc(ticket['order_id'].toString());
     final tickets = await _children('ticket', order['id'].toString());
-    if (tickets.every((item) => item['status'] == 'served')) {
-      order['status'] = 'served';
-    } else if (tickets.any((item) => item['status'] == 'ready')) {
-      order['status'] = 'ready';
-    } else if (tickets.any((item) => item['status'] == 'preparing')) {
-      order['status'] = 'preparing';
-    } else {
-      order['status'] = 'kitchen';
-    }
-    await _save('order', order['id'].toString(), order, parentId: order['table_id']?.toString(), status: order['status']?.toString());
+    String norm(Map<String, dynamic> item) =>
+        _normalizeKitchenStatus(item['status']?.toString() ?? 'new', soft: true);
+    final next = () {
+      if (tickets.every((item) => const {'served', 'cancelled'}.contains(norm(item)))) {
+        return RestaurantStatus.served;
+      }
+      if (tickets.any((item) => norm(item) == 'ready')) {
+        return RestaurantStatus.ready;
+      }
+      if (tickets.any((item) => const {'preparing', 'new'}.contains(norm(item)))) {
+        return RestaurantStatus.preparing;
+      }
+      return RestaurantStatus.ordering;
+    }();
+    await _setOrderAndTableStatus(order, next);
+  }
+
+  /// Kitchen Display §24 — NEW / PREPARING / READY / SERVED / CANCELLED.
+  String _normalizeKitchenStatus(String status, {bool soft = false}) {
+    final key = status.trim().toLowerCase();
+    return switch (key) {
+      'sent' || 'queued' || 'new' => 'new',
+      'preparing' => 'preparing',
+      'ready' => 'ready',
+      'served' => 'served',
+      'cancelled' || 'canceled' => 'cancelled',
+      _ => soft ? (key.isEmpty ? 'new' : key) : throw Exception('Statut cuisine invalide'),
+    };
   }
 
   Future<void> _splitLines(Map<String, dynamic> action) async {
@@ -218,7 +315,143 @@ class HospitalityStore {
     }
     if (moved == 0) throw Exception('Lignes introuvables');
     order['checks'] = checks;
-    await _save('order', order['id'].toString(), order, parentId: order['table_id']?.toString(), status: order['status']?.toString());
+    await _save(
+      'order',
+      order['id'].toString(),
+      order,
+      parentId: order['table_id']?.toString(),
+      status: RestaurantStatus.fromWire(order['status']?.toString()).wire,
+    );
+  }
+
+  /// Merge source order into target order (§23).
+  Future<void> _mergeOrders(Map<String, dynamic> action) async {
+    final target = await _doc(_required(action, 'target_order_id'));
+    final source = await _doc(_required(action, 'source_order_id'));
+    if (target['id'] == source['id']) throw Exception('Impossible de fusionner une commande avec elle-même');
+
+    final targetLines = _maps(target['lines']);
+    final targetChecks = _maps(target['checks']);
+    final openCheck = targetChecks.cast<Map<String, dynamic>?>().firstWhere(
+          (check) => check?['status'] == 'open',
+          orElse: () => null,
+        );
+    late final String checkId;
+    final existingCheckId = openCheck?['id']?.toString();
+    if (existingCheckId != null && existingCheckId.isNotEmpty) {
+      checkId = existingCheckId;
+    } else {
+      checkId = const Uuid().v4();
+      targetChecks.add({
+        'id': checkId,
+        'label': 'Addition ${targetChecks.length + 1}',
+        'status': 'open',
+      });
+    }
+
+    for (final line in _maps(source['lines'])) {
+      final moved = Map<String, dynamic>.from(line);
+      moved['id'] = const Uuid().v4();
+      moved['check_id'] = checkId;
+      moved['merged_from_order_id'] = source['id'];
+      targetLines.add(moved);
+    }
+    target['lines'] = targetLines;
+    target['checks'] = targetChecks;
+    await _setOrderAndTableStatus(target, RestaurantStatus.ordering);
+
+    // Close source table/order.
+    source['status'] = RestaurantStatus.closed.wire;
+    source['merged_into'] = target['id'];
+    await _save(
+      'order',
+      source['id'].toString(),
+      source,
+      parentId: source['table_id']?.toString(),
+      status: RestaurantStatus.closed.wire,
+    );
+    final sourceTable = await _doc(source['table_id'].toString());
+    sourceTable['status'] = RestaurantStatus.free.wire;
+    sourceTable.remove('order_id');
+    await _save(
+      'table',
+      sourceTable['id'].toString(),
+      sourceTable,
+      parentId: sourceTable['zone_id']?.toString(),
+      status: RestaurantStatus.free.wire,
+    );
+  }
+
+  /// Transfer order to another free table (§23).
+  Future<void> _transferTable(Map<String, dynamic> action) async {
+    final order = await _doc(_required(action, 'order_id'));
+    final toTableId = _required(action, 'to_table_id');
+    final fromTableId = order['table_id']?.toString() ?? '';
+    if (fromTableId == toTableId) throw Exception('Table déjà assignée');
+
+    final toTable = await _doc(toTableId);
+    final toStatus = RestaurantStatus.fromWire(toTable['status']?.toString());
+    if (toStatus.isActive) throw Exception('Table destination occupée');
+
+    final fromTable = await _doc(fromTableId);
+    final orderStatus = RestaurantStatus.fromWire(order['status']?.toString());
+
+    order['table_id'] = toTableId;
+    order['table_label'] = toTable['label'];
+    order['transferred_from'] = fromTableId;
+    await _save('order', order['id'].toString(), order, parentId: toTableId, status: orderStatus.wire);
+
+    toTable['status'] = orderStatus.wire;
+    toTable['order_id'] = order['id'];
+    await _save(
+      'table',
+      toTableId,
+      toTable,
+      parentId: toTable['zone_id']?.toString(),
+      status: orderStatus.wire,
+    );
+
+    fromTable['status'] = RestaurantStatus.free.wire;
+    fromTable.remove('order_id');
+    await _save(
+      'table',
+      fromTableId,
+      fromTable,
+      parentId: fromTable['zone_id']?.toString(),
+      status: RestaurantStatus.free.wire,
+    );
+  }
+
+  Future<void> _setRestaurantStatus(Map<String, dynamic> action) async {
+    final order = await _doc(_required(action, 'order_id'));
+    final status = RestaurantStatus.fromWire(_required(action, 'status'));
+    await _setOrderAndTableStatus(order, status);
+  }
+
+  Future<void> _setOrderAndTableStatus(
+    Map<String, dynamic> order,
+    RestaurantStatus status,
+  ) async {
+    order['status'] = status.wire;
+    await _save(
+      'order',
+      order['id'].toString(),
+      order,
+      parentId: order['table_id']?.toString(),
+      status: status.wire,
+    );
+    final tableId = order['table_id']?.toString();
+    if (tableId == null || tableId.isEmpty) return;
+    final table = await _doc(tableId);
+    table['status'] = status.wire;
+    table['order_id'] = order['id'];
+    await _save(
+      'table',
+      tableId,
+      table,
+      parentId: table['zone_id']?.toString(),
+      status: status.wire,
+    );
   }
 
   Future<void> _payCheck(Map<String, dynamic> action) async {
@@ -227,6 +460,7 @@ class HospitalityStore {
     if (check['status'] != 'open') throw Exception('Addition déjà fermée');
     final lines = _checkLines(order, check['id'].toString());
     if (lines.isEmpty) throw Exception('Addition vide');
+    await _setOrderAndTableStatus(order, RestaurantStatus.paying);
     final sale = await _invoice(
       lines: lines,
       notes: 'Table ${order['table_label']} · ${check['label']}',
@@ -235,6 +469,7 @@ class HospitalityStore {
     check['status'] = 'paid';
     check['sale_id'] = sale.saleId;
     check['reference'] = sale.reference;
+    order['checks'] = _maps(order['checks']);
     await _closeOrderIfDone(order);
   }
 
@@ -384,13 +619,28 @@ class HospitalityStore {
   Future<void> _closeOrderIfDone(Map<String, dynamic> order) async {
     final checks = _maps(order['checks']);
     final done = checks.every((check) => check['status'] != 'open');
-    if (done) order['status'] = 'paid';
-    await _save('order', order['id'].toString(), order, parentId: order['table_id']?.toString(), status: order['status']?.toString());
-    if (!done) return;
+    if (!done) {
+      await _setOrderAndTableStatus(order, RestaurantStatus.paying);
+      return;
+    }
+    order['status'] = RestaurantStatus.closed.wire;
+    await _save(
+      'order',
+      order['id'].toString(),
+      order,
+      parentId: order['table_id']?.toString(),
+      status: RestaurantStatus.closed.wire,
+    );
     final table = await _doc(order['table_id'].toString());
-    table['status'] = 'free';
+    table['status'] = RestaurantStatus.free.wire;
     table.remove('order_id');
-    await _save('table', table['id'].toString(), table, parentId: table['zone_id']?.toString(), status: 'free');
+    await _save(
+      'table',
+      table['id'].toString(),
+      table,
+      parentId: table['zone_id']?.toString(),
+      status: RestaurantStatus.free.wire,
+    );
   }
 
   int _nights(dynamic value) {
@@ -432,15 +682,37 @@ class HospitalityStore {
     required String notes,
     required String method,
   }) {
-    final items = lines
-        .map((line) => {
-              'name': line['name'],
-              if (line['product_id'] != null) 'product_id': line['product_id'],
-              'quantity': (line['quantity'] as num?)?.toInt() ?? 1,
-              'unit_price': (line['unit_price'] as num?)?.toInt() ?? 0,
-            })
-        .toList();
-    final total = items.fold<int>(0, (sum, item) => sum + ((item['unit_price'] as int) * (item['quantity'] as int)));
+    final items = lines.map((line) {
+      final qty = (line['quantity'] as num?)?.toInt() ?? 1;
+      final unit = (line['unit_price'] as num?)?.toInt() ?? 0;
+      final extras = (line['extras'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .fold<int>(0, (sum, item) => sum + ((item['unit_price'] as num?)?.toInt() ?? 0));
+      final modifiers = (line['modifiers'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .join(', ');
+      final sides = (line['sides'] as List<dynamic>? ??
+              line['accompagnements'] as List<dynamic>? ??
+              const [])
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .join(', ');
+      final suffix = [
+        if (modifiers.isNotEmpty) modifiers,
+        if (sides.isNotEmpty) sides,
+      ].join(' · ');
+      return {
+        'name': suffix.isEmpty ? line['name'] : '${line['name']} ($suffix)',
+        if (line['product_id'] != null) 'product_id': line['product_id'],
+        'quantity': qty,
+        'unit_price': unit + extras,
+      };
+    }).toList();
+    final total = items.fold<int>(
+      0,
+      (sum, item) => sum + ((item['unit_price'] as int) * (item['quantity'] as int)),
+    );
     return OfflineStore.instance.commitSale(
       items: items,
       payments: [

@@ -34,7 +34,7 @@ class SupplierPaymentController extends Controller
             $query->where('status', $request->string('status'));
         }
 
-        return response()->json(['data' => $query->paginate($request->integer('per_page', 25))]);
+        return response()->json(['data' => $query->paginate($request->pageSize())]);
     }
 
     public function show(SupplierPayment $supplierPayment): JsonResponse

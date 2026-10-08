@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/layout/android_form_factor.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -20,27 +21,41 @@ abstract final class PosUi {
   static const double ctaHeight = 48;
 
   /// Desk 3-pane layout (aligned with app shell wide ≥900).
-  static const double deskBreakpoint = 900;
-  static const double wideBreakpoint = 900;
+  static const double deskBreakpoint = AndroidLayout.tabletMax;
+  static const double wideBreakpoint = AndroidLayout.tabletMax;
+  /// Ultra-wide Windows POS desk (≥1280).
+  static const double windowsDeskBreakpoint = 1280;
   static const double tabletBreakpoint = 720;
-  static const double phoneBreakpoint = 600;
+  static const double phoneBreakpoint = AndroidLayout.phoneMax;
 
   static const double categoryWidth = 208;
+  static const double categoryWidthWindows = 220;
   static const double cartWidth = 340;
+  static const double cartWidthWindows = 380;
+
+  static bool isWindowsDesk(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= windowsDeskBreakpoint;
 
   static Color get deskCanvas => AppColors.canvas;
   static Color get productsCanvas => AppColors.surfaceVariant;
   static Color get cartCanvas => AppColors.surface;
 
   static bool isDesk(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= deskBreakpoint;
+      AndroidLayout.of(context).isDesk;
 
   static bool isWide(BuildContext context) => isDesk(context);
 
   static bool isDesktop(BuildContext context) => isDesk(context);
 
   static bool isPhone(BuildContext context) =>
-      MediaQuery.sizeOf(context).width < phoneBreakpoint;
+      AndroidLayout.of(context).isPhone;
+
+  static bool isTablet(BuildContext context) =>
+      AndroidLayout.of(context).isTablet;
+
+  /// §18 tablette : Sidebar + Product Grid + Cart.
+  static bool usePosThreePane(BuildContext context) =>
+      AndroidLayout.of(context).usePosThreePane;
 
   static EdgeInsets pagePadding(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;

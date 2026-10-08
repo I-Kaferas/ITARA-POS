@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../config/terminal_config_repository.dart';
 import '../../features/accounting/presentation/accounting_screen.dart';
 import '../../features/auth/presentation/admin_login_screen.dart';
 import '../../features/auth/presentation/pin_login_screen.dart';
 import '../../features/barcode/presentation/barcode_hub_screen.dart';
 import '../../features/customers/presentation/customer_account_screen.dart';
 import '../../features/expenses/presentation/expenses_screen.dart';
+import '../../features/home/presentation/pos_menu_screen.dart';
 import '../../features/hospitality/presentation/hospitality_screen.dart';
+import '../../features/kitchen/presentation/kitchen_display_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/orders/presentation/orders_screen.dart';
 import '../../features/pos/presentation/pos_overview_screen.dart';
@@ -21,10 +22,15 @@ import '../../features/sales/presentation/sale_detail_screen.dart';
 import '../../features/services/presentation/services_screen.dart';
 import '../../features/settings/presentation/configuration_screen.dart';
 import '../../features/setup/presentation/setup_screen.dart';
+import '../../features/setup/presentation/slave_setup_wizard.dart';
+import '../../features/cash_register/presentation/cash_register_screen.dart';
 import '../../features/shifts/presentation/shifts_screen.dart';
+import '../../features/stock/presentation/stock_screen.dart';
 import '../../features/sync/presentation/sync_screen.dart';
 import '../../sync/local_master_server.dart';
 import '../../sync/sync_engine.dart';
+import '../config/terminal_config_repository.dart';
+import '../di/service_locator.dart';
 import 'app_routes.dart';
 import 'app_shell.dart';
 
@@ -35,24 +41,30 @@ class AppRouter {
   static GoRouter? _router;
 
   static GoRouter create() {
-    SyncEngine.instance.start();
-    LocalMasterServer.instance.startIfMaster();
+    final sync = sl.isRegistered<SyncEngine>() ? sl<SyncEngine>() : SyncEngine.instance;
+    final master =
+        sl.isRegistered<LocalMasterServer>() ? sl<LocalMasterServer>() : LocalMasterServer.instance;
+    sync.start();
+    master.startIfMaster();
+    final configRepo = sl.isRegistered<TerminalConfigRepository>()
+        ? sl<TerminalConfigRepository>()
+        : TerminalConfigRepository.instance;
     return _router ??= GoRouter(
       navigatorKey: _rootNavigatorKey,
-      initialLocation: AppRoutes.dashboard,
-      refreshListenable: TerminalConfigRepository.instance,
+      initialLocation: AppRoutes.pos,
+      refreshListenable: configRepo,
       redirect: (context, state) {
-        final repo = TerminalConfigRepository.instance;
+        final repo = configRepo;
         if (!repo.isLoaded) return null;
 
         final location = state.matchedLocation;
         final isAdminLogin = location == AppRoutes.adminLogin;
-        final isSetup = location == AppRoutes.setup;
+        final isSetup = location == AppRoutes.setup ||
+            location == AppRoutes.slaveSetup;
         final isPin = location == AppRoutes.pin;
         final hasToken = repo.config.authToken.trim().isNotEmpty;
         final signedIn = repo.config.isSignedIn && hasToken;
 
-        // First launch: admin account login before terminal configuration.
         if (!repo.isConfigured && !signedIn && !isAdminLogin) {
           return AppRoutes.adminLogin;
         }
@@ -64,9 +76,8 @@ class AppRouter {
         }
         if (!repo.isConfigured) return null;
 
-        // Configured terminal: cashier PIN session.
         if (!signedIn && !isPin && !isAdminLogin) return AppRoutes.pin;
-        if (signedIn && (isSetup || isPin || isAdminLogin)) return AppRoutes.dashboard;
+        if (signedIn && (isSetup || isPin || isAdminLogin)) return AppRoutes.pos;
         return null;
       },
       routes: [
@@ -79,6 +90,10 @@ class AppRouter {
           builder: (_, __) => const SetupScreen(),
         ),
         GoRoute(
+          path: AppRoutes.slaveSetup,
+          builder: (_, __) => const SlaveSetupWizard(),
+        ),
+        GoRoute(
           path: AppRoutes.pin,
           builder: (_, __) => const PinLoginScreen(),
         ),
@@ -87,8 +102,57 @@ class AppRouter {
             return AppShell(navigationShell: navigationShell);
           },
           branches: [
+            // 0 — POS
             StatefulShellBranch(
               routes: [
+                GoRoute(
+                  path: AppRoutes.pos,
+                  builder: (_, __) => const PosScreen(embedded: true),
+                ),
+              ],
+            ),
+            // 1 — Sales
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.orders,
+                  builder: (_, __) => const OrdersScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'sale/:id',
+                      builder: (_, state) => SaleDetailScreen(
+                        saleId: state.pathParameters['id'] ?? '',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            // 2 — Tables
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.reservations,
+                  builder: (_, __) => const PosReservationsScreen(),
+                ),
+              ],
+            ),
+            // 3 — Stock
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.stock,
+                  builder: (_, __) => const StockScreen(),
+                ),
+              ],
+            ),
+            // 4 — Menu + secondary modules
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoutes.menu,
+                  builder: (_, __) => const PosMenuScreen(),
+                ),
                 GoRoute(
                   path: AppRoutes.dashboard,
                   builder: (_, __) => const PosOverviewScreen(),
@@ -96,6 +160,10 @@ class AppRouter {
                     GoRoute(
                       path: 'hospitality',
                       builder: (_, __) => const HospitalityScreen(),
+                    ),
+                    GoRoute(
+                      path: 'kitchen',
+                      builder: (_, __) => const KitchenDisplayScreen(),
                     ),
                     GoRoute(
                       path: 'services',
@@ -135,58 +203,18 @@ class AppRouter {
                     ),
                   ],
                 ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: AppRoutes.pos,
-                  builder: (_, __) => const PosScreen(embedded: true),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: AppRoutes.orders,
-                  builder: (_, __) => const OrdersScreen(),
-                  routes: [
-                    GoRoute(
-                      path: 'sale/:id',
-                      builder: (_, state) => SaleDetailScreen(
-                        saleId: state.pathParameters['id'] ?? '',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
                 GoRoute(
                   path: AppRoutes.returns,
                   builder: (_, __) => const ReturnsScreen(),
                 ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
                 GoRoute(
                   path: AppRoutes.shifts,
                   builder: (_, __) => const ShiftsScreen(),
                 ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
                 GoRoute(
-                  path: AppRoutes.reservations,
-                  builder: (_, __) => const PosReservationsScreen(),
+                  path: AppRoutes.cashRegister,
+                  builder: (_, __) => const CashRegisterScreen(),
                 ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
                 GoRoute(
                   path: AppRoutes.configuration,
                   builder: (_, __) => const ConfigurationScreen(),
@@ -204,19 +232,15 @@ class AppRouter {
     if (context == null) return;
     switch (index) {
       case 0:
-        context.go(AppRoutes.dashboard);
-      case 1:
         context.go(AppRoutes.pos);
-      case 2:
+      case 1:
         context.go(AppRoutes.orders);
-      case 3:
-        context.go(AppRoutes.returns);
-      case 4:
-        context.go(AppRoutes.shifts);
-      case 5:
+      case 2:
         context.go(AppRoutes.reservations);
-      case 6:
-        context.go(AppRoutes.configuration);
+      case 3:
+        context.go(AppRoutes.stock);
+      case 4:
+        context.go(AppRoutes.menu);
     }
   }
 }

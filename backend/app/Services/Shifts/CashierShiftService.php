@@ -9,12 +9,14 @@ use App\Models\CashierShift;
 use App\Models\CashMovement;
 use App\Models\CashRegister;
 use App\Models\CashRegisterSession;
+use App\Models\Device;
 use App\Models\Sale;
 use App\Models\SalePayment;
 use App\Models\User;
 use App\Services\Registers\CashRegisterSessionService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CashierShiftService
@@ -29,7 +31,19 @@ class CashierShiftService
         int $openingBalance = 0,
         ?string $notes = null,
         ?Carbon $openedAt = null,
+        ?string $clientUuid = null,
+        ?string $deviceId = null,
     ): CashierShift {
+        if ($clientUuid !== null && $clientUuid !== '') {
+            $replay = CashierShift::query()
+                ->where('tenant_id', $register->tenant_id)
+                ->where('client_uuid', $clientUuid)
+                ->first();
+            if ($replay !== null) {
+                return $replay->fresh(['cashier', 'branch', 'cashRegister', 'device', 'registerSession']);
+            }
+        }
+
         $session = $this->registerSessionService->currentSession($register);
 
         if ($session === null) {
@@ -52,12 +66,16 @@ class CashierShiftService
         }
 
         $openedAt = $this->exactMoment($openedAt, 'opened_at');
+        $context = $this->resolveContext($register, $deviceId);
 
-        return DB::transaction(function () use ($register, $cashier, $session, $openingBalance, $notes, $openedAt) {
+        return DB::transaction(function () use ($register, $cashier, $session, $openingBalance, $notes, $openedAt, $clientUuid, $context) {
             $shift = CashierShift::query()->create([
                 'tenant_id' => $register->tenant_id,
+                'branch_id' => $context['branch_id'],
+                'client_uuid' => $clientUuid,
                 'cashier_id' => $cashier->id,
                 'cash_register_id' => $register->id,
+                'device_id' => $context['device_id'],
                 'cash_register_session_id' => $session->id,
                 'status' => CashierShiftStatus::Open,
                 'opening_balance' => max(0, $openingBalance),
@@ -82,7 +100,7 @@ class CashierShiftService
                 $this->registerSessionService->refreshTotals($session);
             }
 
-            return $shift->fresh(['cashier', 'cashRegister', 'registerSession']);
+            return $shift->fresh(['cashier', 'branch', 'cashRegister', 'device', 'registerSession']);
         });
     }
 
@@ -124,7 +142,7 @@ class CashierShiftService
                 'closed_at' => $closedAt,
             ]);
 
-            return $shift->fresh(['cashier', 'cashRegister', 'registerSession']);
+            return $shift->fresh(['cashier', 'branch', 'cashRegister', 'device', 'registerSession']);
         });
     }
 
@@ -155,6 +173,16 @@ class CashierShiftService
             throw ValidationException::withMessages([
                 'amount' => ['Amount must be greater than zero.'],
             ]);
+        }
+
+        if ($referenceId !== null && $referenceId !== '') {
+            $existing = CashMovement::query()
+                ->where('tenant_id', $register->tenant_id)
+                ->where('reference_id', $referenceId)
+                ->first();
+            if ($existing !== null) {
+                return $existing;
+            }
         }
 
         if ($type === CashMovementType::OpeningBalance) {
@@ -209,7 +237,7 @@ class CashierShiftService
     {
         return $register->cashierShifts()
             ->where('status', CashierShiftStatus::Open)
-            ->with(['cashier', 'registerSession'])
+            ->with(['cashier', 'branch', 'device', 'registerSession'])
             ->latest('opened_at')
             ->first();
     }
@@ -219,7 +247,7 @@ class CashierShiftService
         return CashierShift::query()
             ->where('cashier_id', $cashier->id)
             ->where('status', CashierShiftStatus::Open)
-            ->with(['cashier', 'cashRegister', 'registerSession'])
+            ->with(['cashier', 'branch', 'cashRegister', 'device', 'registerSession'])
             ->latest('opened_at')
             ->first();
     }
@@ -252,7 +280,9 @@ class CashierShiftService
         return [
             'shift_id' => $shift->id,
             'cashier_id' => $shift->cashier_id,
+            'branch_id' => $shift->branch_id,
             'cash_register_id' => $shift->cash_register_id,
+            'device_id' => $shift->device_id,
             'status' => $shift->status->value,
             'opening_balance' => $shift->opening_balance,
             'sales_count' => (int) (clone $completedSales)->count(),
@@ -266,12 +296,67 @@ class CashierShiftService
             'actual_cash' => $shift->actual_cash,
             'variance' => $shift->variance,
             'variance_reason' => $shift->variance_reason,
+            'shift_date' => $shift->shift_date,
             'opened_at' => $shift->opened_at,
+            'opened_time' => $shift->opened_time,
             'closed_at' => $shift->closed_at,
+            'closed_time' => $shift->closed_time,
             'invoices_count' => $report['invoices_count'],
             'invoices_total' => $report['invoices_total'],
             'invoices' => $report['invoices'],
             'payment_methods' => $report['payment_methods'],
+        ];
+    }
+
+    /**
+     * Resolve branch (succursale) and terminal (device) for a shift.
+     *
+     * @return array{branch_id: string, device_id: ?string}
+     */
+    private function resolveContext(CashRegister $register, ?string $deviceId = null): array
+    {
+        $register->loadMissing(['store', 'device']);
+
+        $branchId = $register->store?->branch_id
+            ?? $register->device?->branch_id;
+
+        if ($branchId === null || $branchId === '') {
+            throw ValidationException::withMessages([
+                'branch' => ['Impossible d’ouvrir un shift sans succursale liée à la caisse.'],
+            ]);
+        }
+
+        $resolvedDeviceId = null;
+        $candidates = array_values(array_filter([
+            is_string($deviceId) && $deviceId !== '' ? $deviceId : null,
+            $register->device_id,
+        ]));
+
+        foreach ($candidates as $candidate) {
+            $deviceQuery = Device::query()->where('tenant_id', $register->tenant_id);
+            $device = Str::isUuid($candidate)
+                ? $deviceQuery->whereKey($candidate)->first()
+                : $deviceQuery->where(function ($query) use ($candidate) {
+                    $query->where('identifier', $candidate)->orWhere('code', $candidate);
+                })->first();
+
+            if ($device === null) {
+                continue;
+            }
+
+            if ($device->store_id !== null && $device->store_id !== $register->store_id) {
+                throw ValidationException::withMessages([
+                    'device_id' => ['Le terminal n’appartient pas au magasin de cette caisse.'],
+                ]);
+            }
+
+            $resolvedDeviceId = $device->id;
+            break;
+        }
+
+        return [
+            'branch_id' => $branchId,
+            'device_id' => $resolvedDeviceId,
         ];
     }
 
@@ -296,6 +381,9 @@ class CashierShiftService
                 CashMovementType::Discount => $discounts += $movement->amount,
                 CashMovementType::CashIn => $cashIn += $movement->amount,
                 CashMovementType::CashOut => $cashOut += $movement->amount,
+                CashMovementType::CashAdjustment => $movement->isAdjustmentDecrease()
+                    ? $cashOut += $movement->amount
+                    : $cashIn += $movement->amount,
                 CashMovementType::Expense => $expenses += $movement->amount,
                 default => null,
             };

@@ -15,6 +15,7 @@ class Company extends Model
 
     protected $fillable = [
         'tenant_id',
+        'party_id',
         'name',
         'trade_name',
         'legal_name',
@@ -45,6 +46,11 @@ class Company extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function party(): BelongsTo
+    {
+        return $this->belongsTo(Party::class);
     }
 
     public function branches(): HasMany

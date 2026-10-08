@@ -23,7 +23,7 @@ enum SalePaymentMethod: string
             self::Cash => 'Cash',
             self::MobileMoney => 'Mobile Money',
             self::Card => 'Card',
-            self::BankTransfer => 'Bank transfer',
+            self::BankTransfer => 'Bank',
             self::Credit => 'Credit',
             self::Wallet => 'Wallet',
         };

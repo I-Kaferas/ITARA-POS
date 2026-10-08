@@ -63,9 +63,9 @@ const cards = computed(() => [
   },
 ])
 
-async function load() {
+async function load(silent?: boolean) {
   if (!storeId.value) return
-  loading.value = true
+  if (silent !== true) loading.value = true
   error.value = ''
   try {
     const [data] = await Promise.all([
@@ -81,9 +81,9 @@ async function load() {
   }
 }
 
-onMounted(load)
-watch(storeId, load)
-useRealtimeSync(realtimeTopics.posOverview, load)
+onMounted(() => load())
+watch(storeId, () => load())
+useRealtimeSync(realtimeTopics.posOverview, () => load(true))
 </script>
 
 <template>

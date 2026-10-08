@@ -158,6 +158,13 @@ function goDetail(id: string) {
               <p class="m-0 mt-2 text-sm text-slate-700">
                 <strong>{{ t('pointOfSale.shifts.register') }}:</strong>
                 {{ store.currentCashierShift.cash_register?.name ?? store.currentCashierShift.cash_register_id }}
+                <span v-if="store.currentCashierShift.branch">
+                  · <strong>{{ t('pointOfSale.shifts.branch') }}:</strong> {{ store.currentCashierShift.branch.name }}
+                </span>
+                <span v-if="store.currentCashierShift.device">
+                  · <strong>{{ t('pointOfSale.shifts.terminal') }}:</strong>
+                  {{ store.currentCashierShift.device.name }}
+                </span>
               </p>
               <p class="m-0 mt-1 text-sm text-slate-500">
                 {{ t('pointOfSale.shifts.openedAt') }} {{ formatDate(store.currentCashierShift.opened_at) }}
@@ -234,10 +241,12 @@ function goDetail(id: string) {
             <tr>
               <th class="px-4 py-3 text-left font-medium">{{ t('pointOfSale.shifts.cashier') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('pointOfSale.shifts.register') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('pointOfSale.shifts.branch') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('pointOfSale.shifts.terminal') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
               <th class="px-4 py-3 text-right font-medium">{{ t('pointOfSale.shifts.sales') }}</th>
               <th class="px-4 py-3 text-right font-medium">{{ t('pointOfSale.shifts.expected') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('pointOfSale.shifts.date') }}</th>
               <th class="px-4 py-3 text-right font-medium" />
             </tr>
           </thead>
@@ -250,6 +259,8 @@ function goDetail(id: string) {
             >
               <td class="px-4 py-3">{{ shift.cashier?.name ?? '—' }}</td>
               <td class="px-4 py-3">{{ shift.cash_register?.name ?? shift.cash_register_id }}</td>
+              <td class="px-4 py-3">{{ shift.branch?.name ?? '—' }}</td>
+              <td class="px-4 py-3">{{ shift.device?.name ?? '—' }}</td>
               <td class="px-4 py-3">
                 <StatusBadge
                   :active="shift.status === 'open'"

@@ -40,7 +40,8 @@ class RbacEnforcementTest extends TestCase
         $response = $this->getJson('/api/v1/companies', $this->tenantHeaders($fixture['token'], $fixture['tenant']));
 
         $response->assertForbidden()
-            ->assertJsonPath('message', 'Forbidden. Insufficient permissions.');
+            ->assertJsonPath('code', 'errors.forbidden')
+            ->assertJsonPath('message', 'errors.forbidden');
     }
 
     public function test_cashier_can_view_products_but_not_manage_companies(): void

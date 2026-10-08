@@ -25,6 +25,7 @@ class Product extends Model
         'brand_id',
         'unit_id',
         'tax_id',
+        'tax_class_id',
         'sku',
         'name',
         'description',
@@ -89,6 +90,11 @@ class Product extends Model
     public function tax(): BelongsTo
     {
         return $this->belongsTo(Tax::class);
+    }
+
+    public function taxClass(): BelongsTo
+    {
+        return $this->belongsTo(TaxClass::class);
     }
 
     public function variants(): HasMany

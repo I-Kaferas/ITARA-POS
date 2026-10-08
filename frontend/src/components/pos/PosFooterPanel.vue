@@ -108,9 +108,35 @@ const discountValue = ref('')
 const noteInput = ref('')
 const paymentMode = ref<'single' | 'mixed'>('single')
 const paymentMethod = ref('cash')
+const paymentCurrency = ref(props.totals.currency)
 const tenderedInput = ref('')
 const paymentError = ref('')
-const mixedLines = ref<{ method: string; amountInput: string; tenderedInput: string }[]>([])
+const mixedLines = ref<{ method: string; amountInput: string; tenderedInput: string; currency: string }[]>([])
+const paymentCurrencies = computed(() => {
+  const list = pos.currencies?.length ? pos.currencies : [{ code: props.totals.currency }]
+  return list
+})
+
+function currencyMeta(code: string) {
+  const row = paymentCurrencies.value.find(c => c.code === code) as {
+    exchange_rate?: number
+    decimal_places?: number
+  } | undefined
+  return {
+    rate: Number(row?.exchange_rate ?? 1) || 1,
+    decimals: row?.decimal_places ?? (code === 'FBU' ? 0 : 2),
+  }
+}
+
+/** Convert minor units between currencies using live POS rates (same semantics as backend). */
+function convertAmount(amount: number, from: string, to: string) {
+  if (!from || !to || from === to || amount === 0) return amount
+  const src = currencyMeta(from)
+  const dst = currencyMeta(to)
+  if (src.rate <= 0 || dst.rate <= 0) return amount
+  const scale = dst.decimals - src.decimals
+  return Math.round(amount * src.rate / dst.rate * (10 ** scale))
+}
 
 const MOBILE_MONEY: PosPaymentMethod = {
   value: 'mobile_money',
@@ -135,7 +161,7 @@ const methods = computed(() => {
     { value: 'cash', label: props.labels.cash, label_fr: props.labels.cash, requires_customer: false, supports_change: true },
     { value: 'mobile_money', label: 'Mobile Money', label_fr: 'Mobile Money', requires_customer: false, supports_change: false },
     { value: 'card', label: props.labels.card, label_fr: props.labels.card, requires_customer: false, supports_change: false },
-    { value: 'bank_transfer', label: 'Virement', label_fr: 'Virement', requires_customer: false, supports_change: false },
+    { value: 'bank_transfer', label: 'Bank', label_fr: 'Banque', requires_customer: false, supports_change: false },
     { value: 'credit', label: 'Crédit', label_fr: 'Crédit', requires_customer: true, supports_change: false },
   ] as PosPaymentMethod[]
 })
@@ -144,7 +170,10 @@ const selectedMethod = computed(() => methods.value.find(m => m.value === paymen
 const supportsChange = computed(() => selectedMethod.value?.supports_change ?? paymentMethod.value === 'cash')
 
 const mixedPaid = computed(() =>
-  mixedLines.value.reduce((sum, line) => sum + parseMoneyInput(line.amountInput), 0),
+  mixedLines.value.reduce((sum, line) => {
+    const amount = parseMoneyInput(line.amountInput)
+    return sum + convertAmount(amount, line.currency || props.totals.currency, props.totals.currency)
+  }, 0),
 )
 const mixedRemaining = computed(() => props.totals.grand_total - mixedPaid.value)
 const mixedChange = computed(() =>
@@ -165,6 +194,11 @@ function money(amount: number) {
   return formatMoney(amount, props.totals.currency)
 }
 
+function onPaymentCurrencyChange() {
+  const due = convertAmount(props.totals.grand_total, props.totals.currency, paymentCurrency.value || props.totals.currency)
+  tenderedInput.value = amountInputFromCents(due)
+}
+
 function openPaymentModal() {
   if (props.isEmpty) return
   if (!props.customer) {
@@ -172,6 +206,7 @@ function openPaymentModal() {
     showCustomer.value = true
     return
   }
+  paymentCurrency.value = props.totals.currency
   showPayment.value = true
 }
 
@@ -303,8 +338,8 @@ function defaultMixedLines() {
     ?? firstAvailableMethod([cash?.value ?? ''])
   const firstAmount = Math.floor(total / 2)
   return [
-    { method: cash?.value ?? 'cash', amountInput: amountInputFromCents(firstAmount), tenderedInput: '' },
-    { method: mobile?.value ?? 'mobile_money', amountInput: amountInputFromCents(total - firstAmount), tenderedInput: '' },
+    { method: cash?.value ?? 'cash', amountInput: amountInputFromCents(firstAmount), tenderedInput: '', currency: props.totals.currency },
+    { method: mobile?.value ?? 'mobile_money', amountInput: amountInputFromCents(total - firstAmount), tenderedInput: '', currency: props.totals.currency },
   ]
 }
 
@@ -317,6 +352,7 @@ function openPayment() {
   paymentMode.value = 'single'
   const first = firstAvailableMethod()
   paymentMethod.value = first?.value ?? 'cash'
+  paymentCurrency.value = props.totals.currency
   tenderedInput.value = amountInputFromCents(props.totals.grand_total)
   mixedLines.value = defaultMixedLines()
   showPayment.value = true
@@ -337,6 +373,7 @@ function addMixedLine() {
     method: next?.value ?? 'cash',
     amountInput: mixedRemaining.value > 0 ? amountInputFromCents(mixedRemaining.value) : '',
     tenderedInput: '',
+    currency: props.totals.currency,
   })
 }
 
@@ -378,17 +415,21 @@ function confirmPayment() {
       paymentError.value = props.labels.customerRequired || 'Client requis'
       return
     }
+    const saleCurrency = props.totals.currency
+    const payCurrency = paymentCurrency.value || saleCurrency
+    const amountInPayCurrency = convertAmount(props.totals.grand_total, saleCurrency, payCurrency)
     const tendered = supportsChange.value
       ? parseMoneyInput(tenderedInput.value)
-      : props.totals.grand_total
-    if (supportsChange.value && tendered < props.totals.grand_total) {
+      : amountInPayCurrency
+    if (supportsChange.value && tendered < amountInPayCurrency) {
       paymentError.value = 'Montant insuffisant'
       return
     }
     paying.value = true
     emit('pay', [{
       method: paymentMethod.value,
-      amount: props.totals.grand_total,
+      amount: amountInPayCurrency,
+      currency: payCurrency,
       tendered: supportsChange.value ? tendered : undefined,
     }], (result) => {
       paying.value = false
@@ -410,6 +451,7 @@ function confirmPayment() {
   for (const line of mixedLines.value) {
     const meta = methodMeta(line.method)
     const amount = parseMoneyInput(line.amountInput)
+    const lineCurrency = line.currency || props.totals.currency
     if (amount < 1) {
       paymentError.value = 'Chaque ligne doit avoir un montant'
       return
@@ -425,12 +467,11 @@ function confirmPayment() {
       paymentError.value = 'Montant reçu insuffisant pour les espèces'
       return
     }
-    payments.push({ method: line.method, amount, tendered })
+    payments.push({ method: line.method, amount, tendered, currency: lineCurrency })
   }
 
-  const paid = payments.reduce((s, p) => s + p.amount, 0)
-  if (paid !== props.totals.grand_total) {
-    paymentError.value = `${props.labels.amountMismatch} (${money(paid)} / ${money(props.totals.grand_total)})`
+  if (mixedPaid.value !== props.totals.grand_total) {
+    paymentError.value = `${props.labels.amountMismatch} (${money(mixedPaid.value)} / ${money(props.totals.grand_total)})`
     return
   }
 
@@ -721,11 +762,28 @@ const discountLabel = () => {
               </small>
             </label>
           </div>
+          <div v-if="paymentCurrencies.length > 1" class="pos-pay-currency">
+            <label class="pos-label">{{ $t('org.payInCurrency') }}</label>
+            <select v-model="paymentCurrency" class="pos-field" @change="onPaymentCurrencyChange">
+              <option v-for="c in paymentCurrencies" :key="c.code" :value="c.code">{{ c.code }}</option>
+            </select>
+            <p v-if="paymentCurrency !== totals.currency" class="pos-fx-hint">
+              {{ formatMoney(convertAmount(totals.grand_total, totals.currency, paymentCurrency), paymentCurrency) }}
+              ≈ {{ money(totals.grand_total) }}
+            </p>
+          </div>
           <div v-if="supportsChange">
-            <label class="pos-label">{{ labels.tendered }}</label>
+            <label class="pos-label">{{ labels.tendered }} ({{ paymentCurrency || totals.currency }})</label>
             <input v-model="tenderedInput" class="pos-field" />
-            <p v-if="parseMoneyInput(tenderedInput) >= totals.grand_total" class="pos-change">
-              {{ labels.change }}: {{ money(parseMoneyInput(tenderedInput) - totals.grand_total) }}
+            <p
+              v-if="parseMoneyInput(tenderedInput) >= convertAmount(totals.grand_total, totals.currency, paymentCurrency || totals.currency)"
+              class="pos-change"
+            >
+              {{ labels.change }}:
+              {{ formatMoney(
+                parseMoneyInput(tenderedInput) - convertAmount(totals.grand_total, totals.currency, paymentCurrency || totals.currency),
+                paymentCurrency || totals.currency,
+              ) }}
             </p>
           </div>
         </template>

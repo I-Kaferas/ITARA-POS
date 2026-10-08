@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Currency extends Model
@@ -30,5 +31,20 @@ class Currency extends Model
             'is_default' => 'boolean',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function exchangeRates(): HasMany
+    {
+        return $this->hasMany(CurrencyExchangeRate::class);
+    }
+
+    public function isPrimary(): bool
+    {
+        return (bool) $this->is_default;
+    }
+
+    public function isSecondary(): bool
+    {
+        return ! $this->isPrimary();
     }
 }

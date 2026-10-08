@@ -7,6 +7,7 @@ use App\DTOs\Payments\PaymentLineResult;
 use App\DTOs\Payments\PaymentResult;
 use App\DTOs\Sales\SaleResult;
 use App\Enums\InventoryMovementType;
+use App\Enums\NumberingDocumentType;
 use App\Enums\SaleDiscountSource;
 use App\Enums\SaleDiscountType;
 use App\Enums\SaleDocumentFormat;
@@ -35,11 +36,14 @@ use App\Services\Customer\CustomerLoyaltyService;
 use App\Services\Audit\AuditLogService;
 use App\Services\Inventory\InventoryMovementService;
 use App\Services\Inventory\StockBalanceService;
+use App\Services\Numbering\ReferenceNumberGenerator;
 use App\Services\Payments\PaymentEngine;
 use App\Services\Promotions\PromotionEngine;
 use App\Services\Receipts\ReceiptPayloadService;
 use App\Services\Receipts\SaleReceiptService;
 use App\Services\Shifts\CashierShiftService;
+use App\Services\Transactions\TransactionEngine;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -59,6 +63,8 @@ class SaleEngine
         private readonly ReceiptPayloadService $receiptPayloads,
         private readonly PromotionEngine $promotionEngine,
         private readonly CustomerLoyaltyService $loyalty,
+        private readonly ReferenceNumberGenerator $numbering,
+        private readonly TransactionEngine $transactionEngine,
     ) {}
 
     /** @param  array<string, mixed>  $payload */
@@ -67,10 +73,7 @@ class SaleEngine
         $idempotencyKey = $payload['idempotency_key'] ?? null;
 
         if ($idempotencyKey !== null) {
-            $existing = Sale::query()
-                ->where('tenant_id', $store->tenant_id)
-                ->where('idempotency_key', $idempotencyKey)
-                ->first();
+            $existing = $this->findByIdempotencyKey($store->tenant_id, $idempotencyKey);
 
             if ($existing !== null) {
                 return $this->buildExistingResult($existing);
@@ -89,6 +92,25 @@ class SaleEngine
             ]);
         }
 
+        try {
+            return $this->createSale($store, $payload, $user, $idempotencyKey);
+        } catch (UniqueConstraintViolationException $exception) {
+            if ($idempotencyKey === null) {
+                throw $exception;
+            }
+
+            $existing = $this->findByIdempotencyKey($store->tenant_id, $idempotencyKey);
+            if ($existing === null) {
+                throw $exception;
+            }
+
+            return $this->buildExistingResult($existing);
+        }
+    }
+
+    /** @param  array<string, mixed>  $payload */
+    private function createSale(Store $store, array $payload, User $user, ?string $idempotencyKey): SaleResult
+    {
         return DB::transaction(function () use ($store, $payload, $user, $idempotencyKey): SaleResult {
             $payload = $this->sanitizeCashRegisterPayload($store, $payload);
             $this->validateProducts($store, $payload);
@@ -110,7 +132,7 @@ class SaleEngine
                 'cashier_shift_id' => $payload['cashier_shift_id'] ?? null,
                 'device_id' => $payload['device_id'] ?? null,
                 'processed_by' => $user->id,
-                'reference' => $this->nextReference($store->tenant_id),
+                'reference' => $this->nextReference($store),
                 'status' => SaleStatus::Completed,
                 'subtotal' => $cart->subtotal,
                 'tax_total' => $cart->taxTotal,
@@ -135,16 +157,7 @@ class SaleEngine
 
             $this->createSalePayments($sale, $paymentResult);
 
-            $immediatePaid = 0;
-            $creditAmount = 0;
-
-            foreach ($paymentResult->lines as $line) {
-                if ($line->transaction->payment_method === SalePaymentMethod::Credit) {
-                    $creditAmount += $line->transaction->amount;
-                } else {
-                    $immediatePaid += $line->transaction->amount;
-                }
-            }
+            [$immediatePaid, $creditAmount] = $this->splitPaidAmounts($paymentResult);
 
             $dueDate = $payload['due_date'] ?? null;
 
@@ -162,6 +175,7 @@ class SaleEngine
                 $this->decreaseInventory($sale, $warehouse, $cart, $user);
             }
             $this->accountingService->recordSale($sale, $user->id);
+            $this->transactionEngine->recordSale($sale->fresh());
             $this->cashierShiftService->recordCompletedSale($sale, $user);
             $loyalty = $this->applyCustomerLoyalty($sale, $payload, $user);
 
@@ -286,7 +300,7 @@ class SaleEngine
             'cashier_shift_id' => $payload['cashier_shift_id'] ?? null,
             'device_id' => $payload['device_id'] ?? null,
             'processed_by' => $user->id,
-            'reference' => $this->nextReference($store->tenant_id),
+            'reference' => $this->nextReference($store),
             'status' => SaleStatus::Pending,
             'subtotal' => 0,
             'tax_total' => 0,
@@ -633,16 +647,7 @@ class SaleEngine
             $sale->update(['payment_transaction_number' => $paymentResult->transactionNumber]);
             $this->createSalePayments($sale, $paymentResult);
 
-            $immediatePaid = 0;
-            $creditAmount = 0;
-
-            foreach ($paymentResult->lines as $line) {
-                if ($line->transaction->payment_method === SalePaymentMethod::Credit) {
-                    $creditAmount += $line->transaction->amount;
-                } else {
-                    $immediatePaid += $line->transaction->amount;
-                }
-            }
+            [$immediatePaid, $creditAmount] = $this->splitPaidAmounts($paymentResult);
 
             $sale->update([
                 'paid_amount' => $immediatePaid,
@@ -656,6 +661,7 @@ class SaleEngine
 
             $this->decreaseInventory($sale, $warehouse, $cart, $user);
             $this->accountingService->recordSale($sale, $user->id);
+            $this->transactionEngine->recordSale($sale->fresh());
             $this->cashierShiftService->recordCompletedSale($sale, $user);
             $loyalty = $this->applyCustomerLoyalty($sale, $payload, $user);
 
@@ -793,6 +799,14 @@ class SaleEngine
         }
     }
 
+    private function findByIdempotencyKey(string $tenantId, string $key): ?Sale
+    {
+        return Sale::query()
+            ->where('tenant_id', $tenantId)
+            ->where('idempotency_key', $key)
+            ->first();
+    }
+
     private function buildExistingResult(Sale $sale): SaleResult
     {
         $sale->load(['items', 'payments.paymentTransaction', 'taxes', 'discounts']);
@@ -837,26 +851,37 @@ class SaleEngine
         $event = $sale->syncEvents()->first();
 
         return new SaleResult(
-            $sale,
-            $cart,
-            $paymentResult,
-            $receipt ? $this->receiptPayloads->build($sale, $receipt->format, $receipt) : null,
-            $event?->toSummaryArray(),
+            sale: $sale,
+            cart: $cart,
+            payment: $paymentResult,
+            receipt: $receipt ? $this->receiptPayloads->build($sale, $receipt->format, $receipt) : null,
+            syncEvent: $event?->toSummaryArray(),
+            alreadyProcessed: true,
         );
     }
 
     /** @param  array<string, mixed>  $payload */
     private function validateProducts(Store $store, array $payload): void
     {
-        foreach ($payload['items'] ?? [] as $index => $item) {
+        $items = $payload['items'] ?? [];
+        $productIds = collect($items)->pluck('product_id')->filter()->unique()->values();
+        $storeProducts = $productIds->isEmpty()
+            ? collect()
+            : StoreProduct::query()
+                ->where('store_id', $store->id)
+                ->whereIn('product_id', $productIds)
+                ->get()
+                ->keyBy('product_id');
+        $products = $productIds->isEmpty()
+            ? collect()
+            : Product::query()->whereIn('id', $productIds)->get()->keyBy('id');
+
+        foreach ($items as $index => $item) {
             if (! isset($item['product_id'])) {
                 continue;
             }
 
-            $storeProduct = StoreProduct::query()
-                ->where('store_id', $store->id)
-                ->where('product_id', $item['product_id'])
-                ->first()
+            $storeProduct = $storeProducts->get($item['product_id'])
                 ?? app(\App\Services\Catalog\PosCatalogSyncService::class)->ensureStoreProduct($store, $item['product_id']);
 
             if ($storeProduct === null) {
@@ -871,7 +896,7 @@ class SaleEngine
                 ]);
             }
 
-            $product = Product::query()->find($item['product_id']);
+            $product = $products->get($item['product_id']);
 
             if ($product === null || ! $product->is_active) {
                 throw ValidationException::withMessages([
@@ -899,8 +924,13 @@ class SaleEngine
             }
         }
 
+        $products = Product::query()
+            ->whereIn('id', collect($demand)->pluck('product_id')->filter()->unique()->all())
+            ->get()
+            ->keyBy('id');
+
         foreach ($demand as $row) {
-            $product = Product::query()->find($row['product_id']);
+            $product = $products->get($row['product_id']);
 
             if ($product === null || ! $product->requiresStock()) {
                 continue;
@@ -1149,17 +1179,39 @@ class SaleEngine
     private function createSalePayments(Sale $sale, PaymentResult $paymentResult): void
     {
         foreach ($paymentResult->lines as $index => $line) {
+            $tx = $line->transaction;
             SalePayment::query()->create([
                 'tenant_id' => $sale->tenant_id,
                 'sale_id' => $sale->id,
-                'payment_transaction_id' => $line->transaction->id,
-                'payment_method' => (is_array($line->transaction->metadata) ? ($line->transaction->metadata['method_code'] ?? null) : null)
-                    ?: $line->transaction->payment_method->value,
-                'amount' => $line->transaction->amount,
-                'currency' => $line->transaction->currency,
+                'payment_transaction_id' => $tx->id,
+                'payment_method' => (is_array($tx->metadata) ? ($tx->metadata['method_code'] ?? null) : null)
+                    ?: $tx->payment_method->value,
+                'amount' => $tx->amount,
+                'amount_in_sale_currency' => $tx->amount_in_sale_currency ?? $tx->amount,
+                'exchange_rate' => $tx->exchange_rate ?? 1,
+                'sale_currency' => $tx->sale_currency ?? $sale->currency,
+                'currency' => $tx->currency,
                 'sort_order' => $index,
             ]);
         }
+    }
+
+    /** @return array{0: int, 1: int} */
+    private function splitPaidAmounts(PaymentResult $paymentResult): array
+    {
+        $immediatePaid = 0;
+        $creditAmount = 0;
+
+        foreach ($paymentResult->lines as $line) {
+            $applied = (int) ($line->transaction->amount_in_sale_currency ?? $line->transaction->amount);
+            if ($line->transaction->payment_method === SalePaymentMethod::Credit) {
+                $creditAmount += $applied;
+            } else {
+                $immediatePaid += $applied;
+            }
+        }
+
+        return [$immediatePaid, $creditAmount];
     }
 
     /**
@@ -1329,7 +1381,7 @@ class SaleEngine
             'cashier_shift_id' => $payload['cashier_shift_id'] ?? null,
             'device_id' => $payload['device_id'] ?? null,
             'processed_by' => $user->id,
-            'reference' => $this->nextReference($store->tenant_id),
+            'reference' => $this->nextReference($store),
             'status' => SaleStatus::Pending,
             'subtotal' => $cart->subtotal,
             'tax_total' => $cart->taxTotal,
@@ -1603,29 +1655,12 @@ class SaleEngine
         return \Illuminate\Support\Carbon::parse($date)->setTimeFrom(now());
     }
 
-    private function nextReference(string $tenantId): string
+    private function nextReference(Store $store): string
     {
-        $prefix = config('sales.reference_prefix', 'SAL');
-
-        // Serialize reference allocation inside the surrounding transaction.
-        Sale::query()
-            ->where('tenant_id', $tenantId)
-            ->lockForUpdate()
-            ->orderBy('id')
-            ->limit(1)
-            ->get(['id']);
-
-        $max = 0;
-        Sale::query()
-            ->where('tenant_id', $tenantId)
-            ->where('reference', 'like', $prefix.'-%')
-            ->pluck('reference')
-            ->each(function (string $reference) use (&$max): void {
-                if (preg_match('/(\d+)$/', $reference, $matches) === 1) {
-                    $max = max($max, (int) $matches[1]);
-                }
-            });
-
-        return $prefix.'-'.str_pad((string) ($max + 1), 6, '0', STR_PAD_LEFT);
+        return $this->numbering->next(
+            NumberingDocumentType::Pos,
+            (string) $store->tenant_id,
+            $store->branch_id,
+        );
     }
 }

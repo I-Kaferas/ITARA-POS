@@ -19,6 +19,7 @@ class BranchExpense extends Model
         'cash_register_session_id',
         'user_id',
         'recorded_by',
+        'reference',
         'category',
         'description',
         'amount',

@@ -65,14 +65,14 @@ class PlatformAdminTest extends TestCase
             ->assertJsonPath('data.subscription.status', 'trial')
             ->assertJsonPath('data.license.status', 'suspended')
             ->assertJsonPath('data.license.seats', 4)
-            ->assertJsonPath('data.modules', ['pos', 'stock']);
+            ->assertJsonPath('data.modules', ['pos', 'inventory']);
 
         $this->patchJson('/api/v1/platform/companies/'.$tenant->id, [
             'modules' => ['pos', 'stock', 'hotel'],
             'status' => 'suspended',
         ], $headers)
             ->assertOk()
-            ->assertJsonPath('data.modules', ['pos', 'stock', 'hotel']);
+            ->assertJsonPath('data.modules', ['pos', 'inventory', 'hotel']);
 
         $tenant->refresh();
         $this->assertSame('suspended', $tenant->status);

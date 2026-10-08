@@ -2,31 +2,20 @@
 
 namespace App\Services\Organization;
 
-use App\Models\Tax;
+use App\Models\Tenant;
+use App\Services\Tax\TaxProfileInstaller;
 
 class CompanyTaxDefaults
 {
+    public function __construct(private readonly TaxProfileInstaller $profiles) {}
+
     /**
      * Each enterprise keeps its own tax rates. Existing rates are left untouched.
+     * Locale packs (e.g. Burundi) are applied as tenant-owned rows from config profiles.
      */
     public function ensure(string $tenantId): void
     {
-        $defaults = [
-            ['code' => 'TVA18', 'name' => 'TVA 18%', 'rate' => 18, 'is_inclusive' => false],
-            ['code' => 'EXO', 'name' => 'Exonéré', 'rate' => 0, 'is_inclusive' => false],
-        ];
-
-        foreach ($defaults as $tax) {
-            Tax::query()->firstOrCreate(
-                ['tenant_id' => $tenantId, 'code' => $tax['code']],
-                [
-                    'tenant_id' => $tenantId,
-                    'name' => $tax['name'],
-                    'rate' => $tax['rate'],
-                    'is_inclusive' => $tax['is_inclusive'],
-                    'is_active' => true,
-                ],
-            );
-        }
+        $tenant = Tenant::query()->find($tenantId);
+        $this->profiles->ensureForTenant($tenant ?? $tenantId);
     }
 }

@@ -15,6 +15,7 @@ final readonly class SaleResult
         public ?array $receipt = null,
         public ?array $syncEvent = null,
         public ?array $loyalty = null,
+        public bool $alreadyProcessed = false,
     ) {}
 
     /** @return array<string, mixed> */
@@ -31,6 +32,11 @@ final readonly class SaleResult
         ]);
 
         return [
+            'uuid' => $sale->idempotency_key ?? $sale->id,
+            'transaction_id' => $sale->id,
+            'idempotency_key' => $sale->idempotency_key,
+            'already_processed' => $this->alreadyProcessed,
+            'message' => $this->alreadyProcessed ? 'Already processed' : null,
             'sale' => [
                 ...$sale->toSummaryArray(),
                 'items' => $sale->items->map(fn ($item) => [

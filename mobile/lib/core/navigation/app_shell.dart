@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../config/app_config.dart';
 import '../config/terminal_config.dart';
 import '../config/terminal_config_repository.dart';
+import '../layout/android_form_factor.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_controller.dart';
 import '../../features/auth/data/pin_auth_service.dart';
@@ -337,55 +338,47 @@ class AppShell extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
 
-  static const _navItems = [
-    _NavItem(
-      route: AppRoutes.dashboard,
-      icon: Icons.dashboard_outlined,
-      selectedIcon: Icons.dashboard,
-      label: 'Accueil',
-      hint: 'Vue d’ensemble POS',
-    ),
+  /// Navigation smartphone §18 : POS · Sales · Tables · Stock · Menu
+  static const _phoneTabs = [
     _NavItem(
       route: AppRoutes.pos,
       icon: Icons.point_of_sale_outlined,
       selectedIcon: Icons.point_of_sale,
-      label: 'Caisse',
+      label: 'POS',
       hint: 'Terminal de vente',
+      branchIndex: 0,
     ),
     _NavItem(
       route: AppRoutes.orders,
       icon: Icons.receipt_long_outlined,
       selectedIcon: Icons.receipt_long,
-      label: 'Commandes',
-      hint: 'Ventes et attente',
-    ),
-    _NavItem(
-      route: AppRoutes.returns,
-      icon: Icons.undo_outlined,
-      selectedIcon: Icons.undo,
-      label: 'Retours',
-      hint: 'Retours et remboursements',
-    ),
-    _NavItem(
-      route: AppRoutes.shifts,
-      icon: Icons.schedule_outlined,
-      selectedIcon: Icons.schedule,
-      label: 'Shift',
-      hint: 'Ouverture et clôture',
+      label: 'Sales',
+      hint: 'Ventes et commandes',
+      branchIndex: 1,
     ),
     _NavItem(
       route: AppRoutes.reservations,
-      icon: Icons.event_seat_outlined,
-      selectedIcon: Icons.event_seat,
-      label: 'Réservations',
-      hint: 'Réservations salle',
+      icon: Icons.table_restaurant_outlined,
+      selectedIcon: Icons.table_restaurant,
+      label: 'Tables',
+      hint: 'Salle et réservations',
+      branchIndex: 2,
     ),
     _NavItem(
-      route: AppRoutes.configuration,
-      icon: Icons.settings_outlined,
-      selectedIcon: Icons.settings,
-      label: 'Réglages',
-      hint: 'Terminal et connexion',
+      route: AppRoutes.stock,
+      icon: Icons.inventory_2_outlined,
+      selectedIcon: Icons.inventory_2,
+      label: 'Stock',
+      hint: 'Stock local',
+      branchIndex: 3,
+    ),
+    _NavItem(
+      route: AppRoutes.menu,
+      icon: Icons.menu,
+      selectedIcon: Icons.menu_open,
+      label: 'Menu',
+      hint: 'Plus de modules',
+      branchIndex: 4,
     ),
   ];
 
@@ -395,6 +388,7 @@ class AppShell extends StatelessWidget {
     selectedIcon: Icons.qr_code_scanner,
     label: 'Codes-barres',
     hint: 'Scanner, générer et imprimer',
+    branchIndex: 4,
   );
 
   static const _syncItem = _NavItem(
@@ -403,35 +397,96 @@ class AppShell extends StatelessWidget {
     selectedIcon: Icons.sync,
     label: 'Synchronisation',
     hint: 'File d’attente et envois',
+    branchIndex: 4,
   );
 
-  void _onTap(int index) {
-    navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
+  static const _homeItem = _NavItem(
+    route: AppRoutes.dashboard,
+    icon: Icons.dashboard_outlined,
+    selectedIcon: Icons.dashboard,
+    label: 'Accueil',
+    hint: 'Vue d’ensemble',
+    branchIndex: 4,
+  );
+
+  static const _settingsItem = _NavItem(
+    route: AppRoutes.configuration,
+    icon: Icons.settings_outlined,
+    selectedIcon: Icons.settings,
+    label: 'Réglages',
+    hint: 'Terminal et connexion',
+    branchIndex: 4,
+  );
+
+  static const _shiftsItem = _NavItem(
+    route: AppRoutes.shifts,
+    icon: Icons.schedule_outlined,
+    selectedIcon: Icons.schedule,
+    label: 'Shifts',
+    hint: 'Ouverture et clôture',
+    branchIndex: 4,
+  );
+
+  static const _returnsItem = _NavItem(
+    route: AppRoutes.returns,
+    icon: Icons.undo_outlined,
+    selectedIcon: Icons.undo,
+    label: 'Retours',
+    hint: 'Retours et remboursements',
+    branchIndex: 4,
+  );
+
+  int _phoneTabIndex(String location) {
+    if (location.startsWith(AppRoutes.pos)) return 0;
+    if (location.startsWith(AppRoutes.orders)) return 1;
+    if (location.startsWith(AppRoutes.reservations)) return 2;
+    if (location.startsWith(AppRoutes.stock)) return 3;
+    return 4;
+  }
+
+  void _goPhoneTab(BuildContext context, int index) {
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.pos);
+      case 1:
+        context.go(AppRoutes.orders);
+      case 2:
+        context.go(AppRoutes.reservations);
+      case 3:
+        context.go(AppRoutes.stock);
+      case 4:
+        context.go(AppRoutes.menu);
+    }
   }
 
   _NavItem _currentPage(String location) {
     if (location == AppRoutes.barcode) return _barcodeItem;
     if (location == AppRoutes.sync) return _syncItem;
-    return _navItems[navigationShell.currentIndex];
+    if (location.startsWith(AppRoutes.dashboard)) return _homeItem;
+    if (location == AppRoutes.configuration) return _settingsItem;
+    if (location == AppRoutes.shifts) return _shiftsItem;
+    if (location == AppRoutes.returns) return _returnsItem;
+    final idx = _phoneTabIndex(location);
+    return _phoneTabs[idx];
   }
 
   @override
   Widget build(BuildContext context) {
-    final isWide = PosUi.isWide(context);
+    final form = AndroidLayout.of(context);
     final config = TerminalConfigRepository.instance.config;
     final location = GoRouterState.of(context).uri.path;
     final page = _currentPage(location);
-    final onToolPage = location == AppRoutes.barcode || location == AppRoutes.sync;
+    final phoneTab = _phoneTabIndex(location);
 
-    if (isWide) {
+    if (form.isDesk) {
       return Scaffold(
         body: Row(
           children: [
             _Sidebar(
-              selectedIndex: onToolPage ? -1 : navigationShell.currentIndex,
               activeRoute: location,
+              phoneTab: phoneTab,
               config: config,
-              onSelected: _onTap,
+              onPhoneTab: (i) => _goPhoneTab(context, i),
               onBarcodeTap: () => context.go(AppRoutes.barcode),
               onSyncTap: () => context.go(AppRoutes.sync),
             ),
@@ -452,17 +507,28 @@ class AppShell extends StatelessWidget {
       );
     }
 
-    final storeLabel = config.deviceName.trim().isEmpty ? 'Magasin' : config.deviceName.trim();
+    final storeLabel =
+        config.deviceName.trim().isEmpty ? 'ITARA POS' : config.deviceName.trim();
 
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(page.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 16)),
+            Text(
+              page.label,
+              style: GoogleFonts.ibmPlexSans(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
             Text(
               storeLabel,
-              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+              style: GoogleFonts.ibmPlexSans(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -470,7 +536,7 @@ class AppShell extends StatelessWidget {
           const SyncStatusBar(),
           const SizedBox(width: 4),
           const ThemeModeButton(),
-          const CalculatorButton(),
+          if (!form.isPhone) const CalculatorButton(),
           PopupMenuButton<String>(
             tooltip: 'Plus',
             onSelected: (value) {
@@ -486,9 +552,15 @@ class AppShell extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
-              PopupMenuItem(value: 'shifts', child: Text('Shifts · ${config.posRole.label}')),
+              PopupMenuItem(
+                value: 'shifts',
+                child: Text('Shifts · ${config.posRole.label}'),
+              ),
               const PopupMenuItem(value: 'barcode', child: Text('Codes-barres')),
-              const PopupMenuItem(value: 'sync', child: Text('Synchroniser le stock')),
+              const PopupMenuItem(
+                value: 'sync',
+                child: Text('Synchroniser le stock'),
+              ),
               const PopupMenuDivider(),
               const PopupMenuItem(value: 'logout', child: Text('Se déconnecter')),
             ],
@@ -497,14 +569,17 @@ class AppShell extends StatelessWidget {
       ),
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: _onTap,
-        destinations: _navItems
-            .map((item) => NavigationDestination(
-                  icon: Icon(item.icon),
-                  selectedIcon: Icon(item.selectedIcon),
-                  label: item.label,
-                ))
+        height: AndroidLayout.preferLite(context) ? 64 : 70,
+        selectedIndex: phoneTab,
+        onDestinationSelected: (i) => _goPhoneTab(context, i),
+        destinations: _phoneTabs
+            .map(
+              (item) => NavigationDestination(
+                icon: Icon(item.icon),
+                selectedIcon: Icon(item.selectedIcon),
+                label: item.label,
+              ),
+            )
             .toList(),
       ),
     );
@@ -513,18 +588,18 @@ class AppShell extends StatelessWidget {
 
 class _Sidebar extends StatelessWidget {
   const _Sidebar({
-    required this.selectedIndex,
     required this.activeRoute,
+    required this.phoneTab,
     required this.config,
-    required this.onSelected,
+    required this.onPhoneTab,
     required this.onBarcodeTap,
     required this.onSyncTap,
   });
 
-  final int selectedIndex;
   final String activeRoute;
+  final int phoneTab;
   final TerminalConfig config;
-  final ValueChanged<int> onSelected;
+  final ValueChanged<int> onPhoneTab;
   final VoidCallback onBarcodeTap;
   final VoidCallback onSyncTap;
 
@@ -605,41 +680,46 @@ class _Sidebar extends StatelessWidget {
               children: [
                 const _SectionLabel('Vente'),
                 _SidebarItem(
-                  item: AppShell._navItems[1],
-                  selected: selectedIndex == 1,
-                  onTap: () => onSelected(1),
+                  item: AppShell._phoneTabs[0],
+                  selected: phoneTab == 0,
+                  onTap: () => onPhoneTab(0),
                 ),
                 _SidebarItem(
-                  item: AppShell._navItems[5],
-                  selected: selectedIndex == 5,
-                  onTap: () => onSelected(5),
-                ),
-                const _SectionLabel('Suivi'),
-                _SidebarItem(
-                  item: AppShell._navItems[0],
-                  selected: selectedIndex == 0,
-                  onTap: () => onSelected(0),
+                  item: AppShell._phoneTabs[1],
+                  selected: phoneTab == 1,
+                  onTap: () => onPhoneTab(1),
                 ),
                 _SidebarItem(
-                  item: AppShell._navItems[2],
-                  selected: selectedIndex == 2,
-                  onTap: () => onSelected(2),
+                  item: AppShell._phoneTabs[2],
+                  selected: phoneTab == 2,
+                  onTap: () => onPhoneTab(2),
                 ),
+                const _SectionLabel('Stock'),
                 _SidebarItem(
-                  item: AppShell._navItems[3],
-                  selected: selectedIndex == 3,
-                  onTap: () => onSelected(3),
-                ),
-                _SidebarItem(
-                  item: AppShell._navItems[4],
-                  selected: selectedIndex == 4,
-                  onTap: () => onSelected(4),
+                  item: AppShell._phoneTabs[3],
+                  selected: phoneTab == 3,
+                  onTap: () => onPhoneTab(3),
                 ),
                 const _SectionLabel('Système'),
                 _SidebarItem(
-                  item: AppShell._navItems[6],
-                  selected: selectedIndex == 6,
-                  onTap: () => onSelected(6),
+                  item: AppShell._homeItem,
+                  selected: activeRoute.startsWith(AppRoutes.dashboard),
+                  onTap: () => context.go(AppRoutes.dashboard),
+                ),
+                _SidebarItem(
+                  item: AppShell._shiftsItem,
+                  selected: activeRoute == AppRoutes.shifts,
+                  onTap: () => context.go(AppRoutes.shifts),
+                ),
+                _SidebarItem(
+                  item: AppShell._returnsItem,
+                  selected: activeRoute == AppRoutes.returns,
+                  onTap: () => context.go(AppRoutes.returns),
+                ),
+                _SidebarItem(
+                  item: AppShell._settingsItem,
+                  selected: activeRoute == AppRoutes.configuration,
+                  onTap: () => context.go(AppRoutes.configuration),
                 ),
                 _SidebarItem(
                   item: AppShell._barcodeItem,
@@ -1031,6 +1111,7 @@ class _NavItem {
     required this.selectedIcon,
     required this.label,
     required this.hint,
+    this.branchIndex = 0,
   });
 
   final String route;
@@ -1038,4 +1119,5 @@ class _NavItem {
   final IconData selectedIcon;
   final String label;
   final String hint;
+  final int branchIndex;
 }

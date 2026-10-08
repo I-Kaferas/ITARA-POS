@@ -19,7 +19,12 @@ class StoreProductController extends Controller
     {
         $items = StoreProduct::query()
             ->where('store_id', $store->id)
-            ->with(['product.images', 'category', 'brand', 'unit'])
+            ->with([
+                'product.images' => fn ($query) => $query->where('is_primary', true),
+                'category:id,name',
+                'brand:id,name',
+                'unit:id,name,code,symbol',
+            ])
             ->get()
             ->map(fn (StoreProduct $sp) => $this->serialize($sp));
 
@@ -234,7 +239,12 @@ class StoreProductController extends Controller
 
         return StoreProduct::query()
             ->whereIn('id', $ids)
-            ->with(['product.images', 'category', 'brand', 'unit'])
+            ->with([
+                'product.images' => fn ($query) => $query->where('is_primary', true),
+                'category:id,name',
+                'brand:id,name',
+                'unit:id,name,code,symbol',
+            ])
             ->get()
             ->map(fn (StoreProduct $sp) => $this->serialize($sp))
             ->values()

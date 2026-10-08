@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasPermissions;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -16,6 +18,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'tenant_id',
+        'party_id',
         'name',
         'email',
         'phone',
@@ -63,6 +66,16 @@ class User extends Authenticatable
     public function requiresTwoFactorChallenge(): bool
     {
         return $this->hasTwoFactorEnabled();
+    }
+
+    public function party(): BelongsTo
+    {
+        return $this->belongsTo(Party::class);
+    }
+
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class);
     }
 
     public function roles(): BelongsToMany

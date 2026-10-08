@@ -10,6 +10,7 @@ import Badge from '../../../components/ui/Badge.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { watchLiveSearch } from '../../../composables/useLiveSearch'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -143,9 +144,9 @@ async function loadTables() {
   }
 }
 
-async function load() {
+async function load(silent?: boolean) {
   if (!storeId.value) return
-  loading.value = true
+  if (silent !== true) loading.value = true
   error.value = ''
   try {
     if (!store.customers.length) await store.loadCustomers()
@@ -299,7 +300,8 @@ async function seatReservation(item: PosReservation) {
   }
 }
 
-onMounted(load)
+onMounted(() => load())
+useRealtimeSync(realtimeTopics.posReservations, () => load(true))
 watch(storeId, load)
 watchLiveSearch(() => filters.value.q, load)
 watch(

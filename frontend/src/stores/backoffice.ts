@@ -225,6 +225,32 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     await api.delete(`/currencies/${id}`)
   }
 
+  async function loadCurrencyRates(currencyId: string, limit = 50) {
+    return (await api.get<ApiListResponse<import('../types').CurrencyExchangeRate>>(
+      `/currencies/${currencyId}/rates?limit=${limit}`,
+    )).data
+  }
+
+  async function saveCurrencyRate(
+    currencyId: string,
+    payload: { rate: number; note?: string; effective_at?: string },
+  ) {
+    return (await api.post<ApiItemResponse<{
+      currency: Currency
+      history: import('../types').CurrencyExchangeRate
+    }>>(`/currencies/${currencyId}/rates`, payload)).data
+  }
+
+  async function convertCurrency(amount: number, from: string, to: string) {
+    return (await api.get<ApiItemResponse<{
+      amount: number
+      from: string
+      to: string
+      converted: number
+      rate: number
+    }>>(`/currencies/convert?amount=${amount}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)).data
+  }
+
   async function loadPaymentMethods(companyId: string) {
     paymentMethods.value = (await api.get<ApiListResponse<CompanyPaymentMethod>>(
       `/companies/${companyId}/payment-methods`,
@@ -446,8 +472,9 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   async function recordRegisterMovement(
     registerId: string,
     payload: {
-      movement_type: 'cash_in' | 'cash_out' | 'expense'
+      movement_type: 'cash_in' | 'cash_out' | 'cash_adjustment' | 'expense'
       amount: number
+      direction?: 'in' | 'out'
       description?: string
       reference?: string
     },
@@ -457,6 +484,28 @@ export const useBackofficeStore = defineStore('backoffice', () => {
       payload,
     )
     return res
+  }
+
+  async function countRegisterCash(
+    registerId: string,
+    payload: { actual_cash: number; notes?: string },
+  ) {
+    const res = await api.post<{ data: CashRegisterSession; summary: RegisterSummary }>(
+      `/cash-registers/${registerId}/sessions/count`,
+      {
+        actual_cash: payload.actual_cash,
+        notes: payload.notes,
+      },
+    )
+    return res
+  }
+
+  async function getRegisterReconciliation(registerId: string) {
+    return api.get<{
+      data: CashRegisterSession | null
+      summary?: RegisterSummary
+      reconciliation?: { expected_cash: number; actual_cash?: number | null; difference?: number | null }
+    }>(`/cash-registers/${registerId}/reconciliation`)
   }
 
   // Users & RBAC
@@ -767,6 +816,19 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     const q = search ? `?search=${encodeURIComponent(search)}` : ''
     products.value = (await api.get<ApiListResponse<Product>>(`/catalogs/${catalogId}/products${q}`)).data
     return products.value
+  }
+
+  async function loadProductPage(catalogId: string, search = '', page = 1, perPage = 40) {
+    const params = new URLSearchParams({
+      compact: '1',
+      page: String(page),
+      per_page: String(perPage),
+    })
+    if (search) params.set('search', search)
+    return api.get<{
+      data: Product[]
+      meta: { current_page: number; last_page: number; per_page: number; total: number }
+    }>(`/catalogs/${catalogId}/products?${params}`)
   }
 
   async function loadProduct(id: string) {
@@ -1939,20 +2001,20 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     auditLogs, accountingEntries, serialNumbers, productBatches,
     loading,
     loadStats, loadCompanies, loadCompanyDetail, saveCompany, deleteCompany, uploadCompanyLogo, deleteCompanyLogo, uploadInvoiceLogo, deleteInvoiceLogo,
-    loadCurrencies, saveCurrency, deleteCurrency,
+    loadCurrencies, saveCurrency, deleteCurrency, loadCurrencyRates, saveCurrencyRate, convertCurrency,
     loadPaymentMethods, savePaymentMethod, updatePaymentMethod, deletePaymentMethod, reorderPaymentMethods,
     loadBranches, saveBranch, deleteBranch, loadBranchProfile, addBranchExpense, loadStores, saveStore, deleteStore,
     loadWarehouses, saveWarehouse, deleteWarehouse, loadDevices, saveDevice, deleteDevice, revokeDevice, regenerateDeviceToken,
     loadCashRegisters, saveCashRegister, deleteCashRegister,
     loadStoreCashierShifts, loadCashierShiftDetail, loadCurrentCashierShift, openCashierShift, closeCashierShift,
-    getCurrentRegisterSession, openRegisterSession, closeRegisterSession, recordRegisterMovement,
+    getCurrentRegisterSession, openRegisterSession, closeRegisterSession, recordRegisterMovement, countRegisterCash, getRegisterReconciliation,
     loadUsers, loadUserSessions, resetUserPassword, setUserActive, revokeUserSessions, loadRoles, loadPermissions, saveRole, deleteRole, assignUserRole, assignUserStore, removeUserRole,
     loadCatalogs, saveCatalog, deleteCatalog, loadCategories, saveCategory, deleteCategory,
     loadBrands, saveBrand, deleteBrand, loadUnits, saveUnit, deleteUnit,
     loadCatalogAttributes, saveCatalogAttribute, deleteCatalogAttribute, loadStoreTaxonomies,
     loadTaxes, saveTax, deleteTax,
     loadPromotionTypes, loadPromotions, savePromotion, deletePromotion,
-    loadProducts, loadPriceList, loadProduct, saveProduct, deleteProduct, transformProductOptions,
+    loadProducts, loadProductPage, loadPriceList, loadProduct, saveProduct, deleteProduct, transformProductOptions,
     generateBarcode, printBarcode,
     uploadProductImage, deleteProductImage, setPrimaryImage, loadGalleryImages, uploadGalleryImage,
     loadStoreProducts, importToStore, classifyStoreProducts, updateStoreProduct, removeFromStore,

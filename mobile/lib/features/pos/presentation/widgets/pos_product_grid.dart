@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/config/terminal_config_repository.dart';
+import '../../../../core/layout/android_form_factor.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -13,10 +14,14 @@ class PosProductGrid extends StatelessWidget {
     super.key,
     required this.products,
     required this.onProductTap,
+    this.favoriteIds = const {},
+    this.onToggleFavorite,
   });
 
   final List<PosProduct> products;
   final ValueChanged<PosProduct> onProductTap;
+  final Set<String> favoriteIds;
+  final ValueChanged<PosProduct>? onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -38,27 +43,30 @@ class PosProductGrid extends StatelessWidget {
                 : LayoutBuilder(
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
-                      final crossAxisCount = width >= 720
-                          ? 4
-                          : width >= 520
-                              ? 3
-                              : 2;
-                      final extent = width >= 520 ? 198.0 : 188.0;
+                      final crossAxisCount = AndroidLayout.productColumns(width);
+                      final extent = width >= 520 ? 188.0 : 176.0;
 
                       return GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                        padding: const EdgeInsets.fromLTRB(10, 6, 10, 14),
+                        cacheExtent: 480,
+                        addAutomaticKeepAlives: false,
+                        addRepaintBoundaries: true,
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
                           mainAxisExtent: extent,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
                         ),
                         itemCount: products.length,
                         itemBuilder: (context, index) {
                           final product = products[index];
                           return _ProductCard(
                             product: product,
+                            favorite: favoriteIds.contains(product.productId),
                             onTap: () => onProductTap(product),
+                            onToggleFavorite: onToggleFavorite == null
+                                ? null
+                                : () => onToggleFavorite!(product),
                           );
                         },
                       );
@@ -101,10 +109,17 @@ class _EmptyProducts extends StatelessWidget {
 }
 
 class _ProductCard extends StatefulWidget {
-  const _ProductCard({required this.product, required this.onTap});
+  const _ProductCard({
+    required this.product,
+    required this.onTap,
+    this.favorite = false,
+    this.onToggleFavorite,
+  });
 
   final PosProduct product;
   final VoidCallback onTap;
+  final bool favorite;
+  final VoidCallback? onToggleFavorite;
 
   @override
   State<_ProductCard> createState() => _ProductCardState();
@@ -167,6 +182,27 @@ class _ProductCardState extends State<_ProductCard> {
                       fit: StackFit.expand,
                       children: [
                         _ProductPhoto(url: imageUrl, initial: initial, available: available),
+                        if (widget.onToggleFavorite != null)
+                          Positioned(
+                            right: 4,
+                            top: 4,
+                            child: Material(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: widget.onToggleFavorite,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(5),
+                                  child: Icon(
+                                    widget.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                                    size: 16,
+                                    color: widget.favorite ? const Color(0xFFFBBF24) : Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         if (!available)
                           const Positioned(
                             left: 8,

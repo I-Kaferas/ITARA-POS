@@ -38,7 +38,7 @@ class CustomerTransactionController extends Controller
             $query->where('transaction_type', $request->string('transaction_type'));
         }
 
-        return response()->json(['data' => $query->paginate($request->integer('per_page', 25))]);
+        return response()->json(['data' => $query->paginate($request->pageSize())]);
     }
 
     public function store(Request $request, Customer $customer): JsonResponse

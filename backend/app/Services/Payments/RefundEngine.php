@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\Audit\AuditLogService;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Customer\CustomerLedgerService;
+use App\Services\Transactions\TransactionEngine;
 use Illuminate\Validation\ValidationException;
 
 class RefundEngine
@@ -28,6 +29,7 @@ class RefundEngine
         private readonly CustomerLedgerService $customerLedger,
         private readonly AuditLogService $auditLogService,
         private readonly AuthorizationService $authorizationService,
+        private readonly TransactionEngine $transactionEngine,
     ) {}
 
     /**
@@ -163,7 +165,10 @@ class RefundEngine
             'paymentTransaction',
             'customerTransaction',
             'originalPaymentTransaction',
+            'store',
         ]);
+
+        $this->transactionEngine->recordRefund($saleRefund);
 
         $this->auditLogService->log(
             action: 'sale_refund.processed',

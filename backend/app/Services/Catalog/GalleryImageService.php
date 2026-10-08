@@ -5,6 +5,7 @@ namespace App\Services\Catalog;
 use App\Models\Catalog;
 use App\Models\GalleryImage;
 use App\Tenancy\TenantContext;
+use App\Tenancy\TenantStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -44,6 +45,7 @@ class GalleryImageService
 
     public function delete(GalleryImage $image): void
     {
+        app(TenantStorage::class)->assertOwned($image->storage_path, $image->tenant_id);
         Storage::disk($this->images->mediaDisk())->delete($image->storage_path);
         $image->delete();
     }

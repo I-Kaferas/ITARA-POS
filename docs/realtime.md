@@ -84,6 +84,19 @@ Le nom diffusé est le nom métier (`sale.created`, `stock.updated`, …). Le co
 | `category.created` / `category.updated` | `CategoryObserver` | catalogue, POS |
 | `unit.created` / `unit.updated` | `UnitObserver` | catalogue, POS |
 | `sale.refunded` | retour de vente | POS, stock, tableau de bord |
+| `kitchen.new` / `kitchen.sent` | commande envoyée en cuisine | restaurant, cuisine, notifications |
+| `kitchen.ready` | ticket prêt | cuisine, restaurant, notifications |
+| `kitchen.updated` | ticket en préparation ou servi | cuisine, restaurant |
+| `order.created` / `order.updated` | addition restaurant créée / modifiée | restaurant |
+| `notification.created` | notification inbox | cloche, tableau de bord |
+| `device.connected` / `device.disconnected` | appareil POS enregistré / révoqué | POS, appareils |
+| `hotel.reservation.created` | réservation hôtel créée | hôtel, tableau de bord hôtel, notifications |
+| `hotel.reservation.updated` | réservation hôtel modifiée | hôtel |
+| `hotel.room.updated` | statut de chambre modifié | hôtel |
+| `pos.reservation.created` / `pos.reservation.updated` | réservation de table | plan de salle, réservations POS |
+| `stay.signed` | signature de séjour | séjour |
+
+Le tableau de bord ne se recharge que lorsqu’un chiffre affiché change (vente terminée, stock, dépense, caisse). Une ligne ajoutée au ticket ne relance pas les statistiques. Le catalogue du POS se recharge en silence sur un changement de stock ou de prix ; une vente ne recharge que les tickets en attente. Les listes hôtel et cuisine se mettent à jour sans réafficher l’écran de chargement. La cloche de notifications se met à jour à l’arrivée de l’événement. Elle n’interroge le serveur en boucle que lorsque le socket est coupé.
 
 Chaque événement a un `event_id`. Le client ignore un identifiant déjà traité.
 
@@ -92,6 +105,10 @@ Chaque événement a un `event_id`. Le client ignore un identifiant déjà trait
 L’indicateur en haut de l’écran affiche connecté, reconnexion ou hors ligne. Au retour du socket, le client appelle `GET /api/v1/realtime/sync?since=…` et applique les événements manqués. Si le socket est coupé, le même appel est répété toutes les 30 secondes. Il n’y a pas de sondage tant que le socket est connecté.
 
 Le stock vendu simultanément par plusieurs caisses est protégé par des verrous de ligne dans `StockBalanceService` et `SaleEngine`, pas par le WebSocket.
+
+## Réseau local (Master ↔ Slaves)
+
+Sans Internet, le Master Flutter expose un hub WebSocket `ws://{master}:8001/api/v1/realtime`. Les esclaves s’y connectent après appairage. Les événements LAN utilisent les noms PascalCase du prompt (§36) : `NewSale`, `SaleUpdated`, `PaymentReceived`, `StockUpdated`, `TableUpdated`, `OrderCreated`, `OrderUpdated`, `KitchenOrderCreated`, `KitchenOrderReady`, `NotificationCreated`, `DeviceConnected`, `DeviceDisconnected`. Ce canal ne dépend pas de Reverb ni du cloud.
 
 ## Santé
 

@@ -17,12 +17,14 @@ class PosCartPanel extends StatelessWidget {
     required this.onIncrement,
     required this.onDecrement,
     required this.onRemove,
+    this.onLineDiscount,
   });
 
   final PosCartEngine cart;
   final ValueChanged<String> onIncrement;
   final ValueChanged<String> onDecrement;
   final ValueChanged<String> onRemove;
+  final void Function(String lineId)? onLineDiscount;
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +125,9 @@ class PosCartPanel extends StatelessWidget {
                         onIncrement: () => onIncrement(line.lineId),
                         onDecrement: () => onDecrement(line.lineId),
                         onRemove: () => onRemove(line.lineId),
+                        onDiscount: onLineDiscount == null || line.isAccompaniment
+                            ? null
+                            : () => onLineDiscount!(line.lineId),
                       );
                     },
                   ),
@@ -182,12 +187,14 @@ class _CartLineTile extends StatelessWidget {
     required this.onIncrement,
     required this.onDecrement,
     required this.onRemove,
+    this.onDiscount,
   });
 
   final PosCartLine line;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
   final VoidCallback onRemove;
+  final VoidCallback? onDiscount;
 
   @override
   Widget build(BuildContext context) {
@@ -196,6 +203,7 @@ class _CartLineTile extends StatelessWidget {
     final initial = line.product.name.trim().isEmpty
         ? '?'
         : line.product.name.trim()[0].toUpperCase();
+    final net = (line.lineSubtotal - line.lineDiscountFixed).clamp(0, line.lineSubtotal);
 
     return Container(
       padding: const EdgeInsets.all(11),
@@ -235,6 +243,21 @@ class _CartLineTile extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (onDiscount != null)
+                      InkWell(
+                        onTap: onDiscount,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.percent_rounded,
+                            size: 16,
+                            color: line.lineDiscountFixed > 0
+                                ? AppColors.brand600
+                                : AppColors.textMuted,
+                          ),
+                        ),
+                      ),
                     InkWell(
                       onTap: onRemove,
                       borderRadius: BorderRadius.circular(8),
@@ -250,6 +273,9 @@ class _CartLineTile extends StatelessWidget {
                   [
                     'P.U. ${MoneyFormatter.format(line.unitPrice, currencyCode: AppConfig.currencyCode)}',
                     if (unit != null && unit.isNotEmpty) unit,
+                    if (line.taxRate > 0) 'TVA ${line.taxRate.toStringAsFixed(line.taxRate % 1 == 0 ? 0 : 1)}%',
+                    if (line.lineDiscountFixed > 0)
+                      'Remise -${MoneyFormatter.format(line.lineDiscountFixed, currencyCode: AppConfig.currencyCode)}',
                   ].join(' · '),
                   style: PosUi.caption(),
                 ),
@@ -271,10 +297,7 @@ class _CartLineTile extends StatelessWidget {
                     _QtyButton(icon: Icons.add_rounded, onPressed: onIncrement),
                     const Spacer(),
                     Text(
-                      MoneyFormatter.format(
-                        line.lineSubtotal,
-                        currencyCode: AppConfig.currencyCode,
-                      ),
+                      MoneyFormatter.format(net, currencyCode: AppConfig.currencyCode),
                       style: PosUi.money(size: 13),
                     ),
                   ],

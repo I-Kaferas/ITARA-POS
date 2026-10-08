@@ -1,3 +1,5 @@
+import '../core/network/operating_mode.dart';
+
 enum ConnectivityState {
   offline,
   online,
@@ -26,6 +28,9 @@ class SyncSnapshot {
     this.lastSyncAt,
     this.lastError,
     this.target,
+    this.mode = OperatingMode.isolatedOffline,
+    this.masterReachable = false,
+    this.cloudReachable = false,
   });
 
   final ConnectivityState connectivity;
@@ -36,15 +41,20 @@ class SyncSnapshot {
   final DateTime? lastSyncAt;
   final String? lastError;
   final String? target;
+  final OperatingMode mode;
+  final bool masterReachable;
+  final bool cloudReachable;
 
   String get label => switch (connectivity) {
         ConnectivityState.syncing => 'Synchronisation',
-        ConnectivityState.offline => 'Hors ligne',
+        ConnectivityState.offline => mode.shortLabel,
         ConnectivityState.syncError => 'Erreur de synchro',
-        ConnectivityState.localAvailable => 'Réseau local',
-        ConnectivityState.cloudAvailable => 'Cloud',
-        ConnectivityState.online => 'En ligne',
+        ConnectivityState.localAvailable => mode.shortLabel,
+        ConnectivityState.cloudAvailable => mode.shortLabel,
+        ConnectivityState.online => mode.shortLabel,
       };
+
+  String get modeLabel => mode.label;
 }
 
 /// Détail d'une synchronisation (téléchargement / envoi).

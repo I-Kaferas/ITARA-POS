@@ -1,0 +1,2 @@
+﻿/// restaurant domain layer.
+library;

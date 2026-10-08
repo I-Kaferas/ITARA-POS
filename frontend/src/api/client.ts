@@ -1,3 +1,6 @@
+import { formatApiErrorMessage } from '../errors/resolveApiError'
+import { cachedRead, interceptWrite, isCacheableRead, isTransientError, rememberRead } from '../offline/gateway'
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 export class ApiError extends Error {
@@ -11,32 +14,9 @@ export class ApiError extends Error {
   }
 }
 
-type ValidationPayload = {
-  message?: string
-  errors?: Record<string, string[]>
-}
-
-function connectionError(): string {
-  const locale = localStorage.getItem('pos_locale')
-  if (locale === 'en') return 'Connection error'
-  if (locale === 'sw') return 'Hitilafu ya muunganisho'
-  return 'Erreur de connexion'
-}
-
-export function extractApiErrorMessage(error: unknown, fallback = connectionError()): string {
-  if (!(error instanceof ApiError)) {
-    return error instanceof Error ? error.message : fallback
-  }
-
-  const payload = error.payload as ValidationPayload | undefined
-  const fieldErrors = payload?.errors
-  if (fieldErrors) {
-    for (const messages of Object.values(fieldErrors)) {
-      if (messages?.[0]) return messages[0]
-    }
-  }
-
-  return payload?.message || error.message || fallback
+/** Human, localized message — never technical noise for end users. */
+export function extractApiErrorMessage(error: unknown, fallback?: string): string {
+  return formatApiErrorMessage(error, fallback)
 }
 
 export function getToken(): string | null {
@@ -133,15 +113,57 @@ async function request<T>(path: string, options: RequestInit = {}, retryOnUnauth
   return payload as T
 }
 
+type WriteOptions = { skipOffline?: boolean }
+
+async function write<T>(method: string, path: string, body?: unknown, options?: WriteOptions): Promise<T> {
+  const send = (nextPath: string, nextMethod: string, nextBody: unknown, uuid?: string) => request<T>(nextPath, {
+    method: nextMethod,
+    headers: {
+      ...(nextBody === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(uuid ? { 'X-Client-UUID': uuid } : {}),
+    },
+    body: nextBody === undefined ? undefined : JSON.stringify(nextBody),
+  })
+
+  if (options?.skipOffline) return send(path, method, body)
+
+  const decision = await interceptWrite(method, path, body, send)
+  if (!decision.passthrough) return decision.response as T
+  return send(path, method, body)
+}
+
+const inflightGets = new Map<string, Promise<unknown>>()
+
 export const api = {
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }),
-  put: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }),
-  patch: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  get: <T>(path: string) => {
+    const pending = inflightGets.get(path)
+    if (pending) return pending as Promise<T>
+    const requestPromise = (async () => {
+      if (isCacheableRead(path) && typeof navigator !== 'undefined' && navigator.onLine === false) {
+        const cached = await cachedRead(path)
+        if (cached !== undefined) return cached as T
+      }
+      try {
+        const data = await request<T>(path)
+        void rememberRead(path, data)
+        return data
+      } catch (error) {
+        if (isCacheableRead(path) && isTransientError(error)) {
+          const cached = await cachedRead(path)
+          if (cached !== undefined) return cached as T
+        }
+        throw error
+      }
+    })().finally(() => {
+      if (inflightGets.get(path) === requestPromise) inflightGets.delete(path)
+    })
+    inflightGets.set(path, requestPromise)
+    return requestPromise
+  },
+  post: <T>(path: string, body?: unknown, options?: WriteOptions) => write<T>('POST', path, body, options),
+  put: <T>(path: string, body?: unknown, options?: WriteOptions) => write<T>('PUT', path, body, options),
+  patch: <T>(path: string, body?: unknown, options?: WriteOptions) => write<T>('PATCH', path, body, options),
+  delete: <T>(path: string, options?: WriteOptions) => write<T>('DELETE', path, undefined, options),
   upload: <T>(path: string, formData: FormData) => request<T>(path, { method: 'POST', body: formData }),
   async download(path: string, filename: string) {
     const headers = new Headers({ Accept: 'text/csv' })

@@ -4,10 +4,12 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
+import { api, type ApiItemResponse } from '../../api/client'
+import { moduleEnabled, type ModuleWidget } from '../../modules/registry'
 import { useAuthStore } from '../../stores/auth'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useContextStore } from '../../stores/context'
-import type { PosOverview } from '../../types'
+import type { DashboardStats, InventoryAlert, PosOverview } from '../../types'
 import { realtimeTopics, useRealtimeSync } from '../../composables/useRealtimeSync'
 import { formatMoney } from '../../utils/format'
 
@@ -18,6 +20,9 @@ const context = useContextStore()
 
 const loading = ref(true)
 const overview = ref<PosOverview | null>(null)
+const widgets = ref<ModuleWidget[]>([])
+const posOn = computed(() => moduleEnabled(auth.user?.modules, 'pos'))
+const inventoryOn = computed(() => moduleEnabled(auth.user?.modules, 'inventory'))
 
 const firstName = computed(() => auth.user?.name?.split(' ')[0] ?? '')
 const storeId = computed(() => context.currentStoreId)
@@ -37,9 +42,9 @@ const hourSpark = computed(() => {
   return hours.map(h => Math.round((h.revenue / max) * 100))
 })
 
-const openShifts = computed(() => store.cashierShifts.filter(s => s.status === 'open').length)
-const openAlerts = computed(() => store.inventoryAlerts.filter(a => a.status !== 'resolved'))
-const alertCount = computed(() => openAlerts.value.length)
+const openShifts = ref(0)
+const alertCount = ref(0)
+const openAlerts = ref<InventoryAlert[]>([])
 
 const peak = computed(() => {
   const active = (overview.value?.sales_by_hour ?? []).filter(h => h.revenue > 0)
@@ -59,7 +64,7 @@ const spotlightShare = computed(() => {
 const tones = ['green', 'amber', 'violet', 'blue'] as const
 
 const stats = computed(() => [
-  {
+  ...(posOn.value ? [{
     key: 'revenue',
     label: t('pointOfSale.overview.todayRevenue'),
     value: formatMoney(overview.value?.kpis.revenue ?? 0),
@@ -85,8 +90,8 @@ const stats = computed(() => [
     tone: 'violet',
     delta: openShifts.value > 0 ? t('dashboard.shiftsLive') : t('dashboard.shiftsIdle'),
     deltaTone: openShifts.value > 0 ? 'up' as const : 'flat' as const,
-  },
-  {
+  }] : []),
+  ...(inventoryOn.value ? [{
     key: 'alerts',
     label: t('dashboard.stockAlerts'),
     value: alertCount.value,
@@ -94,17 +99,17 @@ const stats = computed(() => [
     tone: 'blue',
     delta: alertCount.value > 0 ? t('dashboard.alertsOpen') : t('dashboard.alertsClear'),
     deltaTone: alertCount.value > 0 ? 'down' as const : 'up' as const,
-  },
+  }] : []),
 ])
 
 const areas = computed(() => [
-  { to: '/admin/pos/orders', icon: 'sales', tone: 'green', label: t('pointOfSale.overview.todaySales'), count: overview.value?.kpis.sales_count ?? 0 },
+  { to: '/admin/pos/orders', icon: 'sales', tone: 'green', label: t('pointOfSale.overview.todaySales'), count: overview.value?.kpis.sales_count ?? 0, module: 'pos' },
   { to: '/admin/products', icon: 'products', tone: 'amber', label: t('nav.products'), count: store.stats?.products ?? 0 },
-  { to: '/admin/inventory/alerts', icon: 'bell', tone: 'violet', label: t('dashboard.stockAlerts'), count: alertCount.value },
-  { to: '/admin/pos/shifts', icon: 'shift', tone: 'blue', label: t('pointOfSale.overview.openShifts'), count: openShifts.value },
+  { to: '/admin/inventory/alerts', icon: 'bell', tone: 'violet', label: t('dashboard.stockAlerts'), count: alertCount.value, module: 'inventory' },
+  { to: '/admin/pos/shifts', icon: 'shift', tone: 'blue', label: t('pointOfSale.overview.openShifts'), count: openShifts.value, module: 'pos' },
   { to: '/admin/catalog/catalogs', icon: 'catalog', tone: 'green', label: t('nav.catalogs'), count: store.stats?.catalogs ?? 0 },
   { to: '/admin/stores', icon: 'stores', tone: 'amber', label: t('nav.stores'), count: store.stats?.stores ?? 0 },
-])
+].filter(area => moduleEnabled(auth.user?.modules, 'module' in area ? area.module : undefined)))
 
 const checklist = computed(() => [
   { done: (store.stats?.companies ?? 0) > 0, label: t('dashboard.checklist.company') },
@@ -129,29 +134,46 @@ function productLink(productId?: string | null) {
   return productId ? `/admin/products/${productId}` : '/admin/pos/orders'
 }
 
-async function loadDashboard() {
-  loading.value = true
+async function loadWidgets() {
   try {
-    await store.loadStats()
-    if (storeId.value) {
-      const [data] = await Promise.all([
-        store.loadPosOverview(storeId.value),
-        store.loadStoreCashierShifts(storeId.value),
-        store.loadCurrentCashierShift(),
-        store.loadInventoryAlerts().catch(() => null),
-      ])
-      overview.value = data
-    } else {
-      overview.value = null
-    }
+    const response = await api.get<{ data: { widgets: ModuleWidget[] }[] }>('/modules')
+    widgets.value = response.data.flatMap(item => item.widgets)
+  } catch {
+    widgets.value = []
+  }
+}
+
+async function loadDashboard(silent?: boolean) {
+  if (silent !== true) loading.value = true
+  try {
+    const params = new URLSearchParams()
+    if (storeId.value) params.set('store_id', storeId.value)
+    if (posOn.value) params.set('sales', '1')
+    if (inventoryOn.value) params.set('inventory', '1')
+    const suffix = params.toString() ? `?${params}` : ''
+    const [home] = await Promise.all([
+      api.get<ApiItemResponse<{
+        stats: DashboardStats
+        overview: PosOverview | null
+        open_shifts: number
+        open_alerts: number
+        alerts: InventoryAlert[]
+      }>>(`/dashboard/home${suffix}`),
+      loadWidgets(),
+    ])
+    store.stats = home.data.stats
+    overview.value = posOn.value ? home.data.overview : null
+    openShifts.value = home.data.open_shifts
+    alertCount.value = home.data.open_alerts
+    openAlerts.value = home.data.alerts ?? []
   } finally {
     loading.value = false
   }
 }
 
-onMounted(loadDashboard)
-useRealtimeSync(realtimeTopics.dashboard, loadDashboard)
-watch(storeId, loadDashboard)
+onMounted(() => loadDashboard())
+useRealtimeSync(realtimeTopics.dashboard, () => loadDashboard(true))
+watch(storeId, () => loadDashboard())
 </script>
 
 <template>
@@ -166,7 +188,14 @@ watch(storeId, loadDashboard)
         <p class="greet__prompt">{{ t('dashboard.prompt') }}</p>
       </header>
 
-      <section class="stats" :aria-label="t('dashboard.todayActivity')">
+      <section v-if="widgets.length" class="module-widgets" :aria-label="t('modules.widgetsTitle')">
+        <RouterLink v-for="widget in widgets" :key="widget.code" :to="widget.to" class="module-widget">
+          <AppIcon :name="widget.icon" :size="18" />
+          <span>{{ t(widget.label_key) }}</span>
+        </RouterLink>
+      </section>
+
+      <section v-if="stats.length" class="stats" :aria-label="t('dashboard.todayActivity')">
         <article v-for="card in stats" :key="card.key" class="stat" :class="`tone-${card.tone}`">
           <span class="stat__icon">
             <AppIcon :name="card.icon" :size="20" />
@@ -180,7 +209,7 @@ watch(storeId, loadDashboard)
       </section>
 
       <div class="stage">
-        <article class="hero">
+        <article v-if="posOn" class="hero">
           <div class="hero__copy">
             <p class="hero__kicker">{{ t('dashboard.spotlight') }}</p>
             <h3 class="hero__title">{{ spotlight?.product_name ?? t('dashboard.spotlightEmpty') }}</h3>
@@ -250,7 +279,7 @@ watch(storeId, loadDashboard)
       </div>
 
       <div class="stage">
-        <section class="ui-card">
+        <section v-if="posOn" class="ui-card">
           <div class="ui-card__header">
             <h3 class="ui-card__title">{{ t('dashboard.topForYou') }}</h3>
             <RouterLink class="dash-link" to="/admin/pos/orders">{{ t('dashboard.viewAll') }}</RouterLink>
@@ -289,13 +318,13 @@ watch(storeId, loadDashboard)
             </div>
             <RouterLink
               class="dash-link"
-              :to="openAlerts.length ? '/admin/inventory/alerts' : '/admin/organization/company'"
+              :to="openAlerts.length && inventoryOn ? '/admin/inventory/alerts' : '/admin/organization/company'"
             >
               {{ t('dashboard.viewAll') }}
             </RouterLink>
           </div>
           <div class="ui-card__body watch-list">
-            <template v-if="openAlerts.length">
+            <template v-if="inventoryOn && openAlerts.length">
               <RouterLink
                 v-for="alert in openAlerts.slice(0, 6)"
                 :key="alert.id"
@@ -334,6 +363,22 @@ watch(storeId, loadDashboard)
 </template>
 
 <style scoped>
+.module-widgets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.6rem;
+}
+.module-widget {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.8rem;
+  background: var(--color-surface, white);
+  color: var(--color-text);
+  text-decoration: none;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+}
 .dash {
   display: flex;
   flex-direction: column;

@@ -61,8 +61,24 @@ class TerminalConfigRepository extends ChangeNotifier {
     if (_config.deviceIdentifier.trim().isEmpty) {
       _config = _config.copyWith(deviceIdentifier: const Uuid().v4());
     }
+
+    // Local ITARA API listens on 8001 (8000 is taken on this machine).
+    final migratedApi = _migrateLocalApiPort(_config.apiBaseUrl);
+    if (migratedApi != _config.apiBaseUrl) {
+      _config = _config.copyWith(apiBaseUrl: migratedApi);
+      await prefs.setString(_storageKey, jsonEncode(_config.toJson()));
+    }
+
     isLoaded = true;
     notifyListeners();
+  }
+
+  static String _migrateLocalApiPort(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.port != 8000) return url;
+    final host = uri.host.toLowerCase();
+    if (host != 'localhost' && host != '127.0.0.1') return url;
+    return uri.replace(port: 8001).toString();
   }
 
   Future<void> clear() async {

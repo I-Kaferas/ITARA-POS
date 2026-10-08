@@ -9,6 +9,7 @@ import KpiCard from '../../../components/ui/KpiCard.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { formatMoney } from '../../../utils/money'
 import { addDaysIso, buildHotelReport, toIsoDate } from '../../../utils/hotelReport'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import HotelChrome from './HotelChrome.vue'
 
 type Doc = Record<string, any>
@@ -167,8 +168,8 @@ const openTasks = computed(() => {
     }))
 })
 
-async function load() {
-  loading.value = true
+async function load(silent?: boolean) {
+  if (silent !== true) loading.value = true
   error.value = ''
   try {
     const kinds = ['reservation', 'folio', 'room', 'room_type', 'housekeeping_task']
@@ -180,7 +181,8 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(() => load())
+useRealtimeSync(realtimeTopics.hotel, () => load(true))
 
 function dayKey(value?: string | null) {
   return value ? String(value).slice(0, 10) : ''

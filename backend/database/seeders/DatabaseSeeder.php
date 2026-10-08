@@ -142,7 +142,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Dollar américain',
             'symbol' => '$',
             'decimal_places' => 2,
-            'exchange_rate' => 1,
+            'exchange_rate' => 2900,
             'is_default' => false,
             'is_active' => true,
         ]);
@@ -153,7 +153,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Euro',
             'symbol' => '€',
             'decimal_places' => 2,
-            'exchange_rate' => 1,
+            'exchange_rate' => 3200,
             'is_default' => false,
             'is_active' => true,
         ]);

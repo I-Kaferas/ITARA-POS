@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\Store;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Platform\SaasLimitGuard;
+use App\Services\Realtime\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -31,6 +34,10 @@ class DeviceController extends Controller
     public function store(Request $request, Store $store): JsonResponse
     {
         $data = $this->validated($request, $store);
+        $tenant = Tenant::query()->find($store->tenant_id);
+        if ($tenant) {
+            app(SaasLimitGuard::class)->assertWithin($tenant, 'pos');
+        }
         $token = Device::issueSyncToken();
 
         $device = $store->devices()->create([
@@ -87,6 +94,13 @@ class DeviceController extends Controller
         }
 
         $category = $data['category'] ?? $data['device_type'] ?? 'pos';
+        $existingDevice = $store->devices()->where('identifier', $data['identifier'])->exists();
+        if (! $existingDevice) {
+            $tenant = Tenant::query()->find($store->tenant_id);
+            if ($tenant) {
+                app(SaasLimitGuard::class)->assertWithin($tenant, 'pos');
+            }
+        }
 
         $device = $store->devices()->updateOrCreate(
             [
@@ -120,7 +134,10 @@ class DeviceController extends Controller
             ])->save();
         }
 
-        return response()->json(['data' => $this->present($device->fresh(['masterDevice', 'warehouses']))], $device->wasRecentlyCreated ? 201 : 200);
+        $fresh = $device->fresh(['masterDevice', 'warehouses']);
+        $this->broadcastDevice($fresh, 'device.connected');
+
+        return response()->json(['data' => $this->present($fresh)], $device->wasRecentlyCreated ? 201 : 200);
     }
 
     public function pair(Request $request): JsonResponse
@@ -168,7 +185,10 @@ class DeviceController extends Controller
             'last_sync_at' => now(),
         ])->save();
 
-        return response()->json(['data' => $this->present($device->fresh('warehouses'))]);
+        $fresh = $device->fresh('warehouses');
+        $this->broadcastDevice($fresh, 'device.connected');
+
+        return response()->json(['data' => $this->present($fresh)]);
     }
 
     public function heartbeat(Request $request, Device $device): JsonResponse
@@ -206,7 +226,10 @@ class DeviceController extends Controller
             'revoked_at' => now(),
         ])->save();
 
-        return response()->json(['data' => $this->present($device->fresh(['user', 'branch', 'store']))]);
+        $fresh = $device->fresh(['user', 'branch', 'store']);
+        $this->broadcastDevice($fresh, 'device.disconnected');
+
+        return response()->json(['data' => $this->present($fresh)]);
     }
 
     public function regenerateToken(Device $device): JsonResponse
@@ -328,6 +351,28 @@ class DeviceController extends Controller
             ->all();
 
         $device->warehouses()->sync($allowed);
+    }
+
+    private function broadcastDevice(Device $device, string $type): void
+    {
+        $tenantId = (string) ($device->tenant_id ?? '');
+        if ($tenantId === '') {
+            return;
+        }
+
+        app(RealtimePublisher::class)->notify(
+            $type,
+            $tenantId,
+            $device->store_id ? (string) $device->store_id : null,
+            'device',
+            (string) $device->id,
+            (string) ($device->status ?: 'active'),
+            [
+                'name' => $device->name,
+                'pos_role' => $device->pos_role,
+                'identifier' => $device->identifier,
+            ],
+        );
     }
 
     /**

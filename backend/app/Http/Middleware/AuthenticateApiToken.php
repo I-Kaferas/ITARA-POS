@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\AuthToken;
 use App\Services\Auth\AuthTokenService;
+use App\Support\ApiError;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,19 +18,19 @@ class AuthenticateApiToken
         $token = $request->bearerToken();
 
         if (! $token) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            return ApiError::json('errors.unauthenticated', 401);
         }
 
         $authToken = $this->tokens->findByAccessToken($token);
 
         if ($authToken === null) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            return ApiError::json('errors.unauthenticated', 401);
         }
 
         $user = $authToken->user;
 
         if (! $user || ! $user->is_active) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            return ApiError::json('errors.unauthenticated', 401);
         }
 
         $this->tokens->touchLastUsed($authToken);

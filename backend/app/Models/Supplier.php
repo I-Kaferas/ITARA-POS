@@ -2,7 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\PartyContext;
+use App\Enums\PartyKind;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\SyncsWithParty;
+use App\Services\BusinessCore\PartyRegistry;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,10 +16,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Supplier extends Model
 {
-    use BelongsToTenant, HasUuids, SoftDeletes;
+    use BelongsToTenant, HasUuids, SoftDeletes, SyncsWithParty;
 
     protected $fillable = [
         'tenant_id',
+        'party_id',
         'name',
         'legal_name',
         'code',
@@ -40,6 +45,30 @@ class Supplier extends Model
             'metadata' => 'array',
             'is_active' => 'boolean',
         ];
+    }
+
+    protected function partyKind(): PartyKind
+    {
+        return PartyKind::Organization;
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (Supplier $supplier): void {
+            if (! $supplier->party_id || ! app(\App\Tenancy\TenantContext::class)->isBound()) {
+                return;
+            }
+
+            $party = $supplier->party;
+            if ($party) {
+                app(PartyRegistry::class)->attachContext($party, PartyContext::Supplier);
+            }
+        });
+    }
+
+    public function party(): BelongsTo
+    {
+        return $this->belongsTo(Party::class);
     }
 
     public function contacts(): HasMany

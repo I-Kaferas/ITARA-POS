@@ -156,9 +156,15 @@ watch(shiftId, load)
               <strong>{{ t('pointOfSale.shifts.register') }}:</strong> {{ shift.cash_register?.name ?? shift.cash_register_id }}
               <span v-if="shift.cash_register?.store?.name"> · {{ shift.cash_register.store.name }}</span>
             </p>
+            <p class="m-0 mt-1 text-sm text-slate-600">
+              <strong>{{ t('pointOfSale.shifts.branch') }}:</strong> {{ shift.branch?.name ?? '—' }}
+              · <strong>{{ t('pointOfSale.shifts.terminal') }}:</strong> {{ shift.device?.name ?? '—' }}
+            </p>
             <p class="m-0 mt-1 text-sm text-slate-500">
               {{ t('pointOfSale.shifts.openedAt') }} {{ formatDate(shift.opened_at) }}
+              <span v-if="shift.opened_time"> ({{ shift.opened_time }})</span>
               <span v-if="shift.closed_at"> · {{ t('pointOfSale.shifts.closedAt') }} {{ formatDate(shift.closed_at) }}</span>
+              <span v-if="shift.closed_time"> ({{ shift.closed_time }})</span>
             </p>
           </div>
           <div v-if="shift.opening_notes || shift.closing_notes" class="max-w-md text-sm text-slate-600">

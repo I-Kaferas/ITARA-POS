@@ -29,6 +29,7 @@ const showRegisterModal = ref(false)
 const showSessionModal = ref(false)
 const showMovementModal = ref(false)
 const showCloseModal = ref(false)
+const showCountModal = ref(false)
 const editing = ref<CashRegister | null>(null)
 const activeRegister = ref<CashRegister | null>(null)
 const sessionSummary = ref<RegisterSummary | null>(null)
@@ -52,7 +53,8 @@ const openForm = ref({
 })
 
 const movementForm = ref({
-  movement_type: 'cash_in' as 'cash_in' | 'cash_out' | 'expense',
+  movement_type: 'cash_in' as 'cash_in' | 'cash_out' | 'cash_adjustment' | 'expense',
+  direction: 'in' as 'in' | 'out',
   amount: '',
   description: '',
 })
@@ -63,6 +65,11 @@ const closeForm = ref({
   variance_reason: '',
 })
 
+const countForm = ref({
+  actual_cash: '',
+  notes: '',
+})
+
 const currency = computed(() => {
   const s = context.activeStores.find(st => st.id === storeId.value)
   return s?.branch?.company?.currency_code ?? context.currencyCode ?? getAppCurrency()
@@ -71,8 +78,19 @@ const currency = computed(() => {
 const movementTypes = [
   { value: 'cash_in', labelKey: 'registers.cashIn' },
   { value: 'cash_out', labelKey: 'registers.cashOut' },
+  { value: 'cash_adjustment', labelKey: 'registers.cashAdjustment' },
   { value: 'expense', labelKey: 'registers.expense' },
 ] as const
+
+const differenceAmount = computed(() => {
+  if (!sessionSummary.value) return null
+  if (sessionSummary.value.difference != null) return sessionSummary.value.difference
+  if (sessionSummary.value.variance != null) return sessionSummary.value.variance
+  if (sessionSummary.value.actual_cash != null) {
+    return sessionSummary.value.actual_cash - sessionSummary.value.expected_cash
+  }
+  return null
+})
 
 onMounted(async () => {
   await context.loadStores()
@@ -173,7 +191,7 @@ async function submitOpenSession() {
 }
 
 function openMovementDialog() {
-  movementForm.value = { movement_type: 'cash_in', amount: '', description: '' }
+  movementForm.value = { movement_type: 'cash_in', direction: 'in', amount: '', description: '' }
   showMovementModal.value = true
 }
 
@@ -186,10 +204,37 @@ async function submitMovement() {
     const res = await store.recordRegisterMovement(activeRegister.value.id, {
       movement_type: movementForm.value.movement_type,
       amount,
+      direction: movementForm.value.movement_type === 'cash_adjustment'
+        ? movementForm.value.direction
+        : undefined,
       description: movementForm.value.description || undefined,
     })
     sessionSummary.value = res.summary
     showMovementModal.value = false
+    await store.loadCashRegisters(storeId.value)
+  } finally {
+    sessionBusy.value = false
+  }
+}
+
+function openCountDialog() {
+  countForm.value = {
+    actual_cash: sessionSummary.value ? String(sessionSummary.value.expected_cash / 100) : '',
+    notes: '',
+  }
+  showCountModal.value = true
+}
+
+async function submitCount() {
+  if (!activeRegister.value) return
+  sessionBusy.value = true
+  try {
+    const res = await store.countRegisterCash(activeRegister.value.id, {
+      actual_cash: parseMoneyInput(countForm.value.actual_cash),
+      notes: countForm.value.notes || undefined,
+    })
+    sessionSummary.value = res.summary
+    showCountModal.value = false
     await store.loadCashRegisters(storeId.value)
   } finally {
     sessionBusy.value = false
@@ -247,7 +292,7 @@ async function submitCloseSession() {
 
 const isSessionOpen = computed(() => sessionSummary.value?.status === 'open')
 const varianceClass = computed(() => {
-  const v = sessionSummary.value?.variance ?? 0
+  const v = differenceAmount.value ?? 0
   if (v === 0) return 'text-slate-600'
   return v > 0 ? 'text-emerald-600' : 'text-red-600'
 })
@@ -369,8 +414,8 @@ const varianceClass = computed(() => {
               <p class="font-semibold">{{ format(sessionSummary.actual_cash ?? 0) }}</p>
             </div>
             <div class="rounded-lg bg-slate-50 p-3">
-              <p class="text-slate-500">{{ t('registers.variance') }}</p>
-              <p class="font-semibold" :class="varianceClass">{{ format(sessionSummary.variance ?? 0) }}</p>
+              <p class="text-slate-500">{{ t('registers.difference') }}</p>
+              <p class="font-semibold" :class="varianceClass">{{ format(differenceAmount ?? 0) }}</p>
             </div>
           </div>
           <button type="button" class="btn-secondary w-full" @click="showSessionModal = false">{{ t('common.cancel') }}</button>
@@ -421,11 +466,22 @@ const varianceClass = computed(() => {
               <p class="text-brand-700">{{ t('registers.expectedCash') }}</p>
               <p class="text-lg font-bold text-brand-800">{{ format(sessionSummary!.expected_cash) }}</p>
             </div>
+            <div class="rounded-lg bg-slate-50 p-3">
+              <p class="text-slate-500">{{ t('registers.actualCash') }}</p>
+              <p class="font-semibold">{{ sessionSummary!.actual_cash != null ? format(sessionSummary!.actual_cash) : '—' }}</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3">
+              <p class="text-slate-500">{{ t('registers.difference') }}</p>
+              <p class="font-semibold" :class="varianceClass">{{ differenceAmount != null ? format(differenceAmount) : '—' }}</p>
+            </div>
           </div>
 
           <div class="flex flex-wrap gap-2">
             <button class="btn-secondary" :disabled="sessionBusy" @click="openMovementDialog">
               + {{ t('registers.recordMovement') }}
+            </button>
+            <button class="btn-secondary" :disabled="sessionBusy" @click="openCountDialog">
+              {{ t('registers.cashCount') }}
             </button>
             <button class="btn-primary" :disabled="sessionBusy" @click="openCloseDialog">
               {{ t('registers.closeSession') }}
@@ -452,6 +508,13 @@ const varianceClass = computed(() => {
           <FieldLabel icon="transfer">{{ t('registers.movementType') }}</FieldLabel>
           <select v-model="movementForm.movement_type" class="field w-full">
             <option v-for="mt in movementTypes" :key="mt.value" :value="mt.value">{{ t(mt.labelKey) }}</option>
+          </select>
+        </div>
+        <div v-if="movementForm.movement_type === 'cash_adjustment'">
+          <FieldLabel icon="transfer">{{ t('registers.adjustmentDirection') }}</FieldLabel>
+          <select v-model="movementForm.direction" class="field w-full">
+            <option value="in">{{ t('registers.adjustmentIn') }}</option>
+            <option value="out">{{ t('registers.adjustmentOut') }}</option>
           </select>
         </div>
         <div>
@@ -497,6 +560,44 @@ const varianceClass = computed(() => {
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showCloseModal = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="sessionBusy">{{ t('registers.closeSession') }}</button>
+        </div>
+      </form>
+    </AppModal>
+
+    <!-- Cash count / reconciliation -->
+    <AppModal
+      :open="showCountModal"
+      :title="t('registers.cashCount')"
+      icon="coins"
+      tone="info"
+      @close="showCountModal = false"
+    >
+      <form class="space-y-3" @submit.prevent="submitCount">
+        <div class="grid grid-cols-3 gap-3 text-sm">
+          <div class="rounded-lg bg-slate-50 p-3">
+            <p class="text-slate-500">{{ t('registers.expectedCash') }}</p>
+            <p class="font-semibold">{{ format(sessionSummary?.expected_cash ?? 0) }}</p>
+          </div>
+          <div class="rounded-lg bg-slate-50 p-3">
+            <p class="text-slate-500">{{ t('registers.actualCash') }}</p>
+            <p class="font-semibold">{{ countForm.actual_cash || '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-slate-50 p-3">
+            <p class="text-slate-500">{{ t('registers.difference') }}</p>
+            <p class="font-semibold">{{ t('registers.countThenDiff') }}</p>
+          </div>
+        </div>
+        <div>
+          <FieldLabel icon="coins">{{ t('registers.actualCash') }}</FieldLabel>
+          <input v-model="countForm.actual_cash" required type="text" class="field w-full" />
+        </div>
+        <div>
+          <FieldLabel icon="note">{{ t('registers.notes') }}</FieldLabel>
+          <textarea v-model="countForm.notes" rows="2" class="field w-full" />
+        </div>
+        <div class="app-modal__actions">
+          <button type="button" class="btn-secondary" @click="showCountModal = false">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :disabled="sessionBusy">{{ t('registers.cashCount') }}</button>
         </div>
       </form>
     </AppModal>

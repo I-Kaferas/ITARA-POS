@@ -300,6 +300,12 @@ class _ShortcutsGrid extends StatelessWidget {
         AppRoutes.reservations,
       ),
       (
+        Icons.soup_kitchen_outlined,
+        'Cuisine',
+        'Kitchen Display',
+        AppRoutes.kitchen,
+      ),
+      (
         Icons.undo_outlined,
         'Retours',
         'Remboursements',

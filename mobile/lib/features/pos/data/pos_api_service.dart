@@ -157,11 +157,14 @@ class PosApiService {
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final raw = body['data'];
-    final data = raw is List
-        ? raw
-        : (raw as Map<String, dynamic>?)?['data'] as List<dynamic>? ??
-            (raw as Map<String, dynamic>?)?['items'] as List<dynamic>? ??
-            [];
+    final List<dynamic> data = switch (raw) {
+      final List list => list,
+      final Map map =>
+        (map['data'] as List<dynamic>?) ??
+            (map['items'] as List<dynamic>?) ??
+            const <dynamic>[],
+      _ => const <dynamic>[],
+    };
 
     return data
         .whereType<Map>()

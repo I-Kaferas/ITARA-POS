@@ -142,6 +142,8 @@ return [
         'reports.export' => ['Export reports', 'reports'],
         'accounting.view' => ['View accounting', 'accounting'],
         'accounting.manage' => ['Manage accounting', 'accounting'],
+        'transactions.view' => ['View transactions', 'transactions'],
+        'transactions.manage' => ['Manage transactions', 'transactions'],
 
         // Audit
         'audit.view' => ['View audit logs', 'audit'],
@@ -149,6 +151,30 @@ return [
         // Settings
         'settings.view' => ['View settings', 'settings'],
         'settings.manage' => ['Manage settings', 'settings'],
+
+        'restaurant.view' => ['View restaurant', 'restaurant'],
+        'restaurant.manage' => ['Manage restaurant', 'restaurant'],
+        'hotel.view' => ['View hotel', 'hotel'],
+        'hotel.manage' => ['Manage hotel', 'hotel'],
+        'crm.view' => ['View CRM', 'crm'],
+        'crm.manage' => ['Manage CRM', 'crm'],
+        'hr.view' => ['View HR', 'hr'],
+        'hr.manage' => ['Manage HR', 'hr'],
+        'projects.view' => ['View projects', 'projects'],
+        'projects.manage' => ['Manage projects', 'projects'],
+        'documents.view' => ['View documents', 'documents'],
+        'documents.manage' => ['Manage documents', 'documents'],
+        'fleet.view' => ['View fleet', 'fleet'],
+        'fleet.manage' => ['Manage fleet', 'fleet'],
+        'maintenance.view' => ['View maintenance', 'maintenance'],
+        'maintenance.manage' => ['Manage maintenance', 'maintenance'],
+        'manufacturing.view' => ['View manufacturing', 'manufacturing'],
+        'manufacturing.manage' => ['Manage manufacturing', 'manufacturing'],
+        'ecommerce.view' => ['View e-commerce', 'ecommerce'],
+        'ecommerce.manage' => ['Manage e-commerce', 'ecommerce'],
+
+        'notifications.view' => ['View the notification center', 'notifications'],
+        'notifications.manage' => ['Manage notification channels', 'notifications'],
     ],
 
     /*
@@ -373,6 +399,8 @@ return [
                 'reports.export',
                 'accounting.view',
                 'accounting.manage',
+                'transactions.view',
+                'transactions.manage',
             ],
         ],
         'serveur' => [
@@ -435,6 +463,7 @@ return [
                 'suppliers.view',
                 'reports.view',
                 'accounting.view',
+                'transactions.view',
                 'audit.view',
                 'users.view',
                 'roles.view',

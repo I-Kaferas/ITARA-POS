@@ -15,8 +15,11 @@ class CashierShift extends Model
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
+        'client_uuid',
         'cashier_id',
         'cash_register_id',
+        'device_id',
         'cash_register_session_id',
         'status',
         'opening_balance',
@@ -34,6 +37,12 @@ class CashierShift extends Model
         'closing_notes',
         'opened_at',
         'closed_at',
+    ];
+
+    protected $appends = [
+        'shift_date',
+        'opened_time',
+        'closed_time',
     ];
 
     protected function casts(): array
@@ -60,6 +69,21 @@ class CashierShift extends Model
         return $this->status === CashierShiftStatus::Open;
     }
 
+    public function getShiftDateAttribute(): ?string
+    {
+        return $this->opened_at?->toDateString();
+    }
+
+    public function getOpenedTimeAttribute(): ?string
+    {
+        return $this->opened_at?->format('H:i:s');
+    }
+
+    public function getClosedTimeAttribute(): ?string
+    {
+        return $this->closed_at?->format('H:i:s');
+    }
+
     public function movements(): HasMany
     {
         return $this->hasMany(CashMovement::class);
@@ -70,9 +94,19 @@ class CashierShift extends Model
         return $this->belongsTo(User::class, 'cashier_id');
     }
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function cashRegister(): BelongsTo
     {
         return $this->belongsTo(CashRegister::class);
+    }
+
+    public function device(): BelongsTo
+    {
+        return $this->belongsTo(Device::class);
     }
 
     public function registerSession(): BelongsTo

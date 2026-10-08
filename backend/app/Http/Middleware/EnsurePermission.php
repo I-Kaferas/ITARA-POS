@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Authorization\AuthorizationService;
+use App\Support\ApiError;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,17 +20,16 @@ class EnsurePermission
         $user = $request->user();
 
         if ($user === null) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            return ApiError::json('errors.unauthenticated', 401);
         }
 
         if ($this->authorization->hasAnyPermission($user, $this->expand($request, $permissions))) {
             return $next($request);
         }
 
-        return response()->json([
-            'message' => 'Forbidden. Insufficient permissions.',
+        return ApiError::json('errors.forbidden', 403, [
             'required_permissions' => $permissions,
-        ], 403);
+        ]);
     }
 
     /**

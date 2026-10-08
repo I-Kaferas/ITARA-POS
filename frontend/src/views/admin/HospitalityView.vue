@@ -10,6 +10,7 @@ import Badge from '../../components/ui/Badge.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useConfirm } from '../../composables/useConfirm'
+import { realtimeTopics, useRealtimeSync } from '../../composables/useRealtimeSync'
 import { formatMoney } from '../../utils/format'
 import { useAuthStore } from '../../stores/auth'
 
@@ -52,6 +53,33 @@ const zoneForm = ref({ name: '' })
 const zones = computed(() => docs.value.filter(doc => doc.kind === 'zone'))
 const tables = computed(() => docs.value.filter(doc => doc.kind === 'table'))
 const tickets = computed(() => docs.value.filter(doc => doc.kind === 'ticket'))
+/** Kitchen Display §24 — NEW / PREPARING / READY (SERVED / CANCELLED hidden from board). */
+const kitchenColumns = computed(() => [
+  { status: 'new', label: t('desk.kitchenNew') },
+  { status: 'preparing', label: t('desk.preparing') },
+  { status: 'ready', label: t('desk.ready') },
+])
+function normalizeKitchenStatus(status: unknown): string {
+  const key = String(status ?? '').toLowerCase()
+  if (key === 'sent' || key === 'queued' || key === 'new') return 'new'
+  if (key === 'canceled') return 'cancelled'
+  return key
+}
+function kitchenIsNew(status: unknown): boolean {
+  return normalizeKitchenStatus(status) === 'new'
+}
+function kitchenStatusLabel(status: unknown): string {
+  const key = normalizeKitchenStatus(status)
+  if (key === 'new') return t('desk.kitchenNew')
+  if (key === 'preparing') return t('desk.preparing')
+  if (key === 'ready') return t('desk.ready')
+  if (key === 'served') return t('desk.served')
+  if (key === 'cancelled') return t('desk.cancelled')
+  return String(status ?? '')
+}
+function kitchenTicketsByStatus(status: string): Doc[] {
+  return tickets.value.filter(ticket => normalizeKitchenStatus(ticket.status) === status)
+}
 const rooms = computed(() => docs.value.filter(doc => doc.kind === 'room'))
 const reservations = computed(() => docs.value.filter(doc => doc.kind === 'reservation' && doc.status !== 'checked_out'))
 const occupiedRooms = computed(() => rooms.value.filter(room => room.status === 'occupied'))
@@ -183,10 +211,14 @@ async function removeZone(zone: Doc) {
   await run({ action: 'delete_zone', id: zone.id })
 }
 
-onMounted(load)
+onMounted(() => load())
+useRealtimeSync(
+  [...realtimeTopics.restaurant, ...realtimeTopics.hotel],
+  () => load(true),
+)
 
-async function load() {
-  loading.value = true
+async function load(silent?: boolean) {
+  if (silent !== true) loading.value = true
   error.value = ''
   try {
     docs.value = (await api.get<{ data: { docs: Doc[] } }>('/hospitality')).data.docs
@@ -413,20 +445,55 @@ function folioTotal(room: Doc) {
         </section>
       </div>
 
-      <div v-else-if="section === 'kitchen' && canRestaurant" class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <article v-for="ticket in tickets" :key="ticket.id" class="rounded-2xl border border-slate-200 bg-white p-4">
-          <p class="m-0 text-xs uppercase tracking-wide text-slate-400">{{ ticket.table_label }} · {{ ticket.course }}</p>
-          <p class="mt-1 font-semibold">{{ ticket.status }}</p>
-          <ul class="mt-2 space-y-1 text-sm">
-            <li v-for="(line, index) in ticket.lines" :key="index">{{ line.quantity }} × {{ line.name }}</li>
-          </ul>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button v-if="ticket.status === 'sent'" class="btn-secondary" @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'preparing' })">{{ t('desk.preparing') }}</button>
-            <button v-if="ticket.status === 'preparing'" class="btn-secondary" @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'ready' })">{{ t('desk.ready') }}</button>
-            <button v-if="ticket.status === 'ready'" class="btn-primary" @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'served' })">{{ t('desk.served') }}</button>
-          </div>
-        </article>
-        <p v-if="!tickets.length" class="text-sm text-slate-500">{{ t('desk.noTickets') }}</p>
+      <div v-else-if="section === 'kitchen' && canRestaurant" class="space-y-4">
+        <div class="grid gap-3 md:grid-cols-3">
+          <section
+            v-for="column in kitchenColumns"
+            :key="column.status"
+            class="rounded-2xl border border-slate-200 bg-slate-50/80 p-3"
+          >
+            <header class="mb-3 flex items-center justify-between gap-2">
+              <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-slate-600">{{ column.label }}</h3>
+              <Badge>{{ kitchenTicketsByStatus(column.status).length }}</Badge>
+            </header>
+            <div class="grid gap-3">
+              <article
+                v-for="ticket in kitchenTicketsByStatus(column.status)"
+                :key="ticket.id"
+                class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+              >
+                <p class="m-0 text-xs uppercase tracking-wide text-slate-400">{{ ticket.table_label }} · {{ ticket.course }}</p>
+                <p class="mt-1 font-semibold">{{ kitchenStatusLabel(ticket.status) }}</p>
+                <ul class="mt-2 space-y-1 text-sm">
+                  <li v-for="(line, index) in ticket.lines" :key="index">{{ line.quantity }} × {{ line.name }}</li>
+                </ul>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <button
+                    v-if="kitchenIsNew(ticket.status)"
+                    class="btn-secondary"
+                    @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'preparing' })"
+                  >{{ t('desk.preparing') }}</button>
+                  <button
+                    v-if="ticket.status === 'preparing'"
+                    class="btn-secondary"
+                    @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'ready' })"
+                  >{{ t('desk.ready') }}</button>
+                  <button
+                    v-if="ticket.status === 'ready'"
+                    class="btn-primary"
+                    @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'served' })"
+                  >{{ t('desk.served') }}</button>
+                  <button
+                    v-if="!['served', 'cancelled'].includes(normalizeKitchenStatus(ticket.status))"
+                    class="btn-secondary"
+                    @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'cancelled' })"
+                  >{{ t('common.cancel') }}</button>
+                </div>
+              </article>
+              <p v-if="!kitchenTicketsByStatus(column.status).length" class="m-0 text-sm text-slate-500">{{ t('desk.noTickets') }}</p>
+            </div>
+          </section>
+        </div>
       </div>
 
       <div v-else-if="canHotel" class="grid gap-4 lg:grid-cols-2">

@@ -20,6 +20,8 @@ use App\Services\Catalog\PosCatalogSyncService;
 use App\Services\Payments\CompanyPaymentMethodService;
 use App\Services\Rbac\PermissionCatalog;
 use App\Services\Sales\SaleEngine;
+use App\Services\Sync\ConflictResolutionEngine;
+use App\Services\Sync\OfflineSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -31,6 +33,8 @@ class SyncController extends Controller
         private readonly PosCatalogSyncService $catalog,
         private readonly CompanyPaymentMethodService $paymentMethods,
         private readonly AuthorizationService $authorization,
+        private readonly OfflineSyncService $offlineSync,
+        private readonly ConflictResolutionEngine $conflicts,
     ) {}
 
     public function push(Request $request): JsonResponse
@@ -57,6 +61,59 @@ class SyncController extends Controller
                 'results' => $results,
                 'server_sequence' => now()->timestamp,
             ],
+        ]);
+    }
+
+    public function offline(Request $request): JsonResponse
+    {
+        $store = $this->store();
+        $user = $request->user();
+        if (! $user instanceof User) {
+            abort(401);
+        }
+
+        $data = $request->validate([
+            'operations' => ['required', 'array', 'max:50'],
+            'operations.*.id' => ['required', 'uuid'],
+            'operations.*.client_uuid' => ['required', 'uuid'],
+            'operations.*.domain' => ['required', 'in:pos,restaurant,hotel,cash_register'],
+            'operations.*.entity_type' => ['required', 'string', 'max:40'],
+            'operations.*.entity_id' => ['required', 'string', 'max:80'],
+            'operations.*.operation' => ['required', 'string', 'max:40'],
+            'operations.*.payload' => ['required', 'array'],
+            'operations.*.base_version' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $results = [];
+        foreach ($data['operations'] as $operation) {
+            $result = $this->offlineSync->accept($store, $user, $operation);
+            $this->rememberSyncResult($store, $operation, $result);
+            $results[] = $result;
+        }
+
+        return response()->json([
+            'data' => [
+                'results' => $results,
+                'server_sequence' => now()->timestamp,
+            ],
+        ]);
+    }
+
+    public function resolveOffline(Request $request): JsonResponse
+    {
+        $store = $this->store();
+        $user = $request->user();
+        if (! $user instanceof User) {
+            abort(401);
+        }
+
+        $data = $request->validate([
+            'client_uuid' => ['required', 'uuid'],
+            'resolution' => ['required', 'in:discard,accept_server,keep_local'],
+        ]);
+
+        return response()->json([
+            'data' => $this->offlineSync->resolve($store, $user, $data['client_uuid'], $data['resolution']),
         ]);
     }
 
@@ -191,6 +248,7 @@ class SyncController extends Controller
                 'permissions' => $permissions,
                 'roles' => $roles,
                 'users' => $users,
+                'conflict_resolution' => $this->conflicts->catalog(),
             ],
         ]);
     }
@@ -341,22 +399,43 @@ class SyncController extends Controller
     private function applyOperation(Store $store, array $operation, Request $request): array
     {
         $entityId = (string) $operation['entity_id'];
+        $entityType = (string) ($operation['entity_type'] ?? 'sale');
+        $op = (string) ($operation['operation'] ?? 'create');
         $payload = $operation['payload'];
         $payload['idempotency_key'] = $payload['idempotency_key'] ?? $entityId;
 
-        if (($operation['entity_type'] ?? '') === 'customer' && ($operation['operation'] ?? '') === 'create') {
-            return $this->applyCustomerCreate($store, $operation);
-        }
-
-        if (($operation['entity_type'] ?? '') !== 'sale' || ($operation['operation'] ?? '') !== 'create') {
-            return [
+        // Master → Cloud entity matrix (mobile.md §35).
+        return match ($entityType) {
+            'customer' => $op === 'create'
+                ? $this->applyCustomerCreate($store, $operation)
+                : $this->unsupported($operation, $entityId),
+            'sale' => $op === 'create'
+                ? $this->applySaleCreate($store, $operation, $request, $payload, $entityId)
+                : $this->unsupported($operation, $entityId),
+            'payment' => $this->applyPayment($store, $operation, $payload, $entityId),
+            'stock' => $this->applyStock($store, $operation, $payload, $entityId),
+            'order' => $this->applyOrder($store, $operation, $payload, $entityId),
+            'expense' => $this->applyExpense($store, $operation, $request, $payload, $entityId),
+            'audit_log' => $this->applyAuditLog($store, $operation, $request, $payload, $entityId),
+            'configuration' => $this->applyConfiguration($store, $operation, $payload, $entityId),
+            'product', 'user' => [
+                // Products / users are pulled from Cloud, not pushed by Master.
                 'id' => $operation['id'],
                 'entity_id' => $entityId,
-                'status' => 'conflict',
-                'error' => 'Unsupported sync operation.',
-            ];
-        }
+                'status' => 'synced',
+                'server_id' => $entityId,
+            ],
+            default => $this->unsupported($operation, $entityId),
+        };
+    }
 
+    /**
+     * @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function applySaleCreate(Store $store, array $operation, Request $request, array $payload, string $entityId): array
+    {
         try {
             $result = ! empty($payload['sale_id'])
                 ? $this->sales->completePending($store, $payload, $request->user())
@@ -400,6 +479,256 @@ class SyncController extends Controller
                 'error' => $exception->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Payments usually ride inside the sale payload; accept orphan payment ops as synced
+     * once the parent sale exists (or keep pending via failed if not).
+     *
+     * @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function applyPayment(Store $store, array $operation, array $payload, string $entityId): array
+    {
+        $saleId = (string) ($payload['sale_id'] ?? '');
+        if ($saleId !== '') {
+            $sale = Sale::query()
+                ->where('store_id', $store->id)
+                ->where(function ($query) use ($saleId): void {
+                    $query->whereKey($saleId)->orWhere('idempotency_key', $saleId);
+                })
+                ->first();
+            if ($sale === null) {
+                return [
+                    'id' => $operation['id'],
+                    'entity_id' => $entityId,
+                    'status' => 'failed',
+                    'error' => 'Parent sale not synced yet.',
+                ];
+            }
+        }
+
+        SyncEvent::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $store->id,
+            'event_type' => 'payment.received',
+            'entity_type' => 'payment',
+            'entity_id' => $entityId,
+            'payload' => $payload,
+            'occurred_at' => now(),
+            'sequence' => now()->timestamp,
+        ]);
+
+        return [
+            'id' => $operation['id'],
+            'entity_id' => $entityId,
+            'status' => 'synced',
+            'server_id' => $entityId,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function applyStock(Store $store, array $operation, array $payload, string $entityId): array
+    {
+        SyncEvent::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $store->id,
+            'event_type' => 'stock.updated',
+            'entity_type' => 'stock',
+            'entity_id' => $entityId,
+            'payload' => $payload,
+            'occurred_at' => now(),
+            'sequence' => now()->timestamp,
+        ]);
+
+        return [
+            'id' => $operation['id'],
+            'entity_id' => $entityId,
+            'status' => 'synced',
+            'server_id' => $entityId,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function applyOrder(Store $store, array $operation, array $payload, string $entityId): array
+    {
+        SyncEvent::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $store->id,
+            'event_type' => 'order.upserted',
+            'entity_type' => 'order',
+            'entity_id' => $entityId,
+            'payload' => $payload,
+            'occurred_at' => now(),
+            'sequence' => now()->timestamp,
+        ]);
+
+        return [
+            'id' => $operation['id'],
+            'entity_id' => $entityId,
+            'status' => 'synced',
+            'server_id' => $entityId,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function applyExpense(Store $store, array $operation, Request $request, array $payload, string $entityId): array
+    {
+        try {
+            $branch = $store->branch;
+            if ($branch === null) {
+                return [
+                    'id' => $operation['id'],
+                    'entity_id' => $entityId,
+                    'status' => 'failed',
+                    'error' => 'Store has no branch for expense sync.',
+                ];
+            }
+
+            $existing = \App\Models\BranchExpense::query()
+                ->where('tenant_id', $store->tenant_id)
+                ->where('notes', 'idempotency:'.$entityId)
+                ->first();
+            if ($existing !== null) {
+                return [
+                    'id' => $operation['id'],
+                    'entity_id' => $entityId,
+                    'status' => 'synced',
+                    'server_id' => $existing->id,
+                    'reference' => $existing->reference,
+                ];
+            }
+
+            $expense = \App\Models\BranchExpense::query()->create([
+                'tenant_id' => $store->tenant_id,
+                'branch_id' => $branch->id,
+                'store_id' => $store->id,
+                'category' => (string) ($payload['category'] ?? 'other'),
+                'description' => (string) ($payload['description'] ?? 'Expense'),
+                'amount' => (int) ($payload['amount'] ?? 0),
+                'currency_code' => strtoupper((string) ($payload['currency_code'] ?? 'FBU')),
+                'occurred_on' => $payload['occurred_on'] ?? now()->toDateString(),
+                'notes' => 'idempotency:'.$entityId,
+                'reference' => app(\App\Services\Numbering\ReferenceNumberGenerator::class)->next(
+                    \App\Enums\NumberingDocumentType::Expense,
+                    (string) $store->tenant_id,
+                    $branch->id,
+                ),
+            ]);
+
+            return [
+                'id' => $operation['id'],
+                'entity_id' => $entityId,
+                'status' => 'synced',
+                'server_id' => $expense->id,
+                'reference' => $expense->reference,
+            ];
+        } catch (\Throwable $exception) {
+            return [
+                'id' => $operation['id'],
+                'entity_id' => $entityId,
+                'status' => 'failed',
+                'error' => $exception->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function applyAuditLog(Store $store, array $operation, Request $request, array $payload, string $entityId): array
+    {
+        try {
+            \App\Models\AuditLog::query()->create([
+                'tenant_id' => $store->tenant_id,
+                'user_id' => $payload['actor_id'] ?? $request->user()?->id,
+                'action' => (string) ($payload['action'] ?? 'sync.audit'),
+                'entity_type' => (string) ($payload['entity_type'] ?? 'sync'),
+                'entity_id' => (string) ($payload['entity_id'] ?? $entityId),
+                'payload' => $payload['payload'] ?? $payload,
+                'ip_address' => $request->ip(),
+            ]);
+
+            SyncEvent::query()->create([
+                'tenant_id' => $store->tenant_id,
+                'store_id' => $store->id,
+                'event_type' => 'audit_log.created',
+                'entity_type' => 'audit_log',
+                'entity_id' => $entityId,
+                'payload' => $payload,
+                'occurred_at' => now(),
+                'sequence' => now()->timestamp,
+            ]);
+
+            return [
+                'id' => $operation['id'],
+                'entity_id' => $entityId,
+                'status' => 'synced',
+                'server_id' => $entityId,
+            ];
+        } catch (\Throwable $exception) {
+            return [
+                'id' => $operation['id'],
+                'entity_id' => $entityId,
+                'status' => 'failed',
+                'error' => $exception->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function applyConfiguration(Store $store, array $operation, array $payload, string $entityId): array
+    {
+        SyncEvent::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $store->id,
+            'event_type' => 'configuration.upserted',
+            'entity_type' => 'configuration',
+            'entity_id' => $entityId,
+            'payload' => $payload,
+            'occurred_at' => now(),
+            'sequence' => now()->timestamp,
+        ]);
+
+        return [
+            'id' => $operation['id'],
+            'entity_id' => $entityId,
+            'status' => 'synced',
+            'server_id' => $entityId,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $operation
+     * @return array<string, mixed>
+     */
+    private function unsupported(array $operation, string $entityId): array
+    {
+        return [
+            'id' => $operation['id'],
+            'entity_id' => $entityId,
+            'status' => 'conflict',
+            'error' => 'Unsupported sync operation.',
+        ];
     }
 
     /** @param  array<string, mixed>  $operation */
@@ -458,8 +787,9 @@ class SyncController extends Controller
     {
         $entityId = (string) $operation['entity_id'];
         $serverId = isset($operation['server_id']) ? (string) $operation['server_id'] : '';
+        $entityType = (string) ($operation['entity_type'] ?? 'sale');
 
-        if (($operation['entity_type'] ?? '') === 'customer') {
+        if ($entityType === 'customer') {
             return Customer::query()
                 ->where('tenant_id', $store->tenant_id)
                 ->where(function ($query) use ($entityId, $serverId): void {
@@ -469,6 +799,27 @@ class SyncController extends Controller
                     }
                 })
                 ->exists();
+        }
+
+        if ($entityType === 'expense') {
+            return \App\Models\BranchExpense::query()
+                ->where('tenant_id', $store->tenant_id)
+                ->where(function ($query) use ($entityId, $serverId): void {
+                    $query->where('notes', 'idempotency:'.$entityId);
+                    if ($serverId !== '') {
+                        $query->orWhere('id', $serverId);
+                    }
+                })
+                ->exists();
+        }
+
+        if (in_array($entityType, ['payment', 'stock', 'order', 'audit_log', 'configuration', 'product', 'user'], true)) {
+            return SyncEvent::query()
+                ->where('store_id', $store->id)
+                ->where('entity_type', $entityType)
+                ->where('entity_id', $entityId)
+                ->exists()
+                || $serverId !== '';
         }
 
         return Sale::query()

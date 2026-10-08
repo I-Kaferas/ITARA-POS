@@ -18,10 +18,12 @@ export interface User {
   store_ids?: string[]
   stores?: { id: string; name: string; code?: string | null }[]
   subscription?: {
-    plan: 'starter' | 'professional' | 'enterprise'
-    status: 'active' | 'trial' | 'past_due' | 'cancelled'
+    plan: 'starter' | 'professional' | 'business' | 'enterprise'
+    status: 'active' | 'trial' | 'past_due' | 'cancelled' | 'suspended'
     billing_cycle: 'monthly' | 'yearly'
     renews_on?: string | null
+    trial_ends_on?: string | null
+    grace_ends_on?: string | null
   }
 }
 
@@ -129,6 +131,21 @@ export interface Currency {
   exchange_rate: number
   is_default: boolean
   is_active: boolean
+  role?: 'primary' | 'secondary'
+}
+
+export interface CurrencyExchangeRate {
+  id: string
+  tenant_id: string
+  currency_id: string
+  currency_code: string
+  rate: number
+  previous_rate?: number | null
+  base_currency_code: string
+  effective_at: string
+  source?: string | null
+  note?: string | null
+  changed_by?: string | { id: string; name?: string | null; email?: string | null } | null
 }
 
 export interface CompanyPaymentMethod {
@@ -273,10 +290,17 @@ export interface RegisterSummary {
   expenses_total: number
   expected_cash: number
   actual_cash?: number | null
+  difference?: number | null
   variance?: number | null
   variance_reason?: string | null
+  counted_at?: string | null
   opened_at: string
   closed_at?: string | null
+  reconciliation?: {
+    expected_cash: number
+    actual_cash?: number | null
+    difference?: number | null
+  }
   invoices_count?: number
   invoices_total?: number
   invoices?: Array<{
@@ -310,7 +334,9 @@ export interface CashMovement {
 export interface CashierShift {
   id: string
   cashier_id: string
+  branch_id?: string | null
   cash_register_id: string
+  device_id?: string | null
   cash_register_session_id: string
   status: 'open' | 'closed'
   opening_balance: number
@@ -326,9 +352,14 @@ export interface CashierShift {
   variance_reason?: string | null
   opening_notes?: string | null
   closing_notes?: string | null
+  shift_date?: string | null
   opened_at: string
+  opened_time?: string | null
   closed_at?: string | null
+  closed_time?: string | null
   cashier?: { id: string; name: string }
+  branch?: { id: string; name: string; code?: string } | null
+  device?: { id: string; name: string; code?: string | null } | null
   cash_register?: CashRegister
   movements?: CashMovement[]
 }
@@ -336,7 +367,9 @@ export interface CashierShift {
 export interface ShiftSummary {
   shift_id: string
   cashier_id: string
+  branch_id?: string | null
   cash_register_id: string
+  device_id?: string | null
   status: string
   opening_balance: number
   sales_count?: number
@@ -350,8 +383,11 @@ export interface ShiftSummary {
   actual_cash?: number | null
   variance?: number | null
   variance_reason?: string | null
+  shift_date?: string | null
   opened_at: string
+  opened_time?: string | null
   closed_at?: string | null
+  closed_time?: string | null
   invoices_count?: number
   invoices_total?: number
   invoices?: Array<{
@@ -424,11 +460,14 @@ export interface Unit {
   is_active: boolean
 }
 
+export type TaxKind = 'vat' | 'tax' | 'withholding' | 'exempt' | 'zero_rated'
+
 export interface Tax {
   id: string
   name: string
   code: string
   rate: number
+  kind?: TaxKind
   type?: string
   priority?: number
   country?: string | null
