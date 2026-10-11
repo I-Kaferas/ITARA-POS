@@ -658,9 +658,11 @@ onMounted(async () => {
     <div class="merchant-qr">
       <div class="merchant-qr__toolbar">
         <button type="button" class="btn-secondary" :disabled="refreshing || !companyId" @click="refresh">
+          <AppIcon name="refresh" :size="16" />
           {{ t('common.refresh') }}
         </button>
         <button type="button" class="btn-primary" :disabled="!companyId" @click="openCreate">
+          <AppIcon name="plus" :size="16" />
           {{ t('merchantQrPage.create') }}
         </button>
         <label class="merchant-qr__search">
@@ -712,9 +714,11 @@ onMounted(async () => {
               <td>
                 <div class="merchant-qr__actions">
                   <button type="button" class="btn-secondary merchant-qr__action" @click.stop="openTarget(item)">
+                    <AppIcon name="eye" :size="16" />
                     {{ t('merchantQrPage.open') }}
                   </button>
                   <button type="button" class="btn-secondary merchant-qr__action" @click.stop="copyUrl(item)">
+                    <AppIcon name="layers" :size="16" />
                     {{ copiedId === item.id ? t('merchantQrPage.copied') : t('merchantQrPage.copyUrl') }}
                   </button>
                   <button
@@ -731,9 +735,11 @@ onMounted(async () => {
                     :disabled="downloading"
                     @click.stop="downloadPdf(item)"
                   >
+                    <AppIcon name="device-printer" :size="16" />
                     {{ t('merchantQrPage.pdf') }}
                   </button>
                   <button type="button" class="btn-danger merchant-qr__action" @click.stop="remove(item)">
+                    <AppIcon name="trash" :size="16" />
                     {{ t('common.delete') }}
                   </button>
                 </div>
@@ -799,6 +805,7 @@ onMounted(async () => {
             <p>{{ t('merchantQrPage.tableHint') }}</p>
             <div class="merchant-qr__section-tools">
               <button type="button" class="btn-secondary" :disabled="tablesLoading || locked" @click="loadTables">
+                <AppIcon name="refresh" :size="16" />
                 {{ t('common.refresh') }}
               </button>
               <span>{{ t('merchantQrPage.chooseRow') }}</span>
@@ -975,6 +982,7 @@ onMounted(async () => {
           <p v-else class="merchant-qr-preview__empty">{{ t('merchantQrPage.previewEmpty') }}</p>
           <div class="merchant-qr-preview__actions">
             <button type="button" class="btn-secondary" :disabled="!saved" @click="preview">
+              <AppIcon name="eye" :size="16" />
               {{ t('merchantQrPage.preview') }}
             </button>
             <button
@@ -983,6 +991,7 @@ onMounted(async () => {
               :disabled="!previewScan || downloading"
               @click="downloadQr(previewScan, previewCaption)"
             >
+              <AppIcon name="download" :size="16" />
               {{ t('merchantQrPage.download') }}
             </button>
           </div>
@@ -991,12 +1000,15 @@ onMounted(async () => {
 
       <template #footer>
         <button v-if="saved" type="button" class="btn-secondary merchant-qr__delete" @click="remove(saved)">
+          <AppIcon name="trash" :size="16" />
           {{ t('common.delete') }}
         </button>
         <button type="button" class="btn-secondary" @click="closeEditor">
+          <AppIcon name="close" :size="16" />
           {{ locked ? t('common.close') : t('common.cancel') }}
         </button>
         <button v-if="!locked" type="button" class="btn-primary" :disabled="saving || !companyId" @click="save">
+          <AppIcon name="check" :size="16" />
           {{ saving ? t('common.saving') : t('common.save') }}
         </button>
       </template>
@@ -1018,6 +1030,7 @@ onMounted(async () => {
       </div>
       <template #footer>
         <button type="button" class="btn-secondary" @click="viewing = null">
+          <AppIcon name="close" :size="16" />
           {{ t('common.close') }}
         </button>
         <button
@@ -1027,6 +1040,7 @@ onMounted(async () => {
           :disabled="downloading"
           @click="downloadQr(viewing.scan_value, viewing.label)"
         >
+          <AppIcon name="download" :size="16" />
           {{ t('merchantQrPage.download') }}
         </button>
       </template>

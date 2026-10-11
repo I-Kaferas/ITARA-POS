@@ -166,8 +166,8 @@ async function remove(category: Category) {
               <td class="px-4 py-3 font-mono text-slate-500">{{ cat.slug }}</td>
               <td class="px-4 py-3"><StatusBadge :active="cat.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
-                <button class="text-brand-600" @click="openEdit(cat)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(cat)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(cat)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(cat)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -209,8 +209,8 @@ async function remove(category: Category) {
           {{ t('products.active') }}
         </label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !storeIds.length">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !storeIds.length"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

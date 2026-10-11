@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type StatusKey = 'matching' | 'pending' | 'linked' | 'rejected'
 
@@ -70,9 +71,11 @@ function refresh() {
           :aria-expanded="filtersOpen"
           @click="filtersOpen = !filtersOpen"
         >
+          <AppIcon name="filter" :size="16" />
           {{ filtersOpen ? t('linkRequestsPage.hideFilters') : t('linkRequestsPage.filters') }}
         </button>
         <button type="button" class="btn-secondary" :disabled="refreshing" @click="refresh">
+          <AppIcon name="refresh" :size="16" />
           {{ t('linkRequestsPage.refresh') }}
         </button>
       </div>

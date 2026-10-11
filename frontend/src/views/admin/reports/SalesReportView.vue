@@ -255,6 +255,7 @@ onMounted(() => {
           <input v-model="to" type="date" class="field" />
         </div>
         <button type="button" class="btn-primary" :disabled="loading" @click="load">
+          <AppIcon name="check" :size="16" />
           {{ t('reports.salesAnalytics.apply') }}
         </button>
       </div>

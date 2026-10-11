@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { MODULE_CODES } from '../../../modules/registry'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type Limits = {
   users: number | null
@@ -124,6 +125,7 @@ async function save(plan: Plan, event: Event) {
           </button>
         </div>
         <button class="btn-primary" type="submit" :disabled="saving === plan.code || plan.limits.modules.length === 0">
+          <AppIcon name="check" :size="16" />
           {{ t('platform.billing.save') }}
         </button>
       </form>

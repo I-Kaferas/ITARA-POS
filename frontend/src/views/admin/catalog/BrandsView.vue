@@ -105,8 +105,8 @@ async function remove(brand: Brand) {
               <td class="px-4 py-3 font-mono text-slate-500">{{ brand.slug }}</td>
               <td class="px-4 py-3"><StatusBadge :active="brand.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
-                <button class="text-brand-600" @click="openEdit(brand)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(brand)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(brand)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(brand)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>

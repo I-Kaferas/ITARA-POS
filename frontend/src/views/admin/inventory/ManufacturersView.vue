@@ -5,6 +5,8 @@ import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
+import { useConfirm } from '../../../composables/useConfirm'
 
 type Manufacturer = {
   id: string
@@ -23,25 +25,14 @@ type Manufacturer = {
 const manufacturers = ref<Manufacturer[]>([])
 
 const { t } = useI18n()
+const { confirm: confirmDialog } = useConfirm()
 const query = ref('')
 const creating = ref(false)
+const editingId = ref<string | null>(null)
 const form = ref(blankForm())
+const baseline = ref('')
 
-const dirty = computed(() => {
-  const current = form.value
-  return creating.value && (
-    current.name.trim() !== ''
-    || current.description.trim() !== ''
-    || current.contactPerson.trim() !== ''
-    || current.email.trim() !== ''
-    || current.phone.trim() !== ''
-    || current.address.trim() !== ''
-    || current.city.trim() !== ''
-    || current.country.trim() !== ''
-    || current.website.trim() !== ''
-    || !current.active
-  )
-})
+const dirty = computed(() => creating.value && JSON.stringify(form.value) !== baseline.value)
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -77,21 +68,43 @@ function locationLabel(item: Manufacturer) {
   return [item.city, item.country].filter(Boolean).join(', ') || item.address
 }
 
+function snapshotForm() {
+  baseline.value = JSON.stringify(form.value)
+}
+
 function openCreate() {
+  editingId.value = null
   form.value = blankForm()
+  snapshotForm()
+  creating.value = true
+}
+
+function openEdit(item: Manufacturer) {
+  editingId.value = item.id
+  form.value = {
+    name: item.name,
+    description: item.description,
+    contactPerson: item.contactPerson,
+    email: item.email,
+    phone: item.phone,
+    address: item.address,
+    city: item.city,
+    country: item.country,
+    website: item.website,
+    active: item.active,
+  }
+  snapshotForm()
   creating.value = true
 }
 
 function closeCreate() {
   creating.value = false
+  editingId.value = null
 }
 
-function save() {
-  const name = form.value.name.trim()
-  if (!name) return
-  manufacturers.value.unshift({
-    id: `${Date.now()}`,
-    name,
+function payloadFromForm(): Omit<Manufacturer, 'id'> {
+  return {
+    name: form.value.name.trim(),
     description: form.value.description.trim(),
     contactPerson: form.value.contactPerson.trim(),
     email: form.value.email.trim(),
@@ -101,8 +114,25 @@ function save() {
     country: form.value.country.trim(),
     website: form.value.website.trim(),
     active: form.value.active,
-  })
-  creating.value = false
+  }
+}
+
+function save() {
+  const next = payloadFromForm()
+  if (!next.name) return
+  if (editingId.value) {
+    manufacturers.value = manufacturers.value.map((item) => (
+      item.id === editingId.value ? { ...item, ...next } : item
+    ))
+  } else {
+    manufacturers.value.unshift({ id: `${Date.now()}`, ...next })
+  }
+  closeCreate()
+}
+
+async function remove(item: Manufacturer) {
+  if (!(await confirmDialog(t('org.confirmDelete'), { danger: true }))) return
+  manufacturers.value = manufacturers.value.filter((row) => row.id !== item.id)
 }
 </script>
 
@@ -114,6 +144,7 @@ function save() {
     <div class="manufacturers">
       <div class="manufacturers__toolbar">
         <button type="button" class="btn-primary" @click="openCreate">
+          <AppIcon name="plus" :size="16" />
           {{ t('orgManufacturers.add') }}
         </button>
         <label class="manufacturers__search">
@@ -152,7 +183,14 @@ function save() {
                     {{ item.active ? t('orgManufacturers.active') : t('orgManufacturers.inactive') }}
                   </Badge>
                 </td>
-                <td></td>
+                <td class="manufacturers__actions">
+                  <button type="button" class="text-brand-600" @click="openEdit(item)">
+                    <AppIcon name="edit" :size="16" /> {{ t('common.edit') }}
+                  </button>
+                  <button type="button" class="text-red-600" @click="remove(item)">
+                    <AppIcon name="trash" :size="16" /> {{ t('common.delete') }}
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -162,7 +200,7 @@ function save() {
 
     <AppModal
       :open="creating"
-      :title="t('orgManufacturers.add')"
+      :title="editingId ? t('common.edit') : t('orgManufacturers.add')"
       icon="organization"
       tone="accent"
       size="lg"
@@ -213,8 +251,8 @@ function save() {
       </form>
       <template #footer>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="closeCreate">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" form="manufacturer-form">{{ t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="closeCreate"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" form="manufacturer-form"><AppIcon name="check" :size="16" /> {{ t('common.save') }}</button>
         </div>
       </template>
     </AppModal>
@@ -254,6 +292,13 @@ function save() {
 .manufacturers__name {
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.manufacturers__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  white-space: nowrap;
 }
 
 .manufacturers__muted,

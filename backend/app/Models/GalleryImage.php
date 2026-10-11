@@ -16,6 +16,7 @@ class GalleryImage extends Model
     protected $fillable = [
         'tenant_id',
         'catalog_id',
+        'product_id',
         'storage_path',
         'cdn_url',
         'original_filename',
@@ -33,6 +34,11 @@ class GalleryImage extends Model
     public function catalog(): BelongsTo
     {
         return $this->belongsTo(Catalog::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
     }
 
     public function publicUrl(): string

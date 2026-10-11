@@ -816,7 +816,7 @@ async function save() {
                 <input v-model="taxName" class="field" :placeholder="t('org.taxName')" />
                 <input v-model="taxCode" class="field" :placeholder="t('org.code')" />
                 <input v-model="taxRate" class="field" inputmode="decimal" :placeholder="t('org.taxRate')" />
-                <button type="button" class="btn-secondary" :disabled="saving" @click="addTax">{{ t('org.addTax') }}</button>
+                <button type="button" class="btn-secondary" :disabled="saving" @click="addTax"><AppIcon name="plus" :size="16" /> {{ t('org.addTax') }}</button>
               </div>
               <p v-if="taxError" class="co__error">{{ taxError }}</p>
             </div>
@@ -873,9 +873,11 @@ async function save() {
               </div>
               <div class="co__actions">
                 <button type="button" class="btn-primary" :disabled="!companyId || logoBusy" @click="companyLogoInput?.click()">
+                  <AppIcon name="plus" :size="16" />
                   {{ logoBusy ? t('common.loading') : t('org.settingsPage.uploadNewLogo') }}
                 </button>
                 <button v-if="form.logo_url" type="button" class="btn-secondary" :disabled="logoBusy" @click="removeLogo">
+                  <AppIcon name="trash" :size="16" />
                   {{ t('org.settingsPage.removeLogo') }}
                 </button>
               </div>
@@ -916,9 +918,11 @@ async function save() {
               </div>
               <div class="co__actions">
                 <button type="button" class="btn-primary" :disabled="!companyId || invoiceLogoBusy" @click="invoiceLogoInput?.click()">
+                  <AppIcon name="upload" :size="16" />
                   {{ invoiceLogoBusy ? t('common.loading') : t('org.settingsPage.uploadInvoiceLogo') }}
                 </button>
                 <button v-if="invoiceLogoUrl" type="button" class="btn-secondary" :disabled="invoiceLogoBusy" @click="removeInvoiceLogo">
+                  <AppIcon name="trash" :size="16" />
                   {{ t('org.settingsPage.removeLogo') }}
                 </button>
               </div>

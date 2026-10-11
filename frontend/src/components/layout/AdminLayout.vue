@@ -1257,10 +1257,22 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
   width: 15.5rem;
   overflow: hidden;
   padding: var(--overlay-pad);
-  border: 1px solid var(--color-border);
+  border: 1px solid color-mix(in srgb, #fff 46%, var(--color-border));
   border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-md);
+  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent),
+    0 12px 28px rgba(20, 32, 43, 0.08);
+}
+
+:global(html[data-theme="dark"]) .user-menu__panel {
+  border-color: color-mix(in srgb, #fff 14%, var(--color-border));
+  background: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
+    0 18px 40px rgba(0, 0, 0, 0.36);
 }
 
 .user-menu__heading {

@@ -14,6 +14,7 @@ import type { Product, StockAdjustmentDetail, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -176,7 +177,7 @@ async function complete(id: string) {
   <InventoryLayout>
     <div class="mb-4 space-y-3">
       <div class="flex justify-end">
-        <button class="btn-primary" @click="openCreate">+ {{ t('inventory.newAdjustment') }}</button>
+        <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.newAdjustment') }}</button>
       </div>
       <ModuleFilters
         v-model="filters"
@@ -210,7 +211,7 @@ async function complete(id: string) {
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
             <td class="px-4 py-3 text-right">
               <button class="text-slate-600" @click="openDetails(row.id)">{{ t('inventory.viewDetails') }}</button>
-              <button v-if="row.status === 'draft'" class="ml-3 text-brand-600" @click="confirm(row.id)">{{ t('inventory.confirm') }}</button>
+              <button v-if="row.status === 'draft'" class="ml-3 text-brand-600" @click="confirm(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirm') }}</button>
               <button v-else-if="row.status === 'approved'" class="ml-3 text-brand-600" @click="complete(row.id)">{{ t('inventory.confirmFinal') }}</button>
             </td>
           </tr>
@@ -253,12 +254,12 @@ async function complete(id: string) {
               <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
             <input v-model.number="line.quantity" type="number" min="1" required class="field qty" />
-            <button type="button" class="text-sm text-red-600" @click="removeLine(idx)">{{ t('inventory.removeLine') }}</button>
+            <button type="button" class="text-sm text-red-600" @click="removeLine(idx)"><AppIcon name="trash" :size="16" /> {{ t('inventory.removeLine') }}</button>
           </div>
-          <button type="button" class="text-sm text-brand-600" @click="addLine">+ {{ t('inventory.addLine') }}</button>
+          <button type="button" class="text-sm text-brand-600" @click="addLine"><AppIcon name="plus" :size="16" /> {{ t('inventory.addLine') }}</button>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('inventory.saveEntry') }}</button>
         </div>
       </form>

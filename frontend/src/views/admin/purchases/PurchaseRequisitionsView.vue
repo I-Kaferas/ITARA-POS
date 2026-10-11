@@ -13,6 +13,7 @@ import type { Product, PurchaseRequisition, Supplier, Warehouse } from '../../..
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -240,7 +241,7 @@ function openOrder(row: PurchaseRequisition) {
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
         <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('purchases.hub.requisitions') }}</h3>
-        <button class="btn-primary-sm" @click="openCreate">+ {{ t('purchases.hub.newRequisition') }}</button>
+        <button class="btn-primary-sm" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('purchases.hub.newRequisition') }}</button>
       </div>
 
       <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -341,8 +342,8 @@ function openOrder(row: PurchaseRequisition) {
           <button v-if="canAddLine()" type="button" class="line-add" @click="addLine">+ {{ t('inventory.addLine') }}</button>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showCreate = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showCreate = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -370,7 +371,7 @@ function openOrder(row: PurchaseRequisition) {
           </select>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="converting = null">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="converting = null"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('purchases.hub.convert') }}</button>
         </div>
       </form>

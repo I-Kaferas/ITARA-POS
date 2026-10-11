@@ -7,6 +7,7 @@ import Badge from '../../../components/ui/Badge.vue'
 import { intlLocale } from '../../../i18n/locales'
 import { useContextStore } from '../../../stores/context'
 import {
+import AppIcon from '../../../components/ui/AppIcon.vue'
   cloneMobileOrders,
   nextStatuses,
   type MobileOrder,
@@ -150,6 +151,7 @@ onMounted(loadOrders)
     <div class="orders" :aria-busy="refreshing">
       <div class="orders__toolbar">
         <button type="button" class="btn-secondary" :disabled="refreshing" @click="refresh">
+          <AppIcon name="refresh" :size="16" />
           {{ t('mobileOrdersPage.refresh') }}
         </button>
         <p class="orders__revenue">
@@ -234,6 +236,7 @@ onMounted(loadOrders)
               <td class="orders__when">{{ when(order.at) }}</td>
               <td>
                 <button type="button" class="btn-secondary orders__view" @click="openOrder(order)">
+                  <AppIcon name="eye" :size="16" />
                   {{ t('mobileOrdersPage.view') }}
                 </button>
               </td>

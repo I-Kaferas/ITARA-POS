@@ -305,9 +305,18 @@ function folioTotal(room: Doc) {
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="sub-nav">
-          <button v-if="canRestaurant" type="button" class="sub-nav__link" :class="{ 'sub-nav__link--active': section === 'restaurant' }" @click="section = 'restaurant'">{{ t('desk.tables') }}</button>
-          <button v-if="canRestaurant" type="button" class="sub-nav__link" :class="{ 'sub-nav__link--active': section === 'kitchen' }" @click="section = 'kitchen'">{{ t('desk.kitchen') }}</button>
-          <button v-if="canHotel" type="button" class="sub-nav__link" :class="{ 'sub-nav__link--active': section === 'hotel' }" @click="section = 'hotel'">{{ t('desk.hotel') }}</button>
+          <button v-if="canRestaurant" type="button" class="sub-nav__link" :class="{ 'sub-nav__link--active': section === 'restaurant' }" @click="section = 'restaurant'">
+            <span class="sub-nav__mark" aria-hidden="true"><AppIcon name="tables" :size="16" /></span>
+            {{ t('desk.tables') }}
+          </button>
+          <button v-if="canRestaurant" type="button" class="sub-nav__link" :class="{ 'sub-nav__link--active': section === 'kitchen' }" @click="section = 'kitchen'">
+            <span class="sub-nav__mark" aria-hidden="true"><AppIcon name="restaurant" :size="16" /></span>
+            {{ t('desk.kitchen') }}
+          </button>
+          <button v-if="canHotel" type="button" class="sub-nav__link" :class="{ 'sub-nav__link--active': section === 'hotel' }" @click="section = 'hotel'">
+            <span class="sub-nav__mark" aria-hidden="true"><AppIcon name="bed" :size="16" /></span>
+            {{ t('desk.hotel') }}
+          </button>
         </div>
         <button class="btn-secondary" :disabled="loading" @click="load">
             <AppIcon name="recycle" :size="15" />{{ t('common.refresh') }}</button>
@@ -322,8 +331,8 @@ function folioTotal(room: Doc) {
             <span class="floor-pill">{{ t('desk.tables') }} · {{ tables.length }}</span>
           </div>
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="btn-secondary" @click="openCreateZone">{{ t('desk.addZone') }}</button>
-            <button type="button" class="btn-primary" @click="openCreateTable()">{{ t('desk.addTable') }}</button>
+            <button type="button" class="btn-secondary" @click="openCreateZone"><AppIcon name="plus" :size="16" /> {{ t('desk.addZone') }}</button>
+            <button type="button" class="btn-primary" @click="openCreateTable()"><AppIcon name="plus" :size="16" /> {{ t('desk.addTable') }}</button>
           </div>
         </div>
 
@@ -334,8 +343,8 @@ function folioTotal(room: Doc) {
           :description="t('desk.emptyTablesHint')"
         >
           <div class="mt-4 flex flex-wrap justify-center gap-2">
-            <button type="button" class="btn-secondary" @click="openCreateZone">{{ t('desk.addZone') }}</button>
-            <button type="button" class="btn-primary" @click="openCreateTable()">{{ t('desk.addTable') }}</button>
+            <button type="button" class="btn-secondary" @click="openCreateZone"><AppIcon name="plus" :size="16" /> {{ t('desk.addZone') }}</button>
+            <button type="button" class="btn-primary" @click="openCreateTable()"><AppIcon name="plus" :size="16" /> {{ t('desk.addTable') }}</button>
           </div>
         </EmptyState>
 
@@ -346,7 +355,7 @@ function folioTotal(room: Doc) {
               <p>{{ t('desk.zoneTableCount', { count: zone.tables.length }) }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-              <button type="button" class="btn-secondary" @click="openCreateTable(zone.id)">{{ t('desk.addTable') }}</button>
+              <button type="button" class="btn-secondary" @click="openCreateTable(zone.id)"><AppIcon name="plus" :size="16" /> {{ t('desk.addTable') }}</button>
               <button
                 type="button"
                 class="floor-icon-btn"
@@ -508,7 +517,7 @@ function folioTotal(room: Doc) {
                     v-if="!['served', 'cancelled'].includes(normalizeKitchenStatus(ticket.status))"
                     class="btn-secondary"
                     @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'cancelled' })"
-                  >{{ t('common.cancel') }}</button>
+                  ><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
                 </div>
               </article>
               <p v-if="!kitchenTicketsByStatus(column.status).length" class="m-0 text-sm text-slate-500">{{ t('desk.noTickets') }}</p>
@@ -542,8 +551,8 @@ function folioTotal(room: Doc) {
           <h3 class="m-0">{{ stay.guest_name }}</h3>
           <p class="m-0 text-sm text-slate-500">{{ t('desk.room') }} {{ stay.room_number }} · {{ stay.status }}</p>
           <div class="mt-3 flex gap-2">
-            <button v-if="stay.status === 'reserved'" class="btn-primary" @click="run({ action: 'check_in', reservation_id: stay.id })">{{ t('desk.checkIn') }}</button>
-            <button v-if="stay.status === 'checked_in'" class="btn-secondary" @click="run({ action: 'check_out', reservation_id: stay.id })">{{ t('desk.checkOut') }}</button>
+            <button v-if="stay.status === 'reserved'" class="btn-primary" @click="run({ action: 'check_in', reservation_id: stay.id })"><AppIcon name="key" :size="16" /> {{ t('desk.checkIn') }}</button>
+            <button v-if="stay.status === 'checked_in'" class="btn-secondary" @click="run({ action: 'check_out', reservation_id: stay.id })"><AppIcon name="card" :size="16" /> {{ t('desk.checkOut') }}</button>
           </div>
         </article>
       </div>
@@ -562,7 +571,7 @@ function folioTotal(room: Doc) {
             </li>
           </ul>
           <div v-if="check.status === 'open'" class="mt-3 flex flex-wrap gap-2">
-            <button class="btn-primary" @click="run({ action: 'pay_check', order_id: order.id, check_id: check.id })">{{ t('desk.pay') }}</button>
+            <button class="btn-primary" @click="run({ action: 'pay_check', order_id: order.id, check_id: check.id })"><AppIcon name="card" :size="16" /> {{ t('desk.pay') }}</button>
             <template v-if="occupiedRooms.length">
               <select v-model="chargeRoomId" class="field">
                 <option v-for="room in occupiedRooms" :key="room.id" :value="room.id">{{ room.number }} · {{ room.guest_name }}</option>
@@ -584,7 +593,7 @@ function folioTotal(room: Doc) {
             </select>
           </div>
         </div>
-        <button class="btn-primary" @click="addLine">{{ t('desk.addLine') }}</button>
+        <button class="btn-primary" @click="addLine"><AppIcon name="plus" :size="16" /> {{ t('desk.addLine') }}</button>
       </div>
     </AppModal>
 
@@ -649,8 +658,8 @@ function folioTotal(room: Doc) {
         </div>
       </form>
       <template #footer>
-        <button type="button" class="btn-secondary" @click="tableFormOpen = false">{{ t('common.cancel') }}</button>
-        <button type="submit" form="table-form" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="savingTable">{{ saving ? t('common.saving') : t('common.save') }}</button>
+        <button type="button" class="btn-secondary" @click="tableFormOpen = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+        <button type="submit" form="table-form" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="savingTable"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
       </template>
     </AppModal>
 
@@ -662,8 +671,8 @@ function folioTotal(room: Doc) {
         </div>
       </form>
       <template #footer>
-        <button type="button" class="btn-secondary" @click="zoneFormOpen = false">{{ t('common.cancel') }}</button>
-        <button type="submit" form="zone-form" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="savingTable">{{ saving ? t('common.saving') : t('common.save') }}</button>
+        <button type="button" class="btn-secondary" @click="zoneFormOpen = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+        <button type="submit" form="zone-form" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="savingTable"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
       </template>
     </AppModal>
 
@@ -671,8 +680,8 @@ function folioTotal(room: Doc) {
       <form class="space-y-3" @submit.prevent="reserveRoom">
         <div><FieldLabel icon="customers">{{ t('desk.guest') }}</FieldLabel><input v-model="guest" required class="field" /></div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="roomId = ''">{{ t('common.cancel') }}</button>
-          <button class="btn-primary">{{ t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="roomId = ''"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button class="btn-primary"><AppIcon name="check" :size="16" /> {{ t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

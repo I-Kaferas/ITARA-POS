@@ -98,9 +98,9 @@ const menu = computed(() => [
 ])
 
 const tabItems = computed(() => [
-  { id: 'overview', label: t('design.samples.tabOverview') },
-  { id: 'activity', label: t('design.samples.tabActivity') },
-  { id: 'notes', label: t('design.samples.tabNotes') },
+  { id: 'overview', label: t('design.samples.tabOverview'), icon: 'dashboard' },
+  { id: 'activity', label: t('design.samples.tabActivity'), icon: 'receipt' },
+  { id: 'notes', label: t('design.samples.tabNotes'), icon: 'note' },
 ])
 
 const methods = computed(() => [

@@ -2,6 +2,7 @@
 import AppModal from '../ui/AppModal.vue'
 import LoadingBlock from '../ui/LoadingBlock.vue'
 import { useI18n } from 'vue-i18n'
+import AppIcon from '../ui/AppIcon.vue'
 
 defineProps<{
   open: boolean
@@ -79,7 +80,7 @@ const { t } = useI18n()
       </div>
 
       <div class="app-modal__actions">
-        <button type="button" class="btn-primary" @click="emit('close')">{{ t('common.ok') }}</button>
+        <button type="button" class="btn-primary" @click="emit('close')"><AppIcon name="check" :size="16" /> {{ t('common.ok') }}</button>
       </div>
     </div>
   </AppModal>

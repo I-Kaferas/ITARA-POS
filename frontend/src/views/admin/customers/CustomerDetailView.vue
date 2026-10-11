@@ -186,7 +186,7 @@ function transactionTypeLabel(type: string): string {
     <div class="space-y-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <button class="btn-secondary" @click="router.push({ name: 'customers' })">← {{ t('nav.customers') }}</button>
-        <button class="btn-primary" @click="openPaymentModal">{{ t('customers.recordPayment') }}</button>
+        <button class="btn-primary" @click="openPaymentModal"><AppIcon name="card" :size="16" /> {{ t('customers.recordPayment') }}</button>
       </div>
 
       <div v-if="customer" class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
@@ -331,7 +331,7 @@ function transactionTypeLabel(type: string): string {
       <div v-else class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
         <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('customers.addresses') }}</h3>
-          <button class="btn-primary" @click="openAddressModal()">+ {{ t('customers.addAddress') }}</button>
+          <button class="btn-primary" @click="openAddressModal()"><AppIcon name="plus" :size="16" /> {{ t('customers.addAddress') }}</button>
         </div>
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
@@ -348,8 +348,8 @@ function transactionTypeLabel(type: string): string {
               <td class="px-4 py-3">{{ address.line1 }}</td>
               <td class="px-4 py-3 text-slate-500">{{ address.city || '—' }}</td>
               <td class="px-4 py-3 space-x-2 text-right">
-                <button class="text-brand-600" @click="openAddressModal(address)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="removeAddress(address)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openAddressModal(address)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="removeAddress(address)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -381,7 +381,7 @@ function transactionTypeLabel(type: string): string {
           </select>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showPaymentModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showPaymentModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary gap-1.5" :class="{ 'is-busy': saving }" :disabled="saving">
             <AppIcon name="check" :size="15" />
             {{ t('common.save') }}
@@ -404,7 +404,7 @@ function transactionTypeLabel(type: string): string {
         <div><FieldLabel icon="store-pin">{{ t('org.country') }}</FieldLabel><input v-model="addressForm.country_code" maxlength="2" class="field" /></div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="addressForm.is_primary" type="checkbox" class="rounded" />{{ t('org.default') }}</label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showAddressModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showAddressModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary gap-1.5" :class="{ 'is-busy': saving }" :disabled="saving">
             <AppIcon name="check" :size="15" />
             {{ t('common.save') }}

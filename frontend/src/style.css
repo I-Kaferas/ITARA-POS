@@ -169,8 +169,8 @@
   --icon-md: 18px;
   --icon-lg: 20px;
 
-  --sidebar-width: 288px;
-  --sidebar-width-laptop: 272px;
+  --sidebar-width: 340px;
+  --sidebar-width-laptop: 320px;
   --sidebar-collapsed: 68px;
   --topbar-height: 56px;
   --content-pad: var(--section-pad);
@@ -3845,6 +3845,7 @@ body.nav-drawer-open {
   .btn-outline:active:not(:disabled),
   .btn-success:active:not(:disabled),
   .pos-btn:active:not(:disabled),
+  .pos-order-mode__btn:active:not(:disabled),
   .kpi-card:hover {
     transform: none;
   }
@@ -4377,6 +4378,9 @@ select.ui-select {
 }
 
 .form-tabs__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -5232,6 +5236,9 @@ html[data-theme="dark"] .user-menu__panel {
 
 .ui-tabs__tab {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   flex: 0 0 auto;
   min-height: var(--control-lg);
   padding: var(--space-2) var(--space-4);
@@ -5407,4 +5414,152 @@ html[data-theme="dark"] .user-menu__panel {
     left: var(--space-4);
     width: auto;
   }
+}
+
+/* ─── Liquid glass — chrome only ──────────────────────────────────
+   Buttons, menus and dialogs. Work surfaces stay opaque. */
+button.btn-primary.btn-primary,
+a.btn-primary.btn-primary,
+.ui-btn--primary.ui-btn--primary {
+  border-color: color-mix(in srgb, #fff 26%, var(--color-brand-700));
+  background-color: var(--color-brand-700);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 18%, transparent), transparent 46%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 34%, transparent),
+    0 1px 2px rgba(15, 31, 52, 0.12),
+    0 8px 18px rgba(15, 31, 52, 0.07);
+  transition:
+    background-color 200ms ease-out,
+    box-shadow 200ms ease-out,
+    border-color 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+button.btn-primary.btn-primary:hover:not(:disabled),
+a.btn-primary.btn-primary:hover:not(:disabled),
+.ui-btn--primary.ui-btn--primary:hover:not(:disabled) {
+  background-color: var(--color-brand-800);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 24%, transparent), transparent 42%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent),
+    0 10px 22px rgba(15, 31, 52, 0.12);
+}
+
+button.btn-secondary.btn-secondary,
+a.btn-secondary.btn-secondary,
+label.btn-secondary.btn-secondary,
+.ui-btn--secondary.ui-btn--secondary {
+  border-color: color-mix(in srgb, #fff 42%, var(--color-border-strong));
+  background-color: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 72%, transparent);
+  transition:
+    background-color 200ms ease-out,
+    box-shadow 200ms ease-out,
+    border-color 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+button.btn-secondary.btn-secondary:hover:not(:disabled),
+a.btn-secondary.btn-secondary:hover:not(:disabled),
+label.btn-secondary.btn-secondary:hover:not(:disabled),
+.ui-btn--secondary.ui-btn--secondary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 6px 16px rgba(20, 32, 43, 0.06);
+}
+
+.ui-menu,
+.user-menu__panel {
+  border-color: color-mix(in srgb, #fff 46%, var(--color-border));
+  background-color: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent),
+    0 12px 28px rgba(20, 32, 43, 0.08);
+}
+
+.app-modal--dialog {
+  border-color: color-mix(in srgb, #fff 48%, var(--color-border));
+  background-color: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(1.12);
+  -webkit-backdrop-filter: blur(14px) saturate(1.12);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 64%, transparent),
+    0 18px 40px rgba(20, 32, 43, 0.1);
+}
+
+.app-modal--dialog .app-modal__header {
+  background: transparent;
+}
+
+.ui-toast {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
+    var(--shadow-md);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ui-menu,
+  .user-menu__panel,
+  .app-modal--dialog {
+    background-color: var(--color-surface);
+  }
+
+  button.btn-secondary.btn-secondary,
+  a.btn-secondary.btn-secondary,
+  label.btn-secondary.btn-secondary,
+  .ui-btn--secondary.ui-btn--secondary {
+    background-color: var(--color-surface);
+  }
+}
+
+html[data-theme="dark"] button.btn-primary.btn-primary,
+html[data-theme="dark"] a.btn-primary.btn-primary,
+html[data-theme="dark"] .ui-btn--primary.ui-btn--primary {
+  border-color: color-mix(in srgb, #fff 22%, #3e6d9c);
+  background-color: #3e6d9c;
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 16%, transparent), transparent 48%);
+  color: #f7fbff;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent),
+    0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme="dark"] button.btn-primary.btn-primary:hover:not(:disabled),
+html[data-theme="dark"] a.btn-primary.btn-primary:hover:not(:disabled),
+html[data-theme="dark"] .ui-btn--primary.ui-btn--primary:hover:not(:disabled) {
+  background-color: #4d7eaf;
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 20%, transparent), transparent 42%);
+}
+
+html[data-theme="dark"] button.btn-secondary.btn-secondary,
+html[data-theme="dark"] a.btn-secondary.btn-secondary,
+html[data-theme="dark"] label.btn-secondary.btn-secondary,
+html[data-theme="dark"] .ui-btn--secondary.ui-btn--secondary {
+  border-color: color-mix(in srgb, #fff 14%, var(--color-border-strong));
+  background-color: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  color: var(--color-text-secondary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+}
+
+html[data-theme="dark"] button.btn-secondary.btn-secondary:hover:not(:disabled),
+html[data-theme="dark"] a.btn-secondary.btn-secondary:hover:not(:disabled),
+html[data-theme="dark"] label.btn-secondary.btn-secondary:hover:not(:disabled),
+html[data-theme="dark"] .ui-btn--secondary.ui-btn--secondary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 16%, transparent),
+    0 8px 18px rgba(0, 0, 0, 0.24);
+}
+
+html[data-theme="dark"] .ui-menu,
+html[data-theme="dark"] .user-menu__panel,
+html[data-theme="dark"] .app-modal--dialog {
+  border-color: color-mix(in srgb, #fff 14%, var(--color-border));
+  background-color: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
+    0 18px 40px rgba(0, 0, 0, 0.36);
 }

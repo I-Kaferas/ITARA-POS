@@ -7,6 +7,7 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import HotelChrome from './HotelChrome.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type Doc = {
   id: string
@@ -170,6 +171,7 @@ function buildingLabel(id?: string) {
       <div class="hotel-crud__toolbar">
         <p>{{ t('hotel.wings.hint') }}</p>
         <button type="button" class="ui-btn ui-btn--primary" @click="openCreate">
+          <AppIcon name="plus" :size="16" />
           {{ t('hotel.wings.createTitle') }}
         </button>
       </div>
@@ -196,8 +198,8 @@ function buildingLabel(id?: string) {
                 <td>{{ row.display_order ?? 0 }}</td>
                 <td><StatusBadge :active="row.is_active !== false" /></td>
                 <td class="hotel-crud__row-actions">
-                  <button type="button" class="text-brand-600" @click="openEdit(row)">{{ t('common.edit') }}</button>
-                  <button type="button" class="text-red-600" @click="remove(row)">{{ t('common.delete') }}</button>
+                  <button type="button" class="text-brand-600" @click="openEdit(row)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                  <button type="button" class="text-red-600" @click="remove(row)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -249,8 +251,8 @@ function buildingLabel(id?: string) {
         </label>
 
         <div class="hotel-crud__actions">
-          <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !buildingOptions.length">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="closeForm"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !buildingOptions.length"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

@@ -657,6 +657,7 @@ export interface ProductAccompanimentHost {
 export interface GalleryImage {
   id: string
   catalog_id?: string | null
+  product_id?: string | null
   cdn_url: string
   original_filename?: string | null
   mime_type?: string

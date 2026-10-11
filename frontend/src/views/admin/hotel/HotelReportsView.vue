@@ -207,7 +207,7 @@ function exportCsv() {
           </label>
           <button type="button" class="btn-secondary" :disabled="loading" @click="load">
             <AppIcon name="recycle" :size="15" />{{ t('common.refresh') }}</button>
-          <button type="button" class="btn-secondary" @click="exportCsv">{{ t('hotel.reports.export') }}</button>
+          <button type="button" class="btn-secondary" @click="exportCsv"><AppIcon name="download" :size="16" /> {{ t('hotel.reports.export') }}</button>
           <button type="button" class="btn-primary" @click="last30">{{ t('hotel.reports.last30') }}</button>
         </div>
       </header>

@@ -8,6 +8,7 @@ import EmptyState from '../../../components/ui/EmptyState.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, ProductAccompanimentHost } from '../../../types'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -92,7 +93,7 @@ async function submit() {
   <CatalogLayout>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <p class="m-0 max-w-2xl text-sm text-slate-500">{{ t('accompaniments.subtitle') }}</p>
-      <button class="btn-primary" @click="openCreate">+ {{ t('accompaniments.new') }}</button>
+      <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('accompaniments.new') }}</button>
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -122,7 +123,7 @@ async function submit() {
               </div>
             </td>
             <td class="px-4 py-3 text-right">
-              <button class="text-sm text-brand-600" @click="openEdit(row)">{{ t('common.edit') }}</button>
+              <button class="text-sm text-brand-600" @click="openEdit(row)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
             </td>
           </tr>
         </tbody>
@@ -182,8 +183,9 @@ async function submit() {
 
         <p v-if="error" class="m-0 text-sm text-red-600">{{ error }}</p>
         <div class="flex justify-end gap-2">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !productId || !selectedIds.length">
+            <AppIcon name="check" :size="16" />
             {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>

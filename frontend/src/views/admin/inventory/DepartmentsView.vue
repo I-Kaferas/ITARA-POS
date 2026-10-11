@@ -6,6 +6,8 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import DataTableShell from '../../../components/ui/DataTableShell.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
+import { useConfirm } from '../../../composables/useConfirm'
 
 type Department = {
   id: string
@@ -26,18 +28,21 @@ const departments = ref<Department[]>([
 ])
 
 const { t } = useI18n()
+const { confirm: confirmDialog } = useConfirm()
 const query = ref('')
 const creating = ref(false)
+const editingId = ref<string | null>(null)
 const form = ref(blankForm())
+const baseline = ref('')
 
-const dirty = computed(() => creating.value && (
-  form.value.name.trim() !== ''
-  || form.value.code.trim() !== ''
-  || form.value.description.trim() !== ''
-  || form.value.parentId !== ''
-  || form.value.manager.trim() !== ''
-  || !form.value.active
-))
+const dirty = computed(() => creating.value && JSON.stringify(form.value) !== baseline.value)
+
+const parentOptions = computed(() => {
+  if (!editingId.value) return departments.value
+  const blocked = descendantIds(editingId.value)
+  blocked.add(editingId.value)
+  return departments.value.filter((row) => !blocked.has(row.id))
+})
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -74,36 +79,88 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, '')
 }
 
+function snapshotForm() {
+  baseline.value = JSON.stringify(form.value)
+}
+
+function descendantIds(id: string) {
+  const ids = new Set<string>()
+  const walk = (parentId: string) => {
+    for (const row of departments.value) {
+      if (row.parentId === parentId && !ids.has(row.id)) {
+        ids.add(row.id)
+        walk(row.id)
+      }
+    }
+  }
+  walk(id)
+  return ids
+}
+
+function uniqueCode(raw: string, exceptId?: string) {
+  const taken = new Set(departments.value.filter((row) => row.id !== exceptId).map((row) => row.code))
+  let unique = raw
+  let n = 2
+  while (taken.has(unique)) {
+    unique = `${raw}-${n}`
+    n += 1
+  }
+  return unique
+}
+
 function openCreate() {
+  editingId.value = null
   form.value = blankForm()
+  snapshotForm()
+  creating.value = true
+}
+
+function openEdit(item: Department) {
+  editingId.value = item.id
+  form.value = {
+    name: item.name,
+    code: item.code,
+    description: item.description,
+    parentId: item.parentId ?? '',
+    manager: item.manager,
+    active: item.active,
+  }
+  snapshotForm()
   creating.value = true
 }
 
 function closeCreate() {
   creating.value = false
+  editingId.value = null
 }
 
 function save() {
   const name = form.value.name.trim()
   if (!name) return
-  let code = slugify(form.value.code || name) || 'department'
-  const taken = new Set(departments.value.map((row) => row.code))
-  let unique = code
-  let n = 2
-  while (taken.has(unique)) {
-    unique = `${code}-${n}`
-    n += 1
-  }
-  departments.value.unshift({
-    id: `${unique}-${Date.now()}`,
+  const code = uniqueCode(slugify(form.value.code || name) || 'department', editingId.value ?? undefined)
+  const next = {
     name,
-    code: unique,
+    code,
     description: form.value.description.trim(),
     parentId: form.value.parentId || null,
     manager: form.value.manager.trim(),
     active: form.value.active,
-  })
-  creating.value = false
+  }
+  if (editingId.value) {
+    departments.value = departments.value.map((item) => (
+      item.id === editingId.value ? { ...item, ...next } : item
+    ))
+  } else {
+    departments.value.unshift({ id: `${code}-${Date.now()}`, ...next })
+  }
+  closeCreate()
+}
+
+async function remove(item: Department) {
+  if (!(await confirmDialog(t('org.confirmDelete'), { danger: true }))) return
+  departments.value = departments.value
+    .filter((row) => row.id !== item.id)
+    .map((row) => (row.parentId === item.id ? { ...row, parentId: null } : row))
 }
 </script>
 
@@ -115,6 +172,7 @@ function save() {
     <div class="departments">
       <div class="departments__toolbar">
         <button type="button" class="btn-primary" @click="openCreate">
+          <AppIcon name="plus" :size="16" />
           {{ t('orgDepartments.add') }}
         </button>
         <label class="departments__search">
@@ -158,7 +216,14 @@ function save() {
                   {{ item.active ? t('orgDepartments.active') : t('orgDepartments.inactive') }}
                 </Badge>
               </td>
-              <td></td>
+              <td class="departments__actions">
+                <button type="button" class="text-brand-600" @click="openEdit(item)">
+                  <AppIcon name="edit" :size="16" /> {{ t('common.edit') }}
+                </button>
+                <button type="button" class="text-red-600" @click="remove(item)">
+                  <AppIcon name="trash" :size="16" /> {{ t('common.delete') }}
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -167,7 +232,7 @@ function save() {
 
     <AppModal
       :open="creating"
-      :title="t('orgDepartments.add')"
+      :title="editingId ? t('common.edit') : t('orgDepartments.add')"
       :subtitle="t('orgDepartments.formHint')"
       icon="building"
       tone="accent"
@@ -192,7 +257,7 @@ function save() {
           <FieldLabel icon="building">{{ t('orgDepartments.columns.parent') }}</FieldLabel>
           <select v-model="form.parentId" class="field">
             <option value="">—</option>
-            <option v-for="item in departments" :key="item.id" :value="item.id">{{ item.name }}</option>
+            <option v-for="item in parentOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
           </select>
         </div>
         <div>
@@ -206,8 +271,8 @@ function save() {
       </form>
       <template #footer>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="closeCreate">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" form="department-form">{{ t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="closeCreate"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" form="department-form"><AppIcon name="check" :size="16" /> {{ t('common.save') }}</button>
         </div>
       </template>
     </AppModal>
@@ -257,6 +322,13 @@ function save() {
 .departments__code {
   margin-top: 2px;
   font-size: var(--text-xs);
+}
+
+.departments__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
 }
 
 .departments-form {

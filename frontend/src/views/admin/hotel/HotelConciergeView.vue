@@ -756,8 +756,9 @@ onMounted(load)
         </section>
 
         <div class="cg-form__actions">
-          <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="closeForm"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">
+            <AppIcon name="check" :size="16" />
             {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>
@@ -857,9 +858,11 @@ onMounted(load)
             class="btn-secondary"
             @click="setStatus(detailRow, 'cancelled')"
           >
+            <AppIcon name="close" :size="16" />
             {{ t('hotel.concierge.actions.cancel') }}
           </button>
           <button type="button" class="btn-secondary" @click="openEdit(detailRow)">
+            <AppIcon name="edit" :size="16" />
             {{ t('common.edit') }}
           </button>
         </div>

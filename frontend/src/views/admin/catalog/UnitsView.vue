@@ -109,8 +109,8 @@ async function remove(unit: Unit) {
               <td class="px-4 py-3">{{ unit.is_fractional ? '✓' : '—' }}</td>
               <td class="px-4 py-3"><StatusBadge :active="unit.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
-                <button class="text-brand-600" @click="openEdit(unit)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(unit)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(unit)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(unit)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -135,8 +135,8 @@ async function remove(unit: Unit) {
         <StoreMultiSelect v-model="storeIds" />
         <p v-if="!storeIds.length" class="m-0 text-xs text-red-600">{{ t('catalog.selectStoresRequired') }}</p>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !storeIds.length">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !storeIds.length"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

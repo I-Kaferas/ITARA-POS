@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useId } from 'vue'
+import AppIcon from './AppIcon.vue'
 
 export interface TabItem {
   id: string
   label: string
+  icon?: string
 }
 
 const props = defineProps<{
@@ -55,6 +57,7 @@ function onKey(event: KeyboardEvent) {
         :tabindex="tab.id === modelValue ? 0 : -1"
         @click="select(tab.id)"
       >
+        <AppIcon v-if="tab.icon" :name="tab.icon" :size="16" />
         {{ tab.label }}
       </button>
     </div>

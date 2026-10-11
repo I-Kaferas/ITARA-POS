@@ -597,6 +597,7 @@ async function remove(row: Doc) {
           </button>
           <span class="rsv__count">{{ t('hotel.reservations.listHint', { count: filteredReservations.length }) }}</span>
           <button type="button" class="btn-primary rsv__new" @click="openCreate">
+            <AppIcon name="plus" :size="16" />
             {{ t('hotel.reservations.createTitle') }}
           </button>
         </div>
@@ -904,8 +905,8 @@ async function remove(row: Doc) {
         </section>
 
         <div class="rsv__actions">
-          <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="closeForm"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -937,6 +938,7 @@ async function remove(row: Doc) {
               class="btn-primary"
               @click="openStay(detailRow)"
             >
+              <AppIcon name="eye" :size="16" />
               {{ t('hotel.reservations.detail.openStay') }}
             </button>
             <button
@@ -945,6 +947,7 @@ async function remove(row: Doc) {
               class="btn-secondary"
               @click="editFromDetail"
             >
+              <AppIcon name="edit" :size="16" />
               {{ t('common.edit') }}
             </button>
           </div>

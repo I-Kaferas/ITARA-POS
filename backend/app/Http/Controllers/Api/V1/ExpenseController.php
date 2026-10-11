@@ -174,7 +174,62 @@ class ExpenseController extends Controller
 
     public function report(Request $request): JsonResponse
     {
-        return $this->dashboard($request);
+        $this->ensureCategories();
+
+        $query = Expense::query()->with([
+            'expenseCategory:id,name',
+            'cashRegisterSession.register:id,name',
+        ]);
+
+        if ($request->filled('from')) {
+            $query->whereDate('occurred_on', '>=', $request->date('from'));
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('occurred_on', '<=', $request->date('to'));
+        }
+
+        $rows = $query->get();
+        $total = (int) $rows->sum('amount');
+        $count = $rows->count();
+
+        $group = function ($collection, callable $keyOf) {
+            return $collection->groupBy($keyOf)->map(function ($group, $key) {
+                return [
+                    'key' => (string) $key,
+                    'total' => (int) $group->sum('amount'),
+                    'count' => $group->count(),
+                ];
+            })->sortBy('key')->values();
+        };
+
+        return response()->json([
+            'data' => [
+                'total' => $total,
+                'count' => $count,
+                'average' => $count > 0 ? (int) round($total / $count) : 0,
+                'active_categories' => $rows->pluck('expense_category_id')->filter()->unique()->count(),
+                'monthly' => $group($rows, fn (Expense $expense) => $expense->occurred_on?->format('Y-m') ?? 'unknown'),
+                'yearly' => $group($rows, fn (Expense $expense) => $expense->occurred_on?->format('Y') ?? 'unknown'),
+                'by_category' => $rows
+                    ->groupBy(fn (Expense $expense) => $expense->expenseCategory?->name ?: ($expense->category ?: 'other'))
+                    ->map(fn ($group, $name) => [
+                        'key' => (string) $name,
+                        'total' => (int) $group->sum('amount'),
+                        'count' => $group->count(),
+                    ])
+                    ->sortByDesc('total')
+                    ->values(),
+                'by_fund' => $rows
+                    ->groupBy(fn (Expense $expense) => $expense->cashRegisterSession?->register?->name ?: 'none')
+                    ->map(fn ($group, $name) => [
+                        'key' => (string) $name,
+                        'total' => (int) $group->sum('amount'),
+                        'count' => $group->count(),
+                    ])
+                    ->sortByDesc('total')
+                    ->values(),
+            ],
+        ]);
     }
 
     public function recurring(): JsonResponse

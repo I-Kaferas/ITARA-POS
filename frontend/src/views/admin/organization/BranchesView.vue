@@ -102,7 +102,7 @@ async function remove(branch: Branch) {
         <select v-model="companyId" class="field w-auto">
           <option v-for="c in store.companies" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
-        <button class="btn-primary" @click="openCreate">+ {{ t('org.addBranch') }}</button>
+        <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('org.addBranch') }}</button>
       </div>
 
       <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
@@ -123,8 +123,8 @@ async function remove(branch: Branch) {
               <td class="px-4 py-3 font-mono text-slate-500">{{ branch.code }}</td>
               <td class="px-4 py-3"><StatusBadge :active="branch.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2" @click.stop>
-                <button class="text-brand-600" @click="openEdit(branch)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(branch)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(branch)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(branch)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -166,7 +166,7 @@ async function remove(branch: Branch) {
           <form class="flex flex-wrap gap-2" @submit.prevent="addExpense">
             <input v-model="expenseDescription" class="field" :placeholder="t('org.expenseDescription')" required />
             <input v-model="expenseAmount" class="field w-32" inputmode="numeric" :placeholder="t('org.expenseAmount')" required />
-            <button class="btn-secondary" type="submit">{{ t('org.addExpense') }}</button>
+            <button class="btn-secondary" type="submit"><AppIcon name="plus" :size="16" /> {{ t('org.addExpense') }}</button>
           </form>
         </div>
       </section>
@@ -185,8 +185,8 @@ async function remove(branch: Branch) {
         <div><FieldLabel icon="receipt">{{ t('org.branchSettings') }}</FieldLabel><input v-model="form.receipt_footer" class="field" :placeholder="t('org.receiptFooter')" /></div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

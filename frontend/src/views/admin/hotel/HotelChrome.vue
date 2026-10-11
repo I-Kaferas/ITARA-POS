@@ -47,14 +47,15 @@ const isRoomConfig = computed(() => isPathActive('/admin/hotel/room-config'))
 const allowScroll = computed(() => props.scrollBody || isRoomConfig.value)
 
 const roomConfigTabs = computed(() => [
-  { to: '/admin/hotel/room-config/amenities', label: t('hotel.roomConfig.amenities') },
-  { to: '/admin/hotel/room-config/room-types', label: t('hotel.roomConfig.roomTypes') },
-  { to: '/admin/hotel/room-config/buildings', label: t('hotel.roomConfig.buildings') },
-  { to: '/admin/hotel/room-config/wings', label: t('hotel.roomConfig.wings') },
-  { to: '/admin/hotel/room-config/floors', label: t('hotel.roomConfig.floors') },
+  { to: '/admin/hotel/room-config/amenities', label: t('hotel.roomConfig.amenities'), icon: 'sparkles' },
+  { to: '/admin/hotel/room-config/room-types', label: t('hotel.roomConfig.roomTypes'), icon: 'bed' },
+  { to: '/admin/hotel/room-config/buildings', label: t('hotel.roomConfig.buildings'), icon: 'building' },
+  { to: '/admin/hotel/room-config/wings', label: t('hotel.roomConfig.wings'), icon: 'layers' },
+  { to: '/admin/hotel/room-config/floors', label: t('hotel.roomConfig.floors'), icon: 'floors' },
 ].map(tab => ({
   to: tab.to,
   label: tab.label,
+  icon: tab.icon,
   active: isPathActive(tab.to),
 })))
 

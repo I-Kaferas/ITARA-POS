@@ -327,9 +327,11 @@ watch(
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="button" class="ui-btn ui-btn--secondary" @click="router.push({ name: 'pos-tables' })">
+            <AppIcon name="eye" :size="16" />
             {{ t('pointOfSale.reservations.openFloor') }}
           </button>
           <button type="button" class="ui-btn ui-btn--primary" @click="openCreate">
+            <AppIcon name="plus" :size="16" />
             {{ t('pointOfSale.reservations.add') }}
           </button>
         </div>
@@ -366,6 +368,7 @@ watch(
         </div>
         <div class="mt-3 flex flex-wrap gap-2">
           <button type="button" class="ui-btn ui-btn--primary" :disabled="loading" @click="load">
+            <AppIcon name="check" :size="16" />
             {{ t('pointOfSale.orders.filters.apply') }}
           </button>
           <button type="button" class="ui-btn ui-btn--secondary" @click="resetFilters">
@@ -418,6 +421,7 @@ watch(
                     :disabled="statusSavingId === item.id"
                     @click="changeStatus(item, 'confirmed')"
                   >
+                    <AppIcon name="check" :size="16" />
                     {{ t('pointOfSale.reservations.confirm') }}
                   </button>
                   <button
@@ -445,6 +449,7 @@ watch(
                     :disabled="statusSavingId === item.id"
                     @click="changeStatus(item, 'cancelled')"
                   >
+                    <AppIcon name="close" :size="16" />
                     {{ t('pointOfSale.reservations.cancel') }}
                   </button>
                   <button
@@ -457,6 +462,7 @@ watch(
                     {{ t('pointOfSale.reservations.noShow') }}
                   </button>
                   <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="openEdit(item)">
+                    <AppIcon name="edit" :size="16" />
                     {{ t('common.edit') }}
                   </button>
                 </div>
@@ -472,6 +478,7 @@ watch(
           :description="t('pointOfSale.reservations.emptyHint')"
         >
           <button type="button" class="ui-btn ui-btn--primary mt-4" @click="openCreate">
+            <AppIcon name="plus" :size="16" />
             {{ t('pointOfSale.reservations.add') }}
           </button>
         </EmptyState>
@@ -556,13 +563,14 @@ watch(
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" class="ui-btn ui-btn--secondary" @click="showForm = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="ui-btn ui-btn--secondary" @click="showForm = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button
             type="button"
             class="ui-btn ui-btn--primary"
             :class="{ 'is-busy': saving }" :disabled="saving || !canSave"
             @click="save"
           >
+            <AppIcon name="check" :size="16" />
             {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>

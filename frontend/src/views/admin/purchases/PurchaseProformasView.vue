@@ -13,6 +13,7 @@ import type { Product, PurchaseProforma, Supplier, Warehouse } from '../../../ty
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -211,7 +212,7 @@ async function submitConvert() {
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
         <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('purchases.hub.proformas') }}</h3>
-        <button class="btn-primary-sm" @click="openCreate">+ {{ t('purchases.hub.newProforma') }}</button>
+        <button class="btn-primary-sm" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('purchases.hub.newProforma') }}</button>
       </div>
 
       <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -300,13 +301,13 @@ async function submitConvert() {
             </select>
             <input v-model.number="line.quantity" type="number" min="1" required class="field w-16" />
             <input v-model.number="line.unit_cost" type="number" min="0" step="0.01" required class="field w-24" />
-            <button type="button" class="text-sm text-red-600" @click="removeLine(idx)">{{ t('inventory.removeLine') }}</button>
+            <button type="button" class="text-sm text-red-600" @click="removeLine(idx)"><AppIcon name="trash" :size="16" /> {{ t('inventory.removeLine') }}</button>
           </div>
-          <button v-if="canAddLine()" type="button" class="text-sm text-brand-600" @click="addLine">+ {{ t('inventory.addLine') }}</button>
+          <button v-if="canAddLine()" type="button" class="text-sm text-brand-600" @click="addLine"><AppIcon name="plus" :size="16" /> {{ t('inventory.addLine') }}</button>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showCreate = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showCreate = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -320,7 +321,7 @@ async function submitConvert() {
           </select>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="converting = null">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="converting = null"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('purchases.hub.convert') }}</button>
         </div>
       </form>

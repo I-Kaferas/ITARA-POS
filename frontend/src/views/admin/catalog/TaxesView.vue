@@ -411,7 +411,7 @@ function toggleCalcTax(id: string, checked: boolean) {
 
       <section v-else-if="tab === 'register'" class="space-y-4">
         <div class="flex justify-end">
-          <button class="btn-primary" @click="openTax()">+ {{ t('catalog.addTax') }}</button>
+          <button class="btn-primary" @click="openTax()"><AppIcon name="plus" :size="16" /> {{ t('catalog.addTax') }}</button>
         </div>
         <ModuleFilters v-model="registerFilters" :show-period="false" show-search show-active />
         <div class="panel">
@@ -444,8 +444,8 @@ function toggleCalcTax(id: string, checked: boolean) {
                 </td>
                 <td>{{ tax.is_active ? t('products.active') : t('catalog.tax.inactive') }}</td>
                 <td class="text-right space-x-2">
-                  <button class="text-brand-600" @click="openTax(tax)">{{ t('common.edit') }}</button>
-                  <button class="text-red-600" @click="removeTax(tax)">{{ t('common.delete') }}</button>
+                  <button class="text-brand-600" @click="openTax(tax)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                  <button class="text-red-600" @click="removeTax(tax)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -480,7 +480,7 @@ function toggleCalcTax(id: string, checked: boolean) {
 
       <section v-else-if="tab === 'groups'" class="space-y-4">
         <div class="flex justify-end">
-          <button class="btn-primary" @click="openGroup()">+ {{ t('catalog.tax.addGroup') }}</button>
+          <button class="btn-primary" @click="openGroup()"><AppIcon name="plus" :size="16" /> {{ t('catalog.tax.addGroup') }}</button>
         </div>
         <div class="panel">
           <table class="min-w-full text-sm">
@@ -500,8 +500,8 @@ function toggleCalcTax(id: string, checked: boolean) {
                 <td>{{ (group.taxes ?? []).map(tax => tax.code).join(', ') || '—' }}</td>
                 <td>{{ group.is_active ? t('products.active') : t('catalog.tax.inactive') }}</td>
                 <td class="text-right space-x-2">
-                  <button class="text-brand-600" @click="openGroup(group)">{{ t('common.edit') }}</button>
-                  <button class="text-red-600" @click="removeGroup(group)">{{ t('common.delete') }}</button>
+                  <button class="text-brand-600" @click="openGroup(group)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                  <button class="text-red-600" @click="removeGroup(group)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -512,7 +512,7 @@ function toggleCalcTax(id: string, checked: boolean) {
 
       <section v-else-if="tab === 'classes'" class="space-y-4">
         <div class="flex justify-end">
-          <button class="btn-primary" @click="openClass()">+ {{ t('catalog.tax.addClass') }}</button>
+          <button class="btn-primary" @click="openClass()"><AppIcon name="plus" :size="16" /> {{ t('catalog.tax.addClass') }}</button>
         </div>
         <div class="panel">
           <table class="min-w-full text-sm">
@@ -532,8 +532,8 @@ function toggleCalcTax(id: string, checked: boolean) {
                 <td>{{ row.description || '—' }}</td>
                 <td>{{ row.is_active ? t('products.active') : t('catalog.tax.inactive') }}</td>
                 <td class="text-right space-x-2">
-                  <button class="text-brand-600" @click="openClass(row)">{{ t('common.edit') }}</button>
-                  <button class="text-red-600" @click="removeClass(row)">{{ t('common.delete') }}</button>
+                  <button class="text-brand-600" @click="openClass(row)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                  <button class="text-red-600" @click="removeClass(row)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -544,7 +544,7 @@ function toggleCalcTax(id: string, checked: boolean) {
 
       <section v-else-if="tab === 'rules'" class="space-y-4">
         <div class="flex justify-end">
-          <button class="btn-primary" @click="openRule()">+ {{ t('catalog.tax.addRule') }}</button>
+          <button class="btn-primary" @click="openRule()"><AppIcon name="plus" :size="16" /> {{ t('catalog.tax.addRule') }}</button>
         </div>
         <div class="panel">
           <table class="min-w-full text-sm">
@@ -566,8 +566,8 @@ function toggleCalcTax(id: string, checked: boolean) {
                 <td>{{ countryLabel(row.country) }}<span v-if="row.region" class="block text-xs text-slate-500">{{ row.region }}</span></td>
                 <td>{{ row.priority }}</td>
                 <td class="text-right space-x-2">
-                  <button class="text-brand-600" @click="openRule(row)">{{ t('common.edit') }}</button>
-                  <button class="text-red-600" @click="removeRule(row)">{{ t('common.delete') }}</button>
+                  <button class="text-brand-600" @click="openRule(row)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                  <button class="text-red-600" @click="removeRule(row)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -714,8 +714,8 @@ function toggleCalcTax(id: string, checked: boolean) {
         </div>
 
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showTax = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showTax = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -736,8 +736,8 @@ function toggleCalcTax(id: string, checked: boolean) {
         </div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="groupForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showGroup = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showGroup = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -749,8 +749,8 @@ function toggleCalcTax(id: string, checked: boolean) {
         <div><FieldLabel icon="note">{{ t('catalog.tax.description') }}</FieldLabel><textarea v-model="classForm.description" rows="2" class="field" /></div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="classForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showClass = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showClass = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -798,8 +798,8 @@ function toggleCalcTax(id: string, checked: boolean) {
         <div><FieldLabel icon="note">{{ t('catalog.tax.description') }}</FieldLabel><textarea v-model="ruleForm.description" rows="2" class="field" /></div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="ruleForm.is_active" type="checkbox" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showRule = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showRule = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

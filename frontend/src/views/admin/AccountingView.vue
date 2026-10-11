@@ -9,6 +9,7 @@ import { useBackofficeStore } from '../../stores/backoffice'
 import { api } from '../../api/client'
 import type { AccountingSummary } from '../../types'
 import { formatDate, formatMoney } from '../../utils/format'
+import AppIcon from '../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -89,7 +90,7 @@ watchLiveSearch([from, to], load, 0)
           <input v-model="to" type="date" class="field" />
         </div>
       </div>
-      <button class="btn-primary" @click="showModal = true">+ {{ t('accounting.addEntry') }}</button>
+      <button class="btn-primary" @click="showModal = true"><AppIcon name="plus" :size="16" /> {{ t('accounting.addEntry') }}</button>
     </div>
 
     <div class="mb-4 flex flex-wrap items-end gap-2">
@@ -170,8 +171,8 @@ watchLiveSearch([from, to], load, 0)
         </div>
         <div><FieldLabel icon="note">{{ t('common.description') }}</FieldLabel><input v-model="form.description" class="field w-full" /></div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

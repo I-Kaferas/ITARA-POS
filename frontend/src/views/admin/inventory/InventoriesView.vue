@@ -19,6 +19,7 @@ import { formatMoney } from '../../../utils/money'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type CountType = 'opening' | 'full' | 'cycle' | 'spot'
 
@@ -367,10 +368,10 @@ async function completeFromPreview() {
 <template>
   <InventoryLayout>
     <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
-      <button class="btn-secondary" @click="showOpening = true">{{ t('inventory.createOpening') }}</button>
+      <button class="btn-secondary" @click="showOpening = true"><AppIcon name="plus" :size="16" /> {{ t('inventory.createOpening') }}</button>
       <button class="btn-secondary" @click="fullCountId = null; showFullCount = true">{{ t('inventory.fullCountTitle') }}</button>
       <button class="btn-secondary" @click="showCycle = true">{{ t('inventory.cycleTitle') }}</button>
-      <button class="btn-primary" @click="openCreate">+ {{ t('inventory.newInventory') }}</button>
+      <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.newInventory') }}</button>
     </div>
 
     <div class="mb-6 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -452,7 +453,7 @@ async function completeFromPreview() {
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.counted_at ?? row.created_at) }}</td>
             <td class="px-4 py-3 text-right" @click.stop>
               <button class="text-slate-600" @click="openRow(row)">{{ t('inventory.viewDetails') }}</button>
-              <button v-if="row.status === 'draft'" class="ml-3 text-brand-600" @click="openPreview(row.id)">{{ t('inventory.confirm') }}</button>
+              <button v-if="row.status === 'draft'" class="ml-3 text-brand-600" @click="openPreview(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirm') }}</button>
               <button v-else-if="row.status === 'confirmed'" class="ml-3 text-brand-600" @click="openPreview(row.id)">{{ t('inventory.confirmFinal') }}</button>
             </td>
           </tr>
@@ -578,8 +579,9 @@ async function completeFromPreview() {
         </template>
 
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || (form.count_type === 'spot' && !selectedProducts.length)">
+            <AppIcon name="plus" :size="16" />
             {{ form.count_type === 'opening' ? t('inventory.createOpening') : form.count_type === 'full' ? t('inventory.startFullCount') : form.count_type === 'cycle' ? t('inventory.planCycle') : t('inventory.startSpotCount') }}
           </button>
         </div>
@@ -635,9 +637,9 @@ async function completeFromPreview() {
           </div>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showPreview = false">{{ t('common.cancel') }}</button>
-          <button v-if="previewEditable" type="button" class="btn-secondary" :class="{ 'is-busy': saving }" :disabled="saving" @click="savePreview">{{ saving ? t('common.saving') : t('common.save') }}</button>
-          <button v-if="preview.status === 'draft'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="confirmFromPreview">{{ t('inventory.confirm') }}</button>
+          <button type="button" class="btn-secondary" @click="showPreview = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button v-if="previewEditable" type="button" class="btn-secondary" :class="{ 'is-busy': saving }" :disabled="saving" @click="savePreview"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button v-if="preview.status === 'draft'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="confirmFromPreview"><AppIcon name="check" :size="16" /> {{ t('inventory.confirm') }}</button>
           <button v-else-if="preview.status === 'confirmed'" type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="completeFromPreview">{{ t('inventory.confirmFinal') }}</button>
         </div>
       </div>

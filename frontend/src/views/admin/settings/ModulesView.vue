@@ -233,6 +233,7 @@ onMounted(load)
                 :disabled="busy === item.code || !settingsDirty(item.code)"
               >{{ t('modules.save') }}</button>
               <RouterLink v-if="item.manifest.navigation[0]" class="btn-secondary" :to="item.manifest.navigation[0].to">
+                <AppIcon name="eye" :size="16" />
                 {{ t('modules.open') }}
               </RouterLink>
             </div>

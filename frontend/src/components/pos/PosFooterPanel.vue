@@ -620,7 +620,7 @@ const discountLabel = () => {
       <button type="button" class="pos-btn pos-btn--outline" :disabled="isEmpty" @click="emit('cancel')">
         {{ labels.cancel }}
       </button>
-      <button type="button" class="pos-btn pos-btn--outline" :disabled="isEmpty || calculating || !customer" @click="openStayCharge">
+      <button type="button" class="pos-btn pos-btn--outline pos-btn--stay" :disabled="isEmpty || calculating || !customer" @click="openStayCharge">
         {{ t('desk.chargeStay') }}
       </button>
       <button type="button" class="pos-btn pos-btn--pay" :disabled="isEmpty || calculating || !customer" @click="openPayment">
@@ -986,29 +986,74 @@ const discountLabel = () => {
   padding: 0.7rem 0.9rem;
   box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.05);}
 .pos-footer--compact {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.75rem 1rem 1rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "actions summary"
+    "buttons buttons";
+  align-items: center;
+  gap: 0.32rem 0.5rem;
+  padding: 0.4rem 0.55rem 0.42rem;
   box-shadow: none;
 }
 .pos-footer--compact .pos-footer__actions {
+  grid-area: actions;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  gap: 0.28rem;
 }
 .pos-footer--compact .pos-chip {
   width: auto;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  padding: 0.28rem 0.55rem;
+  border-radius: 0.45rem;
+  font-size: 0.78rem;
 }
 .pos-footer--compact .pos-footer__summary {
+  grid-area: summary;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.12rem 0.55rem;
   padding: 0;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+.pos-footer--compact .pos-footer__row,
+.pos-footer--compact .pos-footer__total {
+  width: auto;
+  gap: 0.28rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  line-height: 1.2;
+  font-size: 0.78rem;
+}
+.pos-footer--compact .pos-footer__total-amount {
+  font-size: 1.02rem;
 }
 .pos-footer--compact .pos-footer__buttons {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-area: buttons;
+  grid-template-columns: 0.86fr 1.1fr 0.9fr 1.85fr 0.86fr;
+  gap: 0.28rem;
+}
+.pos-footer--compact .pos-btn {
+  padding: 0.34rem 0.16rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pos-footer--compact .pos-btn--stay {
+  grid-column: auto;
 }
 .pos-footer--compact .pos-btn--pay {
-  grid-column: 1 / -1;
+  grid-column: auto;
+  min-height: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
 }
 .pos-footer__actions {
   display: flex;
@@ -1083,11 +1128,26 @@ const discountLabel = () => {
 .pos-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .pos-btn:active:not(:disabled) { transform: scale(0.98); }
 .pos-btn--outline {
-  border: 1px solid #dbe3ea;
-  background: var(--color-surface);
-  color: var(--color-text-secondary);}
+  border: 1px solid color-mix(in srgb, #fff 40%, #dbe3ea);
+  background: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  color: var(--color-text-secondary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent);
+}
 .pos-btn--outline:hover:not(:disabled) {
-  background: var(--color-table-header);}
+  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 6px 14px rgba(20, 32, 43, 0.06);
+}
+:global(html[data-theme="dark"]) .pos-btn--outline {
+  border-color: color-mix(in srgb, #fff 14%, var(--color-border-strong, #3a4a5a));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
+}
+:global(html[data-theme="dark"]) .pos-btn--outline:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 14%, transparent),
+    0 6px 14px rgba(0, 0, 0, 0.22);
+}
 .pos-btn--danger {
   border: 1px solid #fecaca;
   background: var(--color-danger-bg);
@@ -1100,15 +1160,20 @@ const discountLabel = () => {
 .pos-btn--pay {
   grid-column: 1 / -1;
   min-height: 3rem;
-  background: var(--color-brand-700, #0f1f34);
+  border-color: color-mix(in srgb, #fff 24%, var(--color-brand-700, #0f1f34));
+  background-color: var(--color-brand-700, #0f1f34);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 18%, transparent), transparent 46%);
   color: white;
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  box-shadow: 0 1px 2px rgba(15, 31, 52, 0.16);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 32%, transparent),
+    0 8px 18px rgba(15, 31, 52, 0.12);
 }
 .pos-btn--pay:hover:not(:disabled) {
-  background: var(--color-brand-800, #0d1a2b);
+  background-color: var(--color-brand-800, #0d1a2b);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 22%, transparent), transparent 42%);
 }
 
 @media (max-width: 1100px) {

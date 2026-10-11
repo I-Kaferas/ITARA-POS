@@ -125,8 +125,8 @@ async function remove(catalog: Catalog) {
               <td class="px-4 py-3 text-slate-500">{{ catalog.description || '—' }}</td>
               <td class="px-4 py-3"><StatusBadge :active="catalog.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
-                <button class="text-brand-600" @click="openEdit(catalog)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(catalog)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(catalog)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(catalog)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
             <tr v-if="!filtered.length">
@@ -168,7 +168,7 @@ async function remove(catalog: Catalog) {
         </label>
         <p v-if="formError" class="m-0 text-sm text-red-600">{{ formError }}</p>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">
             <AppIcon v-if="saving" name="spinner" :size="14" class="animate-spin" />
             {{ t('common.save') }}

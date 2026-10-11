@@ -558,6 +558,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:catalog.products.view');
         Route::post('products/{product}/images', [ProductImageController::class, 'store'])
             ->middleware('permission:catalog.products.manage');
+        Route::post('products/{product}/images/from-gallery', [ProductImageController::class, 'storeFromGallery'])
+            ->middleware('permission:catalog.products.manage');
+        Route::post('products/{product}/images/from-product', [ProductImageController::class, 'storeFromProductImage'])
+            ->middleware('permission:catalog.products.manage');
         Route::patch('products/{product}/images/reorder', [ProductImageController::class, 'reorder'])
             ->middleware('permission:catalog.products.manage');
         Route::patch('product-images/{productImage}/primary', [ProductImageController::class, 'setPrimary'])

@@ -602,6 +602,7 @@ watch(() => ctx.currentStoreId, () => {
             <AppIcon name="calendar" :size="28" />
             <p>{{ t('hotel.calendar.emptyDay') }}</p>
             <button type="button" class="btn-secondary" @click="openCreate(selectedDate)">
+              <AppIcon name="plus" :size="16" />
               {{ t('hotel.calendar.addEvent') }}
             </button>
           </div>
@@ -668,10 +669,10 @@ watch(() => ctx.currentStoreId, () => {
         </div>
       </div>
       <div class="cal__actions">
-        <button v-if="editingId" type="button" class="btn-secondary" @click="removeEvent">{{ t('common.delete') }}</button>
+        <button v-if="editingId" type="button" class="btn-secondary" @click="removeEvent"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
         <div class="cal__actions-end">
-          <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
-          <button type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="saveEvent">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="closeForm"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="saveEvent"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </div>
     </AppModal>

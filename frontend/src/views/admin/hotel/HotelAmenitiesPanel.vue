@@ -214,6 +214,7 @@ async function remove(row: Amenity) {
     <div class="amenities__toolbar">
       <p>{{ t('hotel.amenities.hint') }}</p>
       <button type="button" class="ui-btn ui-btn--primary" @click="openCreate">
+        <AppIcon name="plus" :size="16" />
         {{ t('hotel.amenities.createTitle') }}
       </button>
     </div>
@@ -248,8 +249,8 @@ async function remove(row: Amenity) {
               <td>{{ row.display_order ?? 0 }}</td>
               <td><StatusBadge :active="row.is_active !== false" /></td>
               <td class="amenities__row-actions">
-                <button type="button" class="text-brand-600" @click="openEdit(row)">{{ t('common.edit') }}</button>
-                <button type="button" class="text-red-600" @click="remove(row)">{{ t('common.delete') }}</button>
+                <button type="button" class="text-brand-600" @click="openEdit(row)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button type="button" class="text-red-600" @click="remove(row)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -343,7 +344,7 @@ async function remove(row: Amenity) {
 
         <div class="amenities__actions">
           <button type="button" class="ui-btn" @click="closeForm">{{ t('common.cancel') }}</button>
-          <button type="submit" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="submit" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

@@ -599,9 +599,11 @@ async function savePriceOverride() {
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
                   <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click.prevent="openPriceEdit(item)">
+                    <AppIcon name="edit" :size="16" />
                     {{ t('common.edit') }}
                   </button>
                   <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm text-red-600" @click.prevent="remove(item)">
+                    <AppIcon name="trash" :size="16" />
                     {{ t('stores.remove') }}
                   </button>
                 </div>
@@ -668,8 +670,8 @@ async function savePriceOverride() {
           :placeholder="t('stores.leaveEmptyForDefault')"
         />
         <div class="app-modal__actions">
-          <button type="button" class="ui-btn ui-btn--secondary" @click="editingItem = null">{{ t('common.cancel') }}</button>
-          <button type="submit" class="ui-btn ui-btn--primary">{{ t('common.save') }}</button>
+          <button type="button" class="ui-btn ui-btn--secondary" @click="editingItem = null"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="ui-btn ui-btn--primary"><AppIcon name="check" :size="16" /> {{ t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

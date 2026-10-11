@@ -7,6 +7,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type ExpenseCategory = {
   id: string
@@ -99,7 +100,7 @@ async function save() {
 
     <div class="mb-4 space-y-3">
       <div class="flex justify-end">
-        <button class="btn-primary" type="button" @click="openCreate">+ {{ t('expenses.newCategory') }}</button>
+        <button class="btn-primary" type="button" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('expenses.newCategory') }}</button>
       </div>
       <ModuleFilters
         v-model="filters"
@@ -140,7 +141,7 @@ async function save() {
             <td class="px-4 py-3 font-mono text-slate-500">{{ category.code }}</td>
             <td class="px-4 py-3 text-slate-500">{{ category.description || '—' }}</td>
             <td class="px-4 py-3 text-right">
-              <button type="button" class="text-brand-600" @click="openEdit(category)">{{ t('common.edit') }}</button>
+              <button type="button" class="text-brand-600" @click="openEdit(category)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
             </td>
           </tr>
         </tbody>
@@ -205,8 +206,8 @@ async function save() {
         </div>
 
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

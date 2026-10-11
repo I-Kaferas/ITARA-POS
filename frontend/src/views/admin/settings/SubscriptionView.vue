@@ -238,7 +238,7 @@ function declare(invoiceId: string) {
       <p v-if="subscription?.status === 'suspended'" class="sub__error" role="alert">{{ t('subscriptionPage.suspendedNotice') }}</p>
       <p v-if="actionError" class="sub__error" role="alert">{{ actionError }}</p>
 
-      <section v-if="currentDef" class="sub__hero" aria-labelledby="subscription-current">
+      <section v-if="currentDef" class="sub__hero" :class="`sub__plan--${currentPlan}`" aria-labelledby="subscription-current">
         <div class="sub__hero-copy">
           <p class="sub__eyebrow">{{ t('subscriptionPage.currentTitle') }}</p>
           <div class="sub__hero-title">
@@ -360,7 +360,7 @@ function declare(invoiceId: string) {
               <td>
                 <form v-if="invoice.status === 'open'" class="sub__pay" @submit.prevent="declare(invoice.id)">
                   <input v-model="reference" class="field" type="text" :placeholder="t('subscriptionPage.paymentReference')" />
-                  <button class="btn-secondary" type="submit" :disabled="busy">{{ t('subscriptionPage.declarePayment') }}</button>
+                  <button class="btn-secondary" type="submit" :disabled="busy"><AppIcon name="card" :size="16" /> {{ t('subscriptionPage.declarePayment') }}</button>
                 </form>
                 <span v-else-if="invoice.payments.some(payment => payment.status === 'pending')">{{ t('subscriptionPage.invoicePending') }}</span>
               </td>
@@ -399,16 +399,48 @@ function declare(invoiceId: string) {
 .sub__error { margin: 0; padding: 0.75rem 0.9rem; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--color-danger) 28%, transparent); background: var(--color-danger-bg); font-size: var(--text-sm); color: var(--color-danger); }
 .sub__hint { margin: var(--space-1) 0 0; font-size: var(--text-sm); color: var(--color-text-muted); }
 .sub__plans { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-5); }
-.sub__plan { display: flex; flex-direction: column; min-width: 0; padding: 1.35rem 1.25rem 1.15rem; border: 1px solid var(--color-border); border-radius: 18px; background: var(--color-surface); box-shadow: var(--shadow-sm); }
-.sub__plan--current { border-color: color-mix(in srgb, var(--color-brand-500) 55%, var(--color-border)); }
-.sub__plan--popular { border-color: color-mix(in srgb, var(--color-brand-400) 70%, var(--color-border)); }
+.sub__plan--starter {
+  --plan: #5c6b7a;
+  --plan-soft: color-mix(in srgb, #5c6b7a 16%, var(--color-surface));
+  --plan-ink: #3d4c5c;
+}
+.sub__plan--professional {
+  --plan: #12243c;
+  --plan-soft: color-mix(in srgb, #12243c 12%, var(--color-surface));
+  --plan-ink: #12243c;
+}
+.sub__plan--business {
+  --plan: #1f6f8a;
+  --plan-soft: color-mix(in srgb, #1f6f8a 14%, var(--color-surface));
+  --plan-ink: #14586e;
+}
+.sub__plan--enterprise {
+  --plan: #b8860b;
+  --plan-soft: color-mix(in srgb, #e39b2b 18%, var(--color-surface));
+  --plan-ink: #8a6408;
+}
+.sub__plan {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1.35rem 1.25rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--plan, var(--color-border)) 35%, var(--color-border));
+  border-top: 4px solid var(--plan, var(--color-border));
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--plan-soft, var(--color-surface)), var(--color-surface) 5.75rem);
+  box-shadow: var(--shadow-sm);
+}
+.sub__plan--current {
+  box-shadow: 0 0 0 1px var(--plan), var(--shadow-sm);
+}
 .sub__plan-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: 1.85rem; }
-.sub__mark { display: grid; place-items: center; width: 2.15rem; height: 2.15rem; border-radius: 12px; background: var(--color-accent-soft); color: var(--color-ink-brand, var(--color-brand-700)); }
+.sub__mark { display: grid; place-items: center; width: 2.15rem; height: 2.15rem; border-radius: 12px; background: var(--plan-soft, var(--color-accent-soft)); color: var(--plan-ink, var(--color-ink-brand, var(--color-brand-700))); }
 .sub__mark--hero { width: 2.6rem; height: 2.6rem; }
-.sub__flag { margin: 0; padding: 0.22rem 0.6rem; border-radius: 999px; background: var(--color-brand-600); color: #fff; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
-.sub__plan h3 { margin: var(--space-4) 0 0; font-size: 1.2rem; }
+.sub__flag { margin: 0; padding: 0.22rem 0.6rem; border-radius: 999px; background: var(--plan, var(--color-brand-600)); color: #fff; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+.sub__plan h3 { margin: var(--space-4) 0 0; font-size: 1.2rem; color: var(--plan-ink, inherit); }
 .sub__tagline { margin: var(--space-1) 0 0; min-height: 2.6rem; font-size: var(--text-sm); color: var(--color-text-muted); }
 .sub__price { display: flex; align-items: baseline; gap: 0.3rem; margin: var(--space-4) 0 0; }
+.sub__price-lead, .sub__hero-price { color: var(--plan-ink, inherit); }
 .sub__price-lead { font-size: 1.7rem; font-weight: 740; letter-spacing: -0.04em; }
 .sub__price-unit, .sub__price-alt { font-size: var(--text-sm); color: var(--color-text-muted); }
 .sub__price-alt { margin: 0.35rem 0 0; }
@@ -422,6 +454,11 @@ function declare(invoiceId: string) {
 .sub__meter span { display: block; height: 100%; background: var(--color-brand-600); }
 .sub__pay { display: flex; gap: 0.4rem; justify-content: flex-end; }
 .sub__pay .field { min-width: 10rem; }
+html[data-theme="dark"] .sub__plan--starter { --plan: #c5d0da; --plan-ink: #d5dee6; }
+html[data-theme="dark"] .sub__plan--professional { --plan: #9ec0dc; --plan-ink: #d7e6f4; }
+html[data-theme="dark"] .sub__plan--business { --plan: #7ec8d6; --plan-ink: #d4f1f6; }
+html[data-theme="dark"] .sub__plan--enterprise { --plan: #e3b34a; --plan-ink: #f6e2b0; }
+html[data-theme="dark"] .sub__flag { color: #12243c; }
 @media (max-width: 1100px) { .sub__plans { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sub__hero { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .sub__plans, .sub__facts { grid-template-columns: 1fr; } .sub__tagline { min-height: 0; } .sub__pay { flex-direction: column; } }
 </style>

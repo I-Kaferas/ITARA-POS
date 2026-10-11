@@ -276,8 +276,8 @@ function formatDate(value?: string | null) {
               </td>
               <td class="px-4 py-3">{{ promotion.is_active ? '✓' : '—' }}</td>
               <td class="px-4 py-3 text-right space-x-2">
-                <button class="text-brand-600" @click="openEdit(promotion)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(promotion)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(promotion)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(promotion)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -425,8 +425,8 @@ function formatDate(value?: string | null) {
         </label>
 
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

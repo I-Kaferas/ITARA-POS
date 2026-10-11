@@ -8,6 +8,7 @@ import { computeStayTaxes } from '../../../utils/hotelSettings'
 import { formatDateTime } from '../../../utils/format'
 import { getAppCurrency } from '../../../utils/currency'
 import HotelChrome from './HotelChrome.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type HotelSettings = {
   check_in_time: string
@@ -271,6 +272,7 @@ async function save() {
           <p class="settings-page__hint">{{ t('hotel.settings.hint') }}</p>
         </div>
         <button class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || loading" @click="save">
+          <AppIcon name="check" :size="16" />
           {{ saving ? t('common.saving') : t('common.save') }}
         </button>
       </div>

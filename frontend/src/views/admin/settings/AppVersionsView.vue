@@ -5,6 +5,7 @@ import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import DataTableShell from '../../../components/ui/DataTableShell.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type Platform = 'android' | 'desktop'
 
@@ -114,6 +115,7 @@ function refresh() {
     <div class="versions">
       <div class="versions__toolbar">
         <button type="button" class="btn-secondary" :disabled="refreshing" @click="refresh">
+          <AppIcon name="refresh" :size="16" />
           {{ t('appVersions.refresh') }}
         </button>
         <label class="versions__field">
@@ -177,6 +179,7 @@ function refresh() {
               <td>{{ item.size ?? t('appVersions.na') }}</td>
               <td>
                 <button type="button" class="btn-secondary versions__view" @click="selected = item">
+                  <AppIcon name="eye" :size="16" />
                   {{ t('appVersions.view') }}
                 </button>
               </td>

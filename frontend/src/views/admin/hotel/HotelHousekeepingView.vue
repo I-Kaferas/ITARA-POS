@@ -418,6 +418,7 @@ onMounted(load)
           :class="{ 'hk__tab--on': boardTab === 'rooms' }"
           @click="selectTab('rooms')"
         >
+          <AppIcon name="bed" :size="15" />
           {{ t('hotel.housekeeping.tabs.rooms') }}
         </button>
         <button
@@ -426,6 +427,7 @@ onMounted(load)
           :class="{ 'hk__tab--on': boardTab === 'tasks' }"
           @click="selectTab('tasks')"
         >
+          <AppIcon name="check" :size="15" />
           {{ t('hotel.housekeeping.tabs.tasks') }}
         </button>
       </div>
@@ -654,8 +656,9 @@ onMounted(load)
           <textarea v-model="form.notes" class="field" rows="2" :placeholder="t('hotel.housekeeping.notesPh')" />
         </div>
         <div class="hk-form__actions">
-          <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="closeForm"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">
+            <AppIcon name="check" :size="16" />
             {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>
@@ -724,6 +727,9 @@ onMounted(load)
   border-bottom: 1px solid #e8eef3;
 }
 .hk__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   border: 0;
   background: transparent;
   padding: 0.65rem 0.9rem;

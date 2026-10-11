@@ -529,6 +529,7 @@ function selectCategory(id: string | null) {
       <div class="rooms__toolbar">
         <p>{{ t('hotel.rooms.locationHint') }}</p>
         <button type="button" class="ui-btn ui-btn--primary" @click="openCreate">
+          <AppIcon name="plus" :size="16" />
           {{ t('hotel.rooms.createTitle') }}
         </button>
       </div>
@@ -855,6 +856,7 @@ function selectCategory(id: string | null) {
               <p>{{ t('hotel.rooms.photosHint') }}</p>
             </div>
             <button type="button" class="btn-secondary" @click="galleryOpen = true">
+              <AppIcon name="plus" :size="16" />
               {{ t('hotel.rooms.addFromGallery') }}
             </button>
           </div>
@@ -928,8 +930,8 @@ function selectCategory(id: string | null) {
         </section>
 
         <div class="rooms__actions">
-          <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="closeForm"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -950,7 +952,7 @@ function selectCategory(id: string | null) {
       </div>
       <p v-else class="rooms__muted">{{ t('hotel.rooms.noPhotosHint') }}</p>
       <div class="rooms__actions">
-        <button type="button" class="btn-primary" @click="galleryOpen = false">{{ t('common.ok') }}</button>
+        <button type="button" class="btn-primary" @click="galleryOpen = false"><AppIcon name="check" :size="16" /> {{ t('common.ok') }}</button>
       </div>
     </AppModal>
   </HotelChrome>

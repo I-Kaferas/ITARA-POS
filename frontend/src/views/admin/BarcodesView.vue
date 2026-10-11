@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage, getStoreId } from '../../api/client'
 import PageFrame from '../../components/layout/PageFrame.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
+import AppIcon from '../../components/ui/AppIcon.vue'
 
 type Hit = { id?: string; barcode: string; type?: string; product_id?: string; label?: string }
 const { t } = useI18n()
@@ -93,7 +94,7 @@ function printCode(value: string, label = '') {
           </select>
           <button class="btn-primary" @click="generate">{{ t('desk.generate') }}</button>
         </div>
-        <p v-if="generated" class="mt-3 font-mono text-lg">{{ generated }} <button class="btn-secondary" @click="printCode(generated)">{{ t('desk.print') }}</button></p>
+        <p v-if="generated" class="mt-3 font-mono text-lg">{{ generated }} <button class="btn-secondary" @click="printCode(generated)"><AppIcon name="device-printer" :size="16" /> {{ t('desk.print') }}</button></p>
       </section>
 
       <section class="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
@@ -105,7 +106,7 @@ function printCode(value: string, label = '') {
             <tr v-for="item in (results.length ? results : catalog)" :key="item.barcode">
               <td class="px-2 py-2 font-mono">{{ item.barcode }}</td>
               <td class="px-2 py-2 text-slate-500">{{ item.type }}</td>
-              <td class="px-2 py-2 text-right"><button class="text-brand-600" @click="printCode(item.barcode)">{{ t('desk.print') }}</button></td>
+              <td class="px-2 py-2 text-right"><button class="text-brand-600" @click="printCode(item.barcode)"><AppIcon name="device-printer" :size="16" /> {{ t('desk.print') }}</button></td>
             </tr>
           </tbody>
         </table>

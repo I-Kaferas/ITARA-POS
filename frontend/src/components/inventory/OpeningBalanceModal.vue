@@ -11,6 +11,7 @@ import { useBackofficeStore } from '../../stores/backoffice'
 import type { OpeningLine, Product, Warehouse } from '../../types'
 import { isStockableProduct } from '../../utils/product'
 import { formatMoney, parseMoneyInput } from '../../utils/money'
+import AppIcon from '../ui/AppIcon.vue'
 
 type SaleUnit = { id: string; name: string; volume_ml: number; is_base?: boolean }
 
@@ -212,7 +213,7 @@ async function submit() {
         <p class="text-slate-500">{{ t('inventory.stockValue') }} : {{ formatMoney(line.line_value) }}</p>
       </div>
       <div class="app-modal__actions">
-        <button type="button" class="btn-primary" @click="emit('close')">{{ t('common.ok') }}</button>
+        <button type="button" class="btn-primary" @click="emit('close')"><AppIcon name="check" :size="16" /> {{ t('common.ok') }}</button>
       </div>
     </div>
 
@@ -278,8 +279,8 @@ async function submit() {
       <p class="text-xs text-slate-500">{{ t('inventory.openingOnce') }}</p>
       <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
       <div class="app-modal__actions">
-        <button type="button" class="btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
-        <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !selectedIds.length">{{ t('inventory.validateOpening') }}</button>
+        <button type="button" class="btn-secondary" @click="emit('close')"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+        <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !selectedIds.length"><AppIcon name="eye" :size="16" /> {{ t('inventory.validateOpening') }}</button>
       </div>
     </form>
   </AppModal>

@@ -5,6 +5,7 @@ import { api, extractApiErrorMessage } from '../../../api/client'
 import Badge from '../../../components/ui/Badge.vue'
 import DataTableShell from '../../../components/ui/DataTableShell.vue'
 import { formatDateTime } from '../../../utils/format'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type Backup = {
   id: string
@@ -282,7 +283,7 @@ onMounted(load)
               <button v-if="row.status === 'completed'" class="btn-secondary" type="button" :disabled="busy" @click="verifyBackup(row.id)">{{ t('platform.backups.verify') }}</button>
               <button v-if="row.status === 'completed'" class="btn-secondary" type="button" :disabled="busy" @click="dryRun(row.id)">{{ t('platform.backups.drill') }}</button>
               <button v-if="row.status === 'completed'" class="btn-secondary" type="button" :disabled="busy" @click="liveRestore(row.id)">{{ t('platform.backups.restore') }}</button>
-              <button class="btn-secondary" type="button" :disabled="busy" @click="removeBackup(row.id)">{{ t('common.delete') }}</button>
+              <button class="btn-secondary" type="button" :disabled="busy" @click="removeBackup(row.id)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>

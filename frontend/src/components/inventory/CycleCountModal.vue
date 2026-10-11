@@ -9,6 +9,7 @@ import { useBackofficeStore } from '../../stores/backoffice'
 import type { Category, CycleDashboard, CycleSuggestion, Product, Warehouse } from '../../types'
 import { formatDate } from '../../utils/format'
 import { isStockableProduct } from '../../utils/product'
+import AppIcon from '../ui/AppIcon.vue'
 
 const props = defineProps<{
   open: boolean
@@ -312,7 +313,7 @@ async function generate() {
       </div>
 
       <div class="app-modal__actions">
-        <button type="button" class="btn-secondary" @click="emit('close')">{{ t('common.cancel') }}</button>
+        <button type="button" class="btn-secondary" @click="emit('close')"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
         <button type="button" class="btn-secondary" :class="{ 'is-busy': saving }" :disabled="saving || !form.warehouse_id" @click="generate">{{ t('inventory.generateCycle') }}</button>
         <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !form.warehouse_id">
           {{ t('inventory.planCycle') }}<template v-if="selectedIds.length"> ({{ selectedIds.length }})</template>

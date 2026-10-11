@@ -10,6 +10,7 @@ import type { Product, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -80,7 +81,7 @@ async function save() {
           <option v-for="p in products" :key="p.id" :value="p.id">{{ p.sku }} — {{ p.name }}</option>
         </select>
       </div>
-      <button class="btn-primary" :disabled="!productId" @click="openCreate">+ {{ t('inventory.addBatch') }}</button>
+      <button class="btn-primary" :disabled="!productId" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.addBatch') }}</button>
     </div>
 
     <ModuleFilters v-model="filters" class="mb-4" :show-period="false" show-search />
@@ -125,8 +126,8 @@ async function save() {
         </div>
         <div><FieldLabel icon="calendar">{{ t('inventory.expires') }}</FieldLabel><input v-model="form.expires_at" type="date" class="field w-full" /></div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

@@ -60,7 +60,7 @@ async function importFile() {
           </select>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="btn-primary" @click="store.exportProducts(catalogId || undefined)">{{ t('importExport.exportCsv') }}</button>
+          <button class="btn-primary" @click="store.exportProducts(catalogId || undefined)"><AppIcon name="download" :size="16" /> {{ t('importExport.exportCsv') }}</button>
           <button class="btn-secondary" @click="store.downloadProductTemplate()">{{ t('importExport.template') }}</button>
         </div>
       </div>
@@ -86,6 +86,7 @@ async function importFile() {
           </label>
         </div>
         <button class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !file || !catalogId" @click="importFile">
+          <AppIcon name="upload" :size="16" />
           {{ t('importExport.importCsv') }}
         </button>
 

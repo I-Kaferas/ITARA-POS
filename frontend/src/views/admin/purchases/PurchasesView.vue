@@ -13,6 +13,7 @@ import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -254,7 +255,7 @@ function invoiceStatusActive(status: string): boolean {
           <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
             {{ filteredOrders.length }}
           </span>
-          <button class="btn-primary-sm" @click="openCreateOrder">+ {{ t('purchases.newOrder') }}</button>
+          <button class="btn-primary-sm" @click="openCreateOrder"><AppIcon name="plus" :size="16" /> {{ t('purchases.newOrder') }}</button>
         </div>
       </div>
       <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -366,12 +367,12 @@ function invoiceStatusActive(status: string): boolean {
             </select>
             <input v-model.number="line.quantity" type="number" min="1" required class="field w-16" placeholder="Qté" />
             <input v-model.number="line.unit_cost" type="number" min="0" required class="field w-24" placeholder="Coût" />
-            <button type="button" class="text-sm text-red-600" @click="removePoLine(idx)">{{ t('inventory.removeLine') }}</button>
+            <button type="button" class="text-sm text-red-600" @click="removePoLine(idx)"><AppIcon name="trash" :size="16" /> {{ t('inventory.removeLine') }}</button>
           </div>
-          <button type="button" class="text-sm text-brand-600" @click="addPoLine">+ {{ t('inventory.addLine') }}</button>
+          <button type="button" class="text-sm text-brand-600" @click="addPoLine"><AppIcon name="plus" :size="16" /> {{ t('inventory.addLine') }}</button>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showCreateModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showCreateModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('inventory.saveEntry') }}</button>
         </div>
       </form>
@@ -404,8 +405,8 @@ function invoiceStatusActive(status: string): boolean {
           <input v-model="payForm.reference" class="field" />
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showPayModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('purchases.pay') }}</button>
+          <button type="button" class="btn-secondary" @click="showPayModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="card" :size="16" /> {{ t('purchases.pay') }}</button>
         </div>
       </form>
     </AppModal>

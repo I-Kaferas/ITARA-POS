@@ -409,7 +409,7 @@ function openAssign(user: TenantUser) {
             :description="t('org.noMatch')"
           >
             <div class="empty-state__actions">
-              <button class="btn-secondary" @click="clearFilters">{{ t('org.clearFilters') }}</button>
+              <button class="btn-secondary" @click="clearFilters"><AppIcon name="filter" :size="16" /> {{ t('org.clearFilters') }}</button>
             </div>
           </EmptyState>
 
@@ -480,13 +480,14 @@ function openAssign(user: TenantUser) {
             </header>
 
             <div class="users__actions">
-              <button class="btn-secondary" @click="openEditUser(selectedUser)">{{ t('common.edit') }}</button>
+              <button class="btn-secondary" @click="openEditUser(selectedUser)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
               <button class="btn-secondary" @click="showPasswordModal = true; passwordForm = ''">{{ t('org.resetPassword') }}</button>
-              <button class="btn-secondary" @click="revokeSessions(selectedUser)">{{ t('org.revokeSessions') }}</button>
+              <button class="btn-secondary" @click="revokeSessions(selectedUser)"><AppIcon name="trash" :size="16" /> {{ t('org.revokeSessions') }}</button>
               <button class="btn-secondary" :disabled="selectedUser.id === currentUserId" @click="toggleActive(selectedUser)">
+                <AppIcon name="check" :size="16" />
                 {{ selectedUser.is_active === false ? t('org.activate') : t('org.deactivate') }}
               </button>
-              <button class="btn-danger" :disabled="selectedUser.id === currentUserId" @click="removeUser(selectedUser)">{{ t('common.delete') }}</button>
+              <button class="btn-danger" :disabled="selectedUser.id === currentUserId" @click="removeUser(selectedUser)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
             </div>
             <p v-if="selectedUser.id === currentUserId" class="muted">{{ t('org.cannotManageSelf') }}</p>
 
@@ -627,8 +628,8 @@ function openAssign(user: TenantUser) {
         </template>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="userForm.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showUserModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showUserModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -650,8 +651,8 @@ function openAssign(user: TenantUser) {
           </select>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showRoleModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showRoleModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -663,8 +664,8 @@ function openAssign(user: TenantUser) {
           <input v-model="passwordForm" type="password" required minlength="8" class="field" />
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showPasswordModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showPasswordModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
@@ -26,6 +27,8 @@ const saveNotice = ref('')
 const catalogId = ref((route.query.catalogId as string) ?? '')
 const saving = ref(false)
 const uploading = ref(false)
+const galleryLoading = ref(false)
+const galleryError = ref('')
 const activeTab = ref('general')
 
 const form = ref({
@@ -76,13 +79,13 @@ function setNature(kind: 'quantifiable' | 'service') {
 
 const tabs = computed(() => {
   const base = [
-    { id: 'general', label: t('products.tabs.general') },
-    { id: 'pricing', label: t('products.tabs.pricing') },
-    { id: 'barcodes', label: t('products.tabs.barcodes') },
+    { id: 'general', label: t('products.tabs.general'), icon: 'tag' },
+    { id: 'pricing', label: t('products.tabs.pricing'), icon: 'coins' },
+    { id: 'barcodes', label: t('products.tabs.barcodes'), icon: 'tag' },
   ]
-  if (form.value.product_type === 'variant') base.push({ id: 'variants', label: t('products.tabs.variants') })
-  if (form.value.product_type === 'bundle') base.push({ id: 'bundle', label: t('products.tabs.bundle') })
-  if (isEdit.value) base.push({ id: 'gallery', label: t('products.gallery') })
+  if (form.value.product_type === 'variant') base.push({ id: 'variants', label: t('products.tabs.variants'), icon: 'layers' })
+  if (form.value.product_type === 'bundle') base.push({ id: 'bundle', label: t('products.tabs.bundle'), icon: 'package' })
+  if (isEdit.value) base.push({ id: 'gallery', label: t('products.gallery'), icon: 'catalog' })
   return base
 })
 
@@ -144,6 +147,7 @@ onMounted(async () => {
     barcodes.value = product.value.barcodes ?? []
     prices.value = (product.value.prices ?? []).map(p => ({ ...p, amount: p.amount / 100 }))
     images.value = product.value.images ?? []
+    if (activeTab.value === 'gallery') await loadCatalogGallery()
   }
 })
 
@@ -270,33 +274,98 @@ async function save() {
   }
 }
 
-async function onFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file || !product.value) return
-  uploading.value = true
+const productPhoto = computed(() => images.value.find((image) => image.is_primary) ?? images.value[0] ?? null)
+
+const catalogPhotos = computed(() => {
+  const currentId = product.value?.id
+  const galleryNames = new Set(
+    store.galleryImages.map((image) => image.original_filename).filter((name): name is string => Boolean(name)),
+  )
+  const gallery = store.galleryImages.map((image) => ({
+    key: `gallery-${image.id}`,
+    url: image.cdn_url,
+    selected: image.product_id === currentId,
+    source: 'gallery' as const,
+    id: image.id,
+  }))
+  const extras = allProducts.value.flatMap((item) => {
+    if (item.id === currentId) return []
+    const image = item.images?.find((row) => row.is_primary) ?? item.images?.[0]
+    if (!image?.cdn_url) return []
+    if (image.original_filename && galleryNames.has(image.original_filename)) return []
+    return [{
+      key: `product-${image.id}`,
+      url: image.cdn_url,
+      selected: false,
+      source: 'product' as const,
+      id: image.id,
+    }]
+  })
+  return [...gallery, ...extras]
+})
+
+async function loadCatalogGallery() {
+  if (!product.value) return
+  galleryError.value = ''
+  galleryLoading.value = true
   try {
-    await store.uploadProductImage(product.value.id, file, images.value.length === 0)
+    await Promise.all([
+      store.loadGalleryImages(catalogId.value || product.value.catalog_id),
+      store.loadProducts(catalogId.value || product.value.catalog_id).then((rows) => {
+        allProducts.value = rows
+      }),
+    ])
+    await claimMatchingPhoto()
+  } catch (error) {
+    galleryError.value = extractApiErrorMessage(error, t('products.galleryImportFailed'))
+  } finally {
+    galleryLoading.value = false
+  }
+}
+
+async function claimMatchingPhoto() {
+  const photo = images.value.find((image) => image.is_primary) ?? images.value[0]
+  if (!photo?.original_filename || !product.value) return
+  const match = store.galleryImages.find((image) => image.original_filename === photo.original_filename && !image.product_id)
+  if (!match) return
+  await store.attachProductImageFromGallery(product.value.id, match.id, true)
+  product.value = await store.loadProduct(product.value.id)
+  images.value = product.value.images ?? []
+  await store.loadGalleryImages(catalogId.value || product.value.catalog_id)
+}
+
+async function pickCatalogPhoto(photo: { source: 'gallery' | 'product'; id: string; selected: boolean }) {
+  if (!product.value || uploading.value || photo.selected) return
+  uploading.value = true
+  galleryError.value = ''
+  try {
+    if (photo.source === 'gallery') {
+      await store.attachProductImageFromGallery(product.value.id, photo.id, true)
+    } else {
+      await store.attachProductImageFromProduct(product.value.id, photo.id)
+    }
     product.value = await store.loadProduct(product.value.id)
     images.value = product.value.images ?? []
-    input.value = ''
+    await loadCatalogGallery()
+  } catch (error) {
+    galleryError.value = extractApiErrorMessage(error, t('products.galleryImportFailed'))
   } finally {
     uploading.value = false
   }
 }
 
-async function removeImage(id: string) {
-  if (!product.value) return
-  await store.deleteProductImage(id)
-  product.value = await store.loadProduct(product.value.id)
-  images.value = product.value.images ?? []
-}
+watch(activeTab, (tab) => {
+  if (tab === 'gallery') void loadCatalogGallery()
+})
 
-async function makePrimary(id: string) {
+async function removeImage() {
   if (!product.value) return
-  await store.setPrimaryImage(id)
+  for (const image of [...images.value]) {
+    await store.deleteProductImage(image.id)
+  }
   product.value = await store.loadProduct(product.value.id)
   images.value = product.value.images ?? []
+  await store.loadGalleryImages(catalogId.value || product.value.catalog_id)
 }
 </script>
 
@@ -315,6 +384,7 @@ async function makePrimary(id: string) {
         :aria-selected="activeTab === tab.id"
         @click="activeTab = tab.id"
       >
+        <AppIcon v-if="tab.icon" :name="tab.icon" :size="15" />
         {{ tab.label }}
       </button>
     </nav>
@@ -432,7 +502,7 @@ async function makePrimary(id: string) {
         </div>
         <div class="flex items-center justify-between">
           <h3 class="font-medium">{{ t('products.priceTiers') }}</h3>
-          <button type="button" class="text-sm text-brand-600" @click="addPrice">+ {{ t('products.addPrice') }}</button>
+          <button type="button" class="text-sm text-brand-600" @click="addPrice"><AppIcon name="plus" :size="16" /> {{ t('products.addPrice') }}</button>
         </div>
         <div v-for="(price, i) in prices" :key="i" class="line-card">
           <select v-model="price.price_type" class="field">
@@ -449,7 +519,7 @@ async function makePrimary(id: string) {
             <option v-if="!store.currencies.length" :value="getAppCurrency()">{{ getAppCurrency() }}</option>
           </select>
           <input v-model.number="price.min_quantity" type="number" min="1" class="field" :placeholder="t('common.minQty')" />
-          <button type="button" class="btn-danger btn-sm" @click="prices.splice(i, 1)">{{ t('common.delete') }}</button>
+          <button type="button" class="btn-danger btn-sm" @click="prices.splice(i, 1)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
         </div>
       </section>
 
@@ -457,7 +527,7 @@ async function makePrimary(id: string) {
       <section v-show="activeTab === 'barcodes'" class="form-section">
         <div class="flex justify-between items-center">
           <h3 class="font-medium">{{ t('products.tabs.barcodes') }}</h3>
-          <button type="button" class="text-sm text-brand-600" @click="addBarcode">+ {{ t('products.addBarcode') }}</button>
+          <button type="button" class="text-sm text-brand-600" @click="addBarcode"><AppIcon name="plus" :size="16" /> {{ t('products.addBarcode') }}</button>
         </div>
         <div v-for="(bc, i) in barcodes" :key="i" class="line-card">
           <input v-model="bc.barcode" class="field sm:col-span-2" :placeholder="t('products.barcode')" />
@@ -467,7 +537,7 @@ async function makePrimary(id: string) {
           <button type="button" class="btn-secondary text-sm" @click="generateBarcodeForRow(i)">{{ t('products.generateBarcode') }}</button>
           <div class="flex items-center gap-2">
             <label class="flex items-center gap-1 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="bc.is_primary" type="checkbox" class="rounded" />★</label>
-            <button v-if="bc.id" type="button" class="text-sm text-brand-600" @click="printBarcodeRow(bc)">{{ t('products.printBarcode') }}</button>
+            <button v-if="bc.id" type="button" class="text-sm text-brand-600" @click="printBarcodeRow(bc)"><AppIcon name="device-printer" :size="16" /> {{ t('products.printBarcode') }}</button>
             <button type="button" class="row-remove" @click="barcodes.splice(i, 1)">✕</button>
           </div>
         </div>
@@ -480,7 +550,7 @@ async function makePrimary(id: string) {
             <h3 class="font-medium">{{ t('products.tabs.variants') }}</h3>
             <p class="m-0 mt-1 text-xs text-slate-500">{{ t('products.variantsHint') }}</p>
           </div>
-          <button type="button" class="shrink-0 text-sm text-brand-600" @click="addVariant">+ {{ t('products.addVariant') }}</button>
+          <button type="button" class="shrink-0 text-sm text-brand-600" @click="addVariant"><AppIcon name="plus" :size="16" /> {{ t('products.addVariant') }}</button>
         </div>
         <div v-for="(v, i) in variants" :key="i" class="line-card line-card--stack">
           <div class="grid gap-3 sm:grid-cols-3">
@@ -497,8 +567,8 @@ async function makePrimary(id: string) {
               </select>
             </div>
           </div>
-          <button type="button" class="text-sm text-brand-600" @click="(v.barcodes ??= []).push({ barcode: '', type: 'internal', is_primary: true })">+ {{ t('products.addBarcode') }}</button>
-          <button type="button" class="btn-danger btn-sm" @click="variants.splice(i, 1)">{{ t('common.delete') }}</button>
+          <button type="button" class="text-sm text-brand-600" @click="(v.barcodes ??= []).push({ barcode: '', type: 'internal', is_primary: true })"><AppIcon name="plus" :size="16" /> {{ t('products.addBarcode') }}</button>
+          <button type="button" class="btn-danger btn-sm" @click="variants.splice(i, 1)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
         </div>
       </section>
 
@@ -506,7 +576,7 @@ async function makePrimary(id: string) {
       <section v-show="activeTab === 'bundle'" class="form-section">
         <div class="flex justify-between">
           <h3 class="font-medium">{{ t('products.tabs.bundle') }}</h3>
-          <button type="button" class="text-sm text-brand-600" @click="addBundleItem">+ {{ t('products.addComponent') }}</button>
+          <button type="button" class="text-sm text-brand-600" @click="addBundleItem"><AppIcon name="plus" :size="16" /> {{ t('products.addComponent') }}</button>
         </div>
         <div v-for="(item, i) in bundleItems" :key="i" class="line-card">
           <select v-model="item.component_product_id" class="field sm:col-span-2" required>
@@ -524,18 +594,37 @@ async function makePrimary(id: string) {
       <section v-show="activeTab === 'gallery'" class="form-section">
         <p v-if="!product" class="form-section__hint">{{ t('products.galleryAfterSave') }}</p>
         <template v-else>
-          <label class="dropzone">
-            <span class="dropzone__title">{{ uploading ? t('common.saving') : t('products.uploadImage') }}</span>
-            <span class="dropzone__hint">{{ t('products.image') }}</span>
-            <input type="file" accept="image/*" class="sr-only" @change="onFileChange" />
-          </label>
-          <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div v-for="image in images" :key="image.id" class="group relative overflow-hidden rounded-lg ring-1 ring-slate-200">
-              <img :src="image.cdn_url" class="aspect-square w-full object-cover" alt="" />
-              <div class="absolute inset-x-0 bottom-0 flex gap-1 bg-black/60 p-1 opacity-0 transition group-hover:opacity-100">
-                <button type="button" class="flex-1 rounded bg-white/90 px-1 py-0.5 text-xs" @click="makePrimary(image.id)">{{ image.is_primary ? '★' : '☆' }}</button>
-                <button type="button" class="flex-1 rounded bg-red-500 px-1 py-0.5 text-xs text-white" @click="removeImage(image.id)">✕</button>
-              </div>
+          <div class="gallery-block">
+            <h3>{{ t('products.pickFromGallery') }}</h3>
+            <p class="gallery-block__hint">{{ t('products.galleryPickHint') }}</p>
+            <p v-if="galleryLoading" class="gallery-pick__empty">{{ t('common.loading') }}</p>
+            <p v-else-if="galleryError" class="form-alert form-alert--error" role="alert">{{ galleryError }}</p>
+            <div v-else-if="catalogPhotos.length" class="gallery-pick">
+              <button
+                v-for="photo in catalogPhotos"
+                :key="photo.key"
+                type="button"
+                class="gallery-pick__item"
+                :class="{ 'is-on': photo.selected }"
+                :disabled="uploading || photo.selected"
+                @click="pickCatalogPhoto(photo)"
+              >
+                <img :src="photo.url" alt="" />
+              </button>
+            </div>
+            <p v-else class="gallery-pick__empty">
+              {{ t('products.galleryEmpty') }}
+              <RouterLink to="/admin/catalog/gallery">{{ t('products.openCatalogGallery') }}</RouterLink>
+            </p>
+          </div>
+          <div class="gallery-block">
+            <h3>{{ t('products.productPhotos') }}</h3>
+            <p v-if="!productPhoto" class="gallery-pick__empty">{{ t('products.noProductPhotos') }}</p>
+            <div v-else class="product-photo">
+              <img :src="productPhoto.cdn_url" alt="" />
+              <button type="button" class="btn-danger btn-sm" @click="removeImage">
+                <AppIcon name="trash" :size="16" /> {{ t('common.delete') }}
+              </button>
             </div>
           </div>
         </template>
@@ -544,8 +633,9 @@ async function makePrimary(id: string) {
       <p v-if="saveError" class="form-alert form-alert--error" role="alert">{{ saveError }}</p>
       <p v-if="saveNotice" class="form-alert form-alert--success" role="status">{{ saveNotice }}</p>
       <div class="form-actions">
-        <button type="button" class="btn-secondary" @click="router.push({ name: 'products' })">{{ t('common.cancel') }}</button>
+        <button type="button" class="btn-secondary" @click="router.push({ name: 'products' })"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
         <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">
+          <AppIcon name="check" :size="16" />
           {{ saving ? t('common.saving') : (isEdit ? t('common.saveChanges') : t('common.save')) }}
         </button>
       </div>
@@ -587,6 +677,75 @@ async function makePrimary(id: string) {
   background: var(--color-brand-50);
   border-color: var(--color-brand-600);
   color: var(--color-ink-brand, var(--color-brand-700));}
+
+.gallery-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.65rem;
+  max-height: 24rem;
+  overflow: auto;
+}
+
+.gallery-pick__item {
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.gallery-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.gallery-block h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.gallery-block__hint,
+.gallery-pick__empty {
+  margin: 0;
+}
+
+.gallery-pick__item.is-on {
+  outline: 2px solid var(--color-brand-700, #12243c);
+}
+
+.product-photo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.65rem;
+  max-width: 16rem;
+}
+
+.product-photo img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.gallery-pick__item img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.gallery-pick__empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
 
 .sr-only {
   position: absolute;

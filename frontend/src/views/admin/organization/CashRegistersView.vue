@@ -316,7 +316,8 @@ const varianceClass = computed(() => {
           </select>
         </div>
         <button class="btn-primary" :disabled="!storeId" @click="openCreate">
-          + {{ t('registers.add') }}
+          <AppIcon name="plus" :size="16" />
+          {{ t('registers.add') }}
         </button>
       </div>
 
@@ -349,8 +350,8 @@ const varianceClass = computed(() => {
               <td class="px-4 py-3"><StatusBadge :active="register.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
                 <button class="text-brand-600" @click="openSessionPanel(register)">{{ t('registers.manage') }}</button>
-                <button class="text-brand-600" @click="openEdit(register)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(register)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(register)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(register)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -384,8 +385,8 @@ const varianceClass = computed(() => {
           {{ t('products.active') }}
         </label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showRegisterModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showRegisterModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -423,7 +424,7 @@ const varianceClass = computed(() => {
               <p class="font-semibold" :class="varianceClass">{{ format(differenceAmount ?? 0) }}</p>
             </div>
           </div>
-          <button type="button" class="btn-secondary w-full" @click="showSessionModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary w-full" @click="showSessionModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
         </div>
 
         <!-- Closed register: open session -->
@@ -440,6 +441,7 @@ const varianceClass = computed(() => {
             <textarea v-model="openForm.opening_notes" rows="2" class="field w-full" />
           </div>
           <button class="btn-primary w-full" :disabled="sessionBusy" @click="submitOpenSession">
+            <AppIcon name="eye" :size="16" />
             {{ t('registers.openSession') }}
           </button>
         </div>
@@ -531,8 +533,8 @@ const varianceClass = computed(() => {
           <input v-model="movementForm.description" class="field w-full" />
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showMovementModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="sessionBusy">{{ t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showMovementModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :disabled="sessionBusy"><AppIcon name="check" :size="16" /> {{ t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -563,7 +565,7 @@ const varianceClass = computed(() => {
           <textarea v-model="closeForm.closing_notes" rows="2" class="field w-full" />
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showCloseModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showCloseModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="sessionBusy">{{ t('registers.closeSession') }}</button>
         </div>
       </form>
@@ -601,7 +603,7 @@ const varianceClass = computed(() => {
           <textarea v-model="countForm.notes" rows="2" class="field w-full" />
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showCountModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showCountModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :disabled="sessionBusy">{{ t('registers.cashCount') }}</button>
         </div>
       </form>

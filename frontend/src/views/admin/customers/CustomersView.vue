@@ -6,6 +6,7 @@ import { useConfirm } from '../../../composables/useConfirm'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -26,6 +27,11 @@ const editing = ref<Customer | null>(null)
 const saving = ref(false)
 const saveError = ref('')
 const activeTab = ref<FormTab>('general')
+const customerTabs: { id: FormTab; icon: string }[] = [
+  { id: 'general', icon: 'account' },
+  { id: 'financial', icon: 'coins' },
+  { id: 'notes', icon: 'note' },
+]
 const form = ref(emptyForm())
 
 function emptyForm() {
@@ -181,7 +187,7 @@ async function remove(item: Customer) {
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
-        <button class="btn-primary" @click="openCreate">+ {{ t('customers.add') }}</button>
+        <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('customers.add') }}</button>
       </div>
 
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -204,8 +210,8 @@ async function remove(item: Customer) {
               <td class="px-4 py-3 text-slate-600">{{ item.email ?? '—' }}</td>
               <td class="px-4 py-3"><StatusBadge :active="item.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2" @click.stop>
-                <button class="text-brand-600" @click="openEdit(item)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(item)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(item)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(item)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -225,16 +231,17 @@ async function remove(item: Customer) {
       <form class="customer-form" novalidate @submit.prevent="save">
         <div class="form-tabs" role="tablist">
           <button
-            v-for="tab in (['general', 'financial', 'notes'] as const)"
-            :key="tab"
+            v-for="tab in customerTabs"
+            :key="tab.id"
             type="button"
             role="tab"
             class="form-tabs__btn"
-            :class="{ 'form-tabs__btn--active': activeTab === tab }"
-            :aria-selected="activeTab === tab"
-            @click="activeTab = tab"
+            :class="{ 'form-tabs__btn--active': activeTab === tab.id }"
+            :aria-selected="activeTab === tab.id"
+            @click="activeTab = tab.id"
           >
-            {{ t(`customers.tabs.${tab}`) }}
+            <AppIcon :name="tab.icon" :size="15" />
+            {{ t(`customers.tabs.${tab.id}`) }}
           </button>
         </div>
 
@@ -374,8 +381,8 @@ async function remove(item: Customer) {
 
         <p v-if="saveError" class="save-error">{{ saveError }}</p>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : (editing ? t('common.saveChanges') : t('common.save')) }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : (editing ? t('common.saveChanges') : t('common.save')) }}</button>
         </div>
       </form>
     </AppModal>

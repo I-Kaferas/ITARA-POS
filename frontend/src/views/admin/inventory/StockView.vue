@@ -15,6 +15,7 @@ import type { InventoryMovement, Product, StockBalance, Warehouse } from '../../
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate } from '../../../utils/format'
 import { formatMoney } from '../../../utils/money'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -217,7 +218,7 @@ function clearHistoryDates() {
             <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.name }} ({{ wh.code }})</option>
           </select>
         </div>
-        <button class="btn-primary" :disabled="!warehouseId" @click="openCreate">+ {{ t('inventory.newMovement') }}</button>
+        <button class="btn-primary" :disabled="!warehouseId" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.newMovement') }}</button>
       </div>
 
       <p class="m-0 text-xs text-slate-500">{{ t('inventory.movementRule') }}</p>
@@ -360,7 +361,7 @@ function clearHistoryDates() {
           </table>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showHistory = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showHistory = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
         </div>
       </div>
     </AppModal>
@@ -388,8 +389,8 @@ function clearHistoryDates() {
           <textarea v-model="form.notes" rows="2" class="field w-full" />
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

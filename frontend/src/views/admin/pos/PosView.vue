@@ -7,19 +7,15 @@ import PosCartPanel from '../../../components/pos/PosCartPanel.vue'
 import PosCategorySidebar from '../../../components/pos/PosCategorySidebar.vue'
 import PosFooterPanel from '../../../components/pos/PosFooterPanel.vue'
 import PosProductGrid from '../../../components/pos/PosProductGrid.vue'
-import PosReturnSheet from '../../../components/pos/PosReturnSheet.vue'
 import PosSearchBar from '../../../components/pos/PosSearchBar.vue'
-import PosSessionGate from '../../../components/pos/PosSessionGate.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
-import { openPrintWindow, printSaleDocument } from '../../../utils/printSaleDocument'
-import { printZReport, type ZReportPayload } from '../../../utils/printZReport'
+import { printSaleDocument } from '../../../utils/printSaleDocument'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { useContextStore } from '../../../stores/context'
 import { usePosStore } from '../../../stores/pos'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { formatMoney } from '../../../utils/money'
-import { api } from '../../../api/client'
 import type { PosProduct } from '../../../types/pos'
 import { availableStock, needsSaleQuantity } from '../../../utils/product'
 
@@ -29,10 +25,6 @@ const router = useRouter()
 const context = useContextStore()
 const pos = usePosStore()
 
-const showClose = ref(false)
-const showOpen = ref(false)
-const showReturn = ref(false)
-const drawerAmount = ref('')
 const searchQuery = ref('')
 const selectedCategoryId = ref<string | null>(null)
 const footerRef = ref<{
@@ -485,67 +477,6 @@ function onScanKey(event: KeyboardEvent) {
   scanTimer = setTimeout(() => { scanBuffer = '' }, 80)
 }
 
-async function openShift(payload: { pin: string; registerId: string; opening: number }) {
-  if (!context.currentStoreId) return
-  try {
-    await pos.openShiftWithPin(context.currentStoreId, payload.pin, payload.registerId, payload.opening)
-    showOpen.value = false
-    pos.setStatus(t('pos.shiftOpened'))
-  } catch (e) {
-    pos.setStatus(e instanceof Error ? e.message : 'PIN refusé', true)
-  }
-}
-
-async function moveCash(type: 'cash_in' | 'cash_out') {
-  const amount = Math.round((Number(drawerAmount.value) || 0) * 100)
-  if (amount < 1) return
-  try {
-    await pos.recordDrawerMovement(type, amount)
-    drawerAmount.value = ''
-    pos.setStatus(type === 'cash_in' ? t('pos.cashIn') : t('pos.cashOut'))
-  } catch (e) {
-    pos.setStatus(e instanceof Error ? e.message : 'Mouvement refusé', true)
-  }
-}
-
-async function closeShift(payload: { pin: string; counted: number; notes: string; reason: string }) {
-  if (!context.currentStoreId) return
-  try {
-    const report = await pos.closeShiftWithPin(context.currentStoreId, payload.pin, payload.counted, payload.notes, payload.reason)
-    if (report) {
-      const popup = openPrintWindow()
-      printZReport({
-        ...(report as ZReportPayload),
-        currency: pos.totals.currency,
-      }, t('pos.zReport'), popup)
-    }
-    showClose.value = false
-    pos.setStatus(t('pos.shiftClosed'))
-  } catch (e) {
-    pos.setStatus(e instanceof Error ? e.message : 'Clôture refusée', true)
-  }
-}
-
-async function redeemLoyalty() {
-  if (!pos.customer) return
-  const res = await api.get<{ data: { points: number; reward_per_point: number } }>(`/customers/${pos.customer.id}/loyalty`)
-  const available = res.data.points ?? 0
-  const perPoint = res.data.reward_per_point || 100
-  const usable = Math.min(available, Math.floor(pos.totals.grand_total / perPoint))
-  if (usable < 1) {
-    pos.setStatus(available < 1 ? t('pos.loyaltyNone') : t('pos.loyaltyTooSmall'), true)
-    return
-  }
-  pos.applyLoyaltyReward(usable, usable * perPoint)
-  pos.setStatus(t('pos.loyaltyApplied', { points: usable, value: formatMoney(usable * perPoint) }))
-}
-
-function onReturnDone(message: string) {
-  showReturn.value = false
-  pos.setStatus(message)
-  if (context.currentStoreId) void pos.loadSession(context.currentStoreId)
-}
-
 function formatChange(amount: number) {
   return (amount / 100).toFixed(0)
 }
@@ -567,45 +498,6 @@ onUnmounted(() => {
       </div>
 
       <template v-else>
-        <div class="pos-desk">
-          <span v-if="pos.shift" class="pos-desk__meta">
-            {{ pos.shift.cashier?.name }}
-            · {{ t('pos.shiftSales') }}: {{ Number(pos.shiftSummary?.sales_count ?? 0) }}
-            · {{ formatMoney(Number(pos.shiftSummary?.sales_total ?? 0)) }}
-            · {{ t('pos.theoreticalCash') }}: {{ formatMoney(Number(pos.shiftSummary?.expected_cash ?? 0)) }}
-          </span>
-          <input v-model="drawerAmount" class="pos-desk__amount" type="number" min="0" step="0.01" :placeholder="t('pos.amount')" />
-          <button type="button" :disabled="!pos.shift" @click="moveCash('cash_in')">{{ t('pos.cashIn') }}</button>
-          <button type="button" :disabled="!pos.shift" @click="moveCash('cash_out')">{{ t('pos.cashOut') }}</button>
-          <select v-model="pos.priceMode">
-            <option value="retail">{{ t('pos.retail') }}</option>
-            <option value="wholesale">{{ t('pos.wholesale') }}</option>
-          </select>
-          <select v-model="pos.currencyCode">
-            <option v-for="item in pos.currencies" :key="item.code" :value="item.code">{{ item.code }}</option>
-          </select>
-          <button type="button" @click="kickDrawer">{{ t('pos.drawer') }}</button>
-          <button type="button" :disabled="!pos.customer" @click="redeemLoyalty">{{ t('pos.loyalty') }}</button>
-          <button type="button" :disabled="!pos.shift" @click="showReturn = !showReturn">{{ t('pos.refund') }}</button>
-          <button v-if="!pos.shift" type="button" @click="showOpen = true">{{ t('pos.openShift') }}</button>
-          <button type="button" :disabled="!pos.shift" @click="showClose = !showClose">{{ t('pos.closeShift') }}</button>
-        </div>
-        <PosSessionGate
-          v-if="showClose && pos.shift"
-          :open="true"
-          :registers="pos.registers"
-          :cashier-name="pos.shift.cashier?.name"
-          :expected-cash="Number(pos.shiftSummary?.expected_cash ?? 0)"
-          @close-shift="closeShift"
-        />
-        <PosReturnSheet
-          v-if="showReturn && context.currentStoreId"
-          :store-id="context.currentStoreId"
-          :cash-register-id="pos.shift?.cash_register_id"
-          @close="showReturn = false"
-          @done="onReturnDone"
-        />
-
         <div v-if="pos.activeTable" class="pos-table-banner">
           <strong>{{ pos.activeTable.name }}</strong>
           <span>{{ t('pointOfSale.tables.status.occupied') }}</span>
@@ -876,15 +768,6 @@ onUnmounted(() => {
           </form>
         </AppModal>
 
-        <PosSessionGate
-          v-if="showOpen && !pos.shift"
-          class="pos-shift-gate"
-          :open="false"
-          :registers="pos.registers"
-          @open-shift="openShift"
-          @dismiss="showOpen = false"
-        />
-
         <div v-if="pos.statusMessage" class="pos-toast" :class="{ 'pos-toast--error': pos.statusIsError }">
           {{ pos.statusMessage }}
         </div>
@@ -906,25 +789,6 @@ onUnmounted(() => {
   overflow: hidden;
   background: var(--color-canvas, #f4f6f9);
 }
-.pos-desk {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.75rem 0;
-  flex-shrink: 0;
-  overflow-x: auto;
-}
-.pos-desk__meta {
-  margin-right: auto;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);}
 .pos-table-banner {
   display: flex;
   align-items: center;
@@ -939,8 +803,6 @@ onUnmounted(() => {
 .pos-table-banner strong {
   font-size: 14px;
 }
-.pos-desk__amount { width: 6.5rem; border: 1px solid #cbd5e1; border-radius: 0.45rem; padding: 0.3rem 0.45rem; }
-.pos-desk select, .pos-desk button { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.35rem 0.65rem; background: var(--color-surface); font-size: 0.8rem;}
 
 .pos-workspace {
   position: relative;
@@ -968,6 +830,13 @@ onUnmounted(() => {
   gap: 0.55rem;
   flex-shrink: 0;
   margin-bottom: 0.7rem;
+  padding: 0.35rem;
+  border: 1px solid color-mix(in srgb, #fff 46%, var(--color-border, #dbe3ea));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent),
+    0 8px 18px rgba(20, 32, 43, 0.04);
 }
 
 .pos-order-mode {
@@ -977,20 +846,49 @@ onUnmounted(() => {
 }
 
 .pos-order-mode__btn {
-  border: 1px solid var(--color-border, #dbe3ea);
+  border: 1px solid color-mix(in srgb, #fff 40%, var(--color-border, #dbe3ea));
   border-radius: 0.75rem;
   padding: 0.7rem 1rem;
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
   color: var(--color-text-secondary, var(--color-text-secondary));
   font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
-  white-space: nowrap;}
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 65%, transparent);
+  transition: background-color 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out, transform 200ms ease-out;
+}
+
+.pos-order-mode__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 6px 14px rgba(20, 32, 43, 0.06);
+}
+
+.pos-order-mode__btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
 
 .pos-order-mode__btn--active {
-  background: var(--color-inverse);
-  border-color: var(--color-inverse);
-  color: #fff;}
+  background-color: var(--color-inverse);
+  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 18%, transparent), transparent 46%);
+  border-color: color-mix(in srgb, #fff 24%, var(--color-inverse));
+  color: #fff;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 32%, transparent);
+}
+
+:global(html[data-theme="dark"]) .pos-toolbar,
+:global(html[data-theme="dark"]) .pos-order-mode__btn {
+  border-color: color-mix(in srgb, #fff 14%, var(--color-border, #2a3a4a));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
+}
+
+:global(html[data-theme="dark"]) .pos-order-mode__btn:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 14%, transparent),
+    0 6px 14px rgba(0, 0, 0, 0.22);
+}
 
 .pos-order-mode__btn:disabled {
   opacity: 0.45;
@@ -1117,12 +1015,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 900px) {
-  .pos-desk__meta {
-    display: none;
-  }
-  .pos-desk__amount {
-    width: 5.25rem;
-  }
   .pos-cart-toggle {
     display: inline-flex;
   }

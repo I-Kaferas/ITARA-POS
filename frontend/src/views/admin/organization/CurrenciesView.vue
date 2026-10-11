@@ -224,6 +224,7 @@ function closeModal() {
             :disabled="!activeCurrencies.length || applyingAppCurrency || !appCurrencyDirty"
             @click="applyAppCurrency"
           >
+            <AppIcon name="check" :size="16" />
             {{ applyingAppCurrency ? t('common.save') : t('org.appCurrencyApply') }}
           </button>
         </div>
@@ -267,8 +268,8 @@ function closeModal() {
               <td class="px-4 py-3">{{ currency.is_default ? '✓' : '—' }}</td>
               <td class="px-4 py-3 text-right space-x-2">
                 <button class="text-slate-600" @click="openHistory(currency)">{{ t('org.rateHistory') }}</button>
-                <button class="text-brand-600" @click="openEdit(currency)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(currency)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(currency)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(currency)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -337,8 +338,8 @@ function closeModal() {
         <p class="text-xs text-slate-500">{{ t('org.defaultCurrencyHint') }}</p>
 
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="closeModal"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

@@ -5,6 +5,7 @@ import AppModal from '../ui/AppModal.vue'
 import LoadingBlock from '../ui/LoadingBlock.vue'
 import { api, extractApiErrorMessage } from '../../api/client'
 import { formatMoney } from '../../utils/money'
+import AppIcon from '../ui/AppIcon.vue'
 
 export interface MergeableSaleSummary {
   id: string
@@ -219,6 +220,7 @@ function close() {
 
       <div class="app-modal__actions">
         <button type="button" class="btn-secondary" @click="step === 'preview' ? (step = 'pick') : close()">
+          <AppIcon name="chevron-left" :size="16" />
           {{ step === 'preview' ? t('common.back') : t('common.cancel') }}
         </button>
         <button
@@ -237,6 +239,7 @@ function close() {
           :class="{ 'is-busy': saving }" :disabled="saving || needsCustomerConfirm"
           @click="confirmMerge"
         >
+          <AppIcon name="check" :size="16" />
           {{ t('pointOfSale.merge.confirm') }}
         </button>
       </div>

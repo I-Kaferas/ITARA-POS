@@ -425,10 +425,14 @@ defineExpose({ show })
   width: min(42rem, 100%);
   height: min(40rem, calc(100% - var(--space-8)));
   overflow: hidden;
-  border: 1px solid var(--cmdk-line);
+  border: 1px solid color-mix(in srgb, #fff 42%, var(--cmdk-line));
   border-radius: 18px;
-  background: var(--cmdk-bg);
-  box-shadow: var(--shadow-overlay);
+  background: color-mix(in srgb, var(--cmdk-bg) 90%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 68%, transparent),
+    var(--shadow-overlay);
   color: var(--cmdk-ink);
 }
 

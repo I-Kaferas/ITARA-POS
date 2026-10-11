@@ -9,6 +9,7 @@ import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Role } from '../../../types'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -108,8 +109,8 @@ async function remove(role: Role) {
               <td class="px-4 py-3 font-mono text-slate-500">{{ role.slug }}</td>
               <td class="px-4 py-3 text-slate-500">{{ role.permissions?.length ?? 0 }}</td>
               <td class="px-4 py-3 text-right space-x-2">
-                <button class="text-brand-600" @click="openEdit(role)">{{ t('common.edit') }}</button>
-                <button v-if="!role.is_system" class="text-red-600" @click="remove(role)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(role)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button v-if="!role.is_system" class="text-red-600" @click="remove(role)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -143,8 +144,8 @@ async function remove(role: Role) {
           </div>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

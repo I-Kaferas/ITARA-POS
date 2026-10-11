@@ -156,7 +156,7 @@ class ProductController extends Controller
         }
 
         $with['images'] = fn ($query) => $query->select([
-            'id', 'product_id', 'tenant_id', 'cdn_url', 'storage_path', 'is_primary', 'sort_order', 'alt_text',
+            'id', 'product_id', 'tenant_id', 'cdn_url', 'storage_path', 'original_filename', 'is_primary', 'sort_order', 'alt_text',
         ]);
         $with['variants'] = fn ($query) => $query->select([
             'id', 'product_id', 'sku', 'name', 'base_price', 'is_active', 'sort_order',

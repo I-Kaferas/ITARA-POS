@@ -256,12 +256,14 @@ watch(
 
         <div class="flex w-full flex-wrap items-center gap-2">
           <button type="button" class="ui-btn ui-btn--primary" :disabled="store.loading" @click="load">
+            <AppIcon name="check" :size="16" />
             {{ t('pointOfSale.orders.filters.apply') }}
           </button>
           <button type="button" class="ui-btn ui-btn--secondary" @click="resetFilters">
             {{ t('pointOfSale.orders.filters.reset') }}
           </button>
           <button type="button" class="ui-btn ui-btn--secondary" :disabled="exporting" @click="exportCsv">
+            <AppIcon name="download" :size="16" />
             {{ exporting ? t('common.loading') : t('pointOfSale.orders.exportCsv') }}
           </button>
           <span class="ml-auto text-xs text-slate-500">
@@ -358,6 +360,7 @@ watch(
                     class="ui-btn ui-btn--primary ui-btn--sm"
                     @click="router.push({ name: 'pos', query: { sale: row.id, pay: '1' } })"
                   >
+                    <AppIcon name="card" :size="16" />
                     {{ t('pos.payHeld') }}
                   </button>
                   <button
@@ -365,6 +368,7 @@ watch(
                     class="ui-btn ui-btn--ghost ui-btn--sm"
                     @click="router.push({ name: 'sale-detail', params: { id: row.id } })"
                   >
+                    <AppIcon name="eye" :size="16" />
                     {{ t('common.view') }}
                   </button>
                 </div>

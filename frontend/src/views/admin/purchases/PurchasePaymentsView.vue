@@ -11,6 +11,7 @@ import type { PurchaseInvoice } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { parseMoneyInput } from '../../../utils/money'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -133,7 +134,7 @@ async function submitPay() {
               <td class="px-4 py-3">{{ invoice.supplier?.name ?? '—' }}</td>
               <td class="px-4 py-3 text-right">{{ formatMoney(invoice.total - invoice.paid_amount) }}</td>
               <td class="px-4 py-3 text-right">
-                <button class="text-brand-600" @click="openPay(invoice)">{{ t('purchases.pay') }}</button>
+                <button class="text-brand-600" @click="openPay(invoice)"><AppIcon name="card" :size="16" /> {{ t('purchases.pay') }}</button>
               </td>
             </tr>
           </tbody>
@@ -193,8 +194,8 @@ async function submitPay() {
           <input v-model="payReference" class="field" />
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showPay = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('purchases.pay') }}</button>
+          <button type="button" class="btn-secondary" @click="showPay = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="card" :size="16" /> {{ t('purchases.pay') }}</button>
         </div>
       </form>
     </AppModal>

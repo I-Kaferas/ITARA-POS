@@ -205,9 +205,11 @@ const pageTo = computed(() => Math.min(page.value * perPage, total.value))
             <td class="text-right">
               <div class="flex items-center justify-end gap-1">
                 <button class="ui-btn ui-btn--ghost ui-btn--sm" @click="router.push({ name: 'product-edit', params: { id: product.id } })">
+                  <AppIcon name="edit" :size="16" />
                   {{ t('common.edit') }}
                 </button>
                 <button class="ui-btn ui-btn--danger ui-btn--sm" @click="removeProduct(product.id)">
+                  <AppIcon name="trash" :size="16" />
                   {{ t('common.delete') }}
                 </button>
               </div>

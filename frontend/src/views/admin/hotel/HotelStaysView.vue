@@ -782,10 +782,10 @@ function detailTimeline(row: Doc) {
 }
 
 const detailTabs = computed(() => ([
-  { id: 'overview' as const, label: t('hotel.stays.detail.tabs.overview') },
-  { id: 'room_service' as const, label: t('hotel.stays.detail.tabs.roomService') },
-  { id: 'journal' as const, label: t('hotel.stays.detail.tabs.journal') },
-  { id: 'folio' as const, label: t('hotel.stays.detail.tabs.folio') },
+  { id: 'overview' as const, label: t('hotel.stays.detail.tabs.overview'), icon: 'dashboard' },
+  { id: 'room_service' as const, label: t('hotel.stays.detail.tabs.roomService'), icon: 'restaurant' },
+  { id: 'journal' as const, label: t('hotel.stays.detail.tabs.journal'), icon: 'receipt' },
+  { id: 'folio' as const, label: t('hotel.stays.detail.tabs.folio'), icon: 'coins' },
 ]))
 
 function documentTypeShort(row: Doc) {
@@ -1734,7 +1734,7 @@ function roomLabel(room: Doc) {
           <div class="stay__board-actions">
             <button type="button" class="btn-secondary" :disabled="loading" @click="load">
             <AppIcon name="recycle" :size="15" />{{ t('common.refresh') }}</button>
-            <button type="button" class="btn-secondary" @click="exportStaysCsv">{{ t('hotel.stays.board.export') }}</button>
+            <button type="button" class="btn-secondary" @click="exportStaysCsv"><AppIcon name="download" :size="16" /> {{ t('hotel.stays.board.export') }}</button>
             <button type="button" class="btn-primary" @click="openCreate">{{ t('hotel.stays.walkInTitle') }}</button>
           </div>
         </div>
@@ -2416,7 +2416,7 @@ function roomLabel(room: Doc) {
           <button v-if="step > 1" type="button" class="btn-secondary" @click="goStep((step - 1) as Step)">
             {{ t('hotel.stays.back') }}
           </button>
-          <button type="button" class="btn-secondary" @click="closeForm">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="closeForm"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button v-if="step < 3" type="submit" class="btn-primary">{{ t('hotel.stays.next') }}</button>
           <button v-else type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !vacantRooms.length">
             {{ t('hotel.stays.confirmArrival') }}
@@ -2466,6 +2466,7 @@ function roomLabel(room: Doc) {
               <span class="stay__ok">{{ t('hotel.stays.sign.signed') }}</span>
             </div>
             <button type="button" class="btn-primary stay-sign__skip" @click="closeSign">
+              <AppIcon name="close" :size="16" />
               {{ t('command.close') }}
             </button>
           </template>
@@ -2478,6 +2479,7 @@ function roomLabel(room: Doc) {
               <div v-if="signUrl" class="stay-sign__link-box">
                 <a :href="signUrl" target="_blank" rel="noopener" class="stay-sign__url">{{ signUrl }}</a>
                 <button type="button" class="btn-secondary" @click="copySignLink">
+                  <AppIcon name="layers" :size="16" />
                   {{ signLinkCopied ? t('hotel.stays.sign.copied') : t('hotel.stays.sign.copyLink') }}
                 </button>
               </div>
@@ -2503,6 +2505,7 @@ function roomLabel(room: Doc) {
           <div class="stay__actions">
             <button type="button" class="btn-secondary" @click="setupSignCanvas">{{ t('hotel.stays.sign.clear') }}</button>
             <button type="button" class="btn-primary" :disabled="signSaving || !signDrawn" @click="saveDrawnSignature">
+              <AppIcon name="check" :size="16" />
               {{ t('hotel.stays.sign.confirm') }}
             </button>
           </div>
@@ -2538,6 +2541,7 @@ function roomLabel(room: Doc) {
             class="btn-primary"
             @click="checkoutFromDetail"
           >
+            <AppIcon name="card" :size="16" />
             {{ t('desk.checkOut') }}
           </button>
         </header>
@@ -2721,6 +2725,7 @@ function roomLabel(room: Doc) {
             :class="{ 'sd__tab--on': detailTab === tab.id }"
             @click="detailTab = tab.id"
           >
+            <AppIcon :name="tab.icon" :size="15" />
             {{ tab.label }}
           </button>
         </div>
@@ -2893,8 +2898,9 @@ function roomLabel(room: Doc) {
       </select>
       <p v-if="!detailVacantRooms.length" class="stay__hint">{{ t('hotel.stays.noVacantRooms') }}</p>
       <div class="stay__actions">
-        <button type="button" class="btn-secondary" @click="changeRoomOpen = false">{{ t('common.cancel') }}</button>
+        <button type="button" class="btn-secondary" @click="changeRoomOpen = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
         <button type="button" class="btn-primary" :disabled="changeRoomSaving || !changeRoomId" @click="saveChangeRoom">
+          <AppIcon name="check" :size="16" />
           {{ t('common.save') }}
         </button>
       </div>
@@ -2922,7 +2928,7 @@ function roomLabel(room: Doc) {
         </div>
       </div>
       <div class="stay__actions">
-        <button type="button" class="btn-secondary" @click="collectOpen = false">{{ t('common.cancel') }}</button>
+        <button type="button" class="btn-secondary" @click="collectOpen = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
         <button type="button" class="btn-primary" :disabled="collectSaving" @click="saveCollect">
           {{ t('hotel.stays.detail.collect') }}
         </button>
@@ -2992,8 +2998,9 @@ function roomLabel(room: Doc) {
       </div>
 
       <div class="stay__actions">
-        <button type="button" class="btn-secondary" @click="closeCheckout">{{ t('common.cancel') }}</button>
+        <button type="button" class="btn-secondary" @click="closeCheckout"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
         <button type="button" class="btn-primary" :disabled="checkoutSaving" @click="confirmCheckout">
+          <AppIcon name="card" :size="16" />
           {{ t('hotel.stays.checkoutConfirmBtn') }}
         </button>
       </div>
@@ -3617,6 +3624,9 @@ function roomLabel(room: Doc) {
   background: #eef3f7;
 }
 .sd__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border: 0;
   background: transparent;
   border-radius: 0.55rem;
@@ -3906,6 +3916,9 @@ function roomLabel(room: Doc) {
   background: #eef3f7;
 }
 .sd__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border: 0;
   background: transparent;
   border-radius: 0.55rem;

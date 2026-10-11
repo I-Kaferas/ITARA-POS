@@ -9,6 +9,7 @@ import ModuleFilters from '../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { formatDate, formatMoney } from '../../utils/format'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../utils/listFilters'
+import AppIcon from '../../components/ui/AppIcon.vue'
 
 type Offering = { id: string; name: string; category: string; price: number; duration_minutes: number }
 type Appointment = {
@@ -142,7 +143,7 @@ function statusLabel(status: string) {
                 <input v-model="notes[row.id]" class="field" :placeholder="t('services.notes')" />
                 <button class="btn-secondary" @click="complete(row)">{{ t('services.complete') }}</button>
               </div>
-              <button v-else-if="row.status === 'completed'" class="btn-primary" @click="pay(row)">{{ t('services.pay') }}</button>
+              <button v-else-if="row.status === 'completed'" class="btn-primary" @click="pay(row)"><AppIcon name="card" :size="16" /> {{ t('services.pay') }}</button>
               <span v-else class="text-xs text-slate-500">{{ row.employee?.name }}</span>
             </td>
           </tr>

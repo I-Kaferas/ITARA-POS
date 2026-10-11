@@ -855,6 +855,26 @@ defineProps<{
       <polyline points="6 9 12 15 18 9" />
     </template>
 
+    <template v-else-if="name === 'chevron-left'">
+      <polyline points="15 6 9 12 15 18" />
+    </template>
+
+    <template v-else-if="name === 'close'">
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
+    </template>
+
+    <template v-else-if="name === 'download'">
+      <path d="M12 4v10" />
+      <path d="m8 10 4 4 4-4" />
+      <path d="M5 19h14" />
+    </template>
+
+    <template v-else-if="name === 'eye'">
+      <path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </template>
+
     <!-- Default fallback -->
     <template v-else>
       <circle cx="12" cy="12" r="10" />

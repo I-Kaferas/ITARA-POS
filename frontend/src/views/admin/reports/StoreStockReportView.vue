@@ -261,6 +261,7 @@ onMounted(async () => {
           </select>
         </div>
         <button type="button" class="btn-primary" :disabled="loading" @click="load">
+          <AppIcon name="check" :size="16" />
           {{ t('reports.storeStock.apply') }}
         </button>
       </div>

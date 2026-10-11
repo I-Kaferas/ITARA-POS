@@ -8,6 +8,7 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Product } from '../../../types'
 import { formatMoney } from '../../../utils/format'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type OptionGroup = { name: string; values: string[]; draft: string }
 
@@ -192,7 +193,7 @@ function priceLabel(product: Product) {
               <td class="px-4 py-3">{{ product.variants?.filter(item => item.is_active !== false).length ?? 0 }}</td>
               <td class="px-4 py-3">{{ priceLabel(product) }}</td>
               <td class="px-4 py-3 text-right">
-                <button class="text-brand-600" @click="openEdit(product)">{{ t('catalog.options.edit') }}</button>
+                <button class="text-brand-600" @click="openEdit(product)"><AppIcon name="edit" :size="16" /> {{ t('catalog.options.edit') }}</button>
               </td>
             </tr>
           </tbody>
@@ -252,7 +253,7 @@ function priceLabel(product: Product) {
           </div>
         </div>
 
-        <button v-if="groups.length < 4" type="button" class="text-sm text-brand-600" @click="addGroup">+ {{ t('catalog.options.addGroup') }}</button>
+        <button v-if="groups.length < 4" type="button" class="text-sm text-brand-600" @click="addGroup"><AppIcon name="plus" :size="16" /> {{ t('catalog.options.addGroup') }}</button>
 
         <div v-if="preview.length" class="rounded-lg bg-slate-50 p-3">
           <p class="mb-2 text-sm font-medium">{{ t('catalog.options.preview') }} ({{ preview.length }})</p>
@@ -264,8 +265,8 @@ function priceLabel(product: Product) {
         </div>
 
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !productId || !preview.length">{{ t('catalog.options.apply') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !productId || !preview.length"><AppIcon name="check" :size="16" /> {{ t('catalog.options.apply') }}</button>
         </div>
       </form>
     </AppModal>

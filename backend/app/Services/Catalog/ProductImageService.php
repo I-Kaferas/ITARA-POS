@@ -2,6 +2,7 @@
 
 namespace App\Services\Catalog;
 
+use App\Models\GalleryImage;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Tenancy\TenantStorage;
@@ -51,6 +52,107 @@ class ProductImageService
         });
     }
 
+    public function attachFromGallery(Product $product, GalleryImage $gallery): ProductImage
+    {
+        if ($gallery->tenant_id !== $product->tenant_id) {
+            throw new InvalidArgumentException('Gallery image does not belong to this product.');
+        }
+
+        $previousOwnerId = ($gallery->product_id && $gallery->product_id !== $product->id)
+            ? $gallery->product_id
+            : null;
+
+        $disk = $this->mediaDisk();
+        $extension = pathinfo($gallery->storage_path, PATHINFO_EXTENSION) ?: 'jpg';
+        $filename = Str::uuid()->toString().'.'.$extension;
+        $storagePath = $this->buildStoragePath($product, $filename);
+
+        if (! Storage::disk($disk)->copy($gallery->storage_path, $storagePath)) {
+            throw new RuntimeException('Failed to copy gallery image.');
+        }
+
+        return DB::transaction(function () use ($product, $gallery, $storagePath, $previousOwnerId): ProductImage {
+            if ($previousOwnerId) {
+                $owner = Product::query()->find($previousOwnerId);
+                if ($owner) {
+                    $this->clearProductPhotos($owner);
+                }
+            }
+
+            GalleryImage::query()->where('product_id', $product->id)->update(['product_id' => null]);
+
+            foreach ($product->images()->get() as $existing) {
+                $this->delete($existing);
+            }
+
+            $image = ProductImage::create([
+                'tenant_id' => $product->tenant_id,
+                'product_id' => $product->id,
+                'storage_path' => $storagePath,
+                'cdn_url' => $this->buildCdnUrl($storagePath),
+                'original_filename' => $gallery->original_filename,
+                'mime_type' => $gallery->mime_type ?: 'application/octet-stream',
+                'file_size' => $gallery->file_size,
+                'sort_order' => 0,
+                'is_primary' => true,
+            ]);
+
+            $gallery->update(['product_id' => $product->id]);
+
+            return $image;
+        });
+    }
+
+    public function attachFromProductImage(Product $product, ProductImage $source): ProductImage
+    {
+        if ($source->tenant_id !== $product->tenant_id) {
+            throw new InvalidArgumentException('Product image does not belong to this catalog.');
+        }
+
+        if ($source->product_id === $product->id) {
+            return $source;
+        }
+
+        $disk = $this->mediaDisk();
+        $extension = pathinfo((string) $source->storage_path, PATHINFO_EXTENSION) ?: 'jpg';
+        $filename = Str::uuid()->toString().'.'.$extension;
+        $storagePath = $this->buildStoragePath($product, $filename);
+
+        if (! Storage::disk($disk)->copy((string) $source->storage_path, $storagePath)) {
+            throw new RuntimeException('Failed to copy product image.');
+        }
+
+        $sourceProduct = $source->product;
+
+        return DB::transaction(function () use ($product, $source, $sourceProduct, $storagePath): ProductImage {
+            $this->clearProductPhotos($product);
+            if ($sourceProduct) {
+                $this->clearProductPhotos($sourceProduct);
+            }
+
+            return ProductImage::create([
+                'tenant_id' => $product->tenant_id,
+                'product_id' => $product->id,
+                'storage_path' => $storagePath,
+                'cdn_url' => $this->buildCdnUrl($storagePath),
+                'original_filename' => $source->original_filename,
+                'mime_type' => $source->mime_type ?: 'application/octet-stream',
+                'file_size' => $source->file_size,
+                'sort_order' => 0,
+                'is_primary' => true,
+            ]);
+        });
+    }
+
+    private function clearProductPhotos(Product $product): void
+    {
+        GalleryImage::query()->where('product_id', $product->id)->update(['product_id' => null]);
+
+        foreach ($product->images()->get() as $existing) {
+            $this->delete($existing);
+        }
+    }
+
     public function delete(ProductImage $image): void
     {
         app(TenantStorage::class)->assertOwned($image->storage_path, $image->tenant_id);
@@ -63,7 +165,9 @@ class ProductImageService
         }
         $image->delete();
 
-        if ($wasPrimary) {
+        if (! $product->images()->exists()) {
+            GalleryImage::query()->where('product_id', $product->id)->update(['product_id' => null]);
+        } elseif ($wasPrimary) {
             $nextPrimary = $product->images()->ordered()->first();
             $nextPrimary?->update(['is_primary' => true]);
         }

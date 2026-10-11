@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import { useContextStore } from '../../../stores/context'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const LINKS = '/admin/customer-hub/linked-users'
 const REQUESTS = '/admin/customer-hub/link-requests'
@@ -50,6 +51,7 @@ function refresh() {
     <div class="hub">
       <div class="hub__toolbar">
         <button type="button" class="btn-secondary" :disabled="refreshing" @click="refresh">
+          <AppIcon name="refresh" :size="16" />
           {{ t('customerHubPage.refresh') }}
         </button>
       </div>

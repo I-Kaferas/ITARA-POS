@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\GalleryImage;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\Tenant;
@@ -10,6 +11,7 @@ use App\Services\Catalog\ProductImageService;
 use App\Services\Platform\SaasLimitGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 
 class ProductImageController extends Controller
 {
@@ -37,6 +39,45 @@ class ProductImageController extends Controller
             $request->file('image'),
             $request->boolean('is_primary') ?: null,
         );
+
+        return response()->json(['data' => $image], 201);
+    }
+
+    public function storeFromGallery(Request $request, Product $product): JsonResponse
+    {
+        $data = $request->validate([
+            'gallery_image_id' => ['required', 'uuid'],
+            'is_primary' => ['boolean'],
+        ]);
+
+        $gallery = GalleryImage::query()->findOrFail($data['gallery_image_id']);
+
+        try {
+            $image = $this->imageService->attachFromGallery($product, $gallery);
+        } catch (InvalidArgumentException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json(['data' => $image], 201);
+    }
+
+    public function storeFromProductImage(Request $request, Product $product): JsonResponse
+    {
+        $data = $request->validate([
+            'product_image_id' => ['required', 'uuid'],
+        ]);
+
+        $source = ProductImage::query()->findOrFail($data['product_image_id']);
+
+        try {
+            $image = $this->imageService->attachFromProductImage($product, $source);
+        } catch (InvalidArgumentException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
 
         return response()->json(['data' => $image], 201);
     }

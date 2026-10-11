@@ -237,7 +237,8 @@ async function revoke(device: Device) {
           </select>
         </div>
         <button class="btn-primary" :disabled="!storeId" @click="openCreate">
-          + {{ t('org.addDevice') }}
+          <AppIcon name="plus" :size="16" />
+          {{ t('org.addDevice') }}
         </button>
       </div>
 
@@ -295,9 +296,9 @@ async function revoke(device: Device) {
               </td>
               <td class="px-4 py-3"><StatusBadge :active="device.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
-                <button class="text-brand-600" @click="openEdit(device)">{{ t('common.edit') }}</button>
+                <button class="text-brand-600" @click="openEdit(device)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
                 <button v-if="deviceStatus(device) !== 'revoked'" class="text-amber-700" @click="revoke(device)">{{ t('org.revokeDevice') }}</button>
-                <button class="text-red-600" @click="remove(device)">{{ t('common.delete') }}</button>
+                <button class="text-red-600" @click="remove(device)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -418,6 +419,7 @@ async function revoke(device: Device) {
               {{ showFormToken ? t('org.hideToken') : t('org.showToken') }}
             </button>
             <button type="button" class="btn-secondary" :disabled="!showFormToken" @click="copyToken">
+              <AppIcon name="layers" :size="16" />
               {{ copied ? t('org.copied') : t('org.copyToken') }}
             </button>
             <button type="button" class="btn-secondary" :class="{ 'is-busy': saving }" :disabled="saving" @click="regenerate">
@@ -436,8 +438,8 @@ async function revoke(device: Device) {
         <p v-if="saveError" class="save-banner save-banner--error">{{ saveError }}</p>
         <p v-if="saveNotice" class="save-banner save-banner--ok">{{ saveNotice }}</p>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !storeId">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !storeId"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

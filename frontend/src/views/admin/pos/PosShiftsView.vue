@@ -13,6 +13,7 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { formatDate, formatMoney } from '../../../utils/format'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -184,6 +185,7 @@ function goDetail(id: string) {
               class="ui-btn ui-btn--secondary"
               @click="goDetail(store.currentCashierShift.id)"
             >
+              <AppIcon name="eye" :size="16" />
               {{ t('pointOfSale.shifts.viewDetails') }}
             </button>
             <button
@@ -193,6 +195,7 @@ function goDetail(id: string) {
               :disabled="!activeRegisters.length"
               @click="openModal"
             >
+              <AppIcon name="eye" :size="16" />
               {{ t('pointOfSale.shifts.openAction') }}
             </button>
             <button
@@ -276,6 +279,7 @@ function goDetail(id: string) {
                   class="ui-btn ui-btn--ghost ui-btn--sm"
                   @click.stop="goDetail(shift.id)"
                 >
+                  <AppIcon name="eye" :size="16" />
                   {{ t('common.view') }}
                 </button>
               </td>
@@ -294,6 +298,7 @@ function goDetail(id: string) {
             class="ui-btn ui-btn--primary mt-4"
             @click="openModal"
           >
+            <AppIcon name="eye" :size="16" />
             {{ t('pointOfSale.shifts.openAction') }}
           </button>
         </EmptyState>
@@ -320,8 +325,9 @@ function goDetail(id: string) {
           <textarea v-model="openingNotes" rows="2" class="ui-input w-full" />
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" class="ui-btn ui-btn--secondary" @click="showOpen = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="ui-btn ui-btn--secondary" @click="showOpen = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="button" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving || !selectedRegisterId" @click="confirmOpen">
+            <AppIcon name="eye" :size="16" />
             {{ saving ? t('common.saving') : t('pointOfSale.shifts.openAction') }}
           </button>
         </div>
@@ -354,7 +360,7 @@ function goDetail(id: string) {
           <textarea v-model="closingNotes" rows="2" class="ui-input w-full" />
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" class="ui-btn ui-btn--secondary" @click="showClose = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="ui-btn ui-btn--secondary" @click="showClose = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="button" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="confirmClose">
             {{ saving ? t('common.saving') : t('pointOfSale.shifts.closeAction') }}
           </button>

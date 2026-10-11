@@ -7,6 +7,7 @@ import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney } from '../../../utils/format'
 import { emptyListFilters, listFilterParams, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -39,7 +40,7 @@ async function load() {
     <div class="mb-4 space-y-3">
       <div class="flex items-center justify-between">
         <p class="m-0 text-sm text-slate-500">{{ t('expenses.kpi.total') }} · {{ formatMoney(total) }}</p>
-        <button class="btn-primary" type="button" @click="router.push({ name: 'expenses' })">{{ t('expenses.new') }}</button>
+        <button class="btn-primary" type="button" @click="router.push({ name: 'expenses' })"><AppIcon name="plus" :size="16" /> {{ t('expenses.new') }}</button>
       </div>
       <ModuleFilters
         v-model="filters"

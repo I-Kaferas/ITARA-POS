@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Permission, Role } from '../../../types'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type CrudAction = 'create' | 'read' | 'update' | 'delete'
 
@@ -352,6 +353,7 @@ function humanize(value: string) {
               :disabled="!dirty || saving || !selectedRole"
               @click="save"
             >
+              <AppIcon name="check" :size="16" />
               {{ t('common.save') }}
             </button>
           </div>

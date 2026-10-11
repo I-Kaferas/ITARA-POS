@@ -13,6 +13,7 @@ import type { Company, Sale, SaleReturn, SaleTax } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { printSaleDocument, type SaleDocPayload } from '../../../utils/printSaleDocument'
 import MergeOrdersModal from '../../../components/pos/MergeOrdersModal.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -282,6 +283,7 @@ async function printInvoice() {
             type="button"
             @click="router.push({ name: 'pos', query: { sale: sale.id } })"
           >
+            <AppIcon name="plus" :size="16" />
             {{ t('pos.addArticles') }}
           </button>
           <button
@@ -298,6 +300,7 @@ async function printInvoice() {
             type="button"
             @click="router.push({ name: 'pos', query: { sale: sale.id, pay: '1' } })"
           >
+            <AppIcon name="card" :size="16" />
             {{ t('pos.payHeld') }}
           </button>
           <button v-if="sale?.status === 'completed'" class="btn-secondary" type="button" :disabled="!sale || docLoading" @click="printReceipt">
@@ -307,6 +310,7 @@ async function printInvoice() {
             {{ t('pointOfSale.orders.invoice') }}
           </button>
           <button v-if="sale?.status === 'completed'" class="btn-secondary" type="button" :disabled="!sale" @click="printSale">
+            <AppIcon name="device-printer" :size="16" />
             {{ t('sales.print') }}
           </button>
           <button
@@ -315,6 +319,7 @@ async function printInvoice() {
             type="button"
             @click="openReturnModal"
           >
+            <AppIcon name="plus" :size="16" />
             {{ t('sales.createReturn') }}
           </button>
         </div>
@@ -720,8 +725,8 @@ async function printInvoice() {
           </div>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showReturnModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showReturnModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

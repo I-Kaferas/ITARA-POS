@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import AppModal from './AppModal.vue'
 import { useConfirm } from '../../composables/useConfirm'
+import AppIcon from './AppIcon.vue'
 
 const { t } = useI18n()
 const { state, settle } = useConfirm()
@@ -39,6 +40,7 @@ function cancel() {
     </ul>
     <div class="app-modal__actions">
       <button v-if="state.mode === 'confirm'" type="button" class="btn-secondary" @click="cancel">
+        <AppIcon name="close" :size="16" />
         {{ state.cancelLabel || t('common.cancel') }}
       </button>
       <button
@@ -46,6 +48,7 @@ function cancel() {
         :class="state.danger ? 'btn-danger' : 'btn-primary'"
         @click="accept"
       >
+        <AppIcon :name="state.danger ? 'trash' : 'check'" :size="16" />
         {{ state.confirmLabel || (state.mode === 'notice' ? t('common.ok') : t('common.delete')) }}
       </button>
     </div>

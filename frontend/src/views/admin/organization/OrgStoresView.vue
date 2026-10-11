@@ -87,7 +87,7 @@ async function remove(s: Store) {
         <select v-model="branchId" class="field w-auto">
           <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
         </select>
-        <button class="btn-primary ml-auto" @click="openCreate">+ {{ t('org.addStore') }}</button>
+        <button class="btn-primary ml-auto" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('org.addStore') }}</button>
       </div>
 
       <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
@@ -108,8 +108,8 @@ async function remove(s: Store) {
               <td class="px-4 py-3 font-mono text-slate-500">{{ s.code }}</td>
               <td class="px-4 py-3"><StatusBadge :active="s.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
-                <button class="text-brand-600" @click="openEdit(s)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(s)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(s)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(s)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -130,8 +130,8 @@ async function remove(s: Store) {
         <div><FieldLabel icon="tag">{{ t('org.code') }}</FieldLabel><input v-model="form.code" required class="field w-full" /></div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

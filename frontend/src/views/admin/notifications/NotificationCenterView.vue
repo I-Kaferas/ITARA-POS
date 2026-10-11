@@ -6,6 +6,7 @@ import PageFrame from '../../../components/layout/PageFrame.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { formatDateTime } from '../../../utils/format'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type InboxItem = {
   id: string
@@ -363,6 +364,7 @@ onMounted(() => {
         :class="tab === name ? 'btn-primary' : 'btn-secondary'"
         @click="show(name)"
       >
+        <AppIcon :name="({ inbox: 'mail', rules: 'filter', channels: 'bell', journal: 'receipt' })[name]" :size="16" />
         {{ t(`notifications.${name}`) }}
       </button>
     </div>
@@ -379,7 +381,7 @@ onMounted(() => {
             <option v-for="event in events" :key="event" :value="event">{{ labelEvent(event) }}</option>
           </select>
         </div>
-        <button type="button" class="btn-secondary" @click="refreshInbox">{{ t('notifications.refresh') }}</button>
+        <button type="button" class="btn-secondary" @click="refreshInbox"><AppIcon name="refresh" :size="16" /> {{ t('notifications.refresh') }}</button>
         <button type="button" class="btn-secondary" :disabled="!unread" @click="markAll">
           {{ t('notifications.markAll') }}
         </button>
@@ -395,7 +397,7 @@ onMounted(() => {
               <span class="mt-1 block text-sm text-slate-600">{{ item.body }}</span>
               <span class="mt-1 block text-xs text-slate-400">{{ formatDateTime(item.created_at) }}</span>
             </button>
-            <button type="button" class="btn-secondary" @click="removeItem(item)">{{ t('common.delete') }}</button>
+            <button type="button" class="btn-secondary" @click="removeItem(item)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
           </li>
         </ul>
         <p v-if="!items.length && !loading" class="px-4 py-8 text-center text-slate-500">{{ t('notifications.empty') }}</p>
@@ -416,7 +418,7 @@ onMounted(() => {
             <option value="tenant">{{ t('notifications.scopeTenant') }}</option>
           </select>
         </div>
-        <button type="button" class="btn-primary" @click="saveRules">{{ t('notifications.save') }}</button>
+        <button type="button" class="btn-primary" @click="saveRules"><AppIcon name="check" :size="16" /> {{ t('notifications.save') }}</button>
         <button v-if="scope === 'user'" type="button" class="btn-secondary" @click="resetRules">{{ t('notifications.reset') }}</button>
       </div>
 
@@ -480,7 +482,7 @@ onMounted(() => {
             </div>
           </div>
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="btn-primary" @click="saveChannel(row.channel)">{{ t('notifications.save') }}</button>
+            <button type="button" class="btn-primary" @click="saveChannel(row.channel)"><AppIcon name="check" :size="16" /> {{ t('notifications.save') }}</button>
             <button type="button" class="btn-secondary" @click="sendTest(row.channel)">{{ t('notifications.test') }}</button>
           </div>
         </template>

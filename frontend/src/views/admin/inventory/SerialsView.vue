@@ -10,6 +10,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -87,7 +88,7 @@ onMounted(load)
           <option value="lost">lost</option>
         </select>
       </div>
-      <button class="btn-primary" @click="openCreate">+ {{ t('inventory.addSerial') }}</button>
+      <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.addSerial') }}</button>
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -107,7 +108,7 @@ onMounted(load)
             <td class="px-4 py-3">{{ row.product?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3"><StatusBadge :active="row.status === 'available'" :label="row.status" /></td>
-            <td class="px-4 py-3 text-right"><button class="text-red-600" @click="remove(row.id)">{{ t('common.delete') }}</button></td>
+            <td class="px-4 py-3 text-right"><button class="text-red-600" @click="remove(row.id)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button></td>
           </tr>
         </tbody>
       </table>
@@ -140,8 +141,8 @@ onMounted(load)
           </select>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

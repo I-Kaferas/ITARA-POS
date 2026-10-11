@@ -491,9 +491,11 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         </div>
         <div class="tables-actions">
           <button type="button" class="btn-secondary" @click="showZoneForm = true; editingZoneId = null; zoneForm = { name: '', description: '', sort_order: String(zones.length) }">
+            <AppIcon name="plus" :size="16" />
             {{ t('pointOfSale.tables.addZone') }}
           </button>
           <button type="button" class="btn-primary" @click="openCreateTable">
+            <AppIcon name="plus" :size="16" />
             {{ t('pointOfSale.tables.addTable') }}
           </button>
         </div>
@@ -511,7 +513,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         :title="t('pointOfSale.tables.empty')"
         :description="t('pointOfSale.tables.emptyHint')"
       >
-        <button type="button" class="btn-primary" @click="openCreateTable">{{ t('pointOfSale.tables.addTable') }}</button>
+        <button type="button" class="btn-primary" @click="openCreateTable"><AppIcon name="plus" :size="16" /> {{ t('pointOfSale.tables.addTable') }}</button>
       </EmptyState>
 
       <div v-else class="tables-grid">
@@ -560,9 +562,11 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
 
         <div class="table-drawer__actions">
           <button v-if="selected.status === 'occupied'" type="button" class="btn-primary" @click="continueOrder(selected)">
+            <AppIcon name="plus" :size="16" />
             {{ t('pointOfSale.tables.addProducts') }}
           </button>
           <button v-if="selected.status === 'occupied'" type="button" class="btn-secondary" @click="continueOrder(selected, true)">
+            <AppIcon name="card" :size="16" />
             {{ t('pointOfSale.tables.pay') }}
           </button>
           <button v-if="selected.status === 'occupied'" type="button" class="btn-secondary" @click="showTransfer = true; transferTo = ''">
@@ -575,6 +579,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
             {{ t('pointOfSale.tables.cancelOrder') }}
           </button>
           <button v-if="selected.status === 'reserved'" type="button" class="btn-primary" @click="openOrder(selected, false)">
+            <AppIcon name="eye" :size="16" />
             {{ t('pointOfSale.tables.openOrder') }}
           </button>
           <button v-if="selected.status === 'available' || selected.status === 'cleaning'" type="button" class="btn-secondary" @click="showReserve = true">
@@ -590,6 +595,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
             {{ t('pointOfSale.tables.history') }}
           </button>
           <button type="button" class="btn-secondary" @click="openEditTable(selected)">
+            <AppIcon name="edit" :size="16" />
             {{ t('common.edit') }}
           </button>
           <button v-if="selected.is_active" type="button" class="btn-danger" @click="deactivate(selected)">
@@ -625,8 +631,8 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
           {{ t('pointOfSale.tables.active') }}
         </label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showTableForm = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showTableForm = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -641,8 +647,8 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         <FieldLabel icon="note">{{ t('pointOfSale.tables.description') }}</FieldLabel>
         <textarea v-model="zoneForm.description" rows="2" />
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showZoneForm = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showZoneForm = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>
@@ -656,8 +662,8 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         </label>
         <p v-if="!transferTargets.length" class="m-0 text-sm text-slate-500">{{ t('pointOfSale.tables.noTransferTarget') }}</p>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showTransfer = false">{{ t('common.cancel') }}</button>
-          <button type="button" class="btn-primary" :disabled="!transferTo || saving" @click="confirmTransfer">{{ t('common.confirm') }}</button>
+          <button type="button" class="btn-secondary" @click="showTransfer = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="button" class="btn-primary" :disabled="!transferTo || saving" @click="confirmTransfer"><AppIcon name="check" :size="16" /> {{ t('common.confirm') }}</button>
         </div>
       </div>
     </AppModal>
@@ -670,8 +676,8 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
           <span>{{ table.name }} · {{ formatMoney(table.current_sale?.total ?? 0) }}</span>
         </label>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showMerge = false">{{ t('common.cancel') }}</button>
-          <button type="button" class="btn-primary" :disabled="!mergeTo || saving" @click="confirmMerge">{{ t('common.confirm') }}</button>
+          <button type="button" class="btn-secondary" @click="showMerge = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="button" class="btn-primary" :disabled="!mergeTo || saving" @click="confirmMerge"><AppIcon name="check" :size="16" /> {{ t('common.confirm') }}</button>
         </div>
       </div>
     </AppModal>
@@ -687,8 +693,8 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
         <FieldLabel icon="note">{{ t('pointOfSale.tables.description') }}</FieldLabel>
         <textarea v-model="reserveForm.notes" rows="2" />
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showReserve = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showReserve = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

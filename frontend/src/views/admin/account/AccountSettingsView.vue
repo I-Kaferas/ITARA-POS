@@ -5,6 +5,7 @@ import { useConfirm } from '../../../composables/useConfirm'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useAuthStore } from '../../../stores/auth'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -144,7 +145,7 @@ async function logoutAll() {
           </button>
           <div v-else class="space-y-3">
             <p class="text-xs font-mono break-all">{{ twoFactorSecret }}</p>
-            <a :href="twoFactorQr" class="text-sm text-brand-600" target="_blank">{{ t('account.openAuthenticator') }}</a>
+            <a :href="twoFactorQr" class="text-sm text-brand-600" target="_blank"><AppIcon name="eye" :size="16" /> {{ t('account.openAuthenticator') }}</a>
             <input v-model="confirmCode" class="field" :placeholder="t('account.enterCode')" maxlength="6" />
             <button class="btn-primary" :disabled="loading" @click="confirmTwoFactor">{{ t('account.confirm2fa') }}</button>
           </div>
@@ -152,7 +153,7 @@ async function logoutAll() {
 
         <div v-else class="space-y-3">
           <input v-model="disablePassword" type="password" class="field" :placeholder="t('auth.password')" />
-          <button class="btn-danger" :disabled="loading" @click="disableTwoFactor">{{ t('account.disable2fa') }}</button>
+          <button class="btn-danger" :disabled="loading" @click="disableTwoFactor"><AppIcon name="trash" :size="16" /> {{ t('account.disable2fa') }}</button>
         </div>
 
         <div v-if="auth.recoveryCodes?.length" class="mt-4 rounded-lg bg-amber-50 p-4">
@@ -168,7 +169,7 @@ async function logoutAll() {
         <div class="mb-4 flex items-center justify-between">
           <h2 class="font-semibold">{{ t('account.sessions') }}</h2>
           <div class="flex gap-2">
-            <button class="btn-secondary text-sm" @click="revokeOthers">{{ t('account.revokeOthers') }}</button>
+            <button class="btn-secondary text-sm" @click="revokeOthers"><AppIcon name="trash" :size="16" /> {{ t('account.revokeOthers') }}</button>
             <button class="btn-danger text-sm" @click="logoutAll">{{ t('account.logoutAll') }}</button>
           </div>
         </div>
@@ -184,7 +185,7 @@ async function logoutAll() {
             </div>
             <div class="flex items-center gap-2">
               <span v-if="session.is_current" class="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">{{ t('account.current') }}</span>
-              <button v-else class="text-red-600 hover:text-red-700" @click="revokeSession(session.id)">{{ t('common.delete') }}</button>
+              <button v-else class="text-red-600 hover:text-red-700" @click="revokeSession(session.id)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
             </div>
           </div>
         </div>

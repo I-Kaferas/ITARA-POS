@@ -9,6 +9,7 @@ import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import KpiCard from '../../../components/ui/KpiCard.vue'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { formatMoney } from '../../../utils/format'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type Party = { id: string; name: string; code?: string; email?: string | null; phone?: string | null; crm_role?: string; job_title?: string | null; account?: { name: string } | null }
 type Account = { id: string; name: string; legal_name?: string | null; email?: string | null; phone?: string | null; contacts_count?: number }
@@ -198,6 +199,16 @@ onMounted(() => { void load() })
           :class="{ 'sub-nav__link--active': tab === item }"
           @click="tab = item"
         >
+          <AppIcon :name="({
+            pipeline: 'coins',
+            prospects: 'customers',
+            clients: 'account',
+            accounts: 'building',
+            contacts: 'phone',
+            leads: 'mail',
+            activities: 'calendar',
+            campaigns: 'bell',
+          })[item]" :size="16" />
           {{ t(`crm.tabs.${item}`) }}
         </button>
       </nav>
@@ -205,7 +216,7 @@ onMounted(() => { void load() })
       <p v-if="error" class="crm-alert">{{ error }}</p>
 
       <div class="crm-toolbar">
-        <button class="btn-primary" type="button" @click="openForm">{{ t('crm.create') }}</button>
+        <button class="btn-primary" type="button" @click="openForm"><AppIcon name="plus" :size="16" /> {{ t('crm.create') }}</button>
       </div>
 
       <div v-if="tab === 'pipeline'" class="crm-board">
@@ -353,8 +364,8 @@ onMounted(() => { void load() })
         </div>
       </form>
       <template #footer>
-        <button class="btn-secondary" type="button" @click="showForm = false">{{ t('crm.close') }}</button>
-        <button class="btn-primary" type="button" :disabled="busy" @click="submit">{{ t('crm.create') }}</button>
+        <button class="btn-secondary" type="button" @click="showForm = false"><AppIcon name="close" :size="16" /> {{ t('crm.close') }}</button>
+        <button class="btn-primary" type="button" :disabled="busy" @click="submit"><AppIcon name="plus" :size="16" /> {{ t('crm.create') }}</button>
       </template>
     </AppModal>
 

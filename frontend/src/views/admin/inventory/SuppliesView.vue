@@ -12,6 +12,7 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, PurchaseOrderDetail, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -189,7 +190,7 @@ async function confirm(id: string, status: string) {
 <template>
   <InventoryLayout>
     <div class="mb-4 flex justify-end">
-      <button class="btn-primary" @click="openCreate">+ {{ t('inventory.newSupply') }}</button>
+      <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.newSupply') }}</button>
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -257,12 +258,12 @@ async function confirm(id: string, status: string) {
               <option v-for="p in productsForLine(idx)" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
             <input v-model.number="line.quantity" type="number" min="1" required class="field qty" />
-            <button type="button" class="text-sm text-red-600" @click="removeLine(idx)">{{ t('inventory.removeLine') }}</button>
+            <button type="button" class="text-sm text-red-600" @click="removeLine(idx)"><AppIcon name="trash" :size="16" /> {{ t('inventory.removeLine') }}</button>
           </div>
-          <button v-if="form.items.length < products.length" type="button" class="text-sm text-brand-600" @click="addLine">+ {{ t('inventory.addLine') }}</button>
+          <button v-if="form.items.length < products.length" type="button" class="text-sm text-brand-600" @click="addLine"><AppIcon name="plus" :size="16" /> {{ t('inventory.addLine') }}</button>
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('inventory.saveEntry') }}</button>
         </div>
       </form>

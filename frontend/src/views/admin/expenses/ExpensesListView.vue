@@ -10,6 +10,7 @@ import { formatDate, formatMoney } from '../../../utils/format'
 import { emptyListFilters, listFilterParams, type ListFilters } from '../../../utils/listFilters'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { parseMoneyInput } from '../../../utils/money'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type Category = { id: string; code: string; name: string }
 type ExpenseRow = {
@@ -116,7 +117,7 @@ async function save() {
 
     <div class="mb-4 space-y-3">
       <div class="flex justify-end">
-        <button class="btn-primary" type="button" @click="openCreate">+ {{ t('expenses.new') }}</button>
+        <button class="btn-primary" type="button" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('expenses.new') }}</button>
       </div>
       <ModuleFilters
         v-model="filters"
@@ -196,8 +197,8 @@ async function save() {
           <input v-model="form.amount" class="field" inputmode="decimal" required placeholder="15000" />
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
         </div>
       </form>
     </AppModal>

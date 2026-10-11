@@ -110,7 +110,7 @@ async function remove(item: Supplier) {
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
-        <button class="btn-primary" @click="openCreate">+ {{ t('suppliers.add') }}</button>
+        <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('suppliers.add') }}</button>
       </div>
 
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -139,8 +139,8 @@ async function remove(item: Supplier) {
               </td>
               <td class="px-4 py-3"><StatusBadge :active="item.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
-                <button class="text-brand-600" @click="openEdit(item)">{{ t('common.edit') }}</button>
-                <button class="text-red-600" @click="remove(item)">{{ t('common.delete') }}</button>
+                <button class="text-brand-600" @click="openEdit(item)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button class="text-red-600" @click="remove(item)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
               </td>
             </tr>
           </tbody>
@@ -196,7 +196,7 @@ async function remove(item: Supplier) {
           {{ t('products.active') }}
         </label>
         <div class="app-modal__actions supplier-form__wide">
-          <button type="button" class="btn-secondary" @click="showModal = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">
             <AppIcon name="check" :size="15" />
             {{ t('common.save') }}

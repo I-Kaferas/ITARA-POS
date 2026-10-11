@@ -12,6 +12,7 @@ import type { Catalog, Company, Currency } from '../../../types'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type Tier = {
   amount: number
@@ -186,7 +187,7 @@ function money(amount: number, currency?: string) {
                 <div>TTC {{ money(row.prices.retail.quote.ttc, row.prices.retail.currency_code) }}</div>
               </td>
               <td class="px-4 py-3 text-right">
-                <button class="text-brand-600" :disabled="savingId === row.id" @click="save(row)">{{ t('common.save') }}</button>
+                <button class="text-brand-600" :disabled="savingId === row.id" @click="save(row)"><AppIcon name="check" :size="16" /> {{ t('common.save') }}</button>
               </td>
             </tr>
           </tbody>

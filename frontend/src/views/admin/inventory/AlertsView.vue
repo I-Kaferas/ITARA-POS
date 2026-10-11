@@ -7,6 +7,7 @@ import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatDate } from '../../../utils/format'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -52,6 +53,7 @@ async function resolve(id: string) {
     <div class="mb-4 space-y-3">
       <div class="flex justify-end">
         <button class="btn-secondary" :disabled="refreshing" @click="refresh">
+          <AppIcon name="refresh" :size="16" />
           {{ t('inventory.refreshAlerts') }}
         </button>
       </div>

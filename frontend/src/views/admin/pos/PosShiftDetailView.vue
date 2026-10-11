@@ -13,6 +13,7 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import type { CashierShift, ShiftSummary } from '../../../types'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { formatDate, formatMoney } from '../../../utils/format'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -235,8 +236,9 @@ watch(shiftId, load)
           <textarea v-model="closingNotes" rows="2" class="ui-input w-full" />
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" class="ui-btn ui-btn--secondary" @click="showClose = false">{{ t('common.cancel') }}</button>
+          <button type="button" class="ui-btn ui-btn--secondary" @click="showClose = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="button" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="confirmClose">
+            <AppIcon name="check" :size="16" />
             {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>

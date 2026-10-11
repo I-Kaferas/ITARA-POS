@@ -552,7 +552,7 @@ onMounted(() => {
       >
         <template #toolbar>
           <input v-model="search" class="field platform-search" type="search" :placeholder="t('platform.search')" />
-          <button class="btn-primary" type="button" @click="openCreate">{{ t('platform.create') }}</button>
+          <button class="btn-primary" type="button" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('platform.create') }}</button>
         </template>
         <table class="ui-table min-w-full">
           <thead>
@@ -578,10 +578,11 @@ onMounted(() => {
               <td>{{ company.devices }}</td>
               <td>{{ company.open_support }}</td>
               <td class="text-right">
-                <button class="btn-secondary" type="button" :disabled="busy" @click="openShop(company)">{{ t('platform.openShop') }}</button>
-                <button class="btn-secondary" type="button" @click="openManage(company)">{{ t('platform.edit') }}</button>
-                <button class="btn-secondary" type="button" :disabled="busy" @click="copyId(company.id)">{{ t('platform.copyId') }}</button>
+                <button class="btn-secondary" type="button" :disabled="busy" @click="openShop(company)"><AppIcon name="eye" :size="16" /> {{ t('platform.openShop') }}</button>
+                <button class="btn-secondary" type="button" @click="openManage(company)"><AppIcon name="edit" :size="16" /> {{ t('platform.edit') }}</button>
+                <button class="btn-secondary" type="button" :disabled="busy" @click="copyId(company.id)"><AppIcon name="layers" :size="16" /> {{ t('platform.copyId') }}</button>
                 <button class="btn-secondary" type="button" :disabled="busy" @click="setCompanyStatus(company, company.status === 'active' ? 'suspended' : 'active')">
+                  <AppIcon name="check" :size="16" />
                   {{ company.status === 'active' ? t('platform.suspend') : t('platform.activate') }}
                 </button>
               </td>
@@ -621,7 +622,7 @@ onMounted(() => {
               <td>{{ company.license.seats }}</td>
               <td>{{ company.license.expires_on || '—' }}</td>
               <td class="text-right">
-                <button class="btn-secondary" type="button" @click="openManage(company)">{{ t('platform.edit') }}</button>
+                <button class="btn-secondary" type="button" @click="openManage(company)"><AppIcon name="edit" :size="16" /> {{ t('platform.edit') }}</button>
               </td>
             </tr>
           </tbody>
@@ -664,7 +665,7 @@ onMounted(() => {
                 <button v-if="company.billing?.open_invoice" class="btn-secondary" type="button" @click="collectInvoice(company)">{{ t('platform.billing.collect') }}</button>
                 <button v-if="commercialStatus(company) !== 'past_due'" class="btn-secondary" type="button" @click="startGrace(company)">{{ t('platform.billing.grace') }}</button>
                 <button v-if="commercialStatus(company) !== 'suspended'" class="btn-secondary" type="button" @click="suspendBilling(company)">{{ t('platform.billing.suspend') }}</button>
-                <button class="btn-secondary" type="button" @click="openManage(company)">{{ t('platform.edit') }}</button>
+                <button class="btn-secondary" type="button" @click="openManage(company)"><AppIcon name="edit" :size="16" /> {{ t('platform.edit') }}</button>
               </td>
             </tr>
           </tbody>
@@ -702,7 +703,7 @@ onMounted(() => {
                 </Badge>
               </td>
               <td class="text-right">
-                <button class="btn-secondary" type="button" @click="openManage(company)">{{ t('platform.edit') }}</button>
+                <button class="btn-secondary" type="button" @click="openManage(company)"><AppIcon name="edit" :size="16" /> {{ t('platform.edit') }}</button>
               </td>
             </tr>
           </tbody>
@@ -740,7 +741,7 @@ onMounted(() => {
               <td><Badge :variant="statusVariant(device.status)" dot>{{ device.status || '—' }}</Badge></td>
               <td>{{ formatDateTime(device.last_sync_at) }}</td>
               <td class="text-right">
-                <button v-if="device.status !== 'revoked'" class="btn-secondary" type="button" :disabled="busy" @click="revokeDevice(device.id)">{{ t('platform.revokeDevice') }}</button>
+                <button v-if="device.status !== 'revoked'" class="btn-secondary" type="button" :disabled="busy" @click="revokeDevice(device.id)"><AppIcon name="trash" :size="16" /> {{ t('platform.revokeDevice') }}</button>
                 <button v-else class="btn-secondary" type="button" :disabled="busy" @click="restoreDevice(device.id)">{{ t('platform.restoreDevice') }}</button>
               </td>
             </tr>
@@ -849,7 +850,7 @@ onMounted(() => {
             <FieldLabel icon="mail">{{ t('platform.message') }}</FieldLabel>
             <textarea v-model="message" class="field" rows="4" :disabled="busy" />
           </div>
-          <button class="btn-primary" type="submit" :disabled="busy || !ticketCompany || !subject.trim() || !message.trim()">{{ t('platform.create') }}</button>
+          <button class="btn-primary" type="submit" :disabled="busy || !ticketCompany || !subject.trim() || !message.trim()"><AppIcon name="plus" :size="16" /> {{ t('platform.create') }}</button>
         </form>
 
         <DataTableShell
@@ -884,7 +885,7 @@ onMounted(() => {
                 <td><Badge :variant="ticket.status === 'open' ? 'warning' : 'neutral'" dot>{{ ticket.status }}</Badge></td>
                 <td class="platform-message">{{ ticket.message }}</td>
                 <td class="text-right">
-                  <button v-if="ticket.status === 'open'" class="btn-secondary" type="button" :disabled="busy" @click="closeTicket(ticket.id)">{{ t('platform.close') }}</button>
+                  <button v-if="ticket.status === 'open'" class="btn-secondary" type="button" :disabled="busy" @click="closeTicket(ticket.id)"><AppIcon name="close" :size="16" /> {{ t('platform.close') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -980,8 +981,8 @@ onMounted(() => {
         <p class="platform-note">{{ t('platform.adminPasswordHint') }}</p>
       </form>
       <template #footer>
-        <button class="btn-secondary" type="button" @click="showCreate = false">{{ t('platform.close') }}</button>
-        <button class="btn-primary" type="button" :disabled="busy || !createForm.name.trim() || !createForm.admin_email.trim() || createForm.admin_password.length < 8" @click="createCompany">{{ t('platform.create') }}</button>
+        <button class="btn-secondary" type="button" @click="showCreate = false"><AppIcon name="close" :size="16" /> {{ t('platform.close') }}</button>
+        <button class="btn-primary" type="button" :disabled="busy || !createForm.name.trim() || !createForm.admin_email.trim() || createForm.admin_password.length < 8" @click="createCompany"><AppIcon name="plus" :size="16" /> {{ t('platform.create') }}</button>
       </template>
     </AppModal>
 
@@ -1054,8 +1055,8 @@ onMounted(() => {
         </div>
       </form>
       <template #footer>
-        <button class="btn-secondary" type="button" @click="showManage = false">{{ t('platform.close') }}</button>
-        <button class="btn-primary" type="button" :disabled="busy" @click="saveCompany">{{ t('platform.save') }}</button>
+        <button class="btn-secondary" type="button" @click="showManage = false"><AppIcon name="close" :size="16" /> {{ t('platform.close') }}</button>
+        <button class="btn-primary" type="button" :disabled="busy" @click="saveCompany"><AppIcon name="check" :size="16" /> {{ t('platform.save') }}</button>
       </template>
     </AppModal>
   </PageFrame>

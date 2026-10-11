@@ -145,7 +145,7 @@ function reset() {
     </select>
     <input v-if="showDepartment" :value="modelValue.department" class="field" :placeholder="t('expenses.department')" @input="patchLive({ department: ($event.target as HTMLInputElement).value })" />
     <input v-if="showCostCenter" :value="modelValue.cost_center" class="field" :placeholder="t('expenses.costCenter')" @input="patchLive({ cost_center: ($event.target as HTMLInputElement).value })" />
-    <button type="button" class="ui-btn ui-btn--primary" @click="emit('apply')">{{ t('filters.apply') }}</button>
+    <button type="button" class="ui-btn ui-btn--primary" @click="emit('apply')"><AppIcon name="check" :size="16" /> {{ t('filters.apply') }}</button>
     <button type="button" class="ui-btn ui-btn--secondary" @click="reset">{{ t('filters.reset') }}</button>
     </div>
   </div>

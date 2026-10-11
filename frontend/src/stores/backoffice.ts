@@ -43,6 +43,7 @@ import type {
   InventoryMovement,
   Permission,
   Product,
+  ProductImage,
   GalleryImage,
   ProductAccompanimentHost,
   ProductAccompanimentItem,
@@ -931,6 +932,19 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     form.append('image', file)
     if (isPrimary) form.append('is_primary', '1')
     return api.upload(`/products/${productId}/images`, form)
+  }
+
+  async function attachProductImageFromGallery(productId: string, galleryImageId: string, isPrimary = false) {
+    return (await api.post<ApiItemResponse<ProductImage>>(`/products/${productId}/images/from-gallery`, {
+      gallery_image_id: galleryImageId,
+      is_primary: isPrimary,
+    })).data
+  }
+
+  async function attachProductImageFromProduct(productId: string, productImageId: string) {
+    return (await api.post<ApiItemResponse<ProductImage>>(`/products/${productId}/images/from-product`, {
+      product_image_id: productImageId,
+    })).data
   }
 
   async function deleteProductImage(imageId: string) {
@@ -2079,7 +2093,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadPromotionTypes, loadPromotions, savePromotion, deletePromotion,
     loadProducts, loadProductPage, loadPriceList, loadProduct, saveProduct, deleteProduct, transformProductOptions,
     generateBarcode, printBarcode,
-    uploadProductImage, deleteProductImage, setPrimaryImage, loadGalleryImages, uploadGalleryImage,
+    uploadProductImage, attachProductImageFromGallery, attachProductImageFromProduct, deleteProductImage, setPrimaryImage, loadGalleryImages, uploadGalleryImage,
     loadStoreProducts, importToStore, classifyStoreProducts, updateStoreProduct, removeFromStore,
     loadAllWarehouses,
     loadSuppliers, saveSupplier, deleteSupplier,

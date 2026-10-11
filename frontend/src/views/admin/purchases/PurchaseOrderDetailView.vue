@@ -11,6 +11,7 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import type { PurchaseOrderDetail, PurchaseOrderInvoice } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { parseMoneyInput } from '../../../utils/money'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -166,6 +167,7 @@ function onHand(productId?: string) {
         <button class="btn-secondary" @click="router.push({ name: 'purchase-orders' })">← {{ t('nav.purchases') }}</button>
         <div class="flex flex-wrap gap-2">
           <button v-if="order?.status === 'draft' || order?.status === 'pending'" class="btn-primary" :disabled="acting" @click="confirm">
+            <AppIcon name="check" :size="16" />
             {{ order?.status === 'draft' ? t('purchases.submit') : t('purchases.approve') }}
           </button>
           <button
@@ -174,6 +176,7 @@ function onHand(productId?: string) {
             :disabled="acting"
             @click="cancel"
           >
+            <AppIcon name="close" :size="16" />
             {{ t('purchases.cancel') }}
           </button>
         </div>
@@ -312,6 +315,7 @@ function onHand(productId?: string) {
               <td class="px-4 py-3 text-right">{{ formatMoney(invoice.total - invoice.paid_amount) }}</td>
               <td class="px-4 py-3 text-right">
                 <button v-if="invoice.paid_amount < invoice.total" class="text-brand-600" @click="openPay(invoice)">
+                  <AppIcon name="card" :size="16" />
                   {{ t('purchases.pay') }}
                 </button>
               </td>
@@ -342,8 +346,8 @@ function onHand(productId?: string) {
           <input v-model="payReference" class="field" />
         </div>
         <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showPay = false">{{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :disabled="acting">{{ t('purchases.pay') }}</button>
+          <button type="button" class="btn-secondary" @click="showPay = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :disabled="acting"><AppIcon name="card" :size="16" /> {{ t('purchases.pay') }}</button>
         </div>
       </form>
     </AppModal>

@@ -11,6 +11,7 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
 import HotelChrome from './HotelChrome.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type DeskDoc = Record<string, any>
 type SpaceKind = 'guest_room' | 'conference' | 'reception'
@@ -284,6 +285,7 @@ function spaceLabel(row: DeskDoc) {
       <div class="rt__toolbar">
         <p>{{ t('hotel.roomTypes.intro') }}</p>
         <button type="button" class="ui-btn ui-btn--primary" @click="openCreate">
+          <AppIcon name="plus" :size="16" />
           {{ t('hotel.roomTypes.new') }}
         </button>
       </div>
@@ -315,8 +317,8 @@ function spaceLabel(row: DeskDoc) {
                 <td>{{ row.max_adults ?? '—' }}</td>
                 <td><StatusBadge :active="row.is_active !== false && row.status !== 'inactive'" /></td>
                 <td class="rt__row-actions">
-                  <button type="button" class="text-brand-600" @click="editType(row)">{{ t('common.edit') }}</button>
-                  <button type="button" class="text-red-600" @click="removeType(row)">{{ t('common.delete') }}</button>
+                  <button type="button" class="text-brand-600" @click="editType(row)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                  <button type="button" class="text-red-600" @click="removeType(row)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
                 </td>
               </tr>
             </tbody>
@@ -468,6 +470,7 @@ function spaceLabel(row: DeskDoc) {
         <div class="rt__actions">
           <button type="button" class="ui-btn" @click="closeForm">{{ t('common.cancel') }}</button>
           <button type="submit" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving || !form.name.trim()">
+            <AppIcon name="check" :size="16" />
             {{ saving ? t('common.saving') : t('common.save') }}
           </button>
         </div>
@@ -495,7 +498,7 @@ function spaceLabel(row: DeskDoc) {
       </div>
       <p v-else class="rt__muted">{{ t('hotel.roomTypes.noPhotosHint') }}</p>
       <div class="rt__actions">
-        <button type="button" class="ui-btn ui-btn--primary" @click="galleryOpen = false">{{ t('common.ok') }}</button>
+        <button type="button" class="ui-btn ui-btn--primary" @click="galleryOpen = false"><AppIcon name="check" :size="16" /> {{ t('common.ok') }}</button>
       </div>
     </AppModal>
   </HotelChrome>
