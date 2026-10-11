@@ -319,9 +319,6 @@ class CashRegisterSessionService
                 CashMovementType::Discount => $discounts += $movement->amount,
                 CashMovementType::CashIn => $cashIn += $movement->amount,
                 CashMovementType::CashOut => $cashOut += $movement->amount,
-                CashMovementType::CashAdjustment => $movement->isAdjustmentDecrease()
-                    ? $cashOut += $movement->amount
-                    : $cashIn += $movement->amount,
                 CashMovementType::Expense => $expenses += $movement->amount,
                 default => null,
             };

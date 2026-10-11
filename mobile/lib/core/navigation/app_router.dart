@@ -29,6 +29,7 @@ import '../../features/stock/presentation/stock_screen.dart';
 import '../../features/sync/presentation/sync_screen.dart';
 import '../../sync/local_master_server.dart';
 import '../../sync/sync_engine.dart';
+import '../../features/auth/presentation/auth_gate_screen.dart';
 import '../config/terminal_config_repository.dart';
 import '../di/service_locator.dart';
 import 'app_routes.dart';
@@ -61,6 +62,7 @@ class AppRouter {
         final isAdminLogin = location == AppRoutes.adminLogin;
         final isSetup = location == AppRoutes.setup ||
             location == AppRoutes.slaveSetup;
+        final isConfig = location == AppRoutes.configuration;
         final isPin = location == AppRoutes.pin;
         final hasToken = repo.config.authToken.trim().isNotEmpty;
         final signedIn = repo.config.isSignedIn && hasToken;
@@ -68,15 +70,22 @@ class AppRouter {
         if (!repo.isConfigured && !signedIn && !isAdminLogin) {
           return AppRoutes.adminLogin;
         }
-        if (!repo.isConfigured && signedIn && !isSetup) {
-          return AppRoutes.setup;
+        if (!repo.isConfigured && signedIn && !isSetup && !isConfig) {
+          return AppRoutes.configuration;
         }
         if (!repo.isConfigured && isAdminLogin && signedIn) {
-          return AppRoutes.setup;
+          return AppRoutes.configuration;
         }
         if (!repo.isConfigured) return null;
 
         if (!signedIn && !isPin && !isAdminLogin) return AppRoutes.pin;
+        if (signedIn && repo.isConfigured && AuthNavigation.openSettings) {
+          if (location == AppRoutes.configuration) {
+            AuthNavigation.openSettings = false;
+            return null;
+          }
+          return AppRoutes.configuration;
+        }
         if (signedIn && (isSetup || isPin || isAdminLogin)) return AppRoutes.pos;
         return null;
       },

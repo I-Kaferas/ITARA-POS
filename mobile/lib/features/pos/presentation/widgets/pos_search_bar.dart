@@ -25,16 +25,15 @@ class PosSearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final desk = MediaQuery.sizeOf(context).width >= 900;
     return Padding(
-      padding: EdgeInsets.fromLTRB(desk ? 16 : 12, desk ? 14 : 12, desk ? 16 : 12, 0),
+      padding: EdgeInsets.fromLTRB(desk ? 16 : 12, 12, desk ? 12 : 12, 4),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(color: AppColors.border),
-          boxShadow: AppColors.elevationSm,
         ),
         child: SizedBox(
-          height: desk ? 52 : 46,
+          height: 46,
           child: Row(
             children: [
               const SizedBox(width: 14),
@@ -45,16 +44,14 @@ class PosSearchBar extends StatelessWidget {
                   controller: controller,
                   focusNode: focusNode,
                   decoration: InputDecoration(
-                    hintText: showDesktopHint || desk
-                        ? 'Produit / SKU / code-barres  ·  F1'
-                        : 'Produit / SKU / code-barres',
+                    hintText: showDesktopHint ? 'Search products...' : 'Search products...',
                     hintStyle: AppTypography.subtitle(color: AppColors.textMuted),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     filled: false,
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: desk ? 14 : 12),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   style: AppTypography.body(weight: FontWeight.w500),
                   onChanged: onChanged,
@@ -62,23 +59,10 @@ class PosSearchBar extends StatelessWidget {
                   textInputAction: TextInputAction.search,
                 ),
               ),
-              if (desk)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Text(
-                    'Clavier · souris · scanner HID',
-                    style: AppTypography.caption(color: AppColors.textMuted),
-                  ),
-                ),
-              Text(
-                'Scan',
-                style: AppTypography.caption(color: AppColors.textMuted),
-              ),
-              const SizedBox(width: 4),
               IconButton(
                 tooltip: 'Scanner (HID / Enter)',
                 onPressed: onScanTap,
-                icon: Icon(Icons.qr_code_scanner_rounded, color: AppColors.brand600, size: 20),
+                icon: Icon(Icons.qr_code_scanner_rounded, color: AppColors.brandInk, size: 20),
               ),
             ],
           ),

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/network/network_bloc.dart';
 import '../../../core/network/operating_mode.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../sync/offline_store.dart';
 import '../../../sync/sync_engine.dart';
 
@@ -80,7 +81,7 @@ class _SyncScreenState extends State<SyncScreen> {
               _Stat(label: 'En attente', value: '${snapshot.pending}', color: AppColors.accent),
               _Stat(label: 'Synchronisées', value: '${snapshot.synced}', color: AppColors.success),
               _Stat(label: 'Échecs', value: '${snapshot.failed}', color: AppColors.danger),
-              _Stat(label: 'Conflits', value: '${snapshot.conflicts}', color: AppColors.brand700),
+              _Stat(label: 'Conflits', value: '${snapshot.conflicts}', color: AppColors.brandInk),
             ],
           ),
           const SizedBox(height: 16),
@@ -113,10 +114,10 @@ class _SyncScreenState extends State<SyncScreen> {
           Text(
             engine.lastSent == 0 && engine.lastAcknowledged == 0
                 ? (snapshot.mode == OperatingMode.isolatedOffline
-                    ? 'Mode C — opérations en file locale. Rien n'est perdu.'
+                    ? "Mode C — opérations en file locale. Rien n'est perdu."
                     : snapshot.mode == OperatingMode.localOffline
                         ? 'Mode B — commerce local. Sync cloud en attente du réseau.'
-                        : 'En attente du retour réseau. Rien n'est supprimé avant l'ACK.')
+                        : "En attente du retour réseau. Rien n'est supprimé avant l'ACK.")
                 : 'Dernier passage : ${engine.lastSent} envoyés · ${engine.lastAcknowledged} ACK · ${engine.lastKept} conservés · 0 perdu',
             style: TextStyle(color: AppColors.textSecondary),
           ),
@@ -181,7 +182,7 @@ class _SyncScreenState extends State<SyncScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          Text('File d'attente', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
+          Text("File d'attente", style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           if (_items.isEmpty)
             Text('Aucune transaction locale.', style: TextStyle(color: AppColors.textMuted))
@@ -249,12 +250,15 @@ class _OperatingModeCard extends StatelessWidget {
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
-              Text(
-                mode.label,
-                style: GoogleFonts.ibmPlexSans(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: color,
+              AppValueFade(
+                value: mode,
+                child: Text(
+                  mode.label,
+                  style: GoogleFonts.ibmPlexSans(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: color,
+                  ),
                 ),
               ),
             ],

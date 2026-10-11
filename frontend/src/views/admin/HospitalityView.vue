@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../api/client'
@@ -83,6 +83,12 @@ function kitchenTicketsByStatus(status: string): Doc[] {
 const rooms = computed(() => docs.value.filter(doc => doc.kind === 'room'))
 const reservations = computed(() => docs.value.filter(doc => doc.kind === 'reservation' && doc.status !== 'checked_out'))
 const occupiedRooms = computed(() => rooms.value.filter(room => room.status === 'occupied'))
+const chargeRoomId = ref('')
+watch(occupiedRooms, (list) => {
+  if (!list.some(room => room.id === chargeRoomId.value)) {
+    chargeRoomId.value = list[0]?.id ?? ''
+  }
+}, { immediate: true })
 const freeTables = computed(() => tables.value.filter(table => table.status !== 'occupied'))
 const occupiedTables = computed(() => tables.value.filter(table => table.status === 'occupied'))
 const unzonedTables = computed(() => tables.value.filter(table => !table.zone_id || !zones.value.some(zone => zone.id === table.zone_id)))
@@ -234,10 +240,25 @@ async function run(action: Record<string, unknown>) {
   error.value = ''
   try {
     docs.value = (await api.post<{ data: { docs: Doc[] } }>('/hospitality/actions', action)).data.docs
+    const finished = action.action === 'pay_check' || action.action === 'charge_room'
+    if (finished) {
+      order.value = null
+      return true
+    }
     if (order.value) order.value = docs.value.find(doc => doc.id === order.value?.id) ?? null
+    return true
   } catch (err) {
     error.value = extractApiErrorMessage(err)
+    return false
   }
+}
+
+async function reserveRoom() {
+  if (!roomId.value || !guest.value.trim()) return
+  const saved = await run({ action: 'create_reservation', room_id: roomId.value, guest_name: guest.value.trim() })
+  if (!saved) return
+  roomId.value = ''
+  guest.value = ''
 }
 
 async function openTable(table: Doc) {
@@ -542,7 +563,12 @@ function folioTotal(room: Doc) {
           </ul>
           <div v-if="check.status === 'open'" class="mt-3 flex flex-wrap gap-2">
             <button class="btn-primary" @click="run({ action: 'pay_check', order_id: order.id, check_id: check.id })">{{ t('desk.pay') }}</button>
-            <button v-if="occupiedRooms.length" class="btn-secondary" @click="run({ action: 'charge_room', order_id: order.id, check_id: check.id, room_id: occupiedRooms[0].id })">{{ t('desk.chargeRoom') }}</button>
+            <template v-if="occupiedRooms.length">
+              <select v-model="chargeRoomId" class="field">
+                <option v-for="room in occupiedRooms" :key="room.id" :value="room.id">{{ room.number }} · {{ room.guest_name }}</option>
+              </select>
+              <button class="btn-secondary" @click="run({ action: 'charge_room', order_id: order.id, check_id: check.id, room_id: chargeRoomId })">{{ t('desk.chargeRoom') }}</button>
+            </template>
             <button class="btn-secondary" @click="run({ action: 'send_course', order_id: order.id, course })">{{ t('desk.sendKitchen') }}</button>
           </div>
         </div>
@@ -642,7 +668,7 @@ function folioTotal(room: Doc) {
     </AppModal>
 
     <AppModal :open="Boolean(roomId)" :title="t('desk.reserve')" icon="customers" @close="roomId = ''">
-      <form class="space-y-3" @submit.prevent="run({ action: 'create_reservation', room_id: roomId, guest_name: guest }).then(() => { roomId = ''; guest = '' })">
+      <form class="space-y-3" @submit.prevent="reserveRoom">
         <div><FieldLabel icon="customers">{{ t('desk.guest') }}</FieldLabel><input v-model="guest" required class="field" /></div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="roomId = ''">{{ t('common.cancel') }}</button>

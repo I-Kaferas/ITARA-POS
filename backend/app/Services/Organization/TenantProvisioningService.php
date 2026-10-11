@@ -5,6 +5,7 @@ namespace App\Services\Organization;
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Role;
+use App\Models\Store;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Payments\CompanyPaymentMethodService;
@@ -14,7 +15,9 @@ use App\Services\Rbac\RoleProvisioningService;
 use App\Support\TenantBranding;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class TenantProvisioningService
 {
@@ -158,24 +161,37 @@ class TenantProvisioningService
                 $this->paymentMethods->ensureDefaults($company);
                 app(BranchEstablishmentService::class)->ensure($company);
 
-                if (! empty($data['admin_email'])) {
-                    $admin = User::query()->create([
-                        'tenant_id' => $tenant->id,
-                        'name' => trim($data['admin_name'] ?? '') ?: $name,
-                        'email' => $data['admin_email'],
-                        'phone' => $data['phone'] ?? null,
-                        'password' => $data['admin_password'],
-                        'is_active' => true,
+                $adminEmail = trim((string) ($data['admin_email'] ?? ''));
+                $adminPassword = (string) ($data['admin_password'] ?? '');
+                if ($adminEmail === '' || $adminPassword === '') {
+                    throw ValidationException::withMessages([
+                        'admin_email' => ['Un compte administrateur est requis pour configurer le POS mobile.'],
                     ]);
-                    $adminRole = Role::query()
-                        ->where('tenant_id', $tenant->id)
-                        ->where('slug', 'administrator')
-                        ->first();
-                    if ($adminRole) {
-                        $admin->roles()->attach($adminRole->id, [
-                            'branch_id' => null,
-                            'store_id' => null,
-                        ]);
+                }
+
+                $admin = User::query()->create([
+                    'tenant_id' => $tenant->id,
+                    'name' => trim($data['admin_name'] ?? '') ?: $name,
+                    'email' => $adminEmail,
+                    'phone' => $data['phone'] ?? null,
+                    'password' => $adminPassword,
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]);
+                $adminRole = Role::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->where('slug', 'administrator')
+                    ->first();
+                if ($adminRole) {
+                    $admin->roles()->attach($adminRole->id, [
+                        'branch_id' => null,
+                        'store_id' => null,
+                    ]);
+                }
+                if (Schema::hasTable('store_user')) {
+                    $storeIds = Store::query()->where('tenant_id', $tenant->id)->orderBy('created_at')->pluck('id');
+                    if ($storeIds->isNotEmpty()) {
+                        $admin->stores()->syncWithoutDetaching($storeIds->all());
                     }
                 }
             } finally {

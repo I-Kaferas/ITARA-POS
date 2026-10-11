@@ -45,10 +45,15 @@ class PlatformAdminTest extends TestCase
 
         $this->getJson('/api/v1/platform/overview', $headers)->assertOk();
 
-        $this->postJson('/api/v1/platform/tenants', ['name' => 'Nouvelle enseigne'], $headers)
+        $this->postJson('/api/v1/platform/tenants', [
+            'name' => 'Nouvelle enseigne',
+            'admin_email' => 'admin@nouvelle-enseigne.test',
+            'admin_password' => 'secret-pass',
+        ], $headers)
             ->assertCreated()
             ->assertJsonPath('data.tenant.name', 'Nouvelle enseigne')
-            ->assertJsonPath('data.tenant.status', 'trial');
+            ->assertJsonPath('data.tenant.status', 'trial')
+            ->assertJsonPath('data.admin.email', 'admin@nouvelle-enseigne.test');
 
         $tenant = Tenant::query()->where('slug', 'nouvelle-enseigne')->firstOrFail();
 
@@ -119,6 +124,23 @@ class PlatformAdminTest extends TestCase
         $this->assertTrue(
             $primary->roles()->withoutGlobalScopes()->where('roles.slug', 'administrator')->exists()
         );
+
+        $tenantId = Tenant::query()->where('slug', 'boutique-nord')->value('id');
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => 'aline@boutique-nord.test',
+            'password' => 'secret-pass',
+            'device_name' => 'pos-setup',
+        ], [
+            'X-Tenant-ID' => $tenantId,
+            'Accept' => 'application/json',
+        ])->assertOk();
+        $this->assertContains('administrator', $login->json('user.roles'));
+        $this->assertNotEmpty($login->json('user.store_ids'));
+
+        $this->postJson('/api/v1/platform/tenants', [
+            'name' => 'Sans Admin',
+            'slug' => 'sans-admin',
+        ], $headers)->assertStatus(422);
 
         $audit = $this->getJson('/api/v1/platform/audit', $headers)->assertOk()->json('data');
         $this->assertTrue(collect($audit)->contains(fn ($row) => $row['action'] === 'tenant.provisioned'));

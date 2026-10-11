@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 
 import '../config/terminal_config_repository.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_typography.dart';
 
 class AppCalculator {
   AppCalculator._();
@@ -16,7 +18,7 @@ class AppCalculator {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Calculatrice',
-      barrierColor: const Color(0x140F172A),
+      barrierColor: AppColors.brand900.withValues(alpha: 0.28),
       pageBuilder: (context, _, _) {
         final inset = MediaQuery.viewInsetsOf(context).bottom;
         return Align(
@@ -40,18 +42,18 @@ class CalculatorButton extends StatelessWidget {
       message: 'Calculatrice',
       child: Material(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: AppRadius.borderMd,
         child: InkWell(
           onTap: () => AppCalculator.show(context),
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: AppRadius.borderMd,
           child: Container(
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: AppRadius.borderMd,
+              border: Border.all(color: AppColors.border),
             ),
-            child: Icon(Icons.calculate_outlined, size: 16, color: AppColors.brand700),
+            child: Icon(Icons.calculate_outlined, size: 16, color: AppColors.brandInk),
           ),
         ),
       ),
@@ -210,9 +212,9 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
         onKeyEvent: _onKey,
         child: Material(
           color: AppColors.surface,
-          elevation: 16,
-          shadowColor: const Color(0x29101828),
-          borderRadius: BorderRadius.circular(16),
+          elevation: 12,
+          shadowColor: AppColors.shadow,
+          borderRadius: AppRadius.borderXl,
           clipBehavior: Clip.antiAlias,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: width, maxHeight: math.min(640, size.height - 40)),
@@ -222,18 +224,26 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
                 children: [
                   Container(
                     padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF7F9FB),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
                       border: Border(top: BorderSide(color: AppColors.brand600, width: 3)),
                     ),
                     child: Row(
                       children: [
-                        Text('Calculatrice', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
+                        Text('Calculatrice', style: AppTypography.plex(fontSize: 14, fontWeight: FontWeight.w700)),
                         const Spacer(),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close, size: 18),
+                        Material(
+                          color: AppColors.dangerBg,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => Navigator.pop(context),
+                            child: const SizedBox(
+                              width: 26,
+                              height: 26,
+                              child: Icon(Icons.close, size: 16, color: AppColors.danger),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -293,13 +303,23 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(color: AppColors.brand600, borderRadius: BorderRadius.circular(12)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(_expression.isEmpty ? '0' : _expression, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
-              Text(_display, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700)),
+              Text(
+                _expression.isEmpty ? '0' : _expression,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.ibmPlexSans(fontSize: 11, color: const Color(0x8CFFFFFF)),
+              ),
+              Text(
+                _display,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
+              ),
             ],
           ),
         ),
@@ -356,23 +376,31 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
         if (_biz == 'margin') ...[
           _field(_cost, 'Coût'),
           _field(_price, 'Prix de vente'),
-          _result('Bénéfice', _money(_num(_price.text) - _num(_cost.text))),
-          _result('Marge sur coût', '${_num(_cost.text) > 0 ? ((_num(_price.text) - _num(_cost.text)) / _num(_cost.text) * 100).toStringAsFixed(2) : '0.00'}%'),
-          _result('Taux de marge', '${_num(_price.text) > 0 ? ((_num(_price.text) - _num(_cost.text)) / _num(_price.text) * 100).toStringAsFixed(2) : '0.00'}%'),
+          _results([
+            ('Bénéfice', _money(_num(_price.text) - _num(_cost.text))),
+            ('Marge sur coût', '${_num(_cost.text) > 0 ? ((_num(_price.text) - _num(_cost.text)) / _num(_cost.text) * 100).toStringAsFixed(2) : '0.00'}%'),
+            ('Taux de marge', '${_num(_price.text) > 0 ? ((_num(_price.text) - _num(_cost.text)) / _num(_price.text) * 100).toStringAsFixed(2) : '0.00'}%'),
+          ]),
         ] else if (_biz == 'tax') ...[
           _field(_cost, 'Montant HT'),
           _field(_taxRate, 'Taux de taxe %'),
-          _result('Taxe', _money(_num(_cost.text) * _num(_taxRate.text) / 100)),
-          _result('Montant TTC', _money(_num(_cost.text) + _num(_cost.text) * _num(_taxRate.text) / 100)),
+          _results([
+            ('Taxe', _money(_num(_cost.text) * _num(_taxRate.text) / 100)),
+            ('Montant TTC', _money(_num(_cost.text) + _num(_cost.text) * _num(_taxRate.text) / 100)),
+          ]),
         ] else if (_biz == 'discount') ...[
           _field(_listPrice, 'Prix'),
           _field(_discountRate, 'Remise %'),
-          _result('Économie', _money(_num(_listPrice.text) * _num(_discountRate.text) / 100)),
-          _result('Prix remisé', _money(_num(_listPrice.text) - _num(_listPrice.text) * _num(_discountRate.text) / 100)),
+          _results([
+            ('Économie', _money(_num(_listPrice.text) * _num(_discountRate.text) / 100)),
+            ('Prix remisé', _money(_num(_listPrice.text) - _num(_listPrice.text) * _num(_discountRate.text) / 100)),
+          ]),
         ] else ...[
           _field(_due, 'Total dû'),
           _field(_tendered, 'Montant reçu'),
-          _result('Monnaie', _money(_num(_tendered.text) - _num(_due.text))),
+          _results([
+            ('Monnaie', _money(_num(_tendered.text) - _num(_due.text))),
+          ]),
         ],
       ],
     );
@@ -391,14 +419,14 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 7),
                   decoration: BoxDecoration(
-                    color: current == value ? AppColors.brand50 : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: current == value ? AppColors.brand200 : Colors.transparent),
+                    color: current == value ? AppColors.brand50 : AppColors.surface,
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(color: current == value ? AppColors.brand600 : AppColors.border),
                   ),
                   child: Text(
                     labels[value] ?? value,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600, color: current == value ? AppColors.brand700 : AppColors.textSecondary),
+                    style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w600, color: current == value ? AppColors.brandInk : AppColors.textSecondary),
                   ),
                 ),
               ),
@@ -420,14 +448,27 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
     );
   }
 
-  Widget _result(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
+  Widget _results(List<(String, String)> rows) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.fieldFill,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
         children: [
-          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
-          const Spacer(),
-          Text(value, style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700)),
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Text(row.$1, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
+                  const Spacer(),
+                  Text(row.$2, style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -449,7 +490,21 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
   }
 
   Widget _mini(String label, VoidCallback onTap) {
-    return TextButton(onPressed: onTap, child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700)));
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(label, style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
+        ),
+      ),
+    );
   }
 
   String _keyKind(String key) {
@@ -475,16 +530,24 @@ class _KeyButton extends StatelessWidget {
       'clear' => AppColors.dangerBg,
       _ => AppColors.fieldFill,
     };
-    final foreground = kind == 'eq' ? Colors.white : (kind == 'clear' ? AppColors.danger : AppColors.textPrimary);
+    final foreground = switch (kind) {
+      'eq' => Colors.white,
+      'op' => AppColors.brandInk,
+      'clear' => AppColors.danger,
+      _ => AppColors.textPrimary,
+    };
     return Material(
       color: color,
-      borderRadius: BorderRadius.circular(10),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.borderMd,
+        side: BorderSide(color: kind == 'eq' ? AppColors.brand600 : AppColors.border),
+      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        customBorder: RoundedRectangleBorder(borderRadius: AppRadius.borderMd),
         child: SizedBox(
-          height: 40,
-          child: Center(child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w600, color: foreground))),
+          height: 42,
+          child: Center(child: Text(label, style: AppTypography.plex(fontSize: 15, fontWeight: FontWeight.w600, color: foreground))),
         ),
       ),
     );

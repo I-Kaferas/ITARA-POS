@@ -60,7 +60,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     SettingsThemeToggled event,
     Emitter<SettingsState> emit,
   ) async {
-    await _theme.cycle();
+    await _theme.toggle();
   }
 
   @override

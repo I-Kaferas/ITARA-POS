@@ -559,7 +559,7 @@ const router = createRouter({
         {
               path: 'hotel/guests',
               name: 'hotel-guests',
-              component: () => import('../views/admin/hotel/HotelSectionView.vue'),
+              component: () => import('../views/admin/hotel/HotelGuestsView.vue'),
               meta: { requiresAuth: true },
             },
         {

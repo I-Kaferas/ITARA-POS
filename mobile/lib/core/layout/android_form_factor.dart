@@ -49,10 +49,9 @@ abstract final class AndroidLayout {
     return MediaQuery.disableAnimationsOf(context) ? Duration.zero : normal;
   }
 
+  /// Point de vente : 4 produits par ligne dès la tablette, 2 sur téléphone.
   static int productColumns(double width) {
-    if (width >= 900) return 4;
-    if (width >= 720) return 3;
-    if (width >= 400) return 2;
+    if (width >= phoneMax) return 4;
     return 2;
   }
 

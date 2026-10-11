@@ -355,6 +355,9 @@ Route::prefix('v1')->group(function () {
         Route::get('platform/companies', [PlatformAdminController::class, 'companies']);
         Route::patch('platform/companies/{tenant}', [PlatformAdminController::class, 'updateCompany']);
         Route::get('platform/devices', [PlatformAdminController::class, 'devices']);
+        Route::post('platform/devices/{device}/revoke', [PlatformAdminController::class, 'revokeDevice']);
+        Route::post('platform/devices/{device}/restore', [PlatformAdminController::class, 'restoreDevice']);
+        Route::post('platform/tenants/{tenant}/impersonate', [PlatformAdminController::class, 'impersonate']);
         Route::get('platform/users', [PlatformAdminController::class, 'users']);
         Route::get('platform/support', [PlatformAdminController::class, 'support']);
         Route::post('platform/support', [PlatformAdminController::class, 'storeSupport']);

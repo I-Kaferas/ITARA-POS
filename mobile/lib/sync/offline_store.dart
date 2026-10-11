@@ -10,6 +10,7 @@ import '../core/config/app_config.dart';
 import '../core/config/terminal_config_repository.dart';
 import '../data/local/local_database.dart';
 import '../features/pos/domain/pos_models.dart';
+import '../features/shifts/data/local_shifts_store.dart';
 import 'outbox/sync_outbox.dart';
 import 'sync_models.dart';
 import 'sync_numbers.dart';
@@ -403,6 +404,61 @@ class OfflineStore {
     };
   }
 
+  Future<({String email, String code, String roleName, Map<String, String> permissionNames, Map<String, String> permissionGroups})>
+      lookupCashierCard({
+    required String userId,
+    required List<String> roleSlugs,
+  }) async {
+    final db = await _db;
+    var email = '';
+    var code = '';
+    if (userId.isNotEmpty) {
+      final rows = await db.query('users', where: 'id = ?', whereArgs: [userId], limit: 1);
+      if (rows.isNotEmpty) {
+        email = rows.first['email']?.toString().trim() ?? '';
+        final raw = rows.first['json']?.toString() ?? '';
+        if (raw.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(raw);
+            if (decoded is Map) {
+              if (email.isEmpty) email = decoded['email']?.toString().trim() ?? '';
+              code = (decoded['employee_code'] ?? decoded['code'])?.toString().trim() ?? '';
+            }
+          } catch (_) {}
+        }
+      }
+    }
+
+    var roleName = '';
+    for (final slug in roleSlugs) {
+      if (slug.trim().isEmpty) continue;
+      final rows = await db.query('roles', where: 'slug = ?', whereArgs: [slug], limit: 1);
+      final name = rows.isEmpty ? '' : rows.first['name']?.toString().trim() ?? '';
+      if (name.isNotEmpty) {
+        roleName = name;
+        break;
+      }
+    }
+
+    final permissionNames = <String, String>{};
+    final permissionGroups = <String, String>{};
+    final permissions = await db.query('permissions');
+    for (final row in permissions) {
+      final slug = row['slug']?.toString() ?? '';
+      if (slug.isEmpty) continue;
+      permissionNames[slug] = row['name']?.toString() ?? '';
+      permissionGroups[slug] = row['group_name']?.toString() ?? '';
+    }
+
+    return (
+      email: email,
+      code: code,
+      roleName: roleName,
+      permissionNames: permissionNames,
+      permissionGroups: permissionGroups,
+    );
+  }
+
   Future<Map<String, dynamic>?> findOfflineUserByPin(String pin) async {
     final db = await _db;
     final rows = await db.query('users', where: 'is_active = 1');
@@ -556,7 +612,19 @@ class OfflineStore {
     required int outstandingAmount,
     required String method,
   }) async {
-    final config = TerminalConfigRepository.instance.config;
+    final openShift = await LocalShiftsStore.instance.openShift();
+    if (openShift == null) {
+      throw Exception('Ouvrez un shift avant d\'encaisser.');
+    }
+    final repo = TerminalConfigRepository.instance;
+    var config = repo.config;
+    if (config.cashRegisterId != openShift.register.id || config.cashSessionId != openShift.session.id) {
+      config = config.copyWith(
+        cashRegisterId: openShift.register.id,
+        cashSessionId: openShift.session.id,
+      );
+      await repo.save(config);
+    }
     if (config.storeId.isEmpty) {
       throw Exception('STORE_ID is required for POS catalog');
     }
@@ -1054,7 +1122,7 @@ class OfflineStore {
   Future<void> markSynced(String queueId, String entityId, {String? serverId, String? serverReference}) async {
     final db = await _db;
     await db.transaction((txn) async {
-      final entry = await SyncOutbox.instance.find(queueId);
+      final entry = await SyncOutbox.instance.find(queueId, executor: txn);
       final entityType = entry?.entity ?? 'sale';
       await SyncOutbox.instance.markSynced(queueId, executor: txn);
       if (entityType == 'customer') {
@@ -1114,6 +1182,140 @@ class OfflineStore {
     final db = await _db;
     return db.query('sales', orderBy: 'created_at DESC', limit: limit);
   }
+
+  /// KPIs du jour calculés depuis SQLite, sans réseau.
+  Future<Map<String, dynamic>> localPosOverview() async {
+    final db = await _db;
+    final config = TerminalConfigRepository.instance.config;
+    final storeId = config.storeId.trim();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final windowStart = today.subtract(const Duration(days: 2));
+
+    final rows = await db.query(
+      'sales',
+      where: storeId.isEmpty ? null : 'store_id = ?',
+      whereArgs: storeId.isEmpty ? null : [storeId],
+      orderBy: 'created_at DESC',
+      limit: 500,
+    );
+
+    DateTime? createdOf(Map<String, Object?> row) =>
+        DateTime.tryParse(row['created_at']?.toString() ?? '')?.toLocal();
+
+    bool sameDay(DateTime value, DateTime day) =>
+        value.year == day.year && value.month == day.month && value.day == day.day;
+
+    final recent = rows.where((row) {
+      final created = createdOf(row);
+      return created != null && !created.isBefore(windowStart);
+    }).toList();
+
+    List<Map<String, Object?>> rowsFor(DateTime day) =>
+        recent.where((row) {
+          final created = createdOf(row);
+          return created != null && sameDay(created, day);
+        }).toList();
+
+    final todayRows = rowsFor(today);
+    final orderCount = todayRows.length;
+    final revenue = todayRows.fold<int>(0, (sum, row) => sum + _asInt(row['total']));
+    final todayIds = todayRows
+        .map((row) => row['id']?.toString() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList();
+
+    final paymentRows = todayIds.isEmpty
+        ? <Map<String, Object?>>[]
+        : await db.query(
+            'payments',
+            where: 'sale_id IN (${List.filled(todayIds.length, '?').join(',')})',
+            whereArgs: todayIds,
+          );
+
+    final byMethod = <String, int>{};
+    final methodCount = <String, int>{};
+    for (final payment in paymentRows) {
+      final method = payment['method']?.toString().trim();
+      final key = method == null || method.isEmpty ? 'cash' : method;
+      byMethod[key] = (byMethod[key] ?? 0) + _asInt(payment['amount']);
+      methodCount[key] = (methodCount[key] ?? 0) + 1;
+    }
+    if (byMethod.isEmpty) {
+      for (final sale in todayRows) {
+        final method = sale['method']?.toString().trim();
+        final key = method == null || method.isEmpty ? 'cash' : method;
+        byMethod[key] = (byMethod[key] ?? 0) + _asInt(sale['paid_amount']);
+        methodCount[key] = (methodCount[key] ?? 0) + 1;
+      }
+    }
+    final paidTotal = byMethod.values.fold<int>(0, (sum, amount) => sum + amount);
+    final paymentMethods = byMethod.entries
+        .map((entry) => {
+              'payment_method': entry.key,
+              'label': _paymentLabel(entry.key),
+              'amount': entry.value,
+              'count': methodCount[entry.key] ?? 0,
+              'share': paidTotal > 0 ? (entry.value / paidTotal * 100).round() : 0,
+            })
+        .toList()
+      ..sort((a, b) => (b['amount'] as int).compareTo(a['amount'] as int));
+
+    final hours = List.generate(24, (hour) => <String, Object>{
+      'hour': hour,
+      'label': '${hour.toString().padLeft(2, '0')}:00',
+      'sales_count': 0,
+      'revenue': 0,
+    });
+    for (final sale in todayRows) {
+      final created = createdOf(sale);
+      if (created == null) continue;
+      final bucket = hours[created.hour];
+      bucket['sales_count'] = (bucket['sales_count'] as int) + 1;
+      bucket['revenue'] = (bucket['revenue'] as int) + _asInt(sale['total']);
+    }
+
+    final days = <Map<String, dynamic>>[];
+    for (var offset = 2; offset >= 0; offset--) {
+      final day = today.subtract(Duration(days: offset));
+      final dayRows = rowsFor(day);
+      final count = dayRows.length;
+      final dayRevenue = dayRows.fold<int>(0, (sum, row) => sum + _asInt(row['total']));
+      days.add({
+        'date':
+            '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
+        'is_today': offset == 0,
+        'sales': dayRevenue,
+        'orders': count,
+        'average': count > 0 ? (dayRevenue / count).round() : 0,
+      });
+    }
+
+    final holds = await loadLocalHolds();
+
+    return {
+      'date': days.last['date'],
+      'kpis': {
+        'sales_count': orderCount,
+        'revenue': revenue,
+        'average_ticket': orderCount > 0 ? (revenue / orderCount).round() : 0,
+      },
+      'payment_methods': paymentMethods,
+      'sales_by_hour': hours,
+      'daily_summary': days,
+      'active_orders': holds.length,
+      'my_shift_open': config.cashSessionId.trim().isNotEmpty,
+    };
+  }
+
+  String _paymentLabel(String code) => switch (code) {
+        'cash' => 'Cash',
+        'card' => 'Card',
+        'mobile_money' => 'Mobile money',
+        'bank_transfer' => 'Bank transfer',
+        'wallet' || 'credit' => 'Wallet',
+        _ => code.replaceAll('_', ' '),
+      };
 
   Future<List<Map<String, dynamic>>> queueDetails({int limit = 50}) =>
       SyncOutbox.instance.details(limit: limit);

@@ -408,7 +408,7 @@ class _WelcomeDiscoverStep extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                     ] else
-                      Icon(Icons.radar, size: 18, color: AppColors.brand700),
+                      Icon(Icons.radar, size: 18, color: AppColors.brandInk),
                     const SizedBox(width: 6),
                     Text(
                       state.searching
@@ -508,7 +508,7 @@ class _DiscoverMasterCard extends StatelessWidget {
               color: AppColors.brand50,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.hub_outlined, color: AppColors.brand700),
+            child: Icon(Icons.hub_outlined, color: AppColors.brandInk),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -730,7 +730,7 @@ class _PairOptionCard extends StatelessWidget {
                   color: AppColors.brand50,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppColors.brand700),
+                child: Icon(icon, color: AppColors.brandInk),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -760,7 +760,7 @@ class _PairOptionCard extends StatelessWidget {
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.brand700,
+                  color: AppColors.brandInk,
                 ),
               ),
             ],

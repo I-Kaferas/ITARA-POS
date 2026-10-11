@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
+export 'app_radius.dart';
+export 'app_spacing.dart';
+
 /// Shared typography — IBM Plex Sans (+ IBM Plex Mono for amounts).
 abstract final class AppTypography {
   static TextStyle plex({

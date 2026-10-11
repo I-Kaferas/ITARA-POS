@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\PlatformAuditLog;
 use App\Models\SaasInvoice;
+use App\Models\SaasPlan;
 use App\Models\SaasSubscription;
 use App\Models\Sale;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Auth\AuthService;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Platform\PlatformAuditLogger;
 use App\Modules\ModuleRegistry;
@@ -320,6 +322,80 @@ class PlatformAdminController extends Controller
                     'id' => $ticket['id'] ?? null,
                     'company' => $tenant->name,
                     'tenant_id' => $tenant->id,
+    public function revokeDevice(Request $request, string $device): JsonResponse
+    {
+        $this->assertSuperAdmin($request);
+        $row = Device::withoutGlobalScopes()->find($device);
+        if ($row === null) {
+            return response()->json(['message' => 'Appareil introuvable.'], 404);
+        }
+
+        $row->forceFill([
+            'status' => 'revoked',
+            'registration_status' => 'revoked',
+            'is_active' => false,
+            'revoked_at' => now(),
+        ])->save();
+
+        $this->audit->record($request->user(), 'device.revoked', $row->tenant_id, [
+            'device_id' => $row->id,
+        ], $request->ip());
+
+        return response()->json(['data' => ['id' => $row->id, 'status' => 'revoked']]);
+    }
+
+    public function restoreDevice(Request $request, string $device): JsonResponse
+    {
+        $this->assertSuperAdmin($request);
+        $row = Device::withoutGlobalScopes()->find($device);
+        if ($row === null) {
+            return response()->json(['message' => 'Appareil introuvable.'], 404);
+        }
+
+        $row->forceFill([
+            'status' => 'active',
+            'registration_status' => 'registered',
+            'is_active' => true,
+            'revoked_at' => null,
+            'registered_at' => $row->registered_at ?? now(),
+        ])->save();
+
+        $this->audit->record($request->user(), 'device.restored', $row->tenant_id, [
+            'device_id' => $row->id,
+        ], $request->ip());
+
+        return response()->json(['data' => ['id' => $row->id, 'status' => 'registered']]);
+    }
+
+    public function impersonate(Request $request, Tenant $tenant): JsonResponse
+    {
+        $this->assertSuperAdmin($request);
+        $target = User::query()->withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('is_active', true)
+            ->whereHas('roles', fn ($query) => $query->whereIn('slug', ['administrator', 'admin']))
+            ->orderBy('created_at')
+            ->first();
+
+        if ($target === null) {
+            $target = User::query()->withoutGlobalScopes()
+                ->where('tenant_id', $tenant->id)
+                ->where('is_active', true)
+                ->orderBy('created_at')
+                ->first();
+        }
+
+        if ($target === null) {
+            return response()->json(['message' => 'Aucun administrateur actif pour ce commerce.'], 422);
+        }
+
+        $this->audit->record($request->user(), 'tenant.impersonated', $tenant->id, [
+            'user_id' => $target->id,
+        ], $request->ip());
+
+        return response()->json(app(AuthService::class)->issueSession($target, $request, 'platform-support'));
+    }
+
                     'subject' => $ticket['subject'] ?? '',
                     'message' => $ticket['message'] ?? '',
                     'status' => $ticket['status'] ?? 'open',

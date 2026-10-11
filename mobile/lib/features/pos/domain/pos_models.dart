@@ -877,24 +877,82 @@ class PosLoyaltySummary {
   }
 }
 
+class PosDaySummary {
+  const PosDaySummary({
+    required this.date,
+    required this.isToday,
+    required this.sales,
+    required this.orders,
+    required this.average,
+  });
+
+  final String date;
+  final bool isToday;
+  final int sales;
+  final int orders;
+  final int average;
+
+  factory PosDaySummary.fromMap(Map<String, dynamic> json) {
+    return PosDaySummary(
+      date: json['date']?.toString() ?? '',
+      isToday: json['is_today'] == true,
+      sales: PosProduct._amount(json['sales'] ?? json['revenue']),
+      orders: PosProduct._amount(json['orders'] ?? json['sales_count']),
+      average: PosProduct._amount(json['average'] ?? json['avg']),
+    );
+  }
+}
+
+class PosHourPoint {
+  const PosHourPoint({
+    required this.hour,
+    required this.label,
+    required this.orders,
+    required this.revenue,
+  });
+
+  final int hour;
+  final String label;
+  final int orders;
+  final int revenue;
+
+  factory PosHourPoint.fromMap(Map<String, dynamic> json) {
+    final hour = PosProduct._amount(json['hour']);
+    return PosHourPoint(
+      hour: hour,
+      label: json['label']?.toString() ?? '${hour.toString().padLeft(2, '0')}:00',
+      orders: PosProduct._amount(json['sales_count'] ?? json['orders']),
+      revenue: PosProduct._amount(json['revenue']),
+    );
+  }
+}
+
 class PosOverview {
   const PosOverview({
     required this.orderCount,
     required this.revenue,
+    this.averageTicket = 0,
+    this.activeOrders = 0,
     this.myShiftOpen = false,
     this.openShiftsCount = 0,
     this.bestSellers = const [],
     this.recentOrders = const [],
     this.paymentMix = const [],
+    this.dailySummary = const [],
+    this.salesByHour = const [],
   });
 
   final int orderCount;
   final int revenue;
+  final int averageTicket;
+  final int activeOrders;
   final bool myShiftOpen;
   final int openShiftsCount;
   final List<Map<String, dynamic>> bestSellers;
   final List<Map<String, dynamic>> recentOrders;
   final List<Map<String, dynamic>> paymentMix;
+  final List<PosDaySummary> dailySummary;
+  final List<PosHourPoint> salesByHour;
 
   factory PosOverview.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
@@ -914,16 +972,36 @@ class PosOverview {
       return raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
     }
 
+    final orderCount = PosProduct._amount(
+      data['order_count'] ?? kpis['sales_count'] ?? data['sales_count'],
+    );
+    final revenue = PosProduct._amount(data['revenue'] ?? kpis['revenue']);
+    final days = mapsOf(data['daily_summary']).map(PosDaySummary.fromMap).toList();
+
     return PosOverview(
-      orderCount: PosProduct._amount(
-        data['order_count'] ?? kpis['sales_count'] ?? data['sales_count'],
+      orderCount: orderCount,
+      revenue: revenue,
+      averageTicket: PosProduct._amount(
+        kpis['average_ticket'] ?? data['average_ticket'],
       ),
-      revenue: PosProduct._amount(data['revenue'] ?? kpis['revenue']),
+      activeOrders: PosProduct._amount(data['active_orders']),
       myShiftOpen: shiftOpen,
       openShiftsCount: PosProduct._amount(data['open_shifts_count']),
       bestSellers: mapsOf(data['best_sellers'] ?? data['best_selling_products']),
       recentOrders: mapsOf(data['recent_orders']),
       paymentMix: mapsOf(data['payment_mix'] ?? data['payment_methods']),
+      dailySummary: days.isEmpty
+          ? [
+              PosDaySummary(
+                date: data['date']?.toString() ?? '',
+                isToday: true,
+                sales: revenue,
+                orders: orderCount,
+                average: orderCount > 0 ? (revenue / orderCount).round() : 0,
+              ),
+            ]
+          : days,
+      salesByHour: mapsOf(data['sales_by_hour']).map(PosHourPoint.fromMap).toList(),
     );
   }
 }

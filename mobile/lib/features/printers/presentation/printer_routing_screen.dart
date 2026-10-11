@@ -197,7 +197,7 @@ class _Section extends StatelessWidget {
                     PrintRouteKind.product => Icons.inventory_2_outlined,
                     PrintRouteKind.document => Icons.description_outlined,
                   },
-                  color: AppColors.brand600,
+                  color: AppColors.brandInk,
                 ),
                 title: Text(route.displayLabel, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
                 subtitle: Text(

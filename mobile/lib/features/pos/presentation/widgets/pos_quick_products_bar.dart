@@ -91,7 +91,7 @@ class _QuickChip extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 MoneyFormatter.format(product.price, currencyCode: AppConfig.currencyCode),
-                style: PosUi.caption(color: AppColors.brand700),
+                style: PosUi.caption(color: AppColors.brandInk),
               ),
             ],
           ),

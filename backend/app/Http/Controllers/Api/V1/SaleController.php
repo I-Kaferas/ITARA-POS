@@ -70,6 +70,8 @@ class SaleController extends Controller
                 'total',
                 'paid',
                 'currency',
+                'service_mode',
+                'delivery_address',
                 'notes',
             ], ';');
 
@@ -87,6 +89,8 @@ class SaleController extends Controller
                     number_format(($sale->total ?? 0) / 100, 2, '.', ''),
                     number_format(($sale->paid_amount ?? 0) / 100, 2, '.', ''),
                     $sale->currency,
+                    $sale->service_mode,
+                    $sale->delivery_address,
                     $sale->notes,
                 ], ';');
             }
@@ -249,6 +253,9 @@ class SaleController extends Controller
             'device_id' => ['nullable', 'uuid', 'exists:devices,id'],
             'idempotency_key' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'table_id' => ['nullable', 'uuid', 'exists:pos_tables,id'],
+            'service_mode' => ['nullable', 'string', Rule::in(['takeaway', 'delivery'])],
+            'delivery_address' => ['nullable', 'string', 'max:255', 'required_if:service_mode,delivery'],
             'items.*.line_id' => ['nullable', 'string', 'max:120'],
             'items.*.product_id' => ['nullable', 'uuid', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'uuid', 'exists:product_variants,id'],
@@ -291,6 +298,8 @@ class SaleController extends Controller
             'device_id' => ['nullable', 'uuid', 'exists:devices,id'],
             'table_id' => ['nullable', 'uuid', 'exists:pos_tables,id'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'service_mode' => ['nullable', 'string', Rule::in(['takeaway', 'delivery'])],
+            'delivery_address' => ['nullable', 'string', 'max:255', 'required_if:service_mode,delivery'],
             'order_date' => ['nullable', 'date'],
             'items.*.line_id' => ['nullable', 'string', 'max:120'],
             'items.*.product_id' => ['nullable', 'uuid', 'exists:products,id'],

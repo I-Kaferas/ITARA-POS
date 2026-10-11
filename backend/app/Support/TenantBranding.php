@@ -42,8 +42,13 @@ final class TenantBranding
     {
         $settings = is_array($tenant->settings) ? $tenant->settings : [];
         $marketing = is_array($settings['marketing'] ?? null) ? $settings['marketing'] : [];
+        $company = self::publicCompany($tenant);
+        $storedBrand = self::stringOr($settings['brand_name'] ?? null, '');
+        $companyName = is_array($company) ? self::stringOr($company['name'] ?? null, '') : '';
 
-        $brandName = self::stringOr($settings['brand_name'] ?? null, $tenant->name);
+        $brandName = $companyName !== ''
+            ? $companyName
+            : self::stringOr($storedBrand !== '' ? $storedBrand : null, $tenant->name);
 
         return [
             'tenant_id' => (string) $tenant->id,
@@ -57,7 +62,11 @@ final class TenantBranding
             'support_email' => self::nullableString($settings['support_email'] ?? null),
             'support_phone' => self::nullableString($settings['support_phone'] ?? null),
             'marketing' => [
-                'hero_title' => self::stringOr($marketing['hero_title'] ?? null, $brandName),
+                'hero_title' => self::heroTitle(
+                    self::stringOr($marketing['hero_title'] ?? null, $brandName),
+                    $storedBrand,
+                    $brandName,
+                ),
                 'hero_subtitle' => self::stringOr(
                     $marketing['hero_subtitle'] ?? null,
                     'Vendez plus vite, suivez vos stocks et pilotez votre magasin depuis un seul endroit.',
@@ -65,7 +74,7 @@ final class TenantBranding
                 'cta_label' => self::stringOr($marketing['cta_label'] ?? null, 'Ouvrir l’espace admin'),
                 'cta_url' => self::stringOr($marketing['cta_url'] ?? null, ''),
             ],
-            'company' => self::publicCompany($tenant),
+            'company' => $company,
         ];
     }
 
@@ -181,6 +190,15 @@ final class TenantBranding
                 'cta_url' => '',
             ],
         ];
+    }
+
+    private static function heroTitle(string $hero, string $storedBrand, string $brandName): string
+    {
+        if ($storedBrand !== '' && strcasecmp($hero, $storedBrand) === 0) {
+            return $brandName;
+        }
+
+        return $hero;
     }
 
     private static function stringOr(mixed $value, string $fallback): string

@@ -192,6 +192,7 @@ async function submit() {
     })
     successLines.value = result.lines ?? []
     emit('created')
+    emit('close')
   } catch (err) {
     error.value = extractApiErrorMessage(err)
   } finally {

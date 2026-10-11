@@ -376,7 +376,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.brand900),
+        style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.brandInk),
       ),
     );
   }

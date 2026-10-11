@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { api, clearAuth, extractApiErrorMessage, setAuth } from '../api/client'
+import { api, clearAuth, extractApiErrorMessage, getRefreshToken, getTenantId, getToken, setAuth } from '../api/client'
 import type { User } from '../types'
+import { resetTenantWorkspace } from './workspace'
 
-interface LoginResponse {
+export interface LoginResponse {
   access_token?: string
   refresh_token?: string
   requires_two_factor?: boolean
@@ -23,6 +24,9 @@ export interface TwoFactorStatus {
   enabled: boolean
 }
 
+const SUPPORT_KEY = 'pos_platform_return'
+const SUPPORT_NAME = 'pos_support_name'
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const loading = ref(false)
@@ -31,6 +35,7 @@ export const useAuthStore = defineStore('auth', () => {
   const sessions = ref<AuthSession[]>([])
   const twoFactorStatus = ref<TwoFactorStatus | null>(null)
   const recoveryCodes = ref<string[]>([])
+  const supportingName = ref(sessionStorage.getItem(SUPPORT_NAME) || '')
 
   async function login(email: string, password: string) {
     loading.value = true
@@ -50,6 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       setAuth(response.access_token, response.user.tenant_id ?? null, response.refresh_token)
+      resetTenantWorkspace()
       user.value = response.user
       return { requiresTwoFactor: false as const }
     } catch (e) {
@@ -77,6 +83,7 @@ export const useAuthStore = defineStore('auth', () => {
         response.user!.tenant_id ?? null,
         response.refresh_token,
       )
+      resetTenantWorkspace()
       user.value = response.user!
       twoFactorChallenge.value = null
     } catch (e) {
@@ -96,6 +103,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = response.user
     } catch {
       clearAuth()
+      resetTenantWorkspace()
       user.value = null
     } finally {
       loading.value = false
@@ -107,6 +115,10 @@ export const useAuthStore = defineStore('auth', () => {
       await api.post('/auth/logout')
     } finally {
       clearAuth()
+      sessionStorage.removeItem(SUPPORT_KEY)
+      sessionStorage.removeItem(SUPPORT_NAME)
+      supportingName.value = ''
+      resetTenantWorkspace()
       user.value = null
       twoFactorChallenge.value = null
       sessions.value = []
@@ -115,8 +127,57 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function beginSupport(response: LoginResponse, tenantName: string) {
+    if (!response.access_token || !response.user) {
+      throw new Error('Réponse de connexion invalide')
+    }
+    if (!sessionStorage.getItem(SUPPORT_KEY)) {
+      sessionStorage.setItem(SUPPORT_KEY, JSON.stringify({
+        token: getToken(),
+        refresh: getRefreshToken(),
+        tenant: getTenantId(),
+      }))
+    }
+    sessionStorage.setItem(SUPPORT_NAME, tenantName)
+    supportingName.value = tenantName
+    setAuth(response.access_token, response.user.tenant_id ?? null, response.refresh_token)
+    resetTenantWorkspace()
+    user.value = response.user
+  }
+
+  async function returnToPlatform() {
+    const raw = sessionStorage.getItem(SUPPORT_KEY)
+    sessionStorage.removeItem(SUPPORT_KEY)
+    sessionStorage.removeItem(SUPPORT_NAME)
+    supportingName.value = ''
+    try {
+      await api.post('/auth/logout')
+    } catch {
+      /* The support session may already be gone. */
+    }
+    if (!raw) {
+      clearAuth()
+      user.value = null
+      return
+    }
+    const saved = JSON.parse(raw) as { token?: string; refresh?: string | null; tenant?: string | null }
+    if (!saved.token) {
+      clearAuth()
+      user.value = null
+      return
+    }
+    setAuth(saved.token, saved.tenant ?? null, saved.refresh || undefined)
+    await fetchMe()
+  }
+
   async function forgotPassword(email: string) {
     return api.post<{ message: string }>('/auth/forgot-password', { email })
+  }
+
+  async function updateProfile(payload: { name?: string; phone?: string | null }) {
+    const response = await api.patch<{ user: User }>('/auth/profile', payload)
+    user.value = response.user
+    return response.user
   }
 
   async function changePassword(currentPassword: string, password: string, passwordConfirmation: string) {
@@ -183,6 +244,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function logoutAll() {
     await api.post('/auth/logout-all')
     clearAuth()
+    resetTenantWorkspace()
     user.value = null
   }
 
@@ -194,11 +256,15 @@ export const useAuthStore = defineStore('auth', () => {
     sessions,
     twoFactorStatus,
     recoveryCodes,
+    supportingName,
     login,
     verifyTwoFactor,
     fetchMe,
     logout,
+    beginSupport,
+    returnToPlatform,
     forgotPassword,
+    updateProfile,
     changePassword,
     resetPassword,
     emailVerificationStatus,

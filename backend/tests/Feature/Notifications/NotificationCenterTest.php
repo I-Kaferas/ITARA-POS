@@ -264,4 +264,33 @@ class NotificationCenterTest extends TestCase
             'config' => [],
         ], $headers)->assertForbidden();
     }
+
+    public function test_sale_notification_follows_the_sale_tenant_when_another_context_is_bound(): void
+    {
+        $tenantA = $this->createTenantFixture('notify-a', 'notify-a@test.local');
+        $tenantB = $this->createTenantFixture('notify-b', 'notify-b@test.local');
+
+        app(TenantContext::class)->bind($tenantB['tenant']);
+        $sale = Sale::create([
+            'tenant_id' => $tenantB['tenant']->id,
+            'store_id' => $tenantB['store']->id,
+            'reference' => 'CMD-B',
+            'status' => 'completed',
+            'total' => 1800,
+            'paid_amount' => 1800,
+        ]);
+
+        app(TenantContext::class)->bind($tenantA['tenant']);
+        SaleCompleted::dispatch($sale);
+
+        $this->assertSame($tenantA['tenant']->id, app(TenantContext::class)->id());
+        $this->assertDatabaseHas('inbox_notifications', [
+            'user_id' => $tenantB['user']->id,
+            'fingerprint' => 'new_order:'.$sale->id,
+        ]);
+        $this->assertDatabaseMissing('inbox_notifications', [
+            'user_id' => $tenantA['user']->id,
+            'fingerprint' => 'new_order:'.$sale->id,
+        ]);
+    }
 }

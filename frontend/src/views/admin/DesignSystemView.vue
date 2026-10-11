@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../components/layout/PageFrame.vue'
 import AppAlert from '../../components/ui/AppAlert.vue'
@@ -34,40 +34,36 @@ const action = ref('')
 const showLoading = ref(false)
 const warningVisible = ref(true)
 
-const sections = [
-  'colors',
-  'type',
-  'space',
-  'buttons',
-  'inputs',
-  'tables',
-  'cards',
-  'badges',
-  'dropdowns',
-  'modals',
-  'drawers',
-  'tabs',
-  'alerts',
-  'toasts',
-  'charts',
-  'empty',
-  'loading',
-  'skeletons',
+const groups = [
+  { id: 'foundations', sections: ['colors', 'type', 'space'] },
+  { id: 'controls', sections: ['buttons', 'inputs', 'dropdowns', 'tabs'] },
+  { id: 'surfaces', sections: ['tables', 'cards', 'badges'] },
+  { id: 'overlays', sections: ['modals', 'drawers', 'alerts', 'toasts'] },
+  { id: 'feedback', sections: ['charts', 'empty', 'loading', 'skeletons'] },
 ] as const
 
-const swatches = [
-  { name: 'navy', token: '--color-brand-600' },
-  { name: 'ink', token: '--color-text' },
-  { name: 'canvas', token: '--color-canvas' },
-  { name: 'surface', token: '--color-surface' },
-  { name: 'muted', token: '--color-text-muted' },
-  { name: 'border', token: '--color-border-strong' },
-  { name: 'accent', token: '--color-accent' },
-  { name: 'success', token: '--color-success' },
-  { name: 'warning', token: '--color-warning' },
-  { name: 'danger', token: '--color-danger' },
-  { name: 'info', token: '--color-info' },
-] as const
+const palette = {
+  lead: [
+    { name: 'navy', token: '--color-brand-600', tone: 'light' },
+    { name: 'ink', token: '--color-text', tone: 'light' },
+    { name: 'accent', token: '--color-accent', tone: 'dark' },
+  ],
+  neutrals: [
+    { name: 'canvas', token: '--color-canvas', tone: 'dark' },
+    { name: 'surface', token: '--color-surface', tone: 'dark' },
+    { name: 'muted', token: '--color-text-muted', tone: 'light' },
+    { name: 'border', token: '--color-border-strong', tone: 'dark' },
+  ],
+  status: [
+    { name: 'success', token: '--color-success', tone: 'light' },
+    { name: 'warning', token: '--color-warning', tone: 'light' },
+    { name: 'danger', token: '--color-danger', tone: 'light' },
+    { name: 'info', token: '--color-info', tone: 'light' },
+  ],
+} as const
+
+const active = ref('colors')
+let sectionObserver: IntersectionObserver | null = null
 
 const steps = [4, 8, 12, 16, 24, 32, 48, 64]
 
@@ -127,6 +123,34 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
   const key = tone.charAt(0).toUpperCase() + tone.slice(1)
   push({ tone, title: t(`design.samples.toast${key}`), message: t('design.lead.toasts') })
 }
+
+function jump(section: string, event: MouseEvent) {
+  event.preventDefault()
+  const target = document.getElementById(`ds-${section}`)
+  const scroller = document.querySelector('.app-content')
+  if (!target || !(scroller instanceof HTMLElement)) return
+  const top = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 12
+  scroller.scrollTo({ top, behavior: 'smooth' })
+  active.value = section
+}
+
+onMounted(() => {
+  const root = document.querySelector('.app-content')
+  sectionObserver = new IntersectionObserver((entries) => {
+    const hit = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+    const id = hit?.target.id.replace(/^ds-/, '')
+    if (id) active.value = id
+  }, {
+    root: root instanceof HTMLElement ? root : null,
+    rootMargin: '-10% 0px -68% 0px',
+    threshold: [0.2, 0.45, 0.7],
+  })
+  document.querySelectorAll('.ds__section').forEach((section) => sectionObserver?.observe(section))
+})
+
+onBeforeUnmount(() => sectionObserver?.disconnect())
 </script>
 
 <template>
@@ -136,29 +160,69 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
 
     <div class="ds">
       <nav class="ds__nav" :aria-label="t('design.title')">
-        <a
-          v-for="section in sections"
-          :key="section"
-          class="ds__link"
-          :href="`#ds-${section}`"
-        >
-          {{ t(`design.sections.${section}`) }}
-        </a>
+        <div v-for="group in groups" :key="group.id" class="ds__group">
+          <p class="ds__nav-label">{{ t(`design.groups.${group.id}`) }}</p>
+          <a
+            v-for="section in group.sections"
+            :key="section"
+            class="ds__link"
+            :class="{ 'ds__link--active': active === section }"
+            :href="`#ds-${section}`"
+            :aria-current="active === section ? 'true' : undefined"
+            @click="jump(section, $event)"
+          >
+            {{ t(`design.sections.${section}`) }}
+          </a>
+        </div>
       </nav>
 
       <div class="ds__main">
-        <p class="ui-body ds__principles">{{ t('design.principles') }}</p>
+        <header class="ds__intro">
+          <span class="ds__rule" aria-hidden="true" />
+          <p class="ui-body">{{ t('design.principles') }}</p>
+        </header>
 
         <section id="ds-colors" class="ds__section">
           <header class="ds__head">
             <h2 class="ui-heading">{{ t('design.sections.colors') }}</h2>
             <p class="ui-body">{{ t('design.lead.colors') }}</p>
           </header>
-          <div class="ds-swatches">
-            <div v-for="swatch in swatches" :key="swatch.token" class="ds-swatch">
-              <span class="ds-swatch__chip" :style="{ background: `var(${swatch.token})` }" />
-              <span class="ds-swatch__name">{{ t(`design.swatches.${swatch.name}`) }}</span>
-              <span class="ds-swatch__token">{{ swatch.token }}</span>
+          <div class="ds-palette">
+            <div class="ds-palette__lead">
+              <div
+                v-for="swatch in palette.lead"
+                :key="swatch.token"
+                class="ds-chip ds-chip--lead"
+                :class="`ds-chip--${swatch.tone}`"
+                :style="{ background: `var(${swatch.token})` }"
+              >
+                <span class="ds-chip__name">{{ t(`design.swatches.${swatch.name}`) }}</span>
+                <span class="ds-chip__token">{{ swatch.token }}</span>
+              </div>
+            </div>
+            <div class="ds-palette__row">
+              <div
+                v-for="swatch in palette.neutrals"
+                :key="swatch.token"
+                class="ds-chip"
+                :class="`ds-chip--${swatch.tone}`"
+                :style="{ background: `var(${swatch.token})` }"
+              >
+                <span class="ds-chip__name">{{ t(`design.swatches.${swatch.name}`) }}</span>
+                <span class="ds-chip__token">{{ swatch.token }}</span>
+              </div>
+            </div>
+            <div class="ds-palette__row">
+              <div
+                v-for="swatch in palette.status"
+                :key="swatch.token"
+                class="ds-chip"
+                :class="`ds-chip--${swatch.tone}`"
+                :style="{ background: `var(${swatch.token})` }"
+              >
+                <span class="ds-chip__name">{{ t(`design.swatches.${swatch.name}`) }}</span>
+                <span class="ds-chip__token">{{ swatch.token }}</span>
+              </div>
             </div>
           </div>
         </section>
@@ -186,7 +250,7 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
             <div class="ds-space">
               <div v-for="step in steps" :key="step" class="ds-space__row">
                 <span class="ds-space__label">{{ step }}</span>
-                <span class="ds-space__bar" :style="{ width: `${step * 4}px` }" />
+                <span class="ds-space__bar" :style="{ width: `${step * 3}px` }" />
               </div>
             </div>
           </AppCard>
@@ -202,7 +266,9 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
               <AppButton>{{ t('design.samples.primary') }}</AppButton>
               <AppButton variant="secondary">{{ t('design.samples.secondary') }}</AppButton>
               <AppButton variant="ghost">{{ t('design.samples.ghost') }}</AppButton>
+              <AppButton variant="outline">{{ t('design.samples.outline') }}</AppButton>
               <AppButton variant="danger">{{ t('design.samples.danger') }}</AppButton>
+              <AppButton variant="success">{{ t('design.samples.success') }}</AppButton>
               <AppButton variant="link">{{ t('design.samples.link') }}</AppButton>
               <AppButton loading>{{ t('design.samples.loading') }}</AppButton>
               <AppButton size="sm" variant="secondary">{{ t('design.samples.secondary') }}</AppButton>
@@ -469,9 +535,10 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
 <style scoped>
 .ds {
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr);
+  grid-template-columns: 188px minmax(0, 1fr);
   gap: var(--space-8);
   align-items: start;
+  width: 100%;
 }
 
 .ds__nav {
@@ -479,16 +546,37 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
   top: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: calc(100vh - var(--topbar-height) - var(--space-8));
+  gap: var(--space-4);
+  max-height: calc(100vh - var(--topbar-height) - var(--content-pad));
   overflow: auto;
-  padding: var(--space-1) 0;
+  padding: 2px 0 var(--space-4);
+  scrollbar-width: none;
+}
+
+.ds__nav::-webkit-scrollbar {
+  display: none;
+}
+
+.ds__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ds__nav-label {
+  margin: 0 0 2px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-text-faint, var(--color-text-muted));
 }
 
 .ds__link {
-  padding: 7px 10px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 13px;
   font-weight: 600;
   line-height: 18px;
@@ -500,21 +588,44 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
   color: var(--color-text-primary);
 }
 
-.ds__main {
-  min-width: 0;
-  max-width: 920px;
+.ds__link--active {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: inset 2px 0 0 var(--color-brand-600);
 }
 
-.ds__principles {
-  margin: 0 0 var(--space-8);
-  max-width: 38rem;
+.ds__main {
+  min-width: 0;
+}
+
+.ds__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  max-width: 40rem;
+  margin-bottom: var(--space-2);
+}
+
+.ds__intro .ui-body {
+  margin: 0;
+}
+
+.ds__rule {
+  display: block;
+  width: 28px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-accent);
 }
 
 .ds__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding-bottom: var(--space-9);
+  display: grid;
+  grid-template-columns: minmax(148px, 210px) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+  padding: var(--space-7) 0;
+  border-top: 1px solid var(--color-border);
   scroll-margin-top: var(--space-4);
 }
 
@@ -522,40 +633,67 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  position: sticky;
+  top: var(--space-2);
 }
 
+.ds__head .ui-heading,
 .ds__head .ui-body {
   margin: 0;
-  max-width: 38rem;
 }
 
-.ds-swatches {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+.ds-palette {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
 }
 
-.ds-swatch {
+.ds-palette__lead {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.85fr;
+  gap: var(--space-3);
+}
+
+.ds-palette__row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.ds-chip {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 2px;
+  min-height: 78px;
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
+  border-radius: var(--radius-lg);
 }
 
-.ds-swatch__chip {
-  height: 52px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+.ds-chip--lead {
+  min-height: 132px;
+  padding: var(--space-4);
 }
 
-.ds-swatch__name {
-  font-size: 13px;
-  font-weight: 600;
+.ds-chip--light {
+  color: #fff;
+}
+
+.ds-chip--dark {
   color: var(--color-text-primary);
 }
 
-.ds-swatch__token {
+.ds-chip__name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.ds-chip__token {
   font-size: 12px;
-  color: var(--color-text-muted);
+  line-height: 1.3;
+  opacity: 0.78;
 }
 
 .ds-space {
@@ -579,6 +717,7 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
 }
 
 .ds-space__bar {
+  justify-self: start;
   height: 8px;
   max-width: 100%;
   border-radius: 999px;
@@ -620,6 +759,17 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
   margin-top: var(--space-3);
 }
 
+@media (max-width: 1100px) {
+  .ds__section {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .ds__head {
+    position: static;
+  }
+}
+
 @media (max-width: 900px) {
   .ds {
     grid-template-columns: 1fr;
@@ -632,16 +782,41 @@ function notify(tone: 'info' | 'success' | 'warning' | 'danger') {
     z-index: 2;
     flex-direction: row;
     max-height: none;
-    gap: var(--space-1);
+    gap: var(--space-3);
     overflow-x: auto;
     padding: var(--space-2) 0;
     background: var(--color-canvas);
+  }
+
+  .ds__group {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .ds__nav-label {
+    display: none;
   }
 
   .ds__link {
     flex: 0 0 auto;
   }
 
+  .ds__link--active {
+    box-shadow: none;
+  }
+
+  .ds-palette__lead,
+  .ds-palette__row,
+  .ds-form,
+  .ds-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .ds-palette__lead,
+  .ds-palette__row,
   .ds-form,
   .ds-cards {
     grid-template-columns: 1fr;

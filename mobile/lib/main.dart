@@ -11,7 +11,9 @@ import 'core/di/service_locator.dart';
 import 'core/logging/app_logger.dart';
 import 'core/navigation/app_router.dart';
 import 'core/network/network_bloc.dart';
+import 'core/i18n/app_locale.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
 import 'core/theme/theme_cubit.dart';
 import 'data/local/data_model_bootstrap.dart';
 import 'features/auth/presentation/bloc/authentication_bloc.dart';
@@ -43,6 +45,7 @@ Future<void> main() async {
     terminal.add(const TerminalLoadRequested());
     await loaded;
     await sl<ThemeCubit>().load();
+    LocaleController.instance.bind(sl<TerminalConfigRepository>().config.locale);
 
     runApp(const PosApp());
     unawaited(_bootBackgroundServices(logger));
@@ -119,9 +122,13 @@ class PosApp extends StatelessWidget {
       ],
       child: BlocBuilder<ThemeCubit, ThemeState>(
         builder: (context, themeState) {
+          return ListenableBuilder(
+            listenable: LocaleController.instance,
+            builder: (context, _) {
           return MaterialApp.router(
             title: 'ITARA POS',
             debugShowCheckedModeBanner: false,
+            locale: LocaleController.instance.locale,
             theme: AppTheme.light,
             darkTheme: AppTheme.dark,
             themeMode: themeState.mode,
@@ -137,6 +144,11 @@ class PosApp extends StatelessWidget {
               Locale('sw'),
             ],
             routerConfig: AppRouter.create(),
+            builder: (context, child) => ThemeRefresh(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
+            },
           );
         },
       ),

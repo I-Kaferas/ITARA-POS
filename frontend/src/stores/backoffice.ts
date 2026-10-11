@@ -150,6 +150,67 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   const productBatches = ref<ProductBatch[]>([])
   const loading = ref(false)
 
+  function clearTenantState() {
+    companies.value = []
+    branches.value = []
+    catalogs.value = []
+    categories.value = []
+    brands.value = []
+    catalogAttributes.value = []
+    units.value = []
+    taxes.value = []
+    currencies.value = []
+    paymentMethods.value = []
+    promotions.value = []
+    promotionTypes.value = []
+    products.value = []
+    galleryImages.value = []
+    stores.value = []
+    warehouses.value = []
+    devices.value = []
+    cashRegisters.value = []
+    cashierShifts.value = []
+    currentCashierShift.value = null
+    users.value = []
+    roles.value = []
+    permissions.value = []
+    storeProducts.value = []
+    stats.value = null
+    suppliers.value = []
+    customers.value = []
+    purchaseOrders.value = []
+    purchaseInvoices.value = []
+    payablesSummary.value = null
+    payablesSchedule.value = []
+    supplierPayments.value = []
+    stockBalances.value = []
+    stockTransfers.value = []
+    stockAdjustments.value = []
+    inventoryCounts.value = []
+    inventoryAlerts.value = []
+    sales.value = []
+    auditLogs.value = []
+    accountingEntries.value = []
+    serialNumbers.value = []
+    productBatches.value = []
+    loading.value = false
+  }
+
+  function clearStoreScopedState() {
+    products.value = []
+    storeProducts.value = []
+    sales.value = []
+    stats.value = null
+    cashierShifts.value = []
+    currentCashierShift.value = null
+    stockBalances.value = []
+    stockTransfers.value = []
+    stockAdjustments.value = []
+    inventoryCounts.value = []
+    inventoryAlerts.value = []
+    loading.value = false
+  }
+
   function unwrapWarehouses(payload: { data?: Warehouse[] | { data?: Warehouse[] } | null }): Warehouse[] {
     const body = payload?.data
     if (Array.isArray(body)) return body.filter((item) => item?.id && item?.name)
@@ -2001,6 +2062,8 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     auditLogs, accountingEntries, serialNumbers, productBatches,
     loading,
     loadStats, loadCompanies, loadCompanyDetail, saveCompany, deleteCompany, uploadCompanyLogo, deleteCompanyLogo, uploadInvoiceLogo, deleteInvoiceLogo,
+    clearTenantState,
+    clearStoreScopedState,
     loadCurrencies, saveCurrency, deleteCurrency, loadCurrencyRates, saveCurrencyRate, convertCurrency,
     loadPaymentMethods, savePaymentMethod, updatePaymentMethod, deletePaymentMethod, reorderPaymentMethods,
     loadBranches, saveBranch, deleteBranch, loadBranchProfile, addBranchExpense, loadStores, saveStore, deleteStore,

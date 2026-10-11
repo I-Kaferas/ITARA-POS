@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/layout/android_form_factor.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// Spacing / radius tokens for the POS caisse surface.
@@ -31,7 +33,7 @@ abstract final class PosUi {
   static const double categoryWidth = 208;
   static const double categoryWidthWindows = 220;
   static const double cartWidth = 340;
-  static const double cartWidthWindows = 380;
+  static const double cartWidthWindows = 420;
 
   static bool isWindowsDesk(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= windowsDeskBreakpoint;

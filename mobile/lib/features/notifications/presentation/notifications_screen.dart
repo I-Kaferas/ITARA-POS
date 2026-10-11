@@ -22,7 +22,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     'low_stock': 'Stock faible',
     'expired': 'Produit expiré',
     'sync_failed': 'Sync échouée',
-    'cash_open': 'Caisse ouverte',
+    'cash_open': 'Shift ouvert',
+    'shift_required': 'Shift requis',
     'credit_overdue': 'Crédit en retard',
     'order_pending': 'Commande en attente',
   };

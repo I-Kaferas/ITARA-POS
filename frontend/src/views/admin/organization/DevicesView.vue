@@ -140,9 +140,8 @@ async function save() {
   }
 
   saving.value = true
-  const creating = !editing.value
   try {
-    const saved = await store.saveDevice(storeId.value, {
+    await store.saveDevice(storeId.value, {
       name: form.value.name.trim(),
       category: form.value.category,
       device_type: form.value.category,
@@ -155,12 +154,6 @@ async function save() {
       is_active: form.value.is_active,
     }, editing.value?.id)
     await store.loadDevices(storeId.value, props.deviceType ?? undefined)
-    saveNotice.value = t('org.deviceSaved')
-    if (creating && saved) {
-      openEdit(saved)
-      saveNotice.value = t('org.deviceSaved')
-      return
-    }
     showModal.value = false
   } catch (error) {
     saveError.value = extractApiErrorMessage(error, t('org.deviceSaveFailed'))

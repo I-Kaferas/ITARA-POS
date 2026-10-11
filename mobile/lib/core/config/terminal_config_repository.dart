@@ -62,10 +62,14 @@ class TerminalConfigRepository extends ChangeNotifier {
       _config = _config.copyWith(deviceIdentifier: const Uuid().v4());
     }
 
-    // Local ITARA API listens on 8001 (8000 is taken on this machine).
-    final migratedApi = _migrateLocalApiPort(_config.apiBaseUrl);
-    if (migratedApi != _config.apiBaseUrl) {
-      _config = _config.copyWith(apiBaseUrl: migratedApi);
+    // The API listens on 127.0.0.1:8001. `localhost` often resolves to IPv6 on Windows and the connection fails.
+    final migratedApi = _migrateLocalApi(_config.apiBaseUrl);
+    final migratedInternal = _migrateLocalApi(_config.internalApiBaseUrl);
+    if (migratedApi != _config.apiBaseUrl || migratedInternal != _config.internalApiBaseUrl) {
+      _config = _config.copyWith(
+        apiBaseUrl: migratedApi,
+        internalApiBaseUrl: migratedInternal,
+      );
       await prefs.setString(_storageKey, jsonEncode(_config.toJson()));
     }
 
@@ -73,12 +77,15 @@ class TerminalConfigRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  static String _migrateLocalApiPort(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null || uri.port != 8000) return url;
+  static String _migrateLocalApi(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return trimmed;
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme) return trimmed;
     final host = uri.host.toLowerCase();
-    if (host != 'localhost' && host != '127.0.0.1') return url;
-    return uri.replace(port: 8001).toString();
+    if (host != 'localhost' && host != '127.0.0.1') return trimmed;
+    final port = uri.port == 8000 ? 8001 : uri.port;
+    return uri.replace(host: '127.0.0.1', port: port).toString();
   }
 
   Future<void> clear() async {

@@ -35,10 +35,10 @@ class LocalMasterDiscovery extends ChangeNotifier {
 
   String get statusMessage {
     if (searching && visible.isEmpty) {
-      return 'Searching for ITARA Master...';
+      return 'Recherche d’un Master sur le réseau…';
     }
     if (visible.isEmpty) return 'Aucun Master sur le réseau local';
-    return 'Masters found';
+    return 'Masters trouvés';
   }
 
   List<DiscoveredMaster> get visible {

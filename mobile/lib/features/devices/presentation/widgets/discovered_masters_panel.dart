@@ -46,7 +46,7 @@ class DiscoveredMastersPanel extends StatelessWidget {
           if (onRefresh != null)
             TextButton(
               onPressed: onRefresh,
-              child: const Text('Relancer'),
+              child: const Text('Rechercher'),
             ),
         ],
       );
@@ -56,7 +56,7 @@ class DiscoveredMastersPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Masters found',
+          'Masters trouvés',
           style: GoogleFonts.ibmPlexSans(
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -132,7 +132,7 @@ class _MasterCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      online ? 'Online' : 'Offline',
+                      online ? 'En ligne' : 'Hors ligne',
                       style: GoogleFonts.ibmPlexSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -157,7 +157,7 @@ class _MasterCard extends StatelessWidget {
           const SizedBox(width: 10),
           FilledButton(
             onPressed: online ? onConnect : null,
-            child: const Text('CONNECT'),
+            child: const Text('Connecter'),
           ),
         ],
       ),

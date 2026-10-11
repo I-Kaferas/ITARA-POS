@@ -49,42 +49,42 @@ class AppPalette {
     brand100: Color(0xFFE3E5E8),
     brand200: Color(0xFFBDC2C8),
     brandInk: Color(0xFF12243C),
-    canvas: Color(0xFFF3F5F7),
+    canvas: Color(0xFFF4F6F8),
     surface: Color(0xFFFFFFFF),
-    surfaceVariant: Color(0xFFF8FAFB),
-    border: Color(0xFFE2E8EE),
-    borderStrong: Color(0xFFCBD5DE),
-    successBg: Color(0xFFECFDF5),
-    warningBg: Color(0xFFF8F1E4),
-    dangerBg: Color(0xFFFEF2F2),
-    infoBg: Color(0xFFF2F6F9),
-    accentSoft: Color(0xFFF8F1E4),
-    textPrimary: Color(0xFF172029),
-    textSecondary: Color(0xFF5B6B7C),
-    textMuted: Color(0xFF8B9AAB),
-    fieldFill: Color(0xFFF7F9FA),
-    shadow: Color(0x14172029),
+    surfaceVariant: Color(0xFFF7F8FA),
+    border: Color(0xFFE3E7EB),
+    borderStrong: Color(0xFFD0D6DC),
+    successBg: Color(0xFFE8F6EF),
+    warningBg: Color(0xFFFBF3E4),
+    dangerBg: Color.fromARGB(255, 251, 237, 236),
+    infoBg: Color(0xFFE8F1F7),
+    accentSoft: Color(0xFFFBF4E6),
+    textPrimary: Color(0xFF14202B),
+    textSecondary: Color(0xFF3A4C5C),
+    textMuted: Color(0xFF5C6D7C),
+    fieldFill: Color(0xFFF3F5F7),
+    shadow: Color(0x0F14202B),
   );
 
   static const dark = AppPalette(
-    brand50: Color(0xFF141E2C),
-    brand100: Color(0xFF1A2840),
-    brand200: Color(0xFF2A4060),
-    brandInk: Color(0xFFC9D8EF),
+    brand50: Color(0xFF1A252E),
+    brand100: Color(0xFF212C36),
+    brand200: Color(0xFF31404C),
+    brandInk: Color(0xFFD7E4F4),
     canvas: Color(0xFF0E1419),
-    surface: Color(0xFF171F27),
-    surfaceVariant: Color(0xFF1C2630),
-    border: Color(0xFF2A3642),
-    borderStrong: Color(0xFF3D4C5A),
-    successBg: Color(0xFF123128),
-    warningBg: Color(0xFF3A2C16),
-    dangerBg: Color(0xFF3A1C1C),
-    infoBg: Color(0xFF1A242E),
-    accentSoft: Color(0xFF3A2C16),
-    textPrimary: Color(0xFFE8EEF3),
-    textSecondary: Color(0xFFA8B6C4),
-    textMuted: Color(0xFF7E8E9E),
-    fieldFill: Color(0xFF121920),
+    surface: Color(0xFF172028),
+    surfaceVariant: Color(0xFF1C2832),
+    border: Color(0xFF31404C),
+    borderStrong: Color(0xFF425566),
+    successBg: Color(0xFF1A3330),
+    warningBg: Color(0xFF3A2A14),
+    dangerBg: Color(0xFF3A2220),
+    infoBg: Color(0xFF1A2A36),
+    accentSoft: Color(0xFF3A2E16),
+    textPrimary: Color(0xFFF4F7FA),
+    textSecondary: Color(0xFFD0DAE3),
+    textMuted: Color(0xFFA8B8C6),
+    fieldFill: Color(0xFF1C2832),
     shadow: Color(0x66000000),
   );
 }
@@ -95,27 +95,33 @@ abstract final class AppColors {
 
   static void bind(AppPalette palette) => _palette = palette;
 
-  static const brand400 = Color(0xFF848D9A);
-  static const brand500 = Color(0xFF465467);
-  static const brand600 = Color(0xFF25364C);
-  static const brand700 = Color(0xFF12243C);
+  static const brand300 = Color(0xFF848D9A);
+  static const brand400 = Color(0xFF465467);
+  static const brand500 = Color(0xFF25364C);
+  static const brand600 = Color(0xFF12243C);
+  static const brand700 = Color(0xFF0F1F34);
+  static const brand800 = Color(0xFF0D1A2B);
   static const brand900 = Color(0xFF0A1523);
+
+  /// Primary action fill — web brand-700. Headings use brand-600.
+  static const cashierBlue = brand700;
+  static const cashierNavy = brand600;
 
   static const accent = Color(0xFFE39B2B);
   static const violet500 = accent;
-  static const violet600 = Color(0xFFC4841D);
+  static const violet600 = Color(0xFFB86E09);
 
   static const sidebar = Color(0xFF12243C);
   static const sidebarPanel = Color(0xFF0F2036);
-  static const sidebarBorder = Color(0x1AE39B2B);
-  static const sidebarHover = Color(0x331A3050);
-  static const sidebarActive = Color(0xFF1A3050);
-  static const sidebarText = Color(0xB3E8EEF3);
+  static const sidebarBorder = Color(0xFF2A4060);
+  static const sidebarHover = Color(0xFF1A3050);
+  static const sidebarActive = Color(0xFF0D1C32);
+  static const sidebarText = Color(0xFFE8EEF8);
 
-  static const success = Color(0xFF059669);
-  static const warning = Color(0xFFC4841D);
-  static const danger = Color(0xFFDC2626);
-  static const info = Color(0xFF2A4060);
+  static const success = Color(0xFF0F7A4D);
+  static const warning = Color(0xFFB86E09);
+  static const danger = Color(0xFFC2413A);
+  static const info = Color(0xFF2F6F9A);
 
   static Color get brand50 => _palette.brand50;
   static Color get brand100 => _palette.brand100;

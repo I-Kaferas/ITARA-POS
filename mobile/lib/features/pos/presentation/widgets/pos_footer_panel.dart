@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/money_formatter.dart';
+import '../../../hospitality/data/hospitality_api.dart';
 import '../../../receipt/services/kitchen_ticket_service.dart';
 import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
@@ -29,7 +30,16 @@ class PosFooterPanel extends StatelessWidget {
     this.onCustomerRequestHandled,
     this.requestRetrieve = false,
     this.onRetrieveRequestHandled,
+    this.requestDiscount = false,
+    this.onDiscountRequestHandled,
+    this.requestNote = false,
+    this.onNoteRequestHandled,
+    this.requestLoyalty = false,
+    this.onLoyaltyRequestHandled,
+    this.requestSplit = false,
+    this.onSplitRequestHandled,
     this.showShortcutLabels = false,
+    this.hideChrome = false,
   });
 
   final PosCartEngine cart;
@@ -46,7 +56,16 @@ class PosFooterPanel extends StatelessWidget {
   final VoidCallback? onCustomerRequestHandled;
   final bool requestRetrieve;
   final VoidCallback? onRetrieveRequestHandled;
+  final bool requestDiscount;
+  final VoidCallback? onDiscountRequestHandled;
+  final bool requestNote;
+  final VoidCallback? onNoteRequestHandled;
+  final bool requestLoyalty;
+  final VoidCallback? onLoyaltyRequestHandled;
+  final bool requestSplit;
+  final VoidCallback? onSplitRequestHandled;
   final bool showShortcutLabels;
+  final bool hideChrome;
 
   String _money(int amount) =>
       MoneyFormatter.format(amount, currencyCode: AppConfig.currencyCode);
@@ -82,6 +101,31 @@ class PosFooterPanel extends StatelessWidget {
         }
       });
     }
+    if (requestDiscount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onDiscountRequestHandled?.call();
+        if (context.mounted) _showDiscountDialog(context);
+      });
+    }
+    if (requestNote) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onNoteRequestHandled?.call();
+        if (context.mounted) _showNoteDialog(context);
+      });
+    }
+    if (requestLoyalty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onLoyaltyRequestHandled?.call();
+        if (context.mounted) _showLoyaltyDialog(context);
+      });
+    }
+    if (requestSplit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onSplitRequestHandled?.call();
+        if (context.mounted && cart.canSplit) _showSplitDialog(context);
+      });
+    }
+    if (hideChrome) return const SizedBox.shrink();
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -280,6 +324,14 @@ class PosFooterPanel extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: cart.isEmpty || cart.customer == null ? null : () => _chargeStay(context),
+                      child: const Text('Facturer au séjour'),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
@@ -854,7 +906,7 @@ class PosFooterPanel extends StatelessWidget {
                                             style: GoogleFonts.ibmPlexMono(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w700,
-                                              color: AppColors.brand700,
+                                              color: AppColors.brandInk,
                                             ),
                                           ),
                                         ],
@@ -961,7 +1013,7 @@ class PosFooterPanel extends StatelessWidget {
         const PosPaymentMethod(value: 'mobile_money', label: 'Mobile Money', labelFr: 'Mobile Money'),
       );
     }
-    return list;
+    return list.where((method) => method.value != 'room').toList();
   }
 
   Future<void> _submitPayments(
@@ -1001,6 +1053,62 @@ class PosFooterPanel extends StatelessWidget {
         success: false,
         total: cart.total,
         method: methodLabel,
+        message: error.toString().replaceFirst('Exception: ', ''),
+      ));
+    }
+  }
+
+  Future<void> _chargeStay(BuildContext context) async {
+    try {
+      final snapshot = await HospitalityApi().snapshot();
+      final docs = (snapshot['docs'] as List?) ?? const [];
+      final stays = docs.whereType<Map>().where((doc) {
+        return doc['kind'] == 'reservation' && doc['status'] == 'checked_in';
+      }).map((doc) => Map<String, dynamic>.from(doc)).toList();
+      if (!context.mounted) return;
+      if (stays.isEmpty) {
+        onPayment(PosPaymentResult(
+          success: false,
+          total: cart.total,
+          method: 'room',
+          message: 'Aucun séjour ouvert.',
+        ));
+        return;
+      }
+      final picked = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        builder: (sheetContext) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(title: Text('Facturer au séjour')),
+              for (final stay in stays)
+                ListTile(
+                  title: Text('${stay['room_number'] ?? ''} · ${stay['guest_name'] ?? ''}'),
+                  subtitle: Text('${stay['arrive_on'] ?? ''} – ${stay['depart_on'] ?? ''}'),
+                  onTap: () => Navigator.pop(sheetContext, stay),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (picked == null || !context.mounted) return;
+      await _submitPayments(
+        context,
+        payments: [
+          {
+            'method': 'room',
+            'amount': cart.total,
+            'metadata': {'reservation_id': picked['id']},
+          },
+        ],
+        methodLabel: 'room',
+      );
+    } catch (error) {
+      onPayment(PosPaymentResult(
+        success: false,
+        total: cart.total,
+        method: 'room',
         message: error.toString().replaceFirst('Exception: ', ''),
       ));
     }
@@ -1088,7 +1196,7 @@ class _ActionChip extends StatelessWidget {
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, size: 16, color: AppColors.brand600),
+        icon: Icon(icon, size: 16, color: AppColors.brandInk),
         label: Text(label, overflow: TextOverflow.ellipsis),
         style: OutlinedButton.styleFrom(
           alignment: Alignment.centerLeft,

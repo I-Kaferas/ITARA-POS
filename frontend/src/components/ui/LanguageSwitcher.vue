@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { setAppLocale } from '../../i18n'
 import {
@@ -18,7 +18,24 @@ withDefaults(defineProps<{
 const { t, locale } = useI18n()
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
+const trigger = ref<HTMLButtonElement | null>(null)
+const panel = ref<HTMLElement | null>(null)
 const activeIndex = ref(0)
+const panelStyle = ref<Record<string, string>>({})
+
+function place() {
+  const rect = trigger.value?.getBoundingClientRect()
+  if (!rect) return
+  const zoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1
+  const layoutWidth = window.innerWidth / zoom
+  const panelWidth = panel.value?.offsetWidth || 268
+  const aligned = layoutWidth - rect.right
+  const within = Math.min(Math.max(12, aligned), Math.max(12, layoutWidth - panelWidth - 12))
+  panelStyle.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${within}px`,
+  }
+}
 
 const current = computed(() => (locale.value as AppLocale) in LOCALE_META ? locale.value as AppLocale : 'fr')
 const currentMeta = computed(() => LOCALE_META[current.value])
@@ -33,12 +50,17 @@ async function select(code: AppLocale) {
 }
 
 function toggle() {
+  if (!open.value) {
+    place()
+    activeIndex.value = SUPPORTED_LOCALES.indexOf(current.value)
+  }
   open.value = !open.value
-  if (open.value) activeIndex.value = SUPPORTED_LOCALES.indexOf(current.value)
 }
 
 function onWindowPointer(event: PointerEvent) {
-  if (!root.value?.contains(event.target as Node)) open.value = false
+  const target = event.target as Node
+  if (root.value?.contains(target) || panel.value?.contains(target)) return
+  open.value = false
 }
 
 function onWindowKeydown(event: KeyboardEvent) {
@@ -66,21 +88,26 @@ watch(open, (value) => {
   if (value) {
     window.addEventListener('pointerdown', onWindowPointer)
     window.addEventListener('keydown', onWindowKeydown)
+    window.addEventListener('resize', place)
+    void nextTick(place)
   } else {
     window.removeEventListener('pointerdown', onWindowPointer)
     window.removeEventListener('keydown', onWindowKeydown)
+    window.removeEventListener('resize', place)
   }
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onWindowPointer)
   window.removeEventListener('keydown', onWindowKeydown)
+  window.removeEventListener('resize', place)
 })
 </script>
 
 <template>
   <div ref="root" class="lang" :class="[`lang--${tone}`, { 'lang--open': open }]">
     <button
+      ref="trigger"
       type="button"
       class="lang__trigger"
       :aria-label="t('language.label')"
@@ -97,8 +124,9 @@ onBeforeUnmount(() => {
       </svg>
     </button>
 
+    <Teleport to="body">
     <Transition name="lang-pop">
-      <div v-if="open" class="lang__panel" role="listbox" :aria-label="t('language.label')">
+      <div v-if="open" ref="panel" class="lang__panel" :style="panelStyle" role="listbox" :aria-label="t('language.label')">
         <div class="lang__head">
           <span class="lang__kicker">{{ t('language.hint') }}</span>
         </div>
@@ -128,6 +156,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -135,6 +164,9 @@ onBeforeUnmount(() => {
 .lang {
   position: relative;
   display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 auto;
 }
 
 .lang__trigger {
@@ -142,7 +174,8 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: var(--space-2);
   height: var(--control-md);
-  min-width: var(--control-md);
+  min-width: 0;
+  max-width: 100%;
   padding: 0 var(--space-3) 0 var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -186,11 +219,15 @@ onBeforeUnmount(() => {
 }
 
 .lang__current {
+  min-width: 0;
+  overflow: hidden;
   font-family: var(--font-sans);
   font-size: var(--text-md);
   font-weight: 500;
   letter-spacing: 0;
   line-height: var(--line-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lang__chevron {
@@ -204,10 +241,8 @@ onBeforeUnmount(() => {
   color: var(--color-text-muted);}
 
 .lang__panel {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
-  z-index: 50;
+  position: fixed;
+  z-index: 500;
   width: 16.75rem;
   padding: var(--overlay-pad);
   border: 1px solid var(--color-border);

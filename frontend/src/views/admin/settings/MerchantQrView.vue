@@ -69,6 +69,7 @@ const editorOpen = ref(false)
 const saved = ref<MerchantQr | null>(null)
 const viewing = ref<MerchantQr | null>(null)
 const downloading = ref(false)
+const copiedId = ref('')
 const pdfFile = ref<File | null>(null)
 const pdfInput = ref<HTMLInputElement | null>(null)
 const PDF_MAX_BYTES = 10 * 1024 * 1024
@@ -229,14 +230,69 @@ function qrImageUrl(value: string, size = 280) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=16&data=${encodeURIComponent(value)}`
 }
 
-function qrFileName(label: string) {
+function qrFileName(label: string, extension: 'png' | 'pdf') {
   const safe = label
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-  return `${safe || 'merchant-qr'}.png`
+  return `${safe || 'merchant-qr'}.${extension}`
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function targetUrl(code: MerchantQr) {
+  if (isHttpUrl(code.scan_value)) return code.scan_value
+  return `${window.location.origin}/q/${code.id}`
+}
+
+function openTarget(code: MerchantQr) {
+  window.open(targetUrl(code), '_blank', 'noopener,noreferrer')
+}
+
+async function copyUrl(code: MerchantQr) {
+  const url = targetUrl(code)
+  error.value = ''
+  try {
+    await navigator.clipboard.writeText(url)
+  } catch {
+    const field = document.createElement('textarea')
+    field.value = url
+    field.setAttribute('readonly', '')
+    field.style.position = 'fixed'
+    field.style.top = '0'
+    field.style.left = '0'
+    field.style.opacity = '0'
+    document.body.appendChild(field)
+    field.focus()
+    field.select()
+    const copied = document.execCommand('copy')
+    field.remove()
+    if (!copied) {
+      error.value = t('merchantQrPage.copyError')
+      return
+    }
+  }
+  copiedId.value = code.id
+  window.setTimeout(() => {
+    if (copiedId.value === code.id) copiedId.value = ''
+  }, 1600)
+}
+
+async function qrPngBlob(scanValue: string) {
+  const response = await fetch(qrImageUrl(scanValue, 640))
+  if (!response.ok) throw new Error('download')
+  return response.blob()
 }
 
 async function downloadQr(scanValue: string, label: string) {
@@ -244,19 +300,109 @@ async function downloadQr(scanValue: string, label: string) {
   downloading.value = true
   error.value = ''
   try {
-    const response = await fetch(qrImageUrl(scanValue, 640))
-    if (!response.ok) throw new Error('download')
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = qrFileName(label)
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
+    saveBlob(await qrPngBlob(scanValue), qrFileName(label, 'png'))
   } catch {
     error.value = t('merchantQrPage.downloadError')
+  } finally {
+    downloading.value = false
+  }
+}
+
+function drawLines(ctx: CanvasRenderingContext2D, text: string, y: number, maxWidth: number, lineHeight: number) {
+  const words = text.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let line = ''
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word
+    if (ctx.measureText(next).width > maxWidth && line) {
+      lines.push(line)
+      line = word
+    } else {
+      line = next
+    }
+  }
+  if (line) lines.push(line)
+  if (!lines.length) lines.push(text)
+  lines.forEach((row, index) => ctx.fillText(row, ctx.canvas.width / 2, y + index * lineHeight))
+  return y + lines.length * lineHeight
+}
+
+function jpegToPdf(jpeg: Uint8Array, width: number, height: number) {
+  const encoder = new TextEncoder()
+  const text = (value: string) => encoder.encode(value)
+  const chunks: Uint8Array[] = []
+  const offsets: number[] = []
+  let size = 0
+  const push = (chunk: Uint8Array) => {
+    chunks.push(chunk)
+    size += chunk.length
+  }
+  push(text('%PDF-1.4\n'))
+  const addObject = (body: Uint8Array) => {
+    offsets.push(size)
+    push(body)
+  }
+  addObject(text('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'))
+  addObject(text('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'))
+  addObject(text(
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Contents 4 0 R /Resources << /XObject << /Im 5 0 R >> >> >>\nendobj\n`,
+  ))
+  const content = text(`q\n${width} 0 0 ${height} 0 0 cm\n/Im Do\nQ\n`)
+  addObject(text(`4 0 obj\n<< /Length ${content.length} >>\nstream\n`))
+  push(content)
+  push(text('endstream\nendobj\n'))
+  addObject(text(
+    `5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`,
+  ))
+  push(jpeg)
+  push(text('\nendstream\nendobj\n'))
+  const xrefAt = size
+  let xref = `xref\n0 6\n0000000000 65535 f \n`
+  for (const offset of offsets) xref += `${String(offset).padStart(10, '0')} 00000 n \n`
+  xref += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF`
+  push(text(xref))
+  const out = new Uint8Array(size)
+  let cursor = 0
+  for (const chunk of chunks) {
+    out.set(chunk, cursor)
+    cursor += chunk.length
+  }
+  return new Blob([out], { type: 'application/pdf' })
+}
+
+async function downloadPdf(code: MerchantQr) {
+  if (!code.scan_value || downloading.value) return
+  downloading.value = true
+  error.value = ''
+  try {
+    const png = await qrPngBlob(code.scan_value)
+    const bitmap = await createImageBitmap(png)
+    const canvas = document.createElement('canvas')
+    canvas.width = 900
+    canvas.height = 1200
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('canvas')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#12243c'
+    ctx.font = '700 44px sans-serif'
+    const afterTitle = drawLines(ctx, code.label, 96, 760, 54)
+    ctx.fillStyle = '#5c6d82'
+    ctx.font = '28px sans-serif'
+    ctx.fillText(t(`merchantQrPage.types.${code.type}`), canvas.width / 2, afterTitle + 8)
+    const qrSize = 560
+    ctx.drawImage(bitmap, (canvas.width - qrSize) / 2, 300, qrSize, qrSize)
+    bitmap.close()
+    ctx.fillStyle = '#5c6d82'
+    ctx.font = '22px sans-serif'
+    drawLines(ctx, targetUrl(code), 920, 780, 30)
+    const jpeg = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('jpeg'))), 'image/jpeg', 0.92)
+    })
+    saveBlob(jpegToPdf(new Uint8Array(await jpeg.arrayBuffer()), canvas.width, canvas.height), qrFileName(code.label, 'pdf'))
+  } catch {
+    error.value = t('merchantQrPage.pdfError')
   } finally {
     downloading.value = false
   }
@@ -435,6 +581,7 @@ async function save() {
     }
     saved.value = res.data
     await refresh()
+    closeEditor()
   } catch (e) {
     formError.value = extractApiErrorMessage(e, t('merchantQrPage.saveError'))
   } finally {
@@ -478,6 +625,7 @@ async function remove(code: MerchantQr) {
   try {
     await api.delete(`/merchant-qr-codes/${code.id}`)
     if (saved.value?.id === code.id) closeEditor()
+    if (viewing.value?.id === code.id) viewing.value = null
     await refresh()
   } catch (e) {
     error.value = extractApiErrorMessage(e, t('merchantQrPage.saveError'))
@@ -506,7 +654,6 @@ onMounted(async () => {
 <template>
   <PageFrame>
     <template #title>{{ t('nav.settingsItems.merchantQr') }}</template>
-    <template #subtitle>{{ t('merchantQrPage.subtitle') }}</template>
 
     <div class="merchant-qr">
       <div class="merchant-qr__toolbar">
@@ -564,8 +711,11 @@ onMounted(async () => {
               <td>{{ formatDate(item.created_at) }}</td>
               <td>
                 <div class="merchant-qr__actions">
-                  <button type="button" class="btn-secondary merchant-qr__action" @click.stop="viewing = item">
-                    {{ t('merchantQrPage.view') }}
+                  <button type="button" class="btn-secondary merchant-qr__action" @click.stop="openTarget(item)">
+                    {{ t('merchantQrPage.open') }}
+                  </button>
+                  <button type="button" class="btn-secondary merchant-qr__action" @click.stop="copyUrl(item)">
+                    {{ copiedId === item.id ? t('merchantQrPage.copied') : t('merchantQrPage.copyUrl') }}
                   </button>
                   <button
                     type="button"
@@ -573,7 +723,18 @@ onMounted(async () => {
                     :disabled="downloading"
                     @click.stop="downloadQr(item.scan_value, item.label)"
                   >
-                    {{ t('merchantQrPage.download') }}
+                    {{ t('merchantQrPage.png') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-secondary merchant-qr__action"
+                    :disabled="downloading"
+                    @click.stop="downloadPdf(item)"
+                  >
+                    {{ t('merchantQrPage.pdf') }}
+                  </button>
+                  <button type="button" class="btn-danger merchant-qr__action" @click.stop="remove(item)">
+                    {{ t('common.delete') }}
                   </button>
                 </div>
               </td>
@@ -919,12 +1080,13 @@ onMounted(async () => {
 .merchant-qr-preview__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 0.35rem;
 }
 
 .merchant-qr__action {
-  min-height: var(--control-md);
-  padding-inline: var(--space-3);
+  min-height: 2rem;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
 }
 
 .merchant-qr-viewer {

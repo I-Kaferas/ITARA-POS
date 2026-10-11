@@ -36,17 +36,27 @@ export function getStoreId(): string | null {
 }
 
 export function setStoreId(storeId: string) {
+  if (localStorage.getItem('pos_store_id') === storeId) return
   localStorage.setItem('pos_store_id', storeId)
+  rotateWorkspace()
 }
 
 export function clearStoreId() {
+  if (!localStorage.getItem('pos_store_id')) return
   localStorage.removeItem('pos_store_id')
+  rotateWorkspace()
 }
 
 export function setAuth(accessToken: string, tenantId: string | null, refreshToken?: string) {
+  const previous = localStorage.getItem('pos_tenant_id')
   localStorage.setItem('pos_token', accessToken)
-  if (tenantId) localStorage.setItem('pos_tenant_id', tenantId)
+  const next = tenantId || null
+  if (next) localStorage.setItem('pos_tenant_id', next)
   else localStorage.removeItem('pos_tenant_id')
+  if ((previous ?? null) !== next) {
+    localStorage.removeItem('pos_store_id')
+    rotateWorkspace()
+  }
   if (refreshToken) localStorage.setItem('pos_refresh_token', refreshToken)
 }
 
@@ -54,11 +64,33 @@ export function clearAuth() {
   localStorage.removeItem('pos_token')
   localStorage.removeItem('pos_refresh_token')
   localStorage.removeItem('pos_tenant_id')
-  clearStoreId()
+  localStorage.removeItem('pos_store_id')
+  rotateWorkspace()
 }
 
 export function isAuthenticated(): boolean {
   return Boolean(getToken())
+}
+
+/** Bumped when the authenticated tenant or store changes. In-flight reads must not land afterwards. */
+let workspaceEpoch = 0
+
+export class StaleWorkspaceError extends Error {
+  readonly staleWorkspace = true
+
+  constructor() {
+    super('workspace_changed')
+    this.name = 'StaleWorkspaceError'
+  }
+}
+
+function rotateWorkspace() {
+  workspaceEpoch += 1
+  inflightGets.clear()
+}
+
+function workspaceScope(): string {
+  return `${getTenantId() ?? ''}|${getStoreId() ?? ''}`
 }
 
 let refreshPromise: Promise<string | null> | null = null
@@ -84,6 +116,7 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 async function request<T>(path: string, options: RequestInit = {}, retryOnUnauthorized = true): Promise<T> {
+  const epoch = workspaceEpoch
   const headers = new Headers(options.headers)
   if (!headers.has('Accept')) headers.set('Accept', 'application/json')
   if (!headers.has('Accept-Language')) headers.set('Accept-Language', localStorage.getItem('pos_locale') || 'fr')
@@ -91,12 +124,14 @@ async function request<T>(path: string, options: RequestInit = {}, retryOnUnauth
   const token = getToken()
   const tenantId = getTenantId()
   const storeId = getStoreId()
+  const identifiesByCredentials = path === '/auth/login' || path === '/auth/two-factor/challenge'
 
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  if (tenantId) headers.set('X-Tenant-ID', tenantId)
-  if (storeId) headers.set('X-Store-ID', storeId)
+  if (token && !identifiesByCredentials) headers.set('Authorization', `Bearer ${token}`)
+  if (tenantId && !identifiesByCredentials) headers.set('X-Tenant-ID', tenantId)
+  if (storeId && !identifiesByCredentials) headers.set('X-Store-ID', storeId)
 
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  if (epoch !== workspaceEpoch) throw new StaleWorkspaceError()
 
   if (response.status === 401 && retryOnUnauthorized && path !== '/auth/refresh' && getRefreshToken()) {
     if (!refreshPromise) refreshPromise = refreshAccessToken().finally(() => { refreshPromise = null })
@@ -136,7 +171,8 @@ const inflightGets = new Map<string, Promise<unknown>>()
 
 export const api = {
   get: <T>(path: string) => {
-    const pending = inflightGets.get(path)
+    const key = `${workspaceScope()}|${path}`
+    const pending = inflightGets.get(key)
     if (pending) return pending as Promise<T>
     const requestPromise = (async () => {
       if (isCacheableRead(path) && typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -155,9 +191,9 @@ export const api = {
         throw error
       }
     })().finally(() => {
-      if (inflightGets.get(path) === requestPromise) inflightGets.delete(path)
+      if (inflightGets.get(key) === requestPromise) inflightGets.delete(key)
     })
-    inflightGets.set(path, requestPromise)
+    inflightGets.set(key, requestPromise)
     return requestPromise
   },
   post: <T>(path: string, body?: unknown, options?: WriteOptions) => write<T>('POST', path, body, options),
@@ -166,6 +202,7 @@ export const api = {
   delete: <T>(path: string, options?: WriteOptions) => write<T>('DELETE', path, undefined, options),
   upload: <T>(path: string, formData: FormData) => request<T>(path, { method: 'POST', body: formData }),
   async download(path: string, filename: string) {
+    const epoch = workspaceEpoch
     const headers = new Headers({ Accept: 'text/csv' })
     headers.set('Accept-Language', localStorage.getItem('pos_locale') || 'fr')
     const token = getToken()
@@ -176,6 +213,7 @@ export const api = {
     if (storeId) headers.set('X-Store-ID', storeId)
 
     const response = await fetch(`${API_BASE}${path}`, { headers })
+    if (epoch !== workspaceEpoch) throw new StaleWorkspaceError()
     if (!response.ok) {
       const payload = await response.json().catch(() => null)
       throw new ApiError((payload as { message?: string })?.message ?? `HTTP ${response.status}`, response.status, payload)

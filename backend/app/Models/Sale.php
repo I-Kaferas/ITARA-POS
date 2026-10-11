@@ -41,6 +41,8 @@ class Sale extends Model
         'completed_at',
         'notes',
         'table_id',
+        'service_mode',
+        'delivery_address',
         'merged_into_id',
     ];
 
@@ -207,6 +209,8 @@ class Sale extends Model
             'completed_at' => $this->completed_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'table_id' => $this->table_id,
+            'service_mode' => $this->service_mode,
+            'delivery_address' => $this->delivery_address,
             'table' => $this->relationLoaded('diningTable') && $this->diningTable
                 ? $this->diningTable->only(['id', 'name', 'code'])
                 : null,

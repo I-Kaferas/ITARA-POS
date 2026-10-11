@@ -71,4 +71,19 @@ class TenantApiIsolationTest extends TestCase
 
         $response->assertBadRequest();
     }
+
+    public function test_cross_tenant_header_is_written_to_the_platform_audit_log(): void
+    {
+        $tenantA = $this->createTenantFixture('api-audit-a', 'api-audit-a@test.local');
+        $tenantB = $this->createTenantFixture('api-audit-b', 'api-audit-b@test.local');
+
+        $this->getJson('/api/v1/companies', $this->tenantHeaders($tenantA['token'], $tenantB['tenant']))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('platform_audit_logs', [
+            'action' => 'tenant.access_denied',
+            'actor_id' => $tenantA['user']->id,
+            'tenant_id' => $tenantB['tenant']->id,
+        ]);
+    }
 }

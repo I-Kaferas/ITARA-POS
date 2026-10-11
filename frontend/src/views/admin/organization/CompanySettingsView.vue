@@ -276,6 +276,11 @@ const mapOpen = ref(false)
 const coverPick = ref<{ id: string; url: string } | null>(null)
 
 const coverPreview = computed(() => coverPick.value?.url || form.value.settings.cover_image_url)
+const listingRating = computed(() => {
+  const value = Number(form.value.settings.display_rating)
+  if (!Number.isFinite(value)) return 0
+  return Math.min(5, Math.max(0, value))
+})
 
 function project(lat: number, lng: number) {
   const scale = 2 ** MAP_ZOOM * TILE
@@ -940,79 +945,114 @@ async function save() {
             </aside>
           </div>
 
-          <div v-show="activeTab === 'users'" role="tabpanel">
-            <h2 class="co__heading">{{ t('org.settingsPage.usersTitle') }}</h2>
-            <p class="co__hint">{{ t('org.settingsPage.usersHint') }}</p>
-            <p class="co__note co__note--block">{{ t('org.settingsPage.usersNote') }}</p>
+          <div v-show="activeTab === 'users'" class="appcfg" role="tabpanel">
+            <header class="appcfg__intro">
+              <h2 class="co__heading">{{ t('org.settingsPage.usersTitle') }}</h2>
+              <p class="co__hint">{{ t('org.settingsPage.usersHint') }}</p>
+              <p class="appcfg__note">{{ t('org.settingsPage.usersNote') }}</p>
+            </header>
 
-            <div class="co__grid">
-              <div class="co__span">
-                <FieldLabel icon="calendar">{{ t('org.settingsPage.openingHours') }}</FieldLabel>
-                <input v-model="form.settings.opening_hours" class="field" :placeholder="t('org.settingsPage.openingHoursPlaceholder')" />
-                <p class="co__field-hint">{{ t('org.settingsPage.openingHoursHint') }}</p>
-              </div>
-              <div>
-                <label class="co__check">
-                  <input v-model="form.settings.is_open_now" type="checkbox" />
-                  <span>{{ t('org.settingsPage.openNow') }}</span>
-                </label>
-                <p class="co__field-hint">{{ t('org.settingsPage.openNowHint') }}</p>
-              </div>
-              <div>
-                <label class="co__check">
-                  <input v-model="form.settings.is_verified" type="checkbox" />
-                  <span>{{ t('org.settingsPage.verified') }}</span>
-                </label>
-                <p class="co__field-hint">{{ t('org.settingsPage.verifiedHint') }}</p>
-              </div>
-              <div>
-                <FieldLabel icon="sparkles">{{ t('org.settingsPage.displayRating') }}</FieldLabel>
-                <input v-model="form.settings.display_rating" class="field" type="number" min="0" max="5" step="0.1" />
-                <p class="co__field-hint">{{ t('org.settingsPage.displayRatingHint') }}</p>
-              </div>
-              <div>
-                <FieldLabel icon="customers">{{ t('org.settingsPage.reviewCount') }}</FieldLabel>
-                <input v-model="form.settings.review_count" class="field" type="number" min="0" step="1" />
-                <p class="co__field-hint">{{ t('org.settingsPage.reviewCountHint') }}</p>
-              </div>
-            </div>
+            <div class="appcfg__layout">
+              <div class="appcfg__main">
+                <section class="appcfg__card">
+                  <h3 class="appcfg__card-title">{{ t('org.settingsPage.openingHours') }}</h3>
+                  <input v-model="form.settings.opening_hours" class="field" :aria-label="t('org.settingsPage.openingHours')" :placeholder="t('org.settingsPage.openingHoursPlaceholder')" />
+                  <p class="co__field-hint">{{ t('org.settingsPage.openingHoursHint') }}</p>
+                  <div class="appcfg__toggles">
+                    <label class="appcfg__toggle" :class="{ 'is-on': form.settings.is_open_now }">
+                      <input v-model="form.settings.is_open_now" type="checkbox" />
+                      <span>
+                        <strong>{{ t('org.settingsPage.openNow') }}</strong>
+                        <small>{{ t('org.settingsPage.openNowHint') }}</small>
+                      </span>
+                    </label>
+                    <label class="appcfg__toggle" :class="{ 'is-on': form.settings.is_verified }">
+                      <input v-model="form.settings.is_verified" type="checkbox" />
+                      <span>
+                        <strong>{{ t('org.settingsPage.verified') }}</strong>
+                        <small>{{ t('org.settingsPage.verifiedHint') }}</small>
+                      </span>
+                    </label>
+                  </div>
+                </section>
 
-            <section class="logo-block">
-              <h3>{{ t('org.settingsPage.coverImage') }}</h3>
-              <div class="cover-preview" :class="{ 'cover-preview--empty': !coverPreview }">
-                <img v-if="coverPreview" :src="coverPreview" alt="" />
-                <span v-else>{{ t('org.settingsPage.noCoverImage') }}</span>
-              </div>
-              <div class="co__actions">
-                <button type="button" class="btn-secondary" @click="openGallery">{{ t('org.settingsPage.chooseGallery') }}</button>
-              </div>
-              <div class="logo-reqs">
-                <p>{{ t('org.settingsPage.coverRequirements') }}</p>
-                <ul>
-                  <li>{{ t('org.settingsPage.coverReqPick') }}</li>
-                  <li>{{ t('org.settingsPage.coverReqBanner') }}</li>
-                </ul>
-              </div>
-              <div class="co__block">
-                <FieldLabel icon="conn-network">{{ t('org.settingsPage.coverUrl') }}</FieldLabel>
-                <input class="field" readonly :value="form.settings.cover_image_url || t('org.settingsPage.coverUrlEmpty')" />
-                <p class="co__field-hint">{{ t('org.settingsPage.coverUrlHint') }}</p>
-              </div>
-            </section>
+                <section class="appcfg__card">
+                  <h3 class="appcfg__card-title">{{ t('org.settingsPage.displayRating') }}</h3>
+                  <div class="appcfg__pair">
+                    <div>
+                      <FieldLabel icon="sparkles">{{ t('org.settingsPage.displayRating') }}</FieldLabel>
+                      <input v-model="form.settings.display_rating" class="field" type="number" min="0" max="5" step="0.1" />
+                      <p class="co__field-hint">{{ t('org.settingsPage.displayRatingHint') }}</p>
+                    </div>
+                    <div>
+                      <FieldLabel icon="customers">{{ t('org.settingsPage.reviewCount') }}</FieldLabel>
+                      <input v-model="form.settings.review_count" class="field" type="number" min="0" step="1" />
+                      <p class="co__field-hint">{{ t('org.settingsPage.reviewCountHint') }}</p>
+                    </div>
+                  </div>
+                </section>
 
-            <div class="co__grid co__block">
-              <div>
-                <FieldLabel icon="pin">{{ t('org.settingsPage.latitude') }}</FieldLabel>
-                <input v-model.number="form.settings.latitude" class="field" type="number" step="0.0001" />
+                <section class="appcfg__card">
+                  <h3 class="appcfg__card-title">{{ t('org.settingsPage.coverImage') }}</h3>
+                  <div class="appcfg__cover">
+                    <div class="cover-preview cover-preview--compact" :class="{ 'cover-preview--empty': !coverPreview }">
+                      <img v-if="coverPreview" :src="coverPreview" alt="" />
+                      <span v-else>{{ t('org.settingsPage.noCoverImage') }}</span>
+                    </div>
+                    <div class="appcfg__cover-copy">
+                      <button type="button" class="btn-secondary" @click="openGallery">{{ t('org.settingsPage.chooseGallery') }}</button>
+                      <p class="co__field-hint">{{ t('org.settingsPage.coverReqPick') }}</p>
+                      <p class="co__field-hint">{{ t('org.settingsPage.coverReqBanner') }}</p>
+                    </div>
+                  </div>
+                  <div class="co__block">
+                    <FieldLabel icon="conn-network">{{ t('org.settingsPage.coverUrl') }}</FieldLabel>
+                    <input class="field" readonly :value="form.settings.cover_image_url || t('org.settingsPage.coverUrlEmpty')" />
+                    <p class="co__field-hint">{{ t('org.settingsPage.coverUrlHint') }}</p>
+                  </div>
+                </section>
+
+                <section class="appcfg__card">
+                  <h3 class="appcfg__card-title">{{ t('org.settingsPage.pickOnMap') }}</h3>
+                  <div class="appcfg__pair">
+                    <div>
+                      <FieldLabel icon="pin">{{ t('org.settingsPage.latitude') }}</FieldLabel>
+                      <input v-model.number="form.settings.latitude" class="field" type="number" step="0.0001" />
+                    </div>
+                    <div>
+                      <FieldLabel icon="pin">{{ t('org.settingsPage.longitude') }}</FieldLabel>
+                      <input v-model.number="form.settings.longitude" class="field" type="number" step="0.0001" />
+                    </div>
+                  </div>
+                  <div class="appcfg__map-row">
+                    <button type="button" class="btn-secondary" @click="mapOpen = true">{{ t('org.settingsPage.pickOnMap') }}</button>
+                    <p class="co__field-hint">{{ t('org.settingsPage.gpsFallback', { lat: form.settings.latitude, lng: form.settings.longitude }) }}</p>
+                  </div>
+                </section>
               </div>
-              <div>
-                <FieldLabel icon="pin">{{ t('org.settingsPage.longitude') }}</FieldLabel>
-                <input v-model.number="form.settings.longitude" class="field" type="number" step="0.0001" />
-              </div>
-              <div class="co__span">
-                <button type="button" class="btn-secondary" @click="mapOpen = true">{{ t('org.settingsPage.pickOnMap') }}</button>
-                <p class="co__field-hint">{{ t('org.settingsPage.gpsFallback', { lat: form.settings.latitude, lng: form.settings.longitude }) }}</p>
-              </div>
+
+              <aside class="appcfg__preview" :aria-label="t('org.settingsPage.usersTitle')">
+                <article class="listing">
+                  <div class="listing__cover" :class="{ 'listing__cover--empty': !coverPreview }">
+                    <img v-if="coverPreview" :src="coverPreview" alt="" />
+                  </div>
+                  <div class="listing__body">
+                    <h3 class="listing__name">{{ form.name || t('org.settingsPage.companyName') }}</h3>
+                    <p class="listing__hours">{{ form.settings.opening_hours || t('org.settingsPage.openingHoursPlaceholder') }}</p>
+                    <div class="listing__badges">
+                      <span class="listing__badge" :class="{ 'is-on': form.settings.is_open_now }">{{ t('org.settingsPage.openNow') }}</span>
+                      <span class="listing__badge" :class="{ 'is-on': form.settings.is_verified }">{{ t('org.settingsPage.verified') }}</span>
+                    </div>
+                    <p class="listing__rating">
+                      <span class="listing__stars" :aria-label="String(listingRating)">
+                        <span v-for="star in 5" :key="star" :class="{ 'is-on': star <= Math.round(listingRating) }">★</span>
+                      </span>
+                      <strong>{{ listingRating.toFixed(1) }}</strong>
+                      <span>{{ form.settings.review_count || 0 }}</span>
+                    </p>
+                  </div>
+                </article>
+              </aside>
             </div>
           </div>
         </div>
@@ -1579,10 +1619,235 @@ async function save() {
   color: var(--color-text-muted);
 }
 
+.appcfg__intro .co__hint { margin-bottom: 0.35rem; }
+
+.appcfg__note {
+  margin: 0;
+  max-width: 46rem;
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.appcfg__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 46rem) minmax(16rem, 22rem);
+  gap: 1.25rem;
+  align-items: start;
+  justify-content: start;
+}
+
+.appcfg__main {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.appcfg__card {
+  padding: 1rem 1.05rem 1.1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.appcfg__card-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.appcfg__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.appcfg__toggles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.appcfg__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.8rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-canvas) 65%, var(--color-surface));
+  cursor: pointer;
+}
+
+.appcfg__toggle.is-on {
+  border-color: color-mix(in srgb, var(--color-sidebar) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-sidebar) 7%, var(--color-surface));
+}
+
+.appcfg__toggle input { margin-top: 0.2rem; }
+
+.appcfg__toggle strong,
+.appcfg__toggle small { display: block; }
+
+.appcfg__toggle strong {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.appcfg__toggle small {
+  margin-top: 0.2rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.appcfg__cover {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  gap: 1.15rem;
+  align-items: center;
+}
+
+.appcfg__cover > * { min-width: 0; }
+
+.appcfg__cover-copy {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.appcfg__map-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 0.9rem;
+}
+
+.appcfg__map-row .co__field-hint { margin: 0; }
+
+.appcfg .field {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.appcfg .field[readonly] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appcfg__preview {
+  position: sticky;
+  top: 0.5rem;
+  min-width: 0;
+}
+
+.listing {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 1.1rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.listing__cover {
+  aspect-ratio: 16 / 9;
+  background:
+    linear-gradient(160deg, var(--color-sidebar) 0%, color-mix(in srgb, var(--color-sidebar) 55%, #8ea4c4) 100%);
+}
+
+.listing__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.listing__body { padding: 0.95rem 1rem 1.05rem; }
+
+.listing__name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.listing__hours {
+  margin: 0.35rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.listing__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.listing__badge {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--color-canvas);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.listing__badge.is-on {
+  background: color-mix(in srgb, var(--color-sidebar) 12%, var(--color-surface));
+  color: var(--color-sidebar);
+}
+
+.listing__rating {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+}
+
+.listing__stars { letter-spacing: 0.08em; color: var(--color-border-strong); }
+.listing__stars .is-on { color: var(--color-sidebar-mark); }
+
+.cover-preview--compact {
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+  aspect-ratio: 16 / 9;
+  margin-top: 0;
+  min-height: 0;
+}
+
+.cover-preview--compact img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: none;
+  min-width: 0;
+}
+
+@media (max-width: 1080px) {
+  .appcfg__layout { grid-template-columns: 1fr; }
+  .appcfg__preview { position: static; order: -1; }
+}
+
 @media (max-width: 760px) {
   .co__grid,
   .co__tax-add,
-  .locale-picker {
+  .locale-picker,
+  .appcfg__pair,
+  .appcfg__toggles,
+  .appcfg__cover {
     grid-template-columns: 1fr;
   }
 }

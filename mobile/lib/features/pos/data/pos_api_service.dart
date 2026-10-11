@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -8,7 +7,6 @@ import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../sync/local_master_server.dart';
 import '../../../sync/offline_store.dart';
-import '../../../sync/sync_engine.dart';
 import '../../customers/data/customer_account_store.dart';
 import '../../barcode/data/barcode_api_service.dart';
 import '../../barcode/domain/barcode_models.dart';
@@ -98,94 +96,20 @@ class PosApiService {
     throw lastError ?? Exception('Catalog fetch failed');
   }
 
-  Future<List<PosCustomer>> searchCustomers(String query) async {
-    final local = await OfflineStore.instance.searchCustomers(query);
-    try {
-      final remote = await _searchCustomersRemote(query);
-      if (remote.isNotEmpty) {
-        await OfflineStore.instance.cacheCustomers(remote, replaceSynced: false);
-      }
-      return _mergeCustomers(local, remote);
-    } catch (_) {
-      return local;
-    }
+  Future<List<PosCustomer>> searchCustomers(String query) {
+    return OfflineStore.instance.searchCustomers(query);
   }
 
   Future<PosCustomer> createCustomer({
     required String name,
     String? phone,
     String? email,
-  }) async {
-    final customer = await OfflineStore.instance.createLocalCustomer(
+  }) {
+    return OfflineStore.instance.createLocalCustomer(
       name: name,
       phone: phone,
       email: email,
     );
-    unawaited(SyncEngine.instance.runCycle());
-    return customer;
-  }
-
-  Future<List<PosCustomer>> _searchCustomersRemote(String query) async {
-    http.Response? response;
-    Object? lastError;
-    for (final base in _bases) {
-      try {
-        final uri = Uri.parse('$base/customers').replace(
-          queryParameters: {
-            if (query.trim().isNotEmpty) 'search': query.trim(),
-            'active_only': '1',
-            'per_page': '20',
-          },
-        );
-        final attempt = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
-        if (attempt.statusCode == 200) {
-          response = attempt;
-          break;
-        }
-        lastError = Exception('Customer search failed: HTTP ${attempt.statusCode}');
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    if (response == null) {
-      throw lastError ?? Exception('Customer search failed');
-    }
-
-    if (response.statusCode != 200) {
-      throw Exception('Customer search failed: HTTP ${response.statusCode}');
-    }
-
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final raw = body['data'];
-    final List<dynamic> data = switch (raw) {
-      final List list => list,
-      final Map map =>
-        (map['data'] as List<dynamic>?) ??
-            (map['items'] as List<dynamic>?) ??
-            const <dynamic>[],
-      _ => const <dynamic>[],
-    };
-
-    return data
-        .whereType<Map>()
-        .map((item) => PosCustomer.fromJson(Map<String, dynamic>.from(item)))
-        .where((customer) => customer.id.isNotEmpty)
-        .toList();
-  }
-
-  List<PosCustomer> _mergeCustomers(List<PosCustomer> local, List<PosCustomer> remote) {
-    final merged = <String, PosCustomer>{};
-    for (final customer in remote) {
-      merged[customer.id] = customer;
-    }
-    for (final customer in local) {
-      final key = customer.serverId ?? customer.id;
-      merged.putIfAbsent(key, () => customer);
-      if (customer.pending) merged[customer.id] = customer;
-    }
-    final values = merged.values.toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    return values;
   }
 
   Future<BarcodeLookupResult> lookupBarcode(String code) {
@@ -500,38 +424,6 @@ class PosApiService {
       return sum + price * qty;
     });
 
-    final onlinePayload = <String, dynamic>{
-      'items': items,
-      'payments': payments,
-      if (customerId != null && customerId.isNotEmpty) 'customer_id': customerId,
-      if (notes != null) 'notes': notes,
-      if (saleId != null && saleId.isNotEmpty) 'sale_id': saleId,
-      if (loyaltyPoints != null && loyaltyPoints > 0) 'loyalty_points': loyaltyPoints,
-      if (warehouseId != null) 'warehouse_id': warehouseId,
-      if (dueDate != null) 'due_date': dueDate,
-      if (installments != null) 'installments': installments,
-    };
-
-    try {
-      final online = await _tryOnlineCheckout(onlinePayload);
-      if (online != null) {
-        if (customerId != null && customerId.isNotEmpty) {
-          unawaited(_postCustomerAccount(
-            customerId: customerId,
-            saleId: online.saleId,
-            reference: online.reference,
-            total: online.total,
-            outstanding: online.outstandingAmount,
-            payments: payments,
-          ));
-        }
-        unawaited(SyncEngine.instance.runCycle());
-        return online;
-      }
-    } on _PosHttpException {
-      rethrow;
-    } catch (_) {}
-
     final result = await OfflineStore.instance.commitSale(
       items: items,
       payments: payments,
@@ -548,7 +440,7 @@ class PosApiService {
     );
 
     if (customerId != null && customerId.isNotEmpty) {
-      unawaited(_postCustomerAccount(
+      unawaited(CustomerAccountStore.instance.postSale(
         customerId: customerId,
         saleId: result.saleId,
         reference: result.reference,
@@ -557,42 +449,7 @@ class PosApiService {
         payments: payments,
       ));
     }
-    unawaited(SyncEngine.instance.runCycle());
     return result;
-  }
-
-  Future<PosSaleResult?> _tryOnlineCheckout(Map<String, dynamic> payload) async {
-    Object? lastNetworkError;
-    for (final base in _bases) {
-      try {
-        final response = await _client
-            .post(
-              Uri.parse('$base/stores/$_storeId/sales'),
-              headers: _headers,
-              body: jsonEncode(payload),
-            )
-            .timeout(const Duration(seconds: 25));
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          return PosSaleResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
-        }
-        if (response.statusCode >= 400 && response.statusCode < 500) {
-          throw _PosHttpException('Checkout refusé (HTTP ${response.statusCode})');
-        }
-        lastNetworkError = Exception('Checkout failed: HTTP ${response.statusCode}');
-      } on TimeoutException catch (error) {
-        lastNetworkError = error;
-      } on SocketException catch (error) {
-        lastNetworkError = error;
-      } on http.ClientException catch (error) {
-        lastNetworkError = error;
-      } on _PosHttpException {
-        rethrow;
-      } catch (error) {
-        lastNetworkError = error;
-      }
-    }
-    if (lastNetworkError != null) return null;
-    return null;
   }
 
   Future<Map<String, dynamic>> _requestJson({
@@ -654,54 +511,5 @@ class PosApiService {
     }
     return const [];
   }
-
-
-  Future<void> _postCustomerAccount({
-    required String customerId,
-    required String saleId,
-    required String reference,
-    required int total,
-    required int outstanding,
-    required List<Map<String, dynamic>> payments,
-  }) async {
-    final action = {
-      'action': 'post_sale',
-      'customer_id': customerId,
-      'sale_id': saleId,
-      'reference': reference,
-      'total': total,
-      'outstanding': outstanding,
-      'payments': payments,
-    };
-    final remote = LocalMasterServer.clientBaseUrl();
-    if (remote != null) {
-      try {
-        final response = await _client
-            .post(
-              Uri.parse('$remote/customer-accounts/actions'),
-              headers: _headers,
-              body: jsonEncode(action),
-            )
-            .timeout(const Duration(seconds: 8));
-        if (response.statusCode == 200) return;
-      } catch (_) {}
-    }
-    await CustomerAccountStore.instance.postSale(
-      customerId: customerId,
-      saleId: saleId,
-      total: total,
-      outstanding: outstanding,
-      payments: payments,
-      reference: reference,
-    );
-  }
-}
-
-class _PosHttpException implements Exception {
-  _PosHttpException(this.message);
-  final String message;
-
-  @override
-  String toString() => message;
 }
 

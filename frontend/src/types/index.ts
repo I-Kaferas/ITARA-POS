@@ -1225,6 +1225,8 @@ export interface Sale {
   created_at?: string
   notes?: string | null
   table_id?: string | null
+  service_mode?: 'takeaway' | 'delivery' | null
+  delivery_address?: string | null
   table?: { id: string; name: string; code?: string } | null
   merged_into_id?: string | null
   merged_into?: { id: string; reference: string } | null

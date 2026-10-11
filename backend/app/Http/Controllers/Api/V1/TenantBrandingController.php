@@ -12,13 +12,14 @@ class TenantBrandingController extends Controller
 {
     public function publicShow(string $slug): JsonResponse
     {
-        $tenant = Tenant::query()
-            ->where('slug', $slug)
-            ->where('status', 'active')
-            ->first();
+        $tenant = Tenant::query()->where('slug', $slug)->first();
 
         if ($tenant === null) {
             return response()->json(['message' => 'Tenant introuvable.'], 404);
+        }
+
+        if (! in_array($tenant->status, ['trial', 'active', 'past_due'], true)) {
+            return response()->json(['message' => 'Ce commerce n’est pas actif.'], 403);
         }
 
         return response()->json(['data' => TenantBranding::from($tenant)]);

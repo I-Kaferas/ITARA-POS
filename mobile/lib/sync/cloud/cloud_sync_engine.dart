@@ -172,7 +172,7 @@ class CloudSyncEngine extends ChangeNotifier {
       final root = base.replaceFirst(RegExp(r'/api/v1$'), '');
       final response = await _client
           .get(Uri.parse('$root/api/v1/health'))
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 15));
       cloudReachable = response.statusCode >= 200 && response.statusCode < 500;
     } catch (_) {
       cloudReachable = false;

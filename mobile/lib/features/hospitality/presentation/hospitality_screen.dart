@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../kitchen/presentation/kitchen_display_screen.dart';
 import '../../pos/services/pos_pending_intent.dart';
@@ -221,9 +224,8 @@ class _FloorBoard extends StatelessWidget {
       orElse: () => null,
     );
     if (order == null || !context.mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
+    await showAppSheet<void>(
+      context,
       builder: (context) => _OrderSheet(
         order: order,
         tables: tables,
@@ -315,9 +317,11 @@ class _TableCard extends StatelessWidget {
     );
     final active = status.isActive;
     final colors = _statusColors(status);
-    return InkWell(
+    return AppTapScale(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: AppMotion.resolve(context, AppMotion.content),
+        curve: AppMotion.standard,
         width: 140,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -328,12 +332,12 @@ class _TableCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(table['label']?.toString() ?? 'Table', style: const TextStyle(fontWeight: FontWeight.w700)),
-            Text(status.wire, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-            Text(status.label, style: const TextStyle(fontSize: 12)),
+            Text(table['label']?.toString() ?? 'Table', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(status.wire, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+            Text(status.label, style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
             if (active && (serverName ?? '').isNotEmpty)
-              Text(serverName!, style: const TextStyle(fontSize: 12)),
-            Text('${table['seats']} places', style: const TextStyle(fontSize: 12)),
+              Text(serverName!, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text('${table['seats']} places', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           ],
         ),
       ),
@@ -342,14 +346,14 @@ class _TableCard extends StatelessWidget {
 }
 
 (Color, Color) _statusColors(RestaurantStatus status) => switch (status) {
-      RestaurantStatus.free => (const Color(0xFFECFDF3), const Color(0xFF86EFAC)),
-      RestaurantStatus.occupied => (const Color(0xFFFFF7ED), const Color(0xFFFDBA74)),
-      RestaurantStatus.ordering => (const Color(0xFFEFF6FF), const Color(0xFF93C5FD)),
-      RestaurantStatus.preparing => (const Color(0xFFFFFBEB), const Color(0xFFFCD34D)),
-      RestaurantStatus.ready => (const Color(0xFFF0FDF4), const Color(0xFF4ADE80)),
-      RestaurantStatus.served => (const Color(0xFFF5F3FF), const Color(0xFFC4B5FD)),
-      RestaurantStatus.paying => (const Color(0xFFFFF1F2), const Color(0xFFFDA4AF)),
-      RestaurantStatus.closed => (const Color(0xFFF8FAFC), const Color(0xFFCBD5E1)),
+      RestaurantStatus.free => (AppColors.successBg, AppColors.success),
+      RestaurantStatus.occupied => (AppColors.warningBg, AppColors.warning),
+      RestaurantStatus.ordering => (AppColors.infoBg, AppColors.info),
+      RestaurantStatus.preparing => (AppColors.accentSoft, AppColors.accent),
+      RestaurantStatus.ready => (AppColors.successBg, AppColors.success),
+      RestaurantStatus.served => (AppColors.brand50, AppColors.brandInk),
+      RestaurantStatus.paying => (AppColors.dangerBg, AppColors.danger),
+      RestaurantStatus.closed => (AppColors.surfaceVariant, AppColors.borderStrong),
     };
 
 class _OrderSheet extends StatefulWidget {

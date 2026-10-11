@@ -8,6 +8,7 @@ use App\Services\Payments\Providers\CardPaymentProvider;
 use App\Services\Payments\Providers\CashPaymentProvider;
 use App\Services\Payments\Providers\CreditPaymentProvider;
 use App\Services\Payments\Providers\MobileMoneyPaymentProvider;
+use App\Services\Payments\Providers\RoomChargePaymentProvider;
 use App\Services\Payments\Providers\WalletPaymentProvider;
 use Illuminate\Validation\ValidationException;
 
@@ -23,9 +24,10 @@ class PaymentProviderRegistry
         BankTransferPaymentProvider $bankTransfer,
         CreditPaymentProvider $credit,
         WalletPaymentProvider $wallet,
+        RoomChargePaymentProvider $room,
     ) {
         $this->providers = [];
-        foreach ([$cash, $mobileMoney, $card, $bankTransfer, $credit, $wallet] as $provider) {
+        foreach ([$cash, $mobileMoney, $card, $bankTransfer, $credit, $wallet, $room] as $provider) {
             $this->providers[$provider->method()->value] = $provider;
         }
     }

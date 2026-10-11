@@ -92,6 +92,9 @@ class Win32Window {
 
   bool quit_on_close_ = false;
 
+  // Logical-to-physical scale captured when the window is created.
+  double scale_factor_ = 1.0;
+
   // window handle for top level window.
   HWND window_handle_ = nullptr;
 

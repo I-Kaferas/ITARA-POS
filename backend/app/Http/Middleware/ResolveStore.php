@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\Store;
+use App\Models\User;
+use App\Services\Realtime\ChannelAuthorizer;
 use App\Support\ApiError;
 use Closure;
 use Illuminate\Http\Request;
@@ -26,6 +28,11 @@ class ResolveStore
             }
 
             if ((string) $store->tenant_id !== (string) app('tenant.id')) {
+                return ApiError::json('errors.store_forbidden', 403);
+            }
+
+            $user = $request->user();
+            if ($user instanceof User && ! app(ChannelAuthorizer::class)->allowsStore($user, (string) app('tenant.id'), (string) $store->id)) {
                 return ApiError::json('errors.store_forbidden', 403);
             }
 

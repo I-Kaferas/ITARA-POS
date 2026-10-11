@@ -92,6 +92,11 @@ const differenceAmount = computed(() => {
   return null
 })
 
+const countDifference = computed(() => {
+  if (!sessionSummary.value || !countForm.value.actual_cash.trim()) return null
+  return parseMoneyInput(countForm.value.actual_cash) - sessionSummary.value.expected_cash
+})
+
 onMounted(async () => {
   await context.loadStores()
   storeId.value = context.currentStoreId ?? context.activeStores[0]?.id ?? ''
@@ -580,11 +585,11 @@ const varianceClass = computed(() => {
           </div>
           <div class="rounded-lg bg-slate-50 p-3">
             <p class="text-slate-500">{{ t('registers.actualCash') }}</p>
-            <p class="font-semibold">{{ countForm.actual_cash || '—' }}</p>
+            <p class="font-semibold">{{ countForm.actual_cash ? format(parseMoneyInput(countForm.actual_cash)) : '—' }}</p>
           </div>
           <div class="rounded-lg bg-slate-50 p-3">
             <p class="text-slate-500">{{ t('registers.difference') }}</p>
-            <p class="font-semibold">{{ t('registers.countThenDiff') }}</p>
+            <p class="font-semibold">{{ countDifference != null ? format(countDifference) : '—' }}</p>
           </div>
         </div>
         <div>

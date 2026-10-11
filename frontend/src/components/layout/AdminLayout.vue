@@ -6,18 +6,17 @@ import AppIcon from '../ui/AppIcon.vue'
 import LanguageSwitcher from '../ui/LanguageSwitcher.vue'
 import AppCalculator from './AppCalculator.vue'
 import ModuleSearch from './ModuleSearch.vue'
-import OfflineIndicator from './OfflineIndicator.vue'
-import RealtimeIndicator from './RealtimeIndicator.vue'
 import StockAlertBell from './StockAlertBell.vue'
 import { useAuthStore } from '../../stores/auth'
-import { moduleEnabled } from '../../modules/registry'
+import { usePosStore } from '../../stores/pos'
+import { moduleEnabled, moduleRequiredForPath } from '../../modules/registry'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useBrandingStore } from '../../stores/branding'
 import { useContextStore } from '../../stores/context'
 import { usePageHeaderStore } from '../../stores/pageHeader'
 import { useOfflineStore } from '../../stores/offline'
 import { useRealtimeStore } from '../../stores/realtime'
-import { useTheme } from '../../composables/useTheme'
+import { resolvedTheme, useTheme } from '../../composables/useTheme'
 
 type NavChild = { name: string; to: string; label: string; icon: string; color?: string; module?: string | string[] }
 type NavItem = {
@@ -30,7 +29,11 @@ type NavItem = {
 }
 
 const { t } = useI18n()
-const { preference, cycleTheme } = useTheme()
+const { preference, setTheme, cycleTheme } = useTheme()
+const appearance = computed(() => resolvedTheme(preference.value))
+function toggleAppearance() {
+  setTheme(appearance.value === 'dark' ? 'light' : 'dark')
+}
 const themeIcon = computed(() => {
   if (preference.value === 'dark') return 'moon'
   if (preference.value === 'light') return 'sun'
@@ -40,6 +43,12 @@ const route = useRoute()
 const router = useRouter()
 const slots = useSlots()
 const auth = useAuthStore()
+
+async function leaveSupport() {
+  await auth.returnToPlatform()
+  await router.push('/admin/platform')
+}
+const pos = usePosStore()
 const billingBanner = computed(() => {
   const status = auth.user?.subscription?.status
   if (status === 'suspended') return t('subscriptionPage.bannerSuspended')
@@ -57,6 +66,11 @@ const userMenuOpen = ref(false)
 const userMenuTrigger = ref<HTMLElement | null>(null)
 const userMenuPanel = ref<HTMLElement | null>(null)
 const userMenuStyle = ref<Record<string, string>>({})
+const storeMenuOpen = ref(false)
+const storeMenuTrigger = ref<HTMLElement | null>(null)
+const storeMenuPanel = ref<HTMLElement | null>(null)
+const storeMenuStyle = ref<Record<string, string>>({})
+const storeMenuActive = ref(0)
 
 const openMenuId = ref<string | null>(null)
 const navEl = ref<HTMLElement | null>(null)
@@ -67,6 +81,10 @@ const isDesktop = ref(typeof window === 'undefined' ? true : window.innerWidth >
 watch(sidebarOpen, (open) => {
   localStorage.setItem('pos_sidebar_open', open ? '1' : '0')
 })
+
+watch([sidebarOpen, isDesktop], () => {
+  document.documentElement.classList.toggle('sidebar-collapsed', isDesktop.value && !sidebarOpen.value)
+}, { immediate: true })
 
 function syncViewport() {
   isDesktop.value = window.innerWidth >= 1024
@@ -228,6 +246,8 @@ const navSections = computed(() => [
           { name: 'settings-subscription', to: '/admin/settings/subscription', label: t('nav.settingsItems.subscription'), icon: 'key' },
           { name: 'settings-modules', to: '/admin/settings/modules', label: t('modules.title'), icon: 'layers' },
           { name: 'notifications', to: '/admin/notifications', label: t('nav.notifications'), icon: 'bell' },
+          { name: 'org-stores', to: '/admin/organization/stores', label: t('org.tabs.stores'), icon: 'stores' },
+          { name: 'org-users', to: '/admin/organization/users', label: t('org.tabs.users'), icon: 'account' },
           { name: 'settings-currency', to: '/admin/organization/currencies', label: t('nav.settingsItems.company'), icon: 'building' },
           { name: 'settings-merchant-qr', to: '/admin/settings/merchant-qr', label: t('nav.settingsItems.merchantQr'), icon: 'tag' },
           { name: 'design-system', to: '/admin/design', label: t('nav.settingsItems.design'), icon: 'sparkles' },
@@ -281,15 +301,18 @@ const navSections = computed(() => [
 const visibleNav = computed(() => {
   const platformOnly = auth.user?.is_super_admin === true && !auth.user.tenant_id
   const enabled = auth.user?.modules
+  const allowed = (item: { module?: string; to: string }) =>
+    moduleEnabled(enabled, item.module) && moduleEnabled(enabled, moduleRequiredForPath(item.to))
+
   return navSections.value.map(section => ({
     ...section,
     items: section.items.flatMap(item => {
       if (platformOnly) {
         return item.name === 'platform' || item.name.startsWith('platform-') ? [item] : []
       }
-      if (item.name === 'platform' || !moduleEnabled(enabled, item.module)) return []
+      if (item.name === 'platform' || !allowed(item)) return []
       if (!item.children) return [item]
-      const children = item.children.filter(child => moduleEnabled(enabled, child.module))
+      const children = item.children.filter(child => allowed(child))
       return children.length ? [{ ...item, children }] : []
     }),
   })).filter(section => section.items.length > 0)
@@ -307,13 +330,11 @@ const company = computed(() => {
 })
 
 const companyName = computed(() => {
-  const name = company.value?.trade_name?.trim()
-    || company.value?.name?.trim()
-    || brandingStore.branding?.company?.trade_name?.trim()
-    || brandingStore.branding?.company?.name?.trim()
+  const profile = company.value ?? brandingStore.branding?.company
+  return profile?.name?.trim()
+    || profile?.trade_name?.trim()
     || brandingStore.branding?.brand_name?.trim()
     || 'ITARA NEXUS Business CORE'
-  return name
 })
 
 const companyInitials = computed(() => {
@@ -322,11 +343,7 @@ const companyInitials = computed(() => {
   return companyName.value.slice(0, 2).toUpperCase()
 })
 
-const brandLines = computed(() => {
-  const parts = companyName.value.split(/\s+/).filter(Boolean)
-  if (parts.length <= 1) return { primary: companyName.value, secondary: '' }
-  return { primary: parts[0], secondary: parts.slice(1).join(' ') }
-})
+const brandLines = computed(() => ({ primary: companyName.value, secondary: '' }))
 
 const accentColor = computed(() => brandingStore.branding?.accent_color || 'var(--color-brand-500)')
 
@@ -610,9 +627,62 @@ watch(drawerOpen, (open) => {
   if (open && navReady) scheduleScroll(openMenuId.value !== null)
 })
 
-function onStoreChange(event: Event) {
-  const id = (event.target as HTMLSelectElement).value
-  context.selectStore(id || null)
+function storeParts(store: { name: string; branch?: { name?: string | null; company?: { name?: string | null } | null } | null }) {
+  const branch = store.branch?.name?.trim() || ''
+  const title = store.name?.trim() || branch || '—'
+  const same = (value: string) => value.toLowerCase() === title.toLowerCase()
+  const place = branch && !same(branch) ? branch : ''
+  return { title, place, meta: place }
+}
+
+const currentStoreParts = computed(() => {
+  const store = context.currentStore
+  return store ? storeParts(store) : { title: '', place: '', meta: '' }
+})
+
+function placeStoreMenu() {
+  const rect = storeMenuTrigger.value?.getBoundingClientRect()
+  if (!rect) return
+  storeMenuStyle.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${Math.max(12, window.innerWidth - rect.right)}px`,
+    width: `${Math.max(rect.width, 360)}px`,
+  }
+}
+
+function toggleStoreMenu() {
+  storeMenuOpen.value = !storeMenuOpen.value
+  if (!storeMenuOpen.value) return
+  userMenuOpen.value = false
+  const index = context.activeStores.findIndex(store => store.id === context.currentStoreId)
+  storeMenuActive.value = index >= 0 ? index : 0
+  void nextTick(placeStoreMenu)
+}
+
+function chooseStore(id: string) {
+  context.selectStore(id)
+  storeMenuOpen.value = false
+}
+
+function onStoreMenuKey(event: KeyboardEvent) {
+  const stores = context.activeStores
+  if (!stores.length) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    storeMenuOpen.value = false
+    return
+  }
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    storeMenuActive.value = (storeMenuActive.value + 1) % stores.length
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    storeMenuActive.value = (storeMenuActive.value - 1 + stores.length) % stores.length
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    const store = stores[storeMenuActive.value]
+    if (store) chooseStore(store.id)
+  }
 }
 
 function placeUserMenu() {
@@ -626,11 +696,19 @@ function placeUserMenu() {
 
 function onUserMenuPointer(event: PointerEvent) {
   const target = event.target as Node
-  if (userMenuTrigger.value?.contains(target) || userMenuPanel.value?.contains(target)) return
-  userMenuOpen.value = false
+  if (!(userMenuTrigger.value?.contains(target) || userMenuPanel.value?.contains(target))) {
+    userMenuOpen.value = false
+  }
+  if (!(storeMenuTrigger.value?.contains(target) || storeMenuPanel.value?.contains(target))) {
+    storeMenuOpen.value = false
+  }
 }
 
 function onUserMenuKey(event: KeyboardEvent) {
+  if (storeMenuOpen.value) {
+    onStoreMenuKey(event)
+    return
+  }
   if (event.key === 'Escape') userMenuOpen.value = false
 }
 
@@ -659,6 +737,7 @@ onMounted(() => {
   window.addEventListener('pointerdown', onUserMenuPointer)
   window.addEventListener('keydown', onUserMenuKey)
   window.addEventListener('resize', placeUserMenu)
+  window.addEventListener('resize', placeStoreMenu)
   window.addEventListener('resize', syncViewport)
   window.addEventListener('pos-sidebar-pref', onSidebarPref)
   void brandingStore.loadCurrent().catch(() => undefined)
@@ -671,27 +750,45 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onUserMenuPointer)
   window.removeEventListener('keydown', onUserMenuKey)
   window.removeEventListener('resize', placeUserMenu)
+  window.removeEventListener('resize', placeStoreMenu)
   window.removeEventListener('resize', syncViewport)
   window.removeEventListener('pos-sidebar-pref', onSidebarPref)
   document.body.classList.remove('nav-drawer-open')
+  document.documentElement.classList.remove('sidebar-collapsed')
   offline.stop()
   realtime.disconnect()
 })
 
 watch(() => route.path, () => {
   userMenuOpen.value = false
+  storeMenuOpen.value = false
   drawerOpen.value = false
 })
 
-watch(() => context.currentStoreId, (storeId) => {
+const workspaceViewKey = computed(
+  () => `${route.path}|${auth.user?.tenant_id ?? 'none'}|${context.currentStoreId ?? 'none'}`,
+)
+
+watch(() => context.currentStoreId, (storeId, previous) => {
+  if (previous && previous !== storeId) {
+    pos.reset()
+    backoffice.clearStoreScopedState()
+  }
   realtime.resubscribe()
   void backoffice.loadStoreTaxonomies(storeId, company.value?.id)
 }, { immediate: true })
 
 watch(userMenuOpen, async (open) => {
   if (!open) return
+  storeMenuOpen.value = false
   await nextTick()
   placeUserMenu()
+})
+
+watch(storeMenuOpen, async (open) => {
+  if (!open) return
+  await nextTick()
+  placeStoreMenu()
 })
 
 const HeaderTitle = computed(() => ({
@@ -731,7 +828,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
           <span v-else class="app-sidebar__mark" :aria-label="companyName">{{ companyInitials }}</span>
         </div>
         <div class="app-sidebar__brand-text min-w-0 flex-1">
-          <p class="font-brand m-0 text-sm font-bold tracking-[0.04em] text-slate-900">{{ brandLines.primary }}</p>
+          <p class="app-sidebar__company font-brand m-0 text-sm font-bold tracking-[0.04em] text-slate-900">{{ brandLines.primary }}</p>
           <p
             v-if="brandLines.secondary"
             class="font-brand m-0 text-[0.6875rem] tracking-[0.12em] text-slate-500"
@@ -819,6 +916,10 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
     <ModuleSearch ref="moduleSearch" />
 
     <div class="app-main">
+      <div v-if="auth.supportingName" class="support-banner">
+        <span>{{ t('platform.supporting', { name: auth.supportingName }) }}</span>
+        <button type="button" @click="leaveSupport">{{ t('platform.returnPlatform') }}</button>
+      </div>
       <header class="app-topbar">
         <div class="topbar-start">
           <button
@@ -840,23 +941,78 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
         </div>
 
         <div class="topbar-tools">
-          <OfflineIndicator />
-          <RealtimeIndicator />
           <StockAlertBell />
           <AppCalculator />
+          <button
+            type="button"
+            class="theme-btn"
+            :aria-label="appearance === 'dark' ? t('auth.theme.light') : t('auth.theme.dark')"
+            :title="appearance === 'dark' ? t('auth.theme.light') : t('auth.theme.dark')"
+            @click="toggleAppearance"
+          >
+            <AppIcon :name="appearance === 'dark' ? 'sun' : 'moon'" :size="16" />
+          </button>
           <LanguageSwitcher />
-          <div v-if="context.activeStores.length" class="store-pill">
-            <AppIcon name="store-pin" :size="16" class="text-brand-500 shrink-0" />
-            <select
-              :value="context.currentStoreId ?? ''"
-              class="store-pill__select"
-              @change="onStoreChange"
+          <div v-if="context.activeStores.length" class="store-menu">
+            <button
+              ref="storeMenuTrigger"
+              type="button"
+              class="store-menu__trigger"
+              :class="{ 'store-menu__trigger--open': storeMenuOpen }"
+              :aria-expanded="storeMenuOpen"
+              aria-haspopup="listbox"
+              @click="toggleStoreMenu"
             >
-              <option v-for="s in context.activeStores" :key="s.id" :value="s.id">
-                {{ context.storeLabel(s) }}
-              </option>
-            </select>
+              <span class="store-menu__mark" aria-hidden="true">
+                <AppIcon name="store-pin" :size="16" />
+              </span>
+              <span class="store-menu__name">{{ currentStoreParts.title }}</span>
+              <span v-if="currentStoreParts.place" class="store-menu__chip">{{ currentStoreParts.place }}</span>
+              <AppIcon name="chevron-down" :size="16" class="store-menu__caret" />
+            </button>
           </div>
+          <Teleport to="body">
+            <Transition name="menu-pop">
+              <div
+                v-if="storeMenuOpen"
+                ref="storeMenuPanel"
+                class="store-menu__panel"
+                :style="storeMenuStyle"
+                role="listbox"
+                :aria-label="t('context.currentStore')"
+              >
+                <p class="store-menu__heading">{{ t('context.currentStore') }}</p>
+                <button
+                  v-for="(store, index) in context.activeStores"
+                  :key="store.id"
+                  type="button"
+                  class="store-menu__option"
+                  :class="{
+                    'store-menu__option--current': store.id === context.currentStoreId,
+                    'store-menu__option--focus': index === storeMenuActive,
+                  }"
+                  role="option"
+                  :aria-selected="store.id === context.currentStoreId"
+                  @mouseenter="storeMenuActive = index"
+                  @click="chooseStore(store.id)"
+                >
+                  <span class="store-menu__option-mark" aria-hidden="true">
+                    <AppIcon name="store-pin" :size="15" />
+                  </span>
+                  <span class="store-menu__option-copy">
+                    <span class="store-menu__option-name">{{ storeParts(store).title }}</span>
+                    <span v-if="storeParts(store).meta" class="store-menu__option-meta">{{ storeParts(store).meta }}</span>
+                  </span>
+                  <AppIcon
+                    v-if="store.id === context.currentStoreId"
+                    name="check"
+                    :size="16"
+                    class="store-menu__check"
+                  />
+                </button>
+              </div>
+            </Transition>
+          </Teleport>
           <div class="user-menu">
             <button
               ref="userMenuTrigger"
@@ -919,7 +1075,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
 
       <main class="app-content">
         <Transition :name="pageMotion" mode="out-in">
-          <div :key="route.path" class="page-stage">
+          <div :key="workspaceViewKey" class="page-stage">
             <RouterView />
           </div>
         </Transition>
@@ -954,8 +1110,39 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
 
 .topbar-tools {
   display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--header-gap);
+  overflow: hidden;
+}
+
+.theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-md);
+  height: var(--control-md);
+  min-width: var(--control-md);
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink-brand, var(--color-brand-600));
+  cursor: pointer;
+}
+
+.theme-btn:hover {
+  border-color: var(--color-brand-600);
+  background: var(--color-brand-50);
+}
+
+.user-menu {
+  min-width: 0;
+  max-width: 11rem;
+  flex: 0 1 auto;
+  overflow: hidden;
 }
 
 .module-search-btn {
@@ -966,10 +1153,10 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
   min-height: var(--control-lg);
   width: calc(100% - var(--space-6));
   margin: var(--space-3) var(--space-3) var(--space-2);
-  border: 1px solid var(--color-sidebar-border);
+  border: 1px solid color-mix(in srgb, var(--color-sidebar) 18%, #ffffff);
   border-radius: var(--radius-md);
-  background: var(--color-sidebar-elevated);
-  color: var(--color-sidebar-muted);
+  background: #ffffff;
+  color: var(--color-sidebar);
   padding: var(--nav-item-pad-y) var(--nav-item-pad-x);
   font-size: var(--text-md);
   font-weight: 500;
@@ -982,9 +1169,9 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
 }
 
 .module-search-btn:hover {
-  background: var(--color-sidebar-hover);
-  border-color: var(--color-sidebar-border);
-  color: var(--color-sidebar-text-strong);
+  background: #f5f8fc;
+  border-color: var(--color-sidebar);
+  color: var(--color-sidebar);
 }
 
 .module-search-btn svg {
@@ -998,12 +1185,12 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
 }
 
 .module-search-btn kbd {
-  border: 1px solid var(--color-sidebar-border);
+  border: 1px solid color-mix(in srgb, var(--color-sidebar) 28%, #ffffff);
   border-radius: var(--radius-sm);
-  background: var(--color-sidebar);
+  background: color-mix(in srgb, var(--color-sidebar) 8%, #ffffff);
   padding: 2px var(--space-2);
   font-size: var(--text-xs);
-  color: var(--color-sidebar-muted);
+  color: var(--color-sidebar);
   font-family: var(--font-sans);
 }
 
@@ -1012,8 +1199,10 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
   align-items: center;
   gap: var(--space-2);
   height: var(--control-md);
-  min-width: var(--control-md);
-  max-width: 16rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -1106,9 +1295,213 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
 .user-menu__item--danger {
   color: light-dark(#b91c1c, #e2a0a0);}
 
+.store-menu {
+  position: relative;
+  min-width: 0;
+  max-width: 20rem;
+  flex: 0 0 auto;
+}
+
+.store-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: var(--control-md);
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 0.55rem 0 0.28rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.store-menu__trigger:hover {
+  border-color: color-mix(in srgb, var(--color-brand-600) 28%, var(--color-border));
+  background: color-mix(in srgb, var(--color-brand-50) 55%, var(--color-surface));
+}
+
+.store-menu__trigger--open,
+.store-menu__trigger:focus-visible {
+  outline: none;
+  border-color: var(--color-brand-600);
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
+}
+
+.store-menu__mark,
+.store-menu__option-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-50);
+  color: var(--color-ink-brand, var(--color-brand-600));
+}
+
+.store-menu__mark {
+  width: var(--control-sm);
+  height: var(--control-sm);
+}
+
+.store-menu__option-mark {
+  width: 1.85rem;
+  height: 1.85rem;
+}
+
+.store-menu__name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: 650;
+  line-height: var(--line-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-menu__chip {
+  flex-shrink: 0;
+  max-width: 7.5rem;
+  overflow: hidden;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-brand-600) 10%, var(--color-surface));
+  color: var(--color-ink-brand, var(--color-brand-700));
+  font-size: var(--text-xs);
+  font-weight: 650;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-menu__caret {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--motion-fast) var(--ease-in-out);
+}
+
+.store-menu__trigger--open .store-menu__caret {
+  transform: rotate(180deg);
+  color: var(--color-ink-brand, var(--color-brand-600));
+}
+
+.store-menu__panel {
+  position: fixed;
+  z-index: 500;
+  max-height: min(22rem, calc(100vh - 5rem));
+  overflow: auto;
+  padding: var(--overlay-pad);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  scrollbar-width: thin;
+}
+
+.store-menu__heading {
+  margin: 0;
+  padding: var(--overlay-item-pad-y) var(--overlay-item-pad-x) 0.35rem;
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  line-height: var(--line-xs);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.store-menu__option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 3.15rem;
+  margin-top: 0.2rem;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.store-menu__option:hover,
+.store-menu__option--focus {
+  background: var(--color-table-row-hover);
+}
+
+.store-menu__option--current {
+  background: color-mix(in srgb, var(--color-brand-600) 8%, var(--color-surface));
+}
+
+.store-menu__option-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.store-menu__option-name {
+  overflow: hidden;
+  font-size: var(--text-md);
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-menu__option-meta {
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.store-menu__check {
+  flex-shrink: 0;
+  color: var(--color-ink-brand, var(--color-brand-600));
+}
+
 @media (max-width: 767px) {
-  .user-menu__identity {
+  .user-menu {
+    flex: 0 0 auto;
+    max-width: var(--control-md);
+  }
+
+  .user-menu__identity,
+  .user-menu__caret {
     display: none;
   }
+
+  .store-menu {
+    max-width: 9.5rem;
+  }
+
+  .store-menu__chip {
+    display: none;
+  }
+}
+
+.support-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 1rem;
+  background: #12243c;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.support-banner button {
+  border: 0;
+  border-radius: 999px;
+  background: #e39b2b;
+  color: #12243c;
+  padding: 0.35rem 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 </style>

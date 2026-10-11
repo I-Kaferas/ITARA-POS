@@ -221,13 +221,13 @@ class SessionPayload {
 
   factory SessionPayload.fromJson(Map<String, dynamic> json) {
     final data = json['data'];
+    final summary = json['summary'];
+    final reconciliation = json['reconciliation'];
     return SessionPayload(
-      session: data is Map<String, dynamic> ? CashRegisterSession.fromJson(data) : null,
-      summary: json['summary'] is Map<String, dynamic>
-          ? RegisterSummary.fromJson(json['summary'] as Map<String, dynamic>)
-          : null,
-      reconciliation: json['reconciliation'] is Map<String, dynamic>
-          ? Reconciliation.fromJson(json['reconciliation'] as Map<String, dynamic>)
+      session: data is Map ? CashRegisterSession.fromJson(Map<String, dynamic>.from(data)) : null,
+      summary: summary is Map ? RegisterSummary.fromJson(Map<String, dynamic>.from(summary)) : null,
+      reconciliation: reconciliation is Map
+          ? Reconciliation.fromJson(Map<String, dynamic>.from(reconciliation))
           : null,
     );
   }

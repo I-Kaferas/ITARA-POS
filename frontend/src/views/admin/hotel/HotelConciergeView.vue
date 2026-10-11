@@ -386,9 +386,7 @@ async function setStatus(row: Doc, status: Status) {
       status,
       by: auth.user?.name || null,
     })).data.docs
-    if (detailRow.value?.id === row.id) {
-      detailRow.value = docs.value.find(d => d.id === row.id) || null
-    }
+    if (detailRow.value?.id === row.id) detailOpen.value = false
   } catch (err) {
     error.value = extractApiErrorMessage(err)
   }

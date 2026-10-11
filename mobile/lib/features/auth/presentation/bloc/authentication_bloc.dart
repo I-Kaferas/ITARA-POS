@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/i18n/app_locale.dart';
 import '../../domain/entities/auth_session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/pin_login.dart';
@@ -48,7 +49,7 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
       final session = await _pinLogin(event.pin);
       emit(AuthenticationState.authenticated(session: session));
     } catch (error) {
-      final message = error.toString().replaceFirst('Exception: ', '');
+      final message = humanizeApiCode(error.toString().replaceFirst('Exception: ', ''));
       emit(AuthenticationState.failure(message));
     }
   }
@@ -63,7 +64,7 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
       emit(const AuthenticationState.unauthenticated());
     } catch (error) {
       emit(AuthenticationState.failure(
-        error.toString().replaceFirst('Exception: ', ''),
+        humanizeApiCode(error.toString().replaceFirst('Exception: ', '')),
       ));
     }
   }

@@ -133,6 +133,7 @@ bool Win32Window::Create(const std::wstring& title,
   HMONITOR monitor = MonitorFromPoint(target_point, MONITOR_DEFAULTTONEAREST);
   UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
   double scale_factor = dpi / 96.0;
+  scale_factor_ = scale_factor;
 
   HWND window = CreateWindow(
       window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
@@ -187,7 +188,19 @@ Win32Window::MessageHandler(HWND hwnd,
       }
       return 0;
 
+    case WM_GETMINMAXINFO: {
+      // Desk POS stays usable: the window can grow, not shrink under this size.
+      auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
+      const double scale = scale_factor_ <= 0 ? 1.0 : scale_factor_;
+      RECT frame{0, 0, Scale(1100, scale), Scale(700, scale)};
+      AdjustWindowRect(&frame, WS_OVERLAPPEDWINDOW, FALSE);
+      info->ptMinTrackSize.x = frame.right - frame.left;
+      info->ptMinTrackSize.y = frame.bottom - frame.top;
+      return 0;
+    }
+
     case WM_DPICHANGED: {
+      scale_factor_ = static_cast<double>(LOWORD(wparam)) / 96.0;
       auto newRectSize = reinterpret_cast<RECT*>(lparam);
       LONG newWidth = newRectSize->right - newRectSize->left;
       LONG newHeight = newRectSize->bottom - newRectSize->top;

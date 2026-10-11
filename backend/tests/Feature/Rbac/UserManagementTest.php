@@ -2,7 +2,12 @@
 
 namespace Tests\Feature\Rbac;
 
+use App\Models\Role;
+use App\Models\Store;
+use App\Models\User;
+use App\Services\Auth\AuthTokenService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\Support\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -86,5 +91,57 @@ class UserManagementTest extends TestCase
             'email' => 'blocked@test.local',
             'password' => 'password123',
         ], $this->tenantHeaders($fixture['token'], $fixture['tenant']))->assertForbidden();
+    }
+
+    public function test_user_manager_can_list_every_store_for_assignment(): void
+    {
+        $fixture = $this->createTenantFixture('store-directory', 'store-directory@test.local');
+        $headers = $this->tenantHeaders($fixture['token'], $fixture['tenant']);
+
+        Store::create([
+            'tenant_id' => $fixture['tenant']->id,
+            'branch_id' => $fixture['branch']->id,
+            'name' => 'ROHERO',
+            'code' => 'ROH',
+            'is_active' => true,
+        ]);
+
+        $fixture['user']->stores()->sync([$fixture['store']->id]);
+
+        $this->getJson('/api/v1/stores', $headers)
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Store'])
+            ->assertJsonMissing(['name' => 'ROHERO']);
+
+        $this->getJson('/api/v1/stores?scope=directory', $headers)
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Store'])
+            ->assertJsonFragment(['name' => 'ROHERO']);
+
+        $managerRole = Role::query()
+            ->where('tenant_id', $fixture['tenant']->id)
+            ->where('slug', 'branch_manager')
+            ->firstOrFail();
+
+        $manager = User::create([
+            'tenant_id' => $fixture['tenant']->id,
+            'name' => 'Branch Manager',
+            'email' => 'manager-directory@test.local',
+            'password' => Hash::make('password'),
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+        $manager->roles()->attach($managerRole->id, [
+            'branch_id' => null,
+            'store_id' => null,
+        ]);
+        $manager->stores()->sync([$fixture['store']->id]);
+
+        $managerToken = app(AuthTokenService::class)->issue($manager)['access_token'];
+
+        $this->getJson('/api/v1/stores?scope=directory', $this->tenantHeaders($managerToken, $fixture['tenant']))
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Store'])
+            ->assertJsonMissing(['name' => 'ROHERO']);
     }
 }

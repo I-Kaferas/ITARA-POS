@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
+import 'app_motion.dart';
 import 'app_radius.dart';
 import 'app_typography.dart';
 import 'theme_controller.dart';
@@ -20,20 +21,34 @@ abstract final class AppTheme {
   }
 
   static ThemeData _build(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
     final base = ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.brand600,
+        seedColor: AppColors.brand700,
         brightness: brightness,
-        primary: AppColors.brand600,
+        primary: dark ? AppColors.brandInk : AppColors.brand700,
+        onPrimary: dark ? AppColors.brand900 : Colors.white,
         secondary: AppColors.accent,
+        onSecondary: AppColors.brand900,
         surface: AppColors.surface,
+        onSurface: AppColors.textPrimary,
         error: AppColors.danger,
       ),
       scaffoldBackgroundColor: AppColors.canvas,
       dividerColor: AppColors.border,
       splashFactory: InkRipple.splashFactory,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: AppPageTransitionsBuilder(),
+          TargetPlatform.iOS: AppPageTransitionsBuilder(),
+          TargetPlatform.macOS: AppPageTransitionsBuilder(),
+          TargetPlatform.windows: AppPageTransitionsBuilder(),
+          TargetPlatform.linux: AppPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: AppPageTransitionsBuilder(),
+        },
+      ),
     );
 
     return base.copyWith(
@@ -58,7 +73,7 @@ abstract final class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.brand600,
+          backgroundColor: AppColors.brand700,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -71,32 +86,35 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.brand600,
+          backgroundColor: AppColors.brand700,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.brand700.withValues(alpha: 0.5),
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.8),
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(48, 44),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          textStyle: AppTypography.plex(fontWeight: FontWeight.w600, fontSize: 13.5),
+          textStyle: AppTypography.plex(fontWeight: FontWeight.w500, fontSize: 13.5, letterSpacing: -0.1),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.brand700,
+          foregroundColor: AppColors.textSecondary,
+          backgroundColor: AppColors.surface,
           side: BorderSide(color: AppColors.borderStrong),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(48, 44),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          textStyle: AppTypography.plex(fontWeight: FontWeight.w600, fontSize: 13.5),
+          textStyle: AppTypography.plex(fontWeight: FontWeight.w500, fontSize: 13.5, letterSpacing: -0.1),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.brand700,
+          foregroundColor: AppColors.brandInk,
           textStyle: AppTypography.plex(fontWeight: FontWeight.w600, fontSize: 13),
         ),
       ),
@@ -126,9 +144,22 @@ abstract final class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
-        titleTextStyle: AppTypography.sectionTitle(),
+        elevation: 0,
+        barrierColor: const Color(0x7514202B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: AppColors.border),
+        ),
+        titleTextStyle: AppTypography.plex(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
         contentTextStyle: AppTypography.body(color: AppColors.textSecondary),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        modalBarrierColor: const Color(0x7514202B),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -138,7 +169,7 @@ abstract final class AppTheme {
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: AppColors.surface,
-        selectedItemColor: AppColors.brand600,
+        selectedItemColor: AppColors.brandInk,
         unselectedItemColor: AppColors.textMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
@@ -172,7 +203,7 @@ abstract final class AppTheme {
           return AppTypography.plex(
             fontSize: 11,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            color: selected ? AppColors.brand700 : AppColors.textMuted,
+            color: selected ? AppColors.brandInk : AppColors.textMuted,
           );
         }),
       ),

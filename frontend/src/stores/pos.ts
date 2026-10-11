@@ -49,6 +49,8 @@ export const usePosStore = defineStore('pos', () => {
   const customer = ref<PosCustomerOption | null>(null)
   const note = ref<string | null>(null)
   const orderDate = ref(localOrderDate())
+  const orderMode = ref<'takeaway' | 'delivery'>('takeaway')
+  const deliveryAddress = ref('')
   const globalDiscount = ref<CartDiscountPayload | null>(null)
   const loyaltyPoints = ref(0)
   const fees = ref<{ label: string; amount: number; code?: string }[]>([])
@@ -264,10 +266,10 @@ export const usePosStore = defineStore('pos', () => {
   async function searchCustomers(query: string): Promise<PosCustomerOption[]> {
     const q = encodeURIComponent(query.trim())
     if (!q) return []
-    const res = await api.get<ApiListResponse<PosCustomerOption>>(
+    const res = await api.get<{ data: PosCustomerOption[] | { data?: PosCustomerOption[] } }>(
       `/customers?search=${q}&active_only=1&per_page=20`,
     )
-    return res.data
+    return Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
   }
 
   async function createCustomer(payload: {
@@ -526,6 +528,22 @@ export const usePosStore = defineStore('pos', () => {
     }
   }
 
+  function serviceExtras() {
+    if (activeTable.value) {
+      return { service_mode: null, delivery_address: null }
+    }
+    return {
+      service_mode: orderMode.value,
+      delivery_address: orderMode.value === 'delivery' ? deliveryAddress.value.trim() : null,
+    }
+  }
+
+  function assertDeliveryReady() {
+    if (activeTable.value || orderMode.value !== 'delivery') return
+    if (!customer.value?.id) throw new Error('Sélectionnez un client pour la livraison')
+    if (!deliveryAddress.value.trim()) throw new Error('Indiquez l’adresse de livraison')
+  }
+
   function cartPayload() {
     return {
       currency: currencyCode.value || getAppCurrency(),
@@ -535,6 +553,7 @@ export const usePosStore = defineStore('pos', () => {
       order_date: orderDate.value || undefined,
       apply_promotions: true,
       table_id: activeTable.value?.id ?? undefined,
+      ...serviceExtras(),
       items: lines.value.map(line => ({
         line_id: line.lineId,
         product_id: line.product.product_id,
@@ -580,6 +599,7 @@ export const usePosStore = defineStore('pos', () => {
 
   async function holdSale(): Promise<string> {
     if (lines.value.length === 0 && !activeTable.value) throw new Error('Panier vide')
+    assertDeliveryReady()
 
     const storeId = currentStoreId.value
     if (!storeId) throw new Error('Aucun magasin sélectionné')
@@ -625,6 +645,8 @@ export const usePosStore = defineStore('pos', () => {
       notes?: string | null
       order_date?: string | null
       table_id?: string | null
+      service_mode?: 'takeaway' | 'delivery' | null
+      delivery_address?: string | null
       table?: { id: string; name: string; code?: string } | null
       customer?: { id: string; name: string } | null
       items?: {
@@ -650,6 +672,8 @@ export const usePosStore = defineStore('pos', () => {
       ? { id: sale.customer.id, name: sale.customer.name }
       : null
     note.value = sale.notes ?? null
+    orderMode.value = sale.service_mode === 'delivery' ? 'delivery' : 'takeaway'
+    deliveryAddress.value = sale.delivery_address ?? ''
     orderDate.value = sale.order_date?.slice(0, 10) || localOrderDate()
 
     const discounts = sale.discounts ?? []
@@ -788,6 +812,12 @@ export const usePosStore = defineStore('pos', () => {
       return { success: false, message: 'Sélectionnez un client pour encaisser', change: 0 }
     }
 
+    try {
+      assertDeliveryReady()
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Livraison incomplète', change: 0 }
+    }
+
     const storeId = currentStoreId.value
     if (!storeId) {
       return { success: false, message: 'Aucun magasin sélectionné', change: 0 }
@@ -869,6 +899,8 @@ export const usePosStore = defineStore('pos', () => {
         cashier_shift_id: shift.value?.id ?? undefined,
         notes: note.value ?? undefined,
         apply_promotions: true,
+        table_id: activeTable.value?.id ?? undefined,
+        ...serviceExtras(),
         items: lines.value.map(line => ({
           line_id: line.lineId,
           product_id: line.product.product_id,
@@ -888,13 +920,15 @@ export const usePosStore = defineStore('pos', () => {
         payments: paymentLines.map((line) => {
           const methodMeta = paymentMethods.value.find(m => m.value === line.method)
           const tendered = line.tendered ?? line.amount
+          const metadata = {
+            ...(line.metadata ?? {}),
+            ...(methodMeta?.supports_change && tendered > 0 ? { tendered } : {}),
+          }
           return {
             method: line.method,
             amount: line.amount,
             currency: line.currency || currencyCode.value || getAppCurrency(),
-            metadata: methodMeta?.supports_change && tendered > 0
-              ? { tendered }
-              : undefined,
+            metadata: Object.keys(metadata).length ? metadata : undefined,
           }
         }),
         idempotency_key: crypto.randomUUID(),
@@ -941,6 +975,7 @@ export const usePosStore = defineStore('pos', () => {
     lines.value = []
     customer.value = null
     note.value = null
+    deliveryAddress.value = ''
     globalDiscount.value = null
     loyaltyPoints.value = 0
     fees.value = []
@@ -1030,6 +1065,8 @@ export const usePosStore = defineStore('pos', () => {
     setCustomer,
     setNote,
     orderDate,
+    orderMode,
+    deliveryAddress,
     setGlobalDiscount,
     applyLoyaltyReward,
     clearDiscount,

@@ -50,7 +50,7 @@ const categories: { id: EventCategory; color: string }[] = [
 
 const form = ref(blankForm())
 
-const storageKey = computed(() => `itara.hotel.calendar.${ctx.currentStoreId || 'default'}`)
+const storageKey = computed(() => `itara.hotel.calendar.${localStorage.getItem('pos_tenant_id') || 'none'}.${ctx.currentStoreId || 'default'}`)
 
 function blankForm() {
   const day = selectedDate.value || toDateInput(new Date())

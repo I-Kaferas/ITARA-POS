@@ -24,9 +24,11 @@ class HospitalityStore {
       final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
       final kind = row['kind']?.toString() ?? '';
       final status = row['status']?.toString() ?? json['status']?.toString();
-      final normalized = (kind == 'table' || kind == 'order')
-          ? RestaurantStatus.fromWire(status).wire
-          : status;
+      final normalized = switch (kind) {
+        'table' || 'order' => RestaurantStatus.fromWire(status).wire,
+        'ticket' => _presentKitchenStatus(status),
+        _ => status,
+      };
       return {
         ...json,
         'id': row['id'],
@@ -288,6 +290,14 @@ class HospitalityStore {
   }
 
   /// Kitchen Display §24 — NEW / PREPARING / READY / SERVED / CANCELLED.
+  static String _presentKitchenStatus(String? status) {
+    return switch ((status ?? '').trim().toLowerCase()) {
+      'sent' || 'queued' || 'new' || '' => 'new',
+      'canceled' => 'cancelled',
+      final other => other,
+    };
+  }
+
   String _normalizeKitchenStatus(String status, {bool soft = false}) {
     final key = status.trim().toLowerCase();
     return switch (key) {
@@ -482,13 +492,25 @@ class HospitalityStore {
     final lines = _checkLines(order, check['id'].toString());
     if (lines.isEmpty) throw Exception('Addition vide');
     final folio = await _openFolioForRoom(room['id'].toString());
+    if (folio['status'] != null && folio['status'] != 'open') {
+      throw Exception('Le folio de ce séjour est déjà clos');
+    }
+    final reservationId = folio['reservation_id']?.toString() ?? '';
+    if (reservationId.isEmpty) throw Exception('Aucun séjour actif pour cette chambre');
     final folioLines = _maps(folio['lines']);
     for (final line in lines) {
+      final quantity = (line['quantity'] as num?)?.toInt() ?? 0;
+      final unitPrice = (line['unit_price'] as num?)?.toInt() ?? 0;
       folioLines.add({
         'id': const Uuid().v4(),
         'kind': 'restaurant',
-        'description': 'Table ${order['table_label']} · ${line['name']}',
-        'amount': ((line['unit_price'] as num?)?.toInt() ?? 0) * ((line['quantity'] as num?)?.toInt() ?? 0),
+        'reservation_id': reservationId,
+        'order_id': order['id'],
+        'check_id': check['id'],
+        'description': 'Table ${order['table_label']} · $quantity × ${line['name']}',
+        'quantity': quantity,
+        'unit_price': unitPrice,
+        'amount': unitPrice * quantity,
         'created_at': DateTime.now().toIso8601String(),
       });
     }
@@ -497,6 +519,7 @@ class HospitalityStore {
     check['status'] = 'folio';
     check['room_id'] = room['id'];
     check['room_number'] = room['number'];
+    check['reservation_id'] = reservationId;
     await _closeOrderIfDone(order);
   }
 

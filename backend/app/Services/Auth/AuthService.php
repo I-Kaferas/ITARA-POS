@@ -3,6 +3,7 @@
 namespace App\Services\Auth;
 
 use App\Models\Device;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Authorization\AuthorizationService;
 use Illuminate\Http\Request;
@@ -40,6 +41,7 @@ class AuthService
             ]);
         }
 
+        $this->assertLoginTenant($user, $request);
         $this->bruteForce->recordSuccess($email, $ip);
 
         if ($user->requiresTwoFactorChallenge()) {
@@ -112,6 +114,24 @@ class AuthService
         return $user->fresh() ?? $user;
     }
 
+    private function assertLoginTenant(User $user, ?Request $request): void
+    {
+        $header = trim((string) $request?->header('X-Tenant-ID', ''));
+        if ($header === '' || $user->tenant_id === null || app(AuthorizationService::class)->isSuperAdmin($user)) {
+            return;
+        }
+
+        $tenant = Tenant::query()
+            ->where(fn ($query) => $query->where('id', $header)->orWhere('slug', $header))
+            ->first();
+
+        if ($tenant !== null && (string) $tenant->id !== (string) $user->tenant_id) {
+            throw ValidationException::withMessages([
+                'email' => ['Ce compte n’appartient pas à ce commerce.'],
+            ]);
+        }
+    }
+
     private function assertAuthorizedDevice(string $tenantId, ?string $deviceId, ?string $identifier): void
     {
         if (($deviceId === null || $deviceId === '') && ($identifier === null || $identifier === '')) {
@@ -178,6 +198,14 @@ class AuthService
     /**
      * @return array<string, mixed>
      */
+    /**
+     * @return array<string, mixed>
+     */
+    public function issueSession(User $user, ?Request $request = null, ?string $deviceName = null): array
+    {
+        return $this->tokenResponse($user, $request, $deviceName);
+    }
+
     private function tokenResponse(User $user, ?Request $request = null, ?string $deviceName = null): array
     {
         $issued = $this->tokens->issue($user, $request, $deviceName);
@@ -211,9 +239,12 @@ class AuthService
             'name' => $user->name,
             'email' => $user->email,
             'phone' => $user->phone,
+            'employee_code' => $user->employee?->code,
             'tenant_id' => $user->tenant_id,
             'is_super_admin' => $superAdmin,
-            'modules' => $superAdmin ? \App\Services\Platform\SaasCatalog::MODULES : $catalog->modules($user->tenant_id ? $user->tenant : null),
+            'modules' => $superAdmin
+                ? \App\Services\Platform\SaasCatalog::MODULES
+                : app(\App\Modules\ModuleManager::class)->usableCodes($user->tenant_id ? $user->tenant : null),
             'subscription' => $catalog->commercialSubscription($user->tenant_id ? $user->tenant : null),
             'email_verified' => $user->hasVerifiedEmail(),
             'phone_verified' => $user->phone_verified_at !== null,
@@ -221,6 +252,7 @@ class AuthService
             'roles' => collect($authorization->getRoleAssignments($user))->pluck('slug')->values()->all(),
             'role_assignments' => $authorization->getRoleAssignments($user),
             'permissions' => collect($authorization->getPermissions($user))->pluck('slug')->values()->all(),
+            'store_ids' => $user->stores()->orderBy('stores.created_at')->pluck('stores.id')->map(fn ($id) => (string) $id)->values()->all(),
         ];
     }
 }

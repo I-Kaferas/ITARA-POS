@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Authorization\AuthorizationService;
+use App\Services\Platform\PlatformAuditLogger;
 use App\Support\ApiError;
 use App\Tenancy\TenantContext;
 use Closure;
@@ -50,7 +51,13 @@ class ResolveTenant
         }
 
         if ($user && $user->tenant_id !== null && $user->tenant_id !== $tenant->id) {
+            $this->audit($request, $user, $tenant->id, 'tenant.access_denied', 'membership');
+
             return ApiError::json('errors.tenant_forbidden', 403);
+        }
+
+        if ($superAdmin && $user instanceof User && $user->tenant_id !== $tenant->id && ! $request->isMethod('GET') && ! $request->isMethod('HEAD')) {
+            $this->audit($request, $user, $tenant->id, 'tenant.cross_access', 'super_admin_write');
         }
 
         $this->tenantContext->bind($tenant);
@@ -59,6 +66,19 @@ class ResolveTenant
             return $next($request);
         } finally {
             $this->tenantContext->clear();
+        }
+    }
+
+    private function audit(Request $request, User $user, string $tenantId, string $action, string $reason): void
+    {
+        try {
+            app(PlatformAuditLogger::class)->record($user, $action, $tenantId, [
+                'reason' => $reason,
+                'method' => $request->method(),
+                'path' => $request->path(),
+            ], $request->ip());
+        } catch (\Throwable $exception) {
+            report($exception);
         }
     }
 }

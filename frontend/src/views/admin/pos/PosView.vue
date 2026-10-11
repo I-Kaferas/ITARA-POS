@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import PosCartPanel from '../../../components/pos/PosCartPanel.vue'
 import PosCategorySidebar from '../../../components/pos/PosCategorySidebar.vue'
@@ -50,7 +50,19 @@ const optionQty = ref(1)
 const accompanimentHost = ref<{ product: PosProduct; lineId: string } | null>(null)
 const selectedAccompanimentIds = ref<string[]>([])
 const cartOpen = ref(false)
-const orderMode = ref<'takeaway' | 'delivery'>('takeaway')
+
+function ensureServiceReady(): boolean {
+  if (pos.activeTable || pos.orderMode !== 'delivery') return true
+  if (!pos.customer) {
+    pos.setStatus(t('pos.deliveryNeedsCustomer'), true)
+    return false
+  }
+  if (!pos.deliveryAddress.trim()) {
+    pos.setStatus(t('pos.deliveryNeedsAddress'), true)
+    return false
+  }
+  return true
+}
 
 const footerLabels = computed(() => ({
   customer: t('pos.customer'),
@@ -376,6 +388,7 @@ async function onSearchSubmit(value: string) {
 }
 
 async function onHold() {
+  if (!ensureServiceReady()) return
   try {
     const fromTable = Boolean(pos.activeTable)
     await pos.holdSale()
@@ -402,6 +415,13 @@ function onPay(
   payments: { method: string; amount: number; tendered?: number; currency?: string }[],
   done: (result: { success: boolean; message?: string }) => void,
 ) {
+  if (!ensureServiceReady()) {
+    done({
+      success: false,
+      message: pos.customer ? t('pos.deliveryNeedsAddress') : t('pos.deliveryNeedsCustomer'),
+    })
+    return
+  }
   void pos.pay(payments).then(async (result) => {
     const changeMsg = result.change > 0 ? ` — ${t('pos.change')}: ${formatChange(result.change)}` : ''
     const earned = result.loyalty?.earned ?? 0
@@ -409,7 +429,7 @@ function onPay(
     pos.setStatus(`${result.message}${changeMsg}${pointsMsg}`, !result.success)
     done({ success: result.success, message: result.message })
     if (!result.success) return
-    kickDrawer()
+    if (!payments.every(line => line.method === 'room')) kickDrawer()
     if (result.receipt) {
       printSaleDocument(result.receipt, t('pointOfSale.orders.receipt'))
     }
@@ -615,20 +635,25 @@ onUnmounted(() => {
                 <button
                   type="button"
                   class="pos-order-mode__btn"
-                  :class="{ 'pos-order-mode__btn--active': orderMode === 'takeaway' }"
-                  @click="orderMode = 'takeaway'"
+                  :class="{ 'pos-order-mode__btn--active': !pos.activeTable && pos.orderMode === 'takeaway' }"
+                  :disabled="Boolean(pos.activeTable)"
+                  @click="pos.orderMode = 'takeaway'"
                 >
                   {{ t('pos.takeaway') }}
                 </button>
                 <button
                   type="button"
                   class="pos-order-mode__btn"
-                  :class="{ 'pos-order-mode__btn--active': orderMode === 'delivery' }"
-                  @click="orderMode = 'delivery'"
+                  :class="{ 'pos-order-mode__btn--active': !pos.activeTable && pos.orderMode === 'delivery' }"
+                  :disabled="Boolean(pos.activeTable)"
+                  @click="pos.orderMode = 'delivery'"
                 >
                   {{ t('pos.delivery') }}
                 </button>
               </div>
+              <RouterLink class="pos-service-link" :to="{ name: 'pos-orders' }">
+                {{ t('pos.viewOrders') }}
+              </RouterLink>
               <button
                 type="button"
                 class="pos-refresh"
@@ -648,6 +673,22 @@ onUnmounted(() => {
                 <em>{{ pos.lines.length }}</em>
               </button>
             </div>
+
+            <div v-if="!pos.activeTable && pos.orderMode === 'delivery'" class="pos-delivery">
+              <label class="pos-delivery__label" for="pos-delivery-address">{{ t('pos.deliveryAddress') }}</label>
+              <input
+                id="pos-delivery-address"
+                v-model="pos.deliveryAddress"
+                class="pos-delivery__input"
+                type="text"
+                maxlength="255"
+                :placeholder="t('pos.deliveryAddressPlaceholder')"
+              />
+              <p class="pos-delivery__hint">{{ t('pos.deliveryHint') }}</p>
+            </div>
+            <p v-else-if="!pos.activeTable" class="pos-delivery__hint pos-delivery__hint--alone">
+              {{ t('pos.takeawayHint') }}
+            </p>
 
             <PosCategorySidebar
               v-if="pos.loading || !pos.error"
@@ -950,6 +991,59 @@ onUnmounted(() => {
   background: var(--color-inverse);
   border-color: var(--color-inverse);
   color: #fff;}
+
+.pos-order-mode__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pos-service-link {
+  flex-shrink: 0;
+  color: var(--color-sidebar, #061630);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pos-service-link:hover {
+  text-decoration: underline;
+}
+
+.pos-delivery {
+  display: grid;
+  grid-template-columns: auto minmax(0, 28rem);
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  margin: -0.2rem 0 0.7rem;
+}
+
+.pos-delivery__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pos-delivery__input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--color-border, #dbe3ea);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+}
+
+.pos-delivery__hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+}
+
+.pos-delivery__hint--alone {
+  margin: -0.35rem 0 0.7rem;
+}
 
 .pos-refresh {
   flex-shrink: 0;

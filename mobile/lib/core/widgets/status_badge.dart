@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_motion.dart';
+import '../theme/app_radius.dart';
 import '../theme/app_typography.dart';
 
 enum StatusBadgeVariant { success, warning, danger, neutral, info }
@@ -34,7 +36,9 @@ class StatusBadge extends StatelessWidget {
       StatusBadgeVariant.neutral => (AppColors.fieldFill, AppColors.textSecondary),
     };
 
-    return Container(
+    return AnimatedContainer(
+      duration: AppMotion.resolve(context, AppMotion.micro),
+      curve: AppMotion.standard,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bg,

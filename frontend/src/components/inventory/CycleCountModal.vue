@@ -163,6 +163,7 @@ async function plan() {
     const id = result.data?.id
     if (!id) throw new Error(t('inventory.noArticles'))
     emit('created', id)
+    emit('close')
   } catch (err) {
     error.value = extractApiErrorMessage(err)
   } finally {
@@ -183,6 +184,7 @@ async function generate() {
       return
     }
     emit('created', id)
+    emit('close')
   } catch (err) {
     error.value = extractApiErrorMessage(err)
   } finally {

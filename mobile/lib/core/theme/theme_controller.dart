@@ -98,11 +98,9 @@ class ThemeModeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ThemeCubit, ThemeState>(
       builder: (context, state) {
-        final (icon, label) = switch (state.mode) {
-          ThemeMode.light => (Icons.light_mode_outlined, 'Clair'),
-          ThemeMode.dark => (Icons.dark_mode_outlined, 'Sombre'),
-          ThemeMode.system => (Icons.brightness_auto_outlined, 'Système'),
-        };
+        final dark = state.isDark;
+        final icon = dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined;
+        final label = dark ? 'Sombre' : 'Clair';
 
         return Tooltip(
           message: 'Thème : $label (toucher pour changer)',
@@ -110,7 +108,7 @@ class ThemeModeButton extends StatelessWidget {
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(11),
             child: InkWell(
-              onTap: () => context.read<ThemeCubit>().cycle(),
+              onTap: () => context.read<ThemeCubit>().toggle(),
               borderRadius: BorderRadius.circular(11),
               child: Container(
                 width: compact ? 34 : null,
@@ -147,4 +145,44 @@ class ThemeModeButton extends StatelessWidget {
       },
     );
   }
+}
+
+/// Screens read [AppColors] directly and stay mounted, so a theme change
+/// has to ask every visible element to build again.
+class ThemeRefresh extends StatefulWidget {
+  const ThemeRefresh({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  State<ThemeRefresh> createState() => _ThemeRefreshState();
+}
+
+class _ThemeRefreshState extends State<ThemeRefresh> {
+  @override
+  void initState() {
+    super.initState();
+    ThemeController.instance.addListener(_rebuildTree);
+  }
+
+  @override
+  void dispose() {
+    ThemeController.instance.removeListener(_rebuildTree);
+    super.dispose();
+  }
+
+  void _rebuildTree() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      void visit(Element element) {
+        element.markNeedsBuild();
+        element.visitChildren(visit);
+      }
+
+      context.visitChildElements(visit);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

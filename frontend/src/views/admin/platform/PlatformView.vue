@@ -11,7 +11,7 @@ import EmptyState from '../../../components/ui/EmptyState.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import KpiCard from '../../../components/ui/KpiCard.vue'
 import { api, extractApiErrorMessage } from '../../../api/client'
-import { useAuthStore } from '../../../stores/auth'
+import { useAuthStore, type LoginResponse } from '../../../stores/auth'
 import { useBrandingStore } from '../../../stores/branding'
 import { useContextStore } from '../../../stores/context'
 import { MODULE_CODES } from '../../../modules/registry'
@@ -35,7 +35,7 @@ type Company = {
     grace_ends_on?: string | null
     trial_ends_on?: string | null
     pending_plan?: string | null
-    open_invoice?: { id: string; number: string; amount: number } | null
+    open_invoice?: { id: string; number: string; amount: number; currency?: string } | null
   } | null
   users: number
   devices: number
@@ -45,7 +45,7 @@ type DeviceRow = { id: string; company?: string | null; name?: string; code?: st
 type UserRow = { id: string; company?: string | null; name: string; email: string; is_active?: boolean }
 type Ticket = { id: string; company: string; tenant_id: string; subject: string; message: string; status: string; created_at?: string }
 type AuditRow = { id: string; action: string; tenant_id?: string | null; payload?: Record<string, unknown> | null; ip_address?: string | null; created_at?: string; actor?: { name: string; email: string } | null }
-type Overview = { companies: number; users: number; devices: number; sales: number; revenue: number; plans?: Record<string, number> }
+type Overview = { companies: number; users: number; devices: number; sales: number; revenue: number; subscription_mrr?: number; open_invoices?: number; plans?: Record<string, number> }
 type Tab = 'companies' | 'licenses' | 'subscriptions' | 'devices' | 'modules' | 'users' | 'stats' | 'support' | 'audit' | 'backups'
 type BadgeVariant = 'success' | 'neutral' | 'brand' | 'warning' | 'danger' | 'info'
 
@@ -54,9 +54,10 @@ const subscriptionStatuses = ['active', 'trial', 'past_due', 'suspended', 'cance
 const licenseStatuses = ['active', 'suspended', 'expired'] as const
 const companyStatuses = ['trial', 'active', 'past_due', 'suspended', 'cancelled', 'archived'] as const
 const plans = [
-  { id: 'pos_stock', modules: ['pos', 'inventory'] },
-  { id: 'pos_stock_restaurant', modules: ['pos', 'inventory', 'restaurant'] },
-  { id: 'pos_stock_hotel_restaurant', modules: ['pos', 'inventory', 'hotel', 'restaurant'] },
+  { id: 'starter', modules: ['pos', 'inventory'] },
+  { id: 'professional', modules: ['pos', 'inventory', 'restaurant'] },
+  { id: 'business', modules: ['pos', 'inventory', 'restaurant', 'hotel'] },
+  { id: 'enterprise', modules: [...moduleCodes] },
 ]
 const tabs: { id: Tab; icon: string }[] = [
   { id: 'companies', icon: 'building' },
@@ -117,7 +118,7 @@ function emptyCreate() {
     tax_id: '',
     registration_number: '',
     status: 'trial',
-    plan: 'pos_stock',
+    plan: 'starter',
     admin_name: '',
     admin_email: '',
     admin_password: '',
@@ -167,6 +168,45 @@ const filteredUsers = computed(() => {
 
 const filteredTickets = computed(() => {
   return tickets.value.filter(ticket => ticketFilter.value === 'all' || ticket.status === ticketFilter.value)
+})
+
+const legacyPlans: Record<string, string> = {
+  pos_stock: 'starter',
+  pos_stock_restaurant: 'professional',
+  pos_stock_hotel_restaurant: 'business',
+}
+
+function commercialPlanCode(company: Company) {
+  const raw = company.billing?.plan || company.subscription.plan || 'starter'
+  return legacyPlans[raw] || raw
+}
+
+const billingQueue = computed(() => {
+  const horizon = new Date()
+  horizon.setDate(horizon.getDate() + 14)
+  const rows: { id: string; name: string; kind: string; detail: string }[] = []
+  for (const company of companies.value) {
+    const billing = company.billing
+    const status = commercialStatus(company)
+    if (billing?.open_invoice) {
+      rows.push({
+        id: `${company.id}-invoice`,
+        name: company.name,
+        kind: 'invoice',
+        detail: `${billing.open_invoice.number} · ${formatMoney(billing.open_invoice.amount, billing.open_invoice.currency)}`,
+      })
+    }
+    if (status === 'past_due') {
+      rows.push({ id: `${company.id}-due`, name: company.name, kind: 'past_due', detail: planLabel(commercialPlan(company)) })
+    }
+    if (status === 'trial' && billing?.trial_ends_on && new Date(billing.trial_ends_on) <= horizon) {
+      rows.push({ id: `${company.id}-trial`, name: company.name, kind: 'trial', detail: formatDateTime(billing.trial_ends_on) })
+    }
+    if (billing?.grace_ends_on) {
+      rows.push({ id: `${company.id}-grace`, name: company.name, kind: 'grace', detail: formatDateTime(billing.grace_ends_on) })
+    }
+  }
+  return rows
 })
 
 const planRows = computed(() => Object.entries(overview.value?.plans ?? {}))
@@ -283,9 +323,8 @@ function selectTab(id: Tab) {
 }
 
 async function createCompany() {
-  if (!createForm.value.name.trim()) return
   const form = createForm.value
-  if (form.admin_email.trim() && form.admin_password.length < 8) {
+  if (!form.name.trim() || !form.admin_email.trim() || form.admin_password.length < 8) {
     error.value = t('platform.adminPasswordHint')
     return
   }
@@ -320,7 +359,7 @@ function openManage(company: Company) {
     id: company.id,
     name: company.name,
     status: company.status || 'active',
-    plan: company.subscription.plan || '',
+    plan: commercialPlanCode(company),
     modules: [...company.modules],
     license_status: company.license.status || 'active',
     seats: company.license.seats ?? 0,
@@ -415,6 +454,35 @@ async function closeTicket(id: string) {
   await run(() => api.post(`/platform/support/${id}/close`).then(() => undefined))
 }
 
+async function openShop(company: Company) {
+  if (busy.value) return
+  error.value = ''
+  busy.value = true
+  try {
+    const response = await api.post<LoginResponse>(`/platform/tenants/${company.id}/impersonate`)
+    await auth.beginSupport(response, company.name)
+    await router.push('/admin')
+  } catch (err) {
+    error.value = extractApiErrorMessage(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function revokeDevice(id: string) {
+  await run(async () => {
+    await api.post(`/platform/devices/${id}/revoke`)
+    notice.value = t('platform.deviceRevoked')
+  })
+}
+
+async function restoreDevice(id: string) {
+  await run(async () => {
+    await api.post(`/platform/devices/${id}/restore`)
+    notice.value = t('platform.deviceRestored')
+  })
+}
+
 async function switchAccount() {
   await auth.logout()
   brandingStore.clear()
@@ -450,7 +518,9 @@ onMounted(() => {
         <KpiCard :label="t('platform.tabs.users')" :value="overview?.users ?? 0" icon="customers" accent="var(--color-info, #2563eb)" icon-bg="var(--color-info-50, #eff6ff)" />
         <KpiCard :label="t('platform.tabs.devices')" :value="overview?.devices ?? 0" icon="device-tablet" accent="#0f766e" icon-bg="#f0fdfa" />
         <KpiCard :label="t('platform.sales')" :value="overview?.sales ?? 0" icon="sales" accent="#b45309" icon-bg="#fffbeb" />
-        <KpiCard :label="t('reports.revenue')" :value="formatMoney(overview?.revenue ?? 0)" icon="coins" accent="#15803d" icon-bg="#f0fdf4" />
+        <KpiCard :label="t('platform.subscriptionMrr')" :value="formatMoney(overview?.subscription_mrr ?? 0, 'USD')" icon="coins" accent="#15803d" icon-bg="#f0fdf4" />
+        <KpiCard :label="t('platform.posRevenue')" :value="formatMoney(overview?.revenue ?? 0)" icon="sales" accent="#b45309" icon-bg="#fffbeb" />
+        <KpiCard :label="t('platform.openInvoices')" :value="formatMoney(overview?.open_invoices ?? 0, 'USD')" icon="receipt" accent="#b91c1c" icon-bg="#fef2f2" />
       </div>
 
       <nav class="sub-nav" :aria-label="t('platform.title')">
@@ -508,6 +578,7 @@ onMounted(() => {
               <td>{{ company.devices }}</td>
               <td>{{ company.open_support }}</td>
               <td class="text-right">
+                <button class="btn-secondary" type="button" :disabled="busy" @click="openShop(company)">{{ t('platform.openShop') }}</button>
                 <button class="btn-secondary" type="button" @click="openManage(company)">{{ t('platform.edit') }}</button>
                 <button class="btn-secondary" type="button" :disabled="busy" @click="copyId(company.id)">{{ t('platform.copyId') }}</button>
                 <button class="btn-secondary" type="button" :disabled="busy" @click="setCompanyStatus(company, company.status === 'active' ? 'suspended' : 'active')">
@@ -658,6 +729,7 @@ onMounted(() => {
               <th>{{ t('desk.platform') }}</th>
               <th>{{ t('platform.status') }}</th>
               <th>{{ t('platform.lastSync') }}</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -667,6 +739,10 @@ onMounted(() => {
               <td>{{ device.platform || '—' }}</td>
               <td><Badge :variant="statusVariant(device.status)" dot>{{ device.status || '—' }}</Badge></td>
               <td>{{ formatDateTime(device.last_sync_at) }}</td>
+              <td class="text-right">
+                <button v-if="device.status !== 'revoked'" class="btn-secondary" type="button" :disabled="busy" @click="revokeDevice(device.id)">{{ t('platform.revokeDevice') }}</button>
+                <button v-else class="btn-secondary" type="button" :disabled="busy" @click="restoreDevice(device.id)">{{ t('platform.restoreDevice') }}</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -704,12 +780,27 @@ onMounted(() => {
         </table>
       </DataTableShell>
 
-      <section v-else-if="tab === 'stats'" class="platform-stats">
-        <article v-for="[plan, count] in planRows" :key="plan" class="platform-plan">
-          <p class="platform-muted">{{ planLabel(plan) }}</p>
-          <p class="platform-plan__value">{{ count }}</p>
-        </article>
-        <p v-if="!planRows.length && !loading" class="platform-muted">{{ t('platform.empty') }}</p>
+      <section v-else-if="tab === 'stats'" class="platform-stats-wrap">
+        <section class="platform-queue">
+          <header>
+            <h2>{{ t('platform.queueTitle') }}</h2>
+          </header>
+          <p v-if="!billingQueue.length" class="platform-muted">{{ t('platform.queueEmpty') }}</p>
+          <ul v-else>
+            <li v-for="item in billingQueue" :key="item.id">
+              <strong>{{ item.name }}</strong>
+              <span>{{ t(`platform.queue.${item.kind}`) }}</span>
+              <span class="platform-muted">{{ item.detail }}</span>
+            </li>
+          </ul>
+        </section>
+        <div class="platform-stats">
+          <article v-for="[plan, count] in planRows" :key="plan" class="platform-plan">
+            <p class="platform-muted">{{ planLabel(plan) }}</p>
+            <p class="platform-plan__value">{{ count }}</p>
+          </article>
+          <p v-if="!planRows.length && !loading" class="platform-muted">{{ t('platform.empty') }}</p>
+        </div>
       </section>
 
       <PlatformBackupsPanel v-else-if="tab === 'backups'" />
@@ -879,18 +970,18 @@ onMounted(() => {
           </div>
           <div>
             <FieldLabel icon="mail">{{ t('platform.adminEmail') }}</FieldLabel>
-            <input v-model="createForm.admin_email" class="field" type="email" autocomplete="off" />
+            <input v-model="createForm.admin_email" class="field" type="email" autocomplete="off" required />
           </div>
           <div>
             <FieldLabel icon="key">{{ t('platform.adminPassword') }}</FieldLabel>
-            <input v-model="createForm.admin_password" class="field" type="password" autocomplete="new-password" />
+            <input v-model="createForm.admin_password" class="field" type="password" autocomplete="new-password" required minlength="8" />
           </div>
         </div>
         <p class="platform-note">{{ t('platform.adminPasswordHint') }}</p>
       </form>
       <template #footer>
         <button class="btn-secondary" type="button" @click="showCreate = false">{{ t('platform.close') }}</button>
-        <button class="btn-primary" type="button" :disabled="busy || !createForm.name.trim()" @click="createCompany">{{ t('platform.create') }}</button>
+        <button class="btn-primary" type="button" :disabled="busy || !createForm.name.trim() || !createForm.admin_email.trim() || createForm.admin_password.length < 8" @click="createCompany">{{ t('platform.create') }}</button>
       </template>
     </AppModal>
 
@@ -979,6 +1070,16 @@ onMounted(() => {
 .platform-alert { margin: 0; color: var(--color-danger, #b91c1c); font-size: 0.875rem; }
 .platform-note { margin: 0; color: var(--color-text-secondary); font-size: 0.875rem; }
 .platform-muted { margin: 0.15rem 0 0; color: var(--color-text-muted); font-size: 0.75rem; }
+.platform-stats-wrap { display: flex; flex-direction: column; gap: 1rem; }
+.platform-queue {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 0.85rem);
+  background: var(--color-surface);
+  padding: 1rem;
+}
+.platform-queue h2 { margin: 0 0 0.6rem; font-size: 1rem; }
+.platform-queue ul { display: flex; flex-direction: column; gap: 0.45rem; margin: 0; padding: 0; list-style: none; }
+.platform-queue li { display: flex; flex-wrap: wrap; gap: 0.5rem 0.8rem; align-items: baseline; font-size: 0.85rem; }
 .platform-stats { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
 .platform-plan, .platform-card {
   border: 1px solid var(--color-border);

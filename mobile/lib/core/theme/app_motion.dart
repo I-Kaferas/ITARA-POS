@@ -1,15 +1,142 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-/// Light motion tokens — keep POS interactions snappy, never theatrical.
+/// Shared motion tokens. POS stays snappy: motion never blocks a sale.
 abstract final class AppMotion {
   static const Duration instant = Duration(milliseconds: 80);
+  static const Duration micro = Duration(milliseconds: 140);
   static const Duration fast = Duration(milliseconds: 140);
+  static const Duration content = Duration(milliseconds: 200);
   static const Duration normal = Duration(milliseconds: 220);
+  static const Duration navigation = Duration(milliseconds: 260);
+  static const Duration modal = Duration(milliseconds: 220);
   static const Duration slow = Duration(milliseconds: 360);
 
   static const Curve standard = Curves.easeOutCubic;
-  static const Curve emphasized = Curves.easeOutBack;
+  static const Curve enter = Curves.easeOutCubic;
+  static const Curve exit = Curves.easeInCubic;
+  static const Curve emphasized = Curves.easeInOutCubic;
   static const Curve decelerate = Curves.decelerate;
+
+  /// Horizontal travel for hierarchical screens. Kept short so the cashier is not waiting.
+  static const double slideFraction = 0.045;
+
+  static bool reduceMotion(BuildContext context) {
+    return MediaQuery.disableAnimationsOf(context);
+  }
+
+  static Duration resolve(BuildContext context, Duration duration) {
+    return reduceMotion(context) ? Duration.zero : duration;
+  }
+
+  static final Set<Object> _entrances = <Object>{};
+  static final List<Object> _entranceOrder = <Object>[];
+
+  /// True only the first time [id] appears. Refresh and navigation do not replay it.
+  static bool claimEntrance(Object id) {
+    if (!_entrances.add(id)) return false;
+    _entranceOrder.add(id);
+    if (_entranceOrder.length > 600) {
+      _entrances.remove(_entranceOrder.removeAt(0));
+    }
+    return true;
+  }
+
+  static void resetEntrances() {
+    _entrances.clear();
+    _entranceOrder.clear();
+  }
+}
+
+/// Fade plus a short horizontal slide. Honors the system reduce-motion setting.
+class AppPageTransitionsBuilder extends PageTransitionsBuilder {
+  const AppPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (AppMotion.reduceMotion(context)) return child;
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: AppMotion.enter,
+      reverseCurve: AppMotion.exit,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(AppMotion.slideFraction, 0),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Swaps to the real next value. Does not count through fake intermediate amounts.
+class AppValueFade extends StatelessWidget {
+  const AppValueFade({
+    super.key,
+    required this.value,
+    required this.child,
+  });
+
+  final Object value;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: AppMotion.resolve(context, AppMotion.micro),
+      switchInCurve: AppMotion.enter,
+      switchOutCurve: AppMotion.exit,
+      child: KeyedSubtree(
+        key: ValueKey<Object>(value),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// System haptics. Skipped when the device asks to reduce motion.
+/// A vibration never means a sale succeeded.
+abstract final class AppHaptics {
+  static void selection(BuildContext context) {
+    if (AppMotion.reduceMotion(context)) return;
+    HapticFeedback.selectionClick();
+  }
+
+  static void warning(BuildContext context) {
+    if (AppMotion.reduceMotion(context)) return;
+    HapticFeedback.lightImpact();
+  }
+}
+
+/// Plays [AppFadeIn] once per [id]. Later rebuilds stay still.
+class AppOnce extends StatefulWidget {
+  const AppOnce({super.key, required this.id, required this.child});
+
+  final Object id;
+  final Widget child;
+
+  @override
+  State<AppOnce> createState() => _AppOnceState();
+}
+
+class _AppOnceState extends State<AppOnce> {
+  late final bool _play = AppMotion.claimEntrance(widget.id);
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_play || AppMotion.reduceMotion(context)) return widget.child;
+    return AppFadeIn(duration: AppMotion.content, child: widget.child);
+  }
 }
 
 /// Subtle press scale for tactile POS controls.
@@ -20,12 +147,14 @@ class AppTapScale extends StatefulWidget {
     this.onTap,
     this.enabled = true,
     this.scale = 0.97,
+    this.haptic = false,
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final bool enabled;
   final double scale;
+  final bool haptic;
 
   @override
   State<AppTapScale> createState() => _AppTapScaleState();
@@ -36,17 +165,23 @@ class _AppTapScaleState extends State<AppTapScale> {
 
   @override
   Widget build(BuildContext context) {
+    final reduce = AppMotion.reduceMotion(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: widget.enabled && widget.onTap != null
+      onTapDown: !reduce && widget.enabled && widget.onTap != null
           ? (_) => setState(() => _pressed = true)
           : null,
       onTapCancel: () => setState(() => _pressed = false),
       onTapUp: (_) => setState(() => _pressed = false),
-      onTap: widget.enabled ? widget.onTap : null,
+      onTap: widget.enabled
+          ? () {
+              if (widget.haptic) AppHaptics.selection(context);
+              widget.onTap?.call();
+            }
+          : null,
       child: AnimatedScale(
         scale: _pressed ? widget.scale : 1,
-        duration: AppMotion.fast,
+        duration: AppMotion.resolve(context, AppMotion.micro),
         curve: AppMotion.standard,
         child: widget.child,
       ),
@@ -71,6 +206,7 @@ class AppFadeIn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (AppMotion.reduceMotion(context)) return child;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: duration + delay,

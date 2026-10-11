@@ -4,12 +4,17 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/architecture/business_continuity.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/di/service_locator.dart';
+import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
+import '../../../core/widgets/app_calculator.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../sync/offline_store.dart';
 import '../../../sync/sync_engine.dart';
@@ -32,7 +37,7 @@ import '../../barcode/services/hid_scanner_controller.dart';
 import '../../receipt/domain/receipt_models.dart';
 import '../../receipt/services/cash_drawer_service.dart';
 import '../../receipt/services/receipt_print_service.dart';
-import '../../shifts/data/shifts_api_service.dart';
+import '../../shifts/data/local_shifts_store.dart';
 import '../data/pos_api_service.dart';
 import '../domain/pos_models.dart';
 import '../services/pos_cart_engine.dart';
@@ -46,7 +51,6 @@ import 'widgets/pos_product_grid.dart';
 import 'widgets/pos_quick_products_bar.dart';
 import 'widgets/pos_return_sheet.dart';
 import 'widgets/pos_search_bar.dart';
-import 'widgets/pos_session_gate.dart';
 import 'widgets/pos_ui.dart';
 
 class PosScreen extends StatelessWidget {
@@ -88,7 +92,7 @@ class _PosScreenBody extends StatefulWidget {
 class _PosScreenBodyState extends State<_PosScreenBody> {
   final _api = PosApiService();
   final _cart = PosCartEngine();
-  final _shiftsApi = ShiftsApiService();
+  final _shiftsApi = LocalShiftsStore.instance;
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
   late final HidScannerController _hidScanner;
@@ -105,6 +109,10 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   bool _requestPayment = false;
   bool _requestCustomer = false;
   bool _requestRetrieve = false;
+  bool _requestDiscount = false;
+  bool _requestNote = false;
+  bool _requestLoyalty = false;
+  bool _requestSplit = false;
   bool _shiftOpen = false;
 
   bool get _isDesktopPos {
@@ -115,8 +123,6 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       return false;
     }
   }
-  bool _shiftLoading = false;
-  List<PosGateRegister> _registers = [];
   Timer? _recalcTimer;
   Timer? _searchDebounce;
   int _catalogRevision = -1;
@@ -146,6 +152,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       products.add(const ProductCatalogLoadRequested());
     });
     unawaited(_loadShiftSession());
+    TerminalConfigRepository.instance.addListener(_onShiftConfigChanged);
   }
 
   @override
@@ -156,6 +163,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     PosPendingIntent.notifier.removeListener(_onPendingIntent);
     SyncEngine.instance.removeListener(_onSyncChanged);
     _favorites.removeListener(_onFavoritesChanged);
+    TerminalConfigRepository.instance.removeListener(_onShiftConfigChanged);
     _cart.removeListener(_onCartChanged);
     _searchController.dispose();
     _searchFocus.dispose();
@@ -278,6 +286,10 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   }
 
   void _shortcutPayment() {
+    if (!_shiftOpen) {
+      _showStatus('Ouvrez un shift avant d\'encaisser.');
+      return;
+    }
     if (_cart.isEmpty) {
       _showStatus('Panier vide — ajoutez un article avant de payer');
       return;
@@ -314,6 +326,21 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
 
   String _holdsSignature = '';
 
+  String get _menuTitle {
+    final name = TerminalConfigRepository.instance.config.deviceName.trim();
+    return name.isEmpty ? 'Menu' : '$name Menu';
+  }
+
+  int _quantityOf(PosProduct product) {
+    var total = 0;
+    for (final line in _cart.lines) {
+      if (line.product.productId == product.productId && !line.isAccompaniment) {
+        total += line.quantity;
+      }
+    }
+    return total;
+  }
+
   void _onCartChanged() {
     setState(() {});
     _scheduleRecalc();
@@ -323,95 +350,45 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     unawaited(_persistHolds());
   }
 
+  void _onShiftConfigChanged() {
+    unawaited(_loadShiftSession());
+  }
+
   Future<void> _loadShiftSession() async {
-    setState(() => _shiftLoading = true);
+    if (!mounted) return;
     try {
       final registers = await _shiftsApi.fetchRegisters();
-      final current = await _shiftsApi.currentCashierShift();
       if (!mounted) return;
       setState(() {
-        _registers = registers.map((r) => PosGateRegister(id: r.id, name: r.name, code: r.code)).toList();
-        _shiftOpen = current != null && (current['status']?.toString() == 'open' || current['closed_at'] == null);
-        _shiftLoading = false;
+        _shiftOpen = registers.any((register) => register.hasOpenSession);
       });
     } catch (_) {
       if (!mounted) return;
-      try {
-        final registers = await _shiftsApi.fetchRegisters();
-        var open = false;
-        for (final reg in registers) {
-          final session = await _shiftsApi.currentSession(reg.id);
-          if (session.session != null && session.session!.isOpen) {
-            open = true;
-            break;
-          }
-        }
-        if (!mounted) return;
-        setState(() {
-          _registers = registers.map((r) => PosGateRegister(id: r.id, name: r.name, code: r.code)).toList();
-          _shiftOpen = open;
-          _shiftLoading = false;
-        });
-      } catch (_) {
-        if (!mounted) return;
-        setState(() {
-          _shiftLoading = false;
-          _shiftOpen = true; // allow offline selling
-        });
-      }
+      setState(() => _shiftOpen = false);
     }
   }
 
-  Future<void> _openShift(String pin, String registerId, int opening) async {
-    try {
-      await _shiftsApi.openCashierShiftWithPin(registerId: registerId, pin: pin, openingFloat: opening);
-    } catch (_) {
-      await _shiftsApi.openSession(registerId: registerId, openingBalance: opening);
-    }
-    await _loadShiftSession();
+  bool _refuseWithoutShift() {
+    if (_shiftOpen) return false;
+    const message =
+        'Aucun shift ouvert. Ouvrez un shift, puis revenez ajouter les articles au panier.';
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text(message),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Shifts',
+          onPressed: () => context.go(AppRoutes.shifts),
+        ),
+      ),
+    );
+    return true;
   }
 
   Future<void> _recalculateCart() async {
-    if (_cart.isEmpty) {
-      _cart.clearServerTotals();
-      return;
-    }
-    try {
-      final payload = {
-        'items': _cart.lines
-            .map(
-              (line) => {
-                'line_id': line.lineId,
-                'product_id': line.product.productId,
-                'quantity': line.quantity,
-                'unit_price': line.unitPrice,
-                if (line.variantId != null) 'product_variant_id': line.variantId,
-                if (line.saleUnitId != null) 'sale_unit_id': line.saleUnitId,
-                if (line.isAccompaniment) 'is_accompaniment': true,
-                if (line.lineDiscountFixed > 0) 'line_discount_fixed': line.lineDiscountFixed,
-              },
-            )
-            .toList(),
-        if (_cart.customer != null) 'customer_id': _cart.customer!.saleCustomerId,
-        if (_cart.discountPercent > 0)
-          'discount': {'type': 'percent', 'value': _cart.discountPercent}
-        else if (_cart.discountAmount > 0)
-          'discount': {'type': 'fixed', 'value': _cart.discountAmount},
-        if (_cart.loyaltyPoints > 0) 'loyalty_points': _cart.loyaltyPoints,
-        if (_cart.note != null) 'notes': _cart.note,
-        if (_cart.tableId != null) 'table_id': _cart.tableId,
-      };
-      final calc = await _api.calculateCart(payload);
-      _cart.applyServerTotals(
-        subtotal: calc.subtotal,
-        taxTotal: calc.taxTotal,
-        discountTotal: calc.discountTotal,
-        feesTotal: calc.feesTotal,
-        total: calc.total,
-      );
-    } catch (_) {
-      _cart.clearServerTotals();
-    }
+    _cart.clearServerTotals();
   }
 
   void _scheduleRecalc() {
@@ -543,6 +520,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   }
 
   Future<void> _addProduct(PosProduct product) async {
+    if (_refuseWithoutShift()) return;
     // Never show a toast/snackbar when adding to cart.
     ScaffoldMessenger.of(context).clearSnackBars();
 
@@ -610,19 +588,6 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     try {
       final local = await OfflineStore.instance.loadLocalHolds();
       _cart.restoreHeldSales(local.map(PosHeldSale.fromLocalJson).where((sale) => sale.lines.isNotEmpty).toList());
-      final pending = await _api.fetchPendingSales();
-      for (final sale in pending) {
-        final id = sale['id']?.toString() ?? '';
-        if (id.isEmpty) continue;
-        final created = DateTime.tryParse(sale['created_at']?.toString() ?? '');
-        final total = (sale['total'] as num?)?.toInt() ?? 0;
-        final reference = sale['reference']?.toString() ?? 'Commande en attente';
-        _cart.rememberRemoteHold(
-          serverId: id,
-          label: total > 0 ? '$reference · ${MoneyFormatter.format(total)}' : reference,
-          heldAt: created,
-        );
-      }
     } catch (_) {}
   }
 
@@ -674,7 +639,11 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         if (!mounted) return;
         _showStatus('Commande séparée: $label (en attente)');
       } else if (intent.openPay && mounted) {
-        setState(() => _requestPayment = true);
+        if (!_shiftOpen) {
+          _showStatus('Ouvrez un shift avant d\'encaisser.');
+        } else {
+          setState(() => _requestPayment = true);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -825,21 +794,21 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       children: [
         Column(
           children: [
-            PosSearchBar(
-              controller: _searchController,
-              focusNode: _searchFocus,
-              showDesktopHint: desktop,
-              onChanged: _onSearchChanged,
-              onSubmitted: _onSearchSubmitted,
-              onScanTap: () => _onSearchSubmitted(_searchController.text),
-            ),
-            if (desktop) const PosShortcutHintBar(),
+            if (!_shiftOpen) _ShiftRequiredNotice(onOpen: () => context.go(AppRoutes.shifts)),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
                       ? _ErrorView(error: _error!, onRetry: () => _loadCatalog(forceNetwork: true))
                       : _PosWorkspace(
+                          search: PosSearchBar(
+                            controller: _searchController,
+                            focusNode: _searchFocus,
+                            showDesktopHint: desktop,
+                            onChanged: _onSearchChanged,
+                            onSubmitted: _onSearchSubmitted,
+                            onScanTap: () => _onSearchSubmitted(_searchController.text),
+                          ),
                           threePane: PosUi.usePosThreePane(context),
                           windowsDesk: PosUi.isWindowsDesk(context),
                           cartOpen: _cartOpen,
@@ -865,19 +834,22 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                           products: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              PosQuickProductsBar(
-                                products: _quickProducts,
-                                onProductTap: (product) {
-                                  _addProduct(product);
-                                  if (!PosUi.usePosThreePane(context)) {
-                                    setState(() => _cartOpen = true);
-                                  }
-                                },
-                              ),
+                              if (!PosUi.isDesk(context))
+                                PosQuickProductsBar(
+                                  products: _quickProducts,
+                                  onProductTap: (product) {
+                                    _addProduct(product);
+                                    if (!PosUi.usePosThreePane(context)) {
+                                      setState(() => _cartOpen = true);
+                                    }
+                                  },
+                                ),
                               Expanded(
                                 child: PosProductGrid(
+                                  menuTitle: _menuTitle,
                                   products: _filteredProducts,
                                   favoriteIds: _favorites.favorites,
+                                  quantityOf: _quantityOf,
                                   onToggleFavorite: (product) => unawaited(
                                     _favorites.toggleFavorite(product.productId),
                                   ),
@@ -893,10 +865,28 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                           ),
                           cart: PosCartPanel(
                             cart: _cart,
-                            onIncrement: _cart.incrementQuantity,
+                            onIncrement: (lineId) {
+                              if (_refuseWithoutShift()) return;
+                              _cart.incrementQuantity(lineId);
+                            },
                             onDecrement: _cart.decrementQuantity,
                             onRemove: _cart.removeLine,
                             onLineDiscount: _showLineDiscountDialog,
+                            onSearchCustomer: _shortcutCustomer,
+                            showCheckout: PosUi.usePosThreePane(context),
+                            onHold: () => unawaited(_shortcutHold()),
+                            onClear: () {
+                              if (_cart.isEmpty) return;
+                              _cart.cancel();
+                              _showStatus('Cart cleared');
+                            },
+                            onPay: _shortcutPayment,
+                            onDiscount: () => setState(() => _requestDiscount = true),
+                            onNewSale: () => unawaited(_shortcutNewSale()),
+                            onRetrieve: _shortcutRetrieve,
+                            onNote: () => setState(() => _requestNote = true),
+                            onLoyalty: () => setState(() => _requestLoyalty = true),
+                            onSplit: () => setState(() => _requestSplit = true),
                           ),
                           cartCount: _cart.itemCount,
                           cartTotal: MoneyFormatter.format(_cart.total),
@@ -905,6 +895,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
             PosFooterPanel(
               cart: _cart,
               api: _api,
+              hideChrome: PosUi.usePosThreePane(context),
               showShortcutLabels: desktop,
               requestPayment: _requestPayment,
               onPaymentRequestHandled: () => setState(() => _requestPayment = false),
@@ -912,6 +903,14 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
               onCustomerRequestHandled: () => setState(() => _requestCustomer = false),
               requestRetrieve: _requestRetrieve,
               onRetrieveRequestHandled: () => setState(() => _requestRetrieve = false),
+              requestDiscount: _requestDiscount,
+              onDiscountRequestHandled: () => setState(() => _requestDiscount = false),
+              requestNote: _requestNote,
+              onNoteRequestHandled: () => setState(() => _requestNote = false),
+              requestLoyalty: _requestLoyalty,
+              onLoyaltyRequestHandled: () => setState(() => _requestLoyalty = false),
+              requestSplit: _requestSplit,
+              onSplitRequestHandled: () => setState(() => _requestSplit = false),
               onHold: () => unawaited(_shortcutHold()),
               onNewSale: () => unawaited(_shortcutNewSale()),
               onRetrieve: (id, {bool parkCurrentFirst = false}) async {
@@ -961,14 +960,6 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
           ],
         ),
         HidScannerField(controller: _hidScanner),
-        if (!_shiftOpen)
-          PosSessionGate(
-            registers: _registers,
-            currentShiftOpen: _shiftOpen,
-            loading: _shiftLoading,
-            onOpen: _openShift,
-            onRefresh: _loadShiftSession,
-          ),
         if (_statusMessage != null) const SizedBox.shrink(),
       ],
     ),
@@ -982,6 +973,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       appBar: AppBar(
         title: Text(desktop ? 'ITARA POS · Windows' : 'Caisse POS'),
         actions: [
+          const CalculatorButton(),
           IconButton(
             tooltip: 'Retour',
             onPressed: () => showPosReturnSheet(context, api: _api),
@@ -1073,8 +1065,49 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   }
 }
 
+class _ShiftRequiredNotice extends StatelessWidget {
+  const _ShiftRequiredNotice({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.warningBg,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            const Icon(Icons.notifications_active_outlined, color: AppColors.warning),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Aucun shift ouvert. Ouvrez un shift avant d’ajouter des articles au panier.',
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: onOpen,
+              child: Text(
+                'Ouvrir un shift',
+                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, color: AppColors.warning),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PosWorkspace extends StatelessWidget {
   const _PosWorkspace({
+    required this.search,
     required this.threePane,
     this.windowsDesk = false,
     required this.cartOpen,
@@ -1085,6 +1118,8 @@ class _PosWorkspace extends StatelessWidget {
     required this.cartCount,
     required this.cartTotal,
   });
+
+  final Widget search;
 
   /// Tablette / desk §18 : Sidebar + Product Grid + Cart.
   final bool threePane;
@@ -1102,44 +1137,42 @@ class _PosWorkspace extends StatelessWidget {
   Widget build(BuildContext context) {
     if (threePane) {
       final tablet = PosUi.isTablet(context);
-      final categoryW = windowsDesk
-          ? PosUi.categoryWidthWindows
-          : (tablet ? 152.0 : PosUi.categoryWidth);
       final cartW = windowsDesk
           ? PosUi.cartWidthWindows
-          : (tablet ? 280.0 : PosUi.cartWidth);
-      return Container(
-        margin: const EdgeInsets.only(top: 10),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.border)),
-        ),
+          : (tablet ? 300.0 : PosUi.cartWidth);
+      return ColoredBox(
+        color: AppColors.canvas,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(width: categoryW, child: categories),
-            Expanded(child: products),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  search,
+                  categories,
+                  Expanded(child: products),
+                ],
+              ),
+            ),
             SizedBox(width: cartW, child: cart),
           ],
         ),
       );
     }
 
-    // Smartphone : catégories + grille, panier en tiroir tactile.
+    // Smartphone : pastilles de catégories + grille, panier en tiroir.
     final width = MediaQuery.sizeOf(context).width;
-    final cartWidth = width < 400 ? width * 0.92 : 280.0;
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
+    final cartWidth = width < 400 ? width * 0.92 : 320.0;
+    return ColoredBox(
+      color: AppColors.canvas,
       child: Stack(
         children: [
-          Row(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(width: width < 360 ? 100 : 120, child: categories),
+              search,
+              categories,
               Expanded(child: products),
             ],
           ),
@@ -1151,8 +1184,8 @@ class _PosWorkspace extends StatelessWidget {
               ),
             ),
           AnimatedPositioned(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOut,
+            duration: AppMotion.resolve(context, AppMotion.micro),
+            curve: AppMotion.standard,
             top: 0,
             bottom: 0,
             right: cartOpen ? 0 : -cartWidth - 20,
@@ -1168,7 +1201,7 @@ class _PosWorkspace extends StatelessWidget {
             bottom: 12,
             child: FloatingActionButton.extended(
               onPressed: onToggleCart,
-              backgroundColor: AppColors.brand600,
+              backgroundColor: AppColors.cashierNavy,
               foregroundColor: Colors.white,
               extendedPadding: const EdgeInsets.symmetric(horizontal: 16),
               icon: Badge(

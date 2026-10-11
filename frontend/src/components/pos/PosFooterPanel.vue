@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { debounceFn } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
+import { api } from '../../api/client'
 import AppModal from '../ui/AppModal.vue'
 import { usePosStore } from '../../stores/pos'
 import { formatMoney, parseMoneyInput } from '../../utils/money'
@@ -84,7 +85,7 @@ const emit = defineEmits<{
   pay: [payments: PosPaymentLine[], done: (result: { success: boolean; message?: string }) => void]
 }>()
 
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 const pos = usePosStore()
 
 const showCustomer = ref(false)
@@ -92,6 +93,12 @@ const showDiscount = ref(false)
 const showNote = ref(false)
 const showHeld = ref(false)
 const showPayment = ref(false)
+const showStay = ref(false)
+const stayQuery = ref('')
+const stayLoading = ref(false)
+const stayError = ref('')
+const stayRows = ref<Array<Record<string, string>>>([])
+const stayId = ref('')
 const paying = ref(false)
 
 const customerQuery = ref('')
@@ -155,15 +162,21 @@ function withMobileMoney(list: PosPaymentMethod[]) {
 }
 
 const methods = computed(() => {
-  if (props.paymentMethods?.length) return withMobileMoney(props.paymentMethods)
-  if (pos.availablePaymentMethods.length) return withMobileMoney(pos.availablePaymentMethods)
-  return [
+  const source = props.paymentMethods?.length
+    ? props.paymentMethods
+    : pos.availablePaymentMethods.length
+      ? pos.availablePaymentMethods
+      : null
+  const list = source
+    ? withMobileMoney(source)
+    : [
     { value: 'cash', label: props.labels.cash, label_fr: props.labels.cash, requires_customer: false, supports_change: true },
     { value: 'mobile_money', label: 'Mobile Money', label_fr: 'Mobile Money', requires_customer: false, supports_change: false },
     { value: 'card', label: props.labels.card, label_fr: props.labels.card, requires_customer: false, supports_change: false },
     { value: 'bank_transfer', label: 'Bank', label_fr: 'Banque', requires_customer: false, supports_change: false },
     { value: 'credit', label: 'Crédit', label_fr: 'Crédit', requires_customer: true, supports_change: false },
   ] as PosPaymentMethod[]
+  return list.filter(method => method.value !== 'room')
 })
 
 const selectedMethod = computed(() => methods.value.find(m => m.value === paymentMethod.value) ?? null)
@@ -486,6 +499,71 @@ function confirmPayment() {
   })
 }
 
+const filteredStays = computed(() => {
+  const q = stayQuery.value.trim().toLowerCase()
+  if (!q) return stayRows.value
+  return stayRows.value.filter(row =>
+    `${row.guest_name} ${row.room_number}`.toLowerCase().includes(q),
+  )
+})
+
+const selectedStay = computed(() => stayRows.value.find(row => row.id === stayId.value) ?? null)
+
+async function openStayCharge() {
+  if (!props.customer) {
+    paymentError.value = props.labels.customerRequired || 'Sélectionnez un client'
+    showCustomer.value = true
+    return
+  }
+  showStay.value = true
+  stayError.value = ''
+  stayLoading.value = true
+  try {
+    const docs = (await api.get<{ data: { docs: Array<Record<string, unknown>> } }>('/hospitality')).data.docs
+    stayRows.value = docs
+      .filter(doc => doc.kind === 'reservation' && doc.status === 'checked_in')
+      .map(doc => ({
+        id: String(doc.id ?? ''),
+        guest_name: String(doc.guest_name ?? ''),
+        room_number: String(doc.room_number ?? ''),
+        arrive_on: String(doc.arrive_on ?? ''),
+        depart_on: String(doc.depart_on ?? ''),
+      }))
+      .filter(row => row.id !== '')
+    if (!stayRows.value.some(row => row.id === stayId.value)) {
+      stayId.value = stayRows.value[0]?.id ?? ''
+    }
+  } catch (error) {
+    stayRows.value = []
+    stayError.value = error instanceof Error ? error.message : 'Séjours indisponibles'
+  } finally {
+    stayLoading.value = false
+  }
+}
+
+function confirmStayCharge() {
+  const stay = selectedStay.value
+  if (!stay || paying.value) {
+    stayError.value = 'Choisissez le séjour à facturer.'
+    return
+  }
+  paying.value = true
+  stayError.value = ''
+  emit('pay', [{
+    method: 'room',
+    amount: props.totals.grand_total,
+    currency: props.totals.currency,
+    metadata: { reservation_id: stay.id },
+  }], (result) => {
+    paying.value = false
+    if (!result.success) {
+      stayError.value = result.message || 'Imputation refusée'
+      return
+    }
+    showStay.value = false
+  })
+}
+
 const promoNames = computed(() => {
   const names = [...new Set((props.totals.promotions ?? []).map(row => row.name).filter(Boolean))]
   return names.join(' · ')
@@ -541,6 +619,9 @@ const discountLabel = () => {
       </button>
       <button type="button" class="pos-btn pos-btn--outline" :disabled="isEmpty" @click="emit('cancel')">
         {{ labels.cancel }}
+      </button>
+      <button type="button" class="pos-btn pos-btn--outline" :disabled="isEmpty || calculating || !customer" @click="openStayCharge">
+        {{ t('desk.chargeStay') }}
       </button>
       <button type="button" class="pos-btn pos-btn--pay" :disabled="isEmpty || calculating || !customer" @click="openPayment">
         {{ labels.pay }}
@@ -862,6 +943,34 @@ const discountLabel = () => {
         </div>
       </div>
     </AppModal>
+
+    <AppModal :open="showStay" :title="t('desk.chargeStay')" icon="card" tone="brand" size="md" @close="showStay = false">
+      <div class="pos-modal-content">
+        <p class="pos-payment-total">{{ money(totals.grand_total) }}</p>
+        <input v-model="stayQuery" class="pos-field" :placeholder="t('desk.guest')" />
+        <p v-if="stayLoading" class="pos-modal__empty">…</p>
+        <div v-else class="pos-modal__methods">
+          <label
+            v-for="stay in filteredStays"
+            :key="stay.id"
+            class="pos-method"
+            :class="{ 'pos-method--active': stayId === stay.id }"
+          >
+            <input v-model="stayId" type="radio" :value="stay.id" />
+            <span>{{ stay.room_number }} · {{ stay.guest_name }}</span>
+            <small>{{ stay.arrive_on }} – {{ stay.depart_on }}</small>
+          </label>
+        </div>
+        <p v-if="!stayLoading && !filteredStays.length" class="pos-modal__empty">{{ t('desk.noOpenStay') }}</p>
+        <p v-if="stayError" class="pos-payment-error">{{ stayError }}</p>
+        <div class="pos-modal__actions">
+          <button type="button" class="pos-btn pos-btn--outline" :disabled="paying" @click="showStay = false">{{ labels.cancel }}</button>
+          <button type="button" class="pos-btn pos-btn--pay" :disabled="paying || !selectedStay" @click="confirmStayCharge">
+            {{ paying ? '…' : t('desk.chargeStay') }}
+          </button>
+        </div>
+      </div>
+    </AppModal>
   </footer>
 </template>
 
@@ -959,13 +1068,20 @@ const discountLabel = () => {
 }
 .pos-btn {
   padding: 0.62rem 0.7rem;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  border: none;
+  border: 1px solid transparent;
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 .pos-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pos-btn:active:not(:disabled) { transform: scale(0.98); }
 .pos-btn--outline {
   border: 1px solid #dbe3ea;
   background: var(--color-surface);
@@ -984,14 +1100,15 @@ const discountLabel = () => {
 .pos-btn--pay {
   grid-column: 1 / -1;
   min-height: 3rem;
-  background: var(--color-brand-600, var(--color-brand-600));
+  background: var(--color-brand-700, #0f1f34);
   color: white;
   font-size: 1rem;
+  font-weight: 600;
   letter-spacing: 0.04em;
-  box-shadow: 0 10px 18px rgba(74, 109, 134, 0.22);
+  box-shadow: 0 1px 2px rgba(15, 31, 52, 0.16);
 }
 .pos-btn--pay:hover:not(:disabled) {
-  filter: brightness(1.05);
+  background: var(--color-brand-800, #0d1a2b);
 }
 
 @media (max-width: 1100px) {

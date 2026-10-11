@@ -2,10 +2,29 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
-import '../theme/app_radius.dart';
-import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'app_buttons.dart';
+
+Future<T?> showAppSheet<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+  bool isScrollControlled = true,
+  Color? backgroundColor,
+  ShapeBorder? shape,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: isScrollControlled,
+      backgroundColor: backgroundColor ?? AppColors.surface,
+      barrierColor: const Color(0x7514202B),
+    shape: shape,
+    sheetAnimationStyle: AnimationStyle(
+      duration: AppMotion.resolve(context, AppMotion.modal),
+      reverseDuration: AppMotion.resolve(context, AppMotion.content),
+    ),
+    builder: builder,
+  );
+}
 
 /// Design-system dialogs — consistent chrome for confirms, alerts, sheets.
 abstract final class AppDialogs {
@@ -21,8 +40,8 @@ abstract final class AppDialogs {
       context: context,
       barrierDismissible: barrierDismissible,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
-      transitionDuration: AppMotion.normal,
+      barrierColor: const Color(0x7514202B),
+      transitionDuration: AppMotion.reduceMotion(context) ? Duration.zero : AppMotion.modal,
       pageBuilder: (dialogContext, animation, secondary) {
         return SafeArea(
           child: Center(
@@ -36,12 +55,16 @@ abstract final class AppDialogs {
         );
       },
       transitionBuilder: (context, animation, secondary, child) {
+        if (AppMotion.reduceMotion(context)) return child;
         final curved = CurvedAnimation(parent: animation, curve: AppMotion.standard);
         return FadeTransition(
           opacity: curved,
-          child: ScaleTransition(
-            scale: Tween(begin: 0.96, end: 1.0).animate(curved),
-            child: child,
+          child: SlideTransition(
+            position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero).animate(curved),
+            child: ScaleTransition(
+              scale: Tween(begin: 0.98, end: 1.0).animate(curved),
+              child: child,
+            ),
           ),
         );
       },
@@ -108,8 +131,13 @@ abstract final class AppDialogs {
       context: context,
       isScrollControlled: isScrollControlled,
       backgroundColor: AppColors.surface,
+      barrierColor: const Color(0x7514202B),
+      sheetAnimationStyle: AnimationStyle(
+        duration: AppMotion.resolve(context, AppMotion.modal),
+        reverseDuration: AppMotion.resolve(context, AppMotion.content),
+      ),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
@@ -137,41 +165,92 @@ class AppDialogFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Container(
-          margin: const EdgeInsets.all(AppSpacing.xl),
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: AppRadius.borderXl,
-            border: Border.all(color: AppColors.border),
-            boxShadow: AppColors.elevationMd,
+    final hasActions = actions != null && actions!.isNotEmpty;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 440),
+      child: Container(
+        margin: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(color: Color(0x1414202B), blurRadius: 32, offset: Offset(0, 12)),
+          ],
+        ),
+        child: Material(
+          color: AppColors.surface,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: AppColors.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(title, style: AppTypography.sectionTitle()),
-              if (message != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Text(message!, style: AppTypography.body(color: AppColors.textSecondary)),
-              ],
-              if (content != null) ...[
-                const SizedBox(height: AppSpacing.lg),
-                content!,
-              ],
-              if (actions != null && actions!.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.xl),
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: actions!,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.infoBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.layers_outlined, color: AppColors.info, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: AppTypography.plex(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: Icon(Icons.close, color: AppColors.textMuted, size: 20),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+              Divider(height: 1, color: AppColors.border),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.62),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (message != null)
+                        Text(message!, style: AppTypography.body(color: AppColors.textSecondary)),
+                      if (content != null) ...[
+                        if (message != null) const SizedBox(height: AppSpacing.md),
+                        content!,
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              if (hasActions)
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.canvas,
+                    border: Border(top: BorderSide(color: AppColors.border)),
+                  ),
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: actions!,
+                  ),
+                ),
             ],
           ),
         ),

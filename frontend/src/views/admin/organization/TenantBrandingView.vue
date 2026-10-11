@@ -25,7 +25,7 @@ const form = reactive({
 function syncForm() {
   const b = store.branding
   if (!b) return
-  form.brand_name = b.brand_name
+  form.brand_name = b.company?.name?.trim() || b.brand_name
   form.tagline = b.tagline
   form.logo_url = b.logo_url ?? ''
   form.primary_color = b.primary_color
@@ -41,7 +41,7 @@ function syncForm() {
 async function load() {
   localError.value = ''
   try {
-    await store.loadCurrent()
+    await store.loadCurrent(true)
     syncForm()
   } catch {
     localError.value = store.error ?? 'Impossible de charger la marque'
@@ -96,11 +96,11 @@ onMounted(() => { void load() })
       <p v-if="savedFlash" class="m-0 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Enregistré</p>
 
       <div class="grid gap-3 md:grid-cols-2">
-        <label class="stack gap-1 text-sm">
-          <span>Nom de marque</span>
+        <label class="stack gap-1 text-sm md:col-span-2">
+          <span>Nom de l'entreprise</span>
           <input v-model="form.brand_name" class="ui-input" />
         </label>
-        <label class="stack gap-1 text-sm">
+        <label class="stack gap-1 text-sm md:col-span-2">
           <span>Accroche</span>
           <input v-model="form.tagline" class="ui-input" />
         </label>

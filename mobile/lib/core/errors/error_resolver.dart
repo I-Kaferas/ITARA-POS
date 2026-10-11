@@ -1,4 +1,5 @@
 import '../api/api_client.dart';
+import '../i18n/app_locale.dart';
 import 'app_error.dart';
 import 'authentication_error.dart';
 import 'database_error.dart';
@@ -77,6 +78,15 @@ AppError _fromApiException(ApiException error) {
   final message = error.message.trim();
   final lower = message.toLowerCase();
 
+  if (lower.contains('errors.tenant_forbidden')) {
+    return ValidationError(title: AppCopy.get('tenantMismatch'), cause: error);
+  }
+  if (lower.contains('errors.store_forbidden') || lower.contains('errors.store_not_found')) {
+    return ValidationError(
+      title: lower.contains('errors.store_not_found') ? AppCopy.get('storeNotFound') : AppCopy.get('storeMismatch'),
+      cause: error,
+    );
+  }
   if (status == 401 || lower.contains('errors.unauthenticated') || lower.contains('errors.authentication')) {
     return AuthenticationError(cause: error);
   }

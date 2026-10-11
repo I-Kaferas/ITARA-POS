@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -83,7 +84,10 @@ class TerminalBackupController extends Controller
 
     private function root(Request $request): string
     {
-        $tenant = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $request->user()?->tenant_id) ?: 'tenant';
+        $context = app(TenantContext::class);
+        abort_unless($context->isBound(), 403);
+
+        $tenant = preg_replace('/[^A-Za-z0-9_-]/', '', $context->requireId()) ?: abort(403);
         $device = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($request->header('X-Device-ID') ?: 'device')) ?: 'device';
 
         return 'terminal-backups/'.$tenant.'/'.$device;

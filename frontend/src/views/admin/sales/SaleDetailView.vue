@@ -407,6 +407,14 @@ async function printInvoice() {
                 </div>
               </div>
 
+              <div v-if="sale.service_mode || sale.table" class="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+                <p class="meta-label">{{ t('pointOfSale.orders.service') }}</p>
+                <p class="mt-1 m-0 text-sm text-slate-700">
+                  {{ sale.table ? t('pointOfSale.orders.serviceDineIn') : sale.service_mode === 'delivery' ? t('pointOfSale.orders.serviceDelivery') : t('pointOfSale.orders.serviceTakeaway') }}
+                  <span v-if="sale.delivery_address"> — {{ sale.delivery_address }}</span>
+                </p>
+              </div>
+
               <div v-if="sale.notes" class="rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                 <p class="meta-label">{{ t('sales.notes') }}</p>
                 <p class="mt-1 m-0 text-sm text-slate-700 whitespace-pre-wrap">{{ sale.notes }}</p>

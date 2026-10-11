@@ -63,7 +63,18 @@ class _AppSkeletonState extends State<AppSkeleton>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceMotion(context)) {
+      _controller.stop();
+      _controller.value = 0.5;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
   }
 
   @override
@@ -107,18 +118,27 @@ class AppSkeletonPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppSkeleton.text(width: 180, height: 22),
-          const SizedBox(height: AppSpacing.sm),
-          AppSkeleton.text(width: 260, height: 12),
-          const SizedBox(height: AppSpacing.xl),
-          Expanded(child: AppSkeleton.list(count: rows, height: 72)),
-        ],
-      ),
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSkeleton.text(width: 180, height: 22),
+        const SizedBox(height: AppSpacing.sm),
+        AppSkeleton.text(width: 260, height: 12),
+        const SizedBox(height: AppSpacing.xl),
+        AppSkeleton.list(count: rows, height: 72),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedHeight) {
+          return Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: body);
+        }
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: body,
+        );
+      },
     );
   }
 }

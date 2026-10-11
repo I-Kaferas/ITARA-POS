@@ -177,10 +177,7 @@ class DiagnosticExporter {
       final bytes = await entity.readAsBytes();
       archive.addFile(ArchiveFile(relative.replaceAll('\\', '/'), bytes.length, bytes));
     }
-    final encoded = ZipEncoder().encode(archive);
-    if (encoded == null) {
-      throw StateError('Failed to encode diagnostic ZIP.');
-    }
+    final encoded = ZipEncoder().encodeBytes(archive);
     await File(zipPath).writeAsBytes(encoded, flush: true);
   }
 

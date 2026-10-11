@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/config/app_config.dart';
 import '../core/config/terminal_config_repository.dart';
+import '../core/text/text_encoding.dart';
 import '../features/hospitality/data/hospitality_store.dart';
 import '../features/accounting/data/ledger_store.dart';
 import '../features/customers/data/customer_account_store.dart';
@@ -724,7 +725,11 @@ class LocalMasterServer extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> _readJson(HttpRequest request) async {
-    final raw = await utf8.decoder.bind(request).join();
+    final bytes = await request.fold<List<int>>(<int>[], (chunk, data) {
+      chunk.addAll(data);
+      return chunk;
+    });
+    final raw = decodeText(bytes);
     if (raw.trim().isEmpty) return {};
     final decoded = jsonDecode(raw);
     if (decoded is Map<String, dynamic>) return decoded;

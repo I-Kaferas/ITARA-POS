@@ -13,7 +13,7 @@ import type { DashboardStats, InventoryAlert, PosOverview } from '../../types'
 import { realtimeTopics, useRealtimeSync } from '../../composables/useRealtimeSync'
 import { formatMoney } from '../../utils/format'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const store = useBackofficeStore()
 const auth = useAuthStore()
 const context = useContextStore()
@@ -54,6 +54,16 @@ const peak = computed(() => {
 
 const spotlight = computed(() => overview.value?.best_selling_products?.[0] ?? null)
 const topProducts = computed(() => (overview.value?.best_selling_products ?? []).slice(0, 4))
+const nowClock = computed(() =>
+  new Intl.DateTimeFormat(locale.value || undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date()),
+)
+const serviceHours = computed(() => {
+  const hourNow = new Date().getHours()
+  return Array.from({ length: 14 }, (_, index) => {
+    const hour = index + 8
+    return { hour, label: String(hour), now: hour === hourNow, past: hour < hourNow }
+  })
+})
 const spotlightShare = computed(() => {
   const revenue = overview.value?.kpis.revenue ?? 0
   const part = spotlight.value?.revenue ?? 0
@@ -209,7 +219,7 @@ watch(storeId, () => loadDashboard())
       </section>
 
       <div class="stage">
-        <article v-if="posOn" class="hero">
+        <article v-if="posOn" class="hero" :class="{ 'hero--quiet': !spotlight }">
           <div class="hero__copy">
             <p class="hero__kicker">{{ t('dashboard.spotlight') }}</p>
             <h3 class="hero__title">{{ spotlight?.product_name ?? t('dashboard.spotlightEmpty') }}</h3>
@@ -237,26 +247,42 @@ watch(storeId, () => loadDashboard())
                 {{ t('dashboard.shareOfToday', { percent: spotlightShare }) }}
               </span>
             </div>
-            <RouterLink
-              class="hero__cta"
-              :to="spotlight ? '/admin/pos/orders' : '/admin/pos/terminal'"
-            >
-              {{ spotlight ? t('dashboard.viewSales') : t('dashboard.openPos') }}
+            <RouterLink v-if="spotlight" class="hero__link" to="/admin/pos/orders">
+              {{ t('dashboard.viewSales') }}
+              <AppIcon name="chevron-right" :size="14" />
             </RouterLink>
           </div>
-          <div class="hero__visual" aria-hidden="true">
-            <span class="hero__mark">
-              <template v-if="spotlight">{{ monogram(spotlight.product_name) }}</template>
-              <AppIcon v-else name="sales" :size="42" />
-            </span>
-            <div class="hero__bars">
-              <span
-                v-for="(n, i) in hourSpark"
-                :key="i"
-                :style="{ height: `${Math.max(18, Math.min(100, n))}%`, animationDelay: `${i * 40}ms` }"
-              />
+          <div class="hero__visual" :aria-hidden="spotlight ? true : undefined">
+            <template v-if="spotlight">
+              <span class="hero__mark">{{ monogram(spotlight.product_name) }}</span>
+              <div class="hero__bars">
+                <span
+                  v-for="(n, i) in hourSpark"
+                  :key="i"
+                  :style="{ height: `${Math.max(18, Math.min(100, n))}%`, animationDelay: `${i * 40}ms` }"
+                />
+              </div>
+            </template>
+            <div v-else class="hero__clock">
+              <AppIcon name="clock" :size="18" />
+              <strong>{{ nowClock }}</strong>
+              <small>{{ t('dashboard.spotlightNow') }}</small>
             </div>
           </div>
+          <ol
+            v-if="!spotlight"
+            class="hero__hours"
+            :aria-label="t('dashboard.serviceHours', { time: nowClock })"
+          >
+            <li
+              v-for="slot in serviceHours"
+              :key="slot.hour"
+              :class="{ 'is-now': slot.now, 'is-past': slot.past }"
+            >
+              <span class="hero__hour-bar" />
+              <span class="hero__hour-label">{{ slot.label }}</span>
+            </li>
+          </ol>
         </article>
 
         <section class="ui-card">
@@ -365,13 +391,14 @@ watch(storeId, () => loadDashboard())
 <style scoped>
 .module-widgets {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
   gap: 0.6rem;
 }
 .module-widget {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  white-space: nowrap;
   padding: 0.75rem 0.85rem;
   border-radius: 0.8rem;
   background: var(--color-surface, white);
@@ -481,7 +508,7 @@ watch(storeId, () => loadDashboard())
 
 .stage {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.85fr);
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 0.85fr);
   gap: var(--space-4);
   align-items: stretch;
 }
@@ -490,11 +517,13 @@ watch(storeId, () => loadDashboard())
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(180px, 0.85fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   min-height: 280px;
-  border-radius: 18px;
-  background: var(--color-brand-600);
-  color: #f4f7fa;
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-text-primary);
 }
 
 .hero__copy {
@@ -513,7 +542,7 @@ watch(storeId, () => loadDashboard())
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #c9d8ef;
+  color: var(--color-text-muted);
 }
 
 .hero__title {
@@ -530,7 +559,7 @@ watch(storeId, () => loadDashboard())
   max-width: 36ch;
   font-size: var(--text-sm);
   line-height: 1.45;
-  color: #c9d6e1;
+  color: var(--color-text-secondary);
 }
 
 .hero__meta {
@@ -545,26 +574,140 @@ watch(storeId, () => loadDashboard())
   gap: 6px;
   padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-canvas);
+  color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 600;
 }
 
-.hero__cta {
+.hero__link {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   margin-top: auto;
-  padding: 9px 16px;
-  border-radius: 999px;
-  background: #f7f4ee;
-  color: var(--color-brand-600);
+  color: var(--color-ink-brand, var(--color-brand-600));
   font-size: var(--text-sm);
   font-weight: 650;
   text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  padding-bottom: 1px;
 }
 
-.hero__cta:hover {
-  background: #fff;
+.hero__link:hover {
+  border-bottom-color: currentColor;
+}
+
+.hero--quiet {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(108px, 1fr);
+}
+
+.hero--quiet .hero__copy {
+  grid-column: 1;
+  grid-row: 1;
+  padding-bottom: 8px;
+}
+
+.hero--quiet .hero__visual {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 22px 22px 0 0;
+}
+
+.hero__clock {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  padding: 14px 16px 12px;
+  border-radius: 16px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.hero__clock svg {
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--color-text-muted);
+}
+
+.hero__clock strong {
+  font-size: 1.55rem;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.hero__clock small {
+  grid-column: 2;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.hero__hours {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  height: 100%;
+  margin: 0;
+  padding: 8px 22px 16px;
+  list-style: none;
+}
+
+.hero__hours li {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.hero__hour-bar {
+  width: 100%;
+  max-width: 18px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+.hero__hours .is-past .hero__hour-bar {
+  height: 32%;
+  border-radius: 6px 6px 3px 3px;
+  background: color-mix(in srgb, var(--color-brand-400) 35%, var(--color-border));
+}
+
+.hero__hours .is-now .hero__hour-bar {
+  height: 82%;
+  max-width: 22px;
+  border-radius: 8px 8px 3px 3px;
+  background: var(--color-accent);
+}
+
+.hero__hour-label {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__hours .is-now .hero__hour-label {
+  color: var(--color-text-primary);
 }
 
 .hero__visual {
@@ -581,12 +724,12 @@ watch(storeId, () => loadDashboard())
   width: 112px;
   height: 112px;
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-border);
   font-size: 2.4rem;
   font-weight: 700;
   letter-spacing: -0.04em;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--color-ink-brand, var(--color-brand-600));
 }
 
 .hero__bars {
@@ -603,7 +746,7 @@ watch(storeId, () => loadDashboard())
 .hero__bars span {
   flex: 1;
   border-radius: 5px 5px 2px 2px;
-  background: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--color-brand-600) 55%, var(--color-border));
   transform-origin: bottom;
   animation: bar-rise 700ms var(--ease-out) both;
 }
@@ -838,6 +981,36 @@ watch(storeId, () => loadDashboard())
 
   .hero__visual {
     min-height: 148px;
+  }
+
+  .hero--quiet {
+    grid-template-rows: auto auto minmax(120px, 1fr);
+  }
+
+  .hero--quiet .hero__visual {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    justify-content: flex-start;
+    padding: 0 22px 4px;
+  }
+
+  .hero__hours {
+    grid-row: 3;
+  }
+
+  .hero__clock {
+    grid-template-columns: auto auto auto;
+    grid-template-rows: auto;
+    align-items: center;
+  }
+
+  .hero__clock svg {
+    grid-row: auto;
+  }
+
+  .hero__clock small {
+    grid-column: auto;
   }
 
   .hero__mark {

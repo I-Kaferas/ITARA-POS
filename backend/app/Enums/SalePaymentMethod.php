@@ -10,6 +10,7 @@ enum SalePaymentMethod: string
     case BankTransfer = 'bank_transfer';
     case Credit = 'credit';
     case Wallet = 'wallet';
+    case Room = 'room';
 
     /** @return list<string> */
     public static function values(): array
@@ -26,6 +27,7 @@ enum SalePaymentMethod: string
             self::BankTransfer => 'Bank',
             self::Credit => 'Credit',
             self::Wallet => 'Wallet',
+            self::Room => 'Séjour',
         };
     }
 

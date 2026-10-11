@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../sync/sync_engine.dart';
 import '../../pos/domain/pos_models.dart';
@@ -128,9 +129,18 @@ class _StockScreenState extends State<StockScreen> {
                               final qty = p.quantityOnHand ?? 0;
                               final threshold = p.lowStockThreshold ?? 0;
                               final low = threshold > 0 && qty <= threshold;
-                              return Material(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(12),
+                              return AppOnce(
+                                id: 'stock-${p.storeProductId}',
+                                child: AnimatedContainer(
+                                duration: AppMotion.resolve(context, AppMotion.content),
+                                curve: AppMotion.standard,
+                                decoration: BoxDecoration(
+                                  color: low ? AppColors.dangerBg : AppColors.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: low ? AppColors.danger.withValues(alpha: 0.45) : AppColors.border,
+                                  ),
+                                ),
                                 child: ListTile(
                                   minVerticalPadding: 12,
                                   title: Text(
@@ -143,22 +153,25 @@ class _StockScreenState extends State<StockScreen> {
                                     ),
                                   ),
                                   subtitle: Text(
-                                    p.stockDisplay?.isNotEmpty == true
-                                        ? p.stockDisplay!
-                                        : (p.sku.isEmpty ? '—' : p.sku),
-                                    style: PosUi.caption(),
+                                    low
+                                        ? 'Stock bas · ${p.stockDisplay?.isNotEmpty == true ? p.stockDisplay! : (p.sku.isEmpty ? '—' : p.sku)}'
+                                        : (p.stockDisplay?.isNotEmpty == true
+                                            ? p.stockDisplay!
+                                            : (p.sku.isEmpty ? '—' : p.sku)),
+                                    style: PosUi.caption(color: low ? AppColors.danger : null),
                                   ),
                                   trailing: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      Text(
-                                        '$qty',
-                                        style: GoogleFonts.ibmPlexMono(
-                                          fontWeight: FontWeight.w700,
-                                          color: low
-                                              ? AppColors.danger
-                                              : AppColors.textPrimary,
+                                      AppValueFade(
+                                        value: qty,
+                                        child: Text(
+                                          '$qty',
+                                          style: GoogleFonts.ibmPlexMono(
+                                            fontWeight: FontWeight.w700,
+                                            color: low ? AppColors.danger : AppColors.textPrimary,
+                                          ),
                                         ),
                                       ),
                                       Text(
@@ -168,6 +181,7 @@ class _StockScreenState extends State<StockScreen> {
                                     ],
                                   ),
                                 ),
+                              ),
                               );
                             },
                           ),

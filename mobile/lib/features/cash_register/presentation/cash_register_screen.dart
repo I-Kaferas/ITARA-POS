@@ -31,11 +31,15 @@ class _CashRegisterView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocConsumer<CashRegisterBloc, CashRegisterState>(
       listenWhen: (prev, next) =>
-          prev.message != next.message || prev.errorMessage != next.errorMessage,
+          (next.message != null && prev.message != next.message) ||
+          (next.errorMessage != null && prev.errorMessage != next.errorMessage),
       listener: (context, state) {
         final text = state.errorMessage ?? state.message;
         if (text == null || text.isEmpty) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+        if (state.message != null) {
+          context.read<CashRegisterBloc>().add(const CashRegisterRefreshed());
+        }
       },
       builder: (context, state) {
         final register = state.selectedRegister;

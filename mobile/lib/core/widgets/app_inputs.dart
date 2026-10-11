@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
@@ -96,17 +97,23 @@ class AppTextField extends StatelessWidget {
         hintStyle: AppTypography.caption(),
         counterStyle: AppTypography.caption(),
         errorStyle: AppTypography.caption(color: AppColors.danger),
+        errorMaxLines: 3,
       ),
     );
-
-    if (label == null) return field;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(label!, style: AppTypography.label()),
-        const SizedBox(height: AppSpacing.sm),
-        field,
+        if (label != null) ...[
+          Text(label!, style: AppTypography.label()),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        AnimatedSize(
+          duration: AppMotion.resolve(context, AppMotion.content),
+          curve: AppMotion.standard,
+          alignment: Alignment.topCenter,
+          child: field,
+        ),
       ],
     );
   }

@@ -2,7 +2,7 @@
 ///
 /// Always expose a short [title] and optional reassuring [detail] so cashiers
 /// understand what happened and what to do next — never stack traces.
-sealed class AppError implements Exception {
+abstract class AppError implements Exception {
   const AppError({
     required this.code,
     required this.title,

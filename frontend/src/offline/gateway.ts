@@ -1,5 +1,5 @@
 import { enqueue, listActive } from './queue'
-import { applyOptimistic, cacheKey, extractDocs, hospitalityDocs, rememberHospitality } from './optimistic'
+import { applyOptimistic, cacheKey, extractDocs, hospitalityDocs, hospitalityLatestKey, rememberHospitality } from './optimistic'
 import { classifyWrite, isCacheableRead, isRecord, referencedIds, versionTarget } from './policy'
 
 export { isCacheableRead }

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Catalog;
 use App\Models\Store;
+use App\Models\User;
+use App\Services\Authorization\AuthorizationService;
 use App\Services\Catalog\StoreCatalogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,14 +25,22 @@ class StoreController extends Controller
         ]);
     }
 
-    public function indexAll(): JsonResponse
+    public function indexAll(Request $request): JsonResponse
     {
         $stores = Store::query()
             ->with(['branch.company'])
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
 
-        return response()->json(['data' => $stores]);
+        $user = $request->user();
+        $directory = $request->query('scope') === 'directory'
+            && $user instanceof User
+            && app(AuthorizationService::class)->hasPermission($user, 'users.manage');
+
+        if (! $directory && $user instanceof User && ! $user->isSuperAdmin() && $user->stores()->exists()) {
+            $stores->whereIn('id', $user->stores()->pluck('stores.id'));
+        }
+
+        return response()->json(['data' => $stores->get()]);
     }
 
     public function store(Request $request, Branch $branch): JsonResponse

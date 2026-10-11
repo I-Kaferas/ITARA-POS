@@ -110,6 +110,10 @@ Le stock vendu simultanément par plusieurs caisses est protégé par des verrou
 
 Sans Internet, le Master Flutter expose un hub WebSocket `ws://{master}:8001/api/v1/realtime`. Les esclaves s’y connectent après appairage. Les événements LAN utilisent les noms PascalCase du prompt (§36) : `NewSale`, `SaleUpdated`, `PaymentReceived`, `StockUpdated`, `TableUpdated`, `OrderCreated`, `OrderUpdated`, `KitchenOrderCreated`, `KitchenOrderReady`, `NotificationCreated`, `DeviceConnected`, `DeviceDisconnected`. Ce canal ne dépend pas de Reverb ni du cloud.
 
+## Réseau local (Master ↔ Slaves)
+
+Sans Internet, le Master Flutter expose un hub WebSocket `ws://{master}:8001/api/v1/realtime`. Les esclaves s’y connectent après appairage. Les événements LAN utilisent les noms PascalCase du prompt (§36) : `NewSale`, `SaleUpdated`, `PaymentReceived`, `StockUpdated`, `TableUpdated`, `OrderCreated`, `OrderUpdated`, `KitchenOrderCreated`, `KitchenOrderReady`, `NotificationCreated`, `DeviceConnected`, `DeviceDisconnected`. Ce canal ne dépend pas de Reverb ni du cloud.
+
 ## Santé
 
 `GET /api/v1/health` indique l’état de l’application, de la base, de Redis, de la file et de la configuration Reverb.

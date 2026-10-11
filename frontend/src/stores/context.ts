@@ -6,12 +6,14 @@ import { resolveCompanyCurrency, setAppCurrency } from '../utils/currency'
 
 export const useContextStore = defineStore('context', () => {
   const stores = ref<Store[]>([])
+  const directoryStores = ref<Store[]>([])
   const currentStoreId = ref<string | null>(getStoreId())
   const loading = ref(false)
 
   const currentStore = computed(() => stores.value.find(s => s.id === currentStoreId.value) ?? null)
 
   const activeStores = computed(() => stores.value.filter(s => s.is_active))
+  const activeDirectoryStores = computed(() => directoryStores.value.filter(s => s.is_active))
 
   const currencyCode = computed(() => {
     const fromCurrent = resolveCompanyCurrency(currentStore.value?.branch?.company)
@@ -26,6 +28,11 @@ export const useContextStore = defineStore('context', () => {
   }
 
   watch(currencyCode, syncAppCurrency, { immediate: true })
+
+  async function loadDirectoryStores() {
+    const res = await api.get<ApiListResponse<Store>>('/stores?scope=directory')
+    directoryStores.value = res.data
+  }
 
   async function loadStores() {
     loading.value = true
@@ -55,24 +62,27 @@ export const useContextStore = defineStore('context', () => {
   }
 
   function storeLabel(store: Store): string {
-    const company = store.branch?.company?.name
     const branch = store.branch?.name
-    return [store.name, branch, company].filter(Boolean).join(' · ')
+    return [store.name, branch].filter(Boolean).join(' · ')
   }
 
   function reset() {
     stores.value = []
+    directoryStores.value = []
     selectStore(null)
   }
 
   return {
     stores,
+    directoryStores,
     currentStoreId,
     currentStore,
     activeStores,
+    activeDirectoryStores,
     currencyCode,
     loading,
     loadStores,
+    loadDirectoryStores,
     selectStore,
     storeLabel,
     syncAppCurrency,

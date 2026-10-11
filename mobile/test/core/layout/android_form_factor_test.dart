@@ -25,10 +25,12 @@ void main() {
       expect(AndroidFormFactor.desk.usePosThreePane, isTrue);
     });
 
-    test('product columns scale with width', () {
+    test('product columns: 2 on phone, 4 from tablet up', () {
       expect(AndroidLayout.productColumns(360), 2);
       expect(AndroidLayout.productColumns(500), 2);
-      expect(AndroidLayout.productColumns(720), 3);
+      expect(AndroidLayout.productColumns(599), 2);
+      expect(AndroidLayout.productColumns(600), 4);
+      expect(AndroidLayout.productColumns(720), 4);
       expect(AndroidLayout.productColumns(960), 4);
     });
   });

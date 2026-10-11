@@ -387,7 +387,7 @@ class _WizardHeader extends StatelessWidget {
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.brand600,
+                  color: AppColors.brandInk,
                   letterSpacing: 0.6,
                 ),
               ),

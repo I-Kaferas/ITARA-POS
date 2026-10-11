@@ -47,9 +47,7 @@ const firstName = computed(() => auth.user?.name?.split(' ')[0] ?? '')
 const currentStore = computed(() => context.currentStore)
 const storeName = computed(() => currentStore.value?.name ?? '')
 const storePlace = computed(() => {
-  const branch = currentStore.value?.branch?.name
-  const company = currentStore.value?.branch?.company?.name
-  return [branch, company].filter(Boolean).join(' · ')
+  return currentStore.value?.branch?.name?.trim() || ''
 })
 const storeKind = computed(() => {
   if (!currentStore.value) return ''

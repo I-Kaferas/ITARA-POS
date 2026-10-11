@@ -4,10 +4,79 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/config/terminal_config_repository.dart';
 import '../../../../core/layout/android_form_factor.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
+import '../../../../core/widgets/app_skeleton.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
+
+class PosCatalogSkeleton extends StatelessWidget {
+  const PosCatalogSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: PosUi.productsCanvas,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final columns = AndroidLayout.productColumns(MediaQuery.sizeOf(context).width);
+          final extent = width >= 520 ? 228.0 : 214.0;
+          return GridView.builder(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisExtent: extent,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: columns * 3,
+            itemBuilder: (_, _) => const _CatalogCardSkeleton(),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CatalogCardSkeleton extends StatelessWidget {
+  const _CatalogCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: const SizedBox.expand(
+        child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppSkeleton(height: 108, borderRadius: BorderRadius.vertical(top: Radius.circular(15))),
+          Padding(
+            padding: EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: AppSkeleton(width: 120, height: 14),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: AppSkeleton(width: 72, height: 16),
+          ),
+          Spacer(),
+          Padding(
+            padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: AppSkeleton(width: double.infinity, height: 12),
+          ),
+        ],
+        ),
+      ),
+    );
+  }
+}
 
 class PosProductGrid extends StatelessWidget {
   const PosProductGrid({
@@ -16,52 +85,51 @@ class PosProductGrid extends StatelessWidget {
     required this.onProductTap,
     this.favoriteIds = const {},
     this.onToggleFavorite,
+    this.quantityOf,
+    this.menuTitle,
   });
 
   final List<PosProduct> products;
   final ValueChanged<PosProduct> onProductTap;
   final Set<String> favoriteIds;
   final ValueChanged<PosProduct>? onToggleFavorite;
+  final int Function(PosProduct product)? quantityOf;
+  final String? menuTitle;
 
   @override
   Widget build(BuildContext context) {
+    assert(menuTitle == null || menuTitle is String);
     return ColoredBox(
-      color: PosUi.productsCanvas,
+      color: AppColors.canvas,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
-            child: Text(
-              '${products.length} article${products.length == 1 ? '' : 's'}',
-              style: PosUi.caption(color: AppColors.textSecondary),
-            ),
-          ),
           Expanded(
             child: products.isEmpty
                 ? const _EmptyProducts()
                 : LayoutBuilder(
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
-                      final crossAxisCount = AndroidLayout.productColumns(width);
-                      final extent = width >= 520 ? 188.0 : 176.0;
+                      final crossAxisCount = AndroidLayout.productColumns(MediaQuery.sizeOf(context).width);
+                      final extent = width >= 520 ? 236.0 : 220.0;
 
                       return GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(10, 6, 10, 14),
+                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 16),
                         cacheExtent: 480,
                         addAutomaticKeepAlives: false,
                         addRepaintBoundaries: true,
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
                           mainAxisExtent: extent,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
                         ),
                         itemCount: products.length,
                         itemBuilder: (context, index) {
                           final product = products[index];
                           return _ProductCard(
                             product: product,
+                            quantity: quantityOf?.call(product) ?? 0,
                             favorite: favoriteIds.contains(product.productId),
                             onTap: () => onProductTap(product),
                             onToggleFavorite: onToggleFavorite == null
@@ -96,7 +164,7 @@ class _EmptyProducts extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadius.xl),
               border: Border.all(color: AppColors.border),
             ),
-            child: Icon(Icons.inventory_2_outlined, size: 28, color: AppColors.brand600),
+            child: Icon(Icons.inventory_2_outlined, size: 28, color: AppColors.brandInk),
           ),
           const SizedBox(height: 12),
           Text('Aucun produit', style: PosUi.cardTitle()),
@@ -112,12 +180,14 @@ class _ProductCard extends StatefulWidget {
   const _ProductCard({
     required this.product,
     required this.onTap,
+    this.quantity = 0,
     this.favorite = false,
     this.onToggleFavorite,
   });
 
   final PosProduct product;
   final VoidCallback onTap;
+  final int quantity;
   final bool favorite;
   final VoidCallback? onToggleFavorite;
 
@@ -131,147 +201,119 @@ class _ProductCardState extends State<_ProductCard> {
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
-    final trimmed = product.name.trim();
-    final initial = trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
     final available = product.isAvailable;
     final price = MoneyFormatter.format(product.price, currencyCode: AppConfig.currencyCode);
     final imageUrl = resolvePosImageUrl(product.primaryImageUrl);
-    final unit = product.unit?.trim();
-    final stock = product.stockDisplay?.trim().isNotEmpty == true
-        ? product.stockDisplay!.trim()
-        : (product.quantityOnHand != null ? '${product.quantityOnHand}' : null);
+    final category = product.categoryName?.trim();
+    final out = !available || product.quantityOnHand == 0;
+    final unit = (product.unit ?? '').trim();
 
     return AnimatedScale(
       scale: _pressed ? 0.975 : 1,
-      duration: const Duration(milliseconds: 140),
-      curve: Curves.easeOut,
+      duration: AppMotion.resolve(context, AppMotion.micro),
+      curve: AppMotion.standard,
       child: Material(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(PosUi.radiusMd),
+        borderRadius: BorderRadius.circular(16),
         elevation: 0,
         child: InkWell(
-          onTap: available
-              ? () {
-                  setState(() => _pressed = true);
-                  Future<void>.delayed(const Duration(milliseconds: 120), () {
-                    if (mounted) setState(() => _pressed = false);
-                  });
-                  widget.onTap();
-                }
-              : null,
+          onTap: available ? widget.onTap : null,
+          onLongPress: widget.onToggleFavorite,
           onTapDown: available ? (_) => setState(() => _pressed = true) : null,
           onTapCancel: () => setState(() => _pressed = false),
           onTapUp: (_) => setState(() => _pressed = false),
-          borderRadius: BorderRadius.circular(PosUi.radiusMd),
-          child: Ink(
+          borderRadius: BorderRadius.circular(16),
+            child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(PosUi.radiusMd),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: available ? AppColors.border : AppColors.danger.withValues(alpha: 0.35),
+                color: widget.quantity > 0
+                    ? AppColors.brand700
+                    : (out ? AppColors.danger.withValues(alpha: 0.35) : AppColors.border),
+                width: widget.quantity > 0 ? 1.6 : 1,
               ),
-              boxShadow: AppColors.elevationSm,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
-                  height: 92,
+                  height: 112,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(PosUi.radiusMd - 1)),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _ProductPhoto(url: imageUrl, initial: initial, available: available),
-                        if (widget.onToggleFavorite != null)
-                          Positioned(
-                            right: 4,
-                            top: 4,
-                            child: Material(
-                              color: Colors.black.withValues(alpha: 0.35),
-                              shape: const CircleBorder(),
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: widget.onToggleFavorite,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(5),
-                                  child: Icon(
-                                    widget.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                                    size: 16,
-                                    color: widget.favorite ? const Color(0xFFFBBF24) : Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (!available)
+                        _ProductPhoto(url: imageUrl, available: available),
+                        if (widget.favorite)
                           const Positioned(
                             left: 8,
                             top: 8,
-                            child: PosBadge(label: 'Rupture', tone: PosBadgeTone.danger, compact: true),
+                            child: Icon(Icons.star_rounded, size: 16, color: AppColors.accent),
                           ),
-                        if (available && stock != null)
-                          Positioned(
-                            right: 8,
-                            bottom: 8,
-                            child: Container(
-                              constraints: const BoxConstraints(maxWidth: 88),
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: (product.quantityOnHand ?? 1) <= 0
-                                    ? AppColors.danger
-                                    : AppColors.textPrimary.withValues(alpha: 0.78),
-                                borderRadius: BorderRadius.circular(AppRadius.pill),
-                              ),
-                              child: Text(
-                                stock,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.plex(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: widget.quantity > 0
+                              ? _QtyBadge(quantity: widget.quantity)
+                              : const _StockFlag(label: 'N/S', out: false),
+                        ),
                       ],
                     ),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 10, 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           product.name,
-                          maxLines: 2,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: PosUi.cardTitle(
                             color: available ? AppColors.textPrimary : AppColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(product.sku, style: PosUi.caption()),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                price,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: PosUi.money(
+                                  size: 14,
+                                  weight: FontWeight.w800,
+                                  color: out ? AppColors.textMuted : AppColors.brandInk,
+                                ),
+                              ),
+                            ),
+                            if (unit.isNotEmpty)
+                              Text('/$unit', style: PosUi.caption()),
+                          ],
+                        ),
                         const Spacer(),
                         Row(
                           children: [
                             Expanded(
                               child: Text(
-                                available ? price : 'Rupture',
+                                (category != null && category.isNotEmpty) ? category : product.sku,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: PosUi.money(
-                                  size: 13,
-                                  color: available ? AppColors.accent : AppColors.danger,
-                                ),
+                                style: PosUi.caption(),
                               ),
                             ),
-                            if (product.hasOptions)
-                              const PosBadge(label: 'Option', compact: true)
-                            else if (unit != null && unit.isNotEmpty)
-                              PosBadge(label: unit, tone: PosBadgeTone.neutral, compact: true),
+                            Text(
+                              'Service',
+                              style: AppTypography.plex(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.brandInk,
+                              ),
+                            ),
                           ],
                         ),
                       ],
@@ -299,30 +341,82 @@ String? resolvePosImageUrl(String? raw) {
   return value.startsWith('/') ? '$origin$value' : '$origin/$value';
 }
 
+class _QtyBadge extends StatelessWidget {
+  const _QtyBadge({required this.quantity});
+
+  final int quantity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 26,
+      height: 26,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: AppColors.brand700,
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        '$quantity',
+        style: AppTypography.plex(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _StockFlag extends StatelessWidget {
+  const _StockFlag({required this.label, required this.out});
+
+  final String label;
+  final bool out;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = out ? AppColors.danger : AppColors.brand600;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.plex(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
 class _ProductPhoto extends StatelessWidget {
   const _ProductPhoto({
     required this.url,
-    required this.initial,
     required this.available,
   });
 
   final String? url;
-  final String initial;
   final bool available;
 
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: AppColors.brand50,
+      color: const Color(0xFFE7EBEF),
       child: url == null
           ? _fallback()
           : Image.network(
               url!,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               errorBuilder: (_, _, _) => _fallback(),
               loadingBuilder: (context, child, progress) {
                 if (progress == null) return child;
-                return _fallback();
+                return const AppSkeleton(
+                  height: 108,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                );
               },
             ),
     );
@@ -330,22 +424,10 @@ class _ProductPhoto extends StatelessWidget {
 
   Widget _fallback() {
     return Center(
-      child: Container(
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.brand100,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        child: Text(
-          initial,
-          style: AppTypography.plex(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: available ? AppColors.brand600 : AppColors.textMuted,
-          ),
-        ),
+      child: Icon(
+        Icons.landscape_outlined,
+        size: 42,
+        color: available ? AppColors.brand200 : AppColors.textMuted,
       ),
     );
   }

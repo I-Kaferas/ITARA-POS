@@ -157,8 +157,8 @@ class SyncOutbox {
     );
   }
 
-  Future<OutboxEntry?> find(String id) async {
-    final db = await _db;
+  Future<OutboxEntry?> find(String id, {DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     final rows = await db.query(table, where: 'id = ?', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return OutboxEntry.fromRow(rows.first);

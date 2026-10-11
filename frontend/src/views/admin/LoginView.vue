@@ -36,28 +36,11 @@ const showSplash = ref(false)
 const company = ref<Company | null>(null)
 
 const branding = computed(() => brandingStore.branding)
-const publicCompany = computed(() => branding.value?.company ?? null)
-const brandName = computed(() =>
-  publicCompany.value?.name?.trim()
-  || company.value?.name?.trim()
-  || publicCompany.value?.trade_name?.trim()
-  || company.value?.trade_name?.trim()
-  || branding.value?.brand_name?.trim()
-  || 'ITARA NEXUS Business CORE',
-)
-const tradeName = computed(() => {
-  const value = publicCompany.value?.trade_name?.trim() || company.value?.trade_name?.trim() || ''
-  if (!value || value.toLowerCase() === brandName.value.toLowerCase()) return ''
-  return value
-})
-const companyLogo = computed(() =>
-  publicCompany.value?.logo_url?.trim()
-  || company.value?.logo_url?.trim()
-  || '',
-)
 const loginLogoUrl = computed(() => ITARA_LOGO_URL)
 const initial = computed(() => 'I')
 const splashBrand = computed(() => {
+  const companyName = splashCompany.value
+  if (companyName) return companyName
   const custom = branding.value?.brand_name?.trim() || ''
   const generic = ['itara nexus', 'itara nexus business core']
   if (custom && !generic.includes(custom.toLowerCase())) return custom
@@ -78,52 +61,15 @@ const splashTagline = computed(() => {
   return t('auth.brandTitle')
 })
 const splashCompany = computed(() => {
-  const name = company.value?.trade_name?.trim()
-    || company.value?.name?.trim()
-    || context.currentStore?.branch?.company?.trade_name?.trim()
+  return company.value?.name?.trim()
+    || company.value?.trade_name?.trim()
     || context.currentStore?.branch?.company?.name?.trim()
+    || context.currentStore?.branch?.company?.trade_name?.trim()
+    || branding.value?.company?.name?.trim()
+    || branding.value?.company?.trade_name?.trim()
     || ''
-  if (!name || name.toLowerCase() === splashBrand.value.toLowerCase()) return ''
-  return name
 })
 const tenantLogo = computed(() => branding.value?.logo_url?.trim() || '')
-const userName = computed(() => auth.user?.name?.trim() || '')
-const welcomeFirstName = computed(() => {
-  const parts = userName.value.split(/\s+/).filter(Boolean)
-  return parts[0] || userName.value
-})
-
-const panelLede = computed(() => {
-  const sector = publicCompany.value?.activity_sector?.trim() || ''
-  if (sector) return sector
-  const tagline = branding.value?.tagline?.trim() || ''
-  const generic = [
-    'point de vente professionnel',
-    'vendez plus vite',
-    'suivez vos stocks',
-    'itara nexus',
-  ]
-  if (tagline && !generic.some(part => tagline.toLowerCase().includes(part))) return tagline
-  return t('auth.brandSubtitle')
-})
-
-const companyFacts = computed(() => {
-  const profile = publicCompany.value
-  if (!profile) return []
-  const rows = [
-    { icon: 'organization', label: t('org.legalForm'), value: profile.legal_form?.trim() || '' },
-    { icon: 'percent', label: t('org.taxId'), value: profile.tax_id?.trim() || '' },
-    { icon: 'id-card', label: t('org.registration'), value: profile.registration_number?.trim() || '' },
-    { icon: 'building', label: t('org.fiscalCenter'), value: profile.fiscal_center?.trim() || '' },
-    { icon: 'phone', label: t('org.phone'), value: profile.phone?.trim() || '' },
-    { icon: 'mail', label: t('org.email'), value: profile.email?.trim() || '' },
-    { icon: 'globe', label: t('org.website'), value: profile.website?.trim() || '' },
-    { icon: 'pin', label: t('org.address'), value: profile.address?.trim() || '', wide: true },
-    { icon: 'coins', label: t('org.currency'), value: profile.currency_code?.trim() || '' },
-    { icon: 'calendar', label: t('org.settingsPage.openingHours'), value: profile.opening_hours?.trim() || '', wide: true },
-  ]
-  return rows.filter(row => row.value)
-})
 
 async function resolveCompany(): Promise<Company | null> {
   const fromStore = context.currentStore?.branch?.company
@@ -240,35 +186,22 @@ async function submit() {
     }"
   >
     <aside class="login__brand">
+      <img
+        class="login__watermark"
+        :src="loginLogoUrl"
+        alt=""
+        aria-hidden="true"
+      />
       <div class="login__brand-inner">
-        <div v-if="companyLogo" class="login__identity">
-          <img
-            class="login__brand-logo"
-            :src="companyLogo"
-            :alt="brandName"
-          />
-        </div>
-
         <div class="login__brand-mid">
           <span class="login__rule" aria-hidden="true" />
-          <h1>{{ brandName }}</h1>
-          <p v-if="tradeName" class="login__trade">{{ tradeName }}</p>
-          <p>{{ panelLede }}</p>
+          <h1>{{ PRODUCT_NAME }}</h1>
+          <p class="login__trade">{{ t('auth.brandTitle') }}</p>
+          <p>{{ t('auth.brandSubtitle') }}</p>
         </div>
 
         <div class="login__brand-bottom">
-          <ul v-if="companyFacts.length" class="login__points">
-            <li v-for="fact in companyFacts" :key="fact.label" :class="{ 'login__point--wide': fact.wide }">
-              <span class="login__point-icon" aria-hidden="true">
-                <AppIcon :name="fact.icon" :size="16" />
-              </span>
-              <span class="login__point-copy">
-                <span class="login__point-title">{{ fact.label }}</span>
-                <span class="login__point-desc">{{ fact.value }}</span>
-              </span>
-            </li>
-          </ul>
-          <ul v-else class="login__points">
+          <ul class="login__points">
             <li>
               <span class="login__point-icon" aria-hidden="true"><AppIcon name="device-pos" :size="16" /></span>
               <span class="login__point-copy">
@@ -291,7 +224,7 @@ async function submit() {
               </span>
             </li>
           </ul>
-          <p class="login__foot">© {{ new Date().getFullYear() }} {{ brandName }}</p>
+          <p class="login__foot">© {{ new Date().getFullYear() }} {{ PRODUCT_NAME }}</p>
         </div>
       </div>
     </aside>
@@ -406,8 +339,6 @@ async function submit() {
       :brand-name="splashBrand"
       :tagline="splashTagline"
       :logo-url="tenantLogo"
-      :first-name="welcomeFirstName"
-      :company-name="splashCompany"
       :boot="bootWorkspace"
       @done="onSplashDone"
     />
@@ -417,36 +348,65 @@ async function submit() {
 <style scoped>
 .login {
   display: grid;
-  grid-template-columns: minmax(0, 0.82fr) minmax(26rem, 1.18fr);
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
+  max-width: 100%;
+  margin-inline: auto;
+  height: 100%;
   overflow: hidden;
   background: var(--color-surface);}
 
 .login__brand {
+  position: relative;
   display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   min-height: 0;
-  padding: clamp(1.75rem, 4vh, 3rem) clamp(1.75rem, 3.5vw, 3.5rem);
-  overflow: auto;
-  background: var(--login-primary, #12243c);
+  padding: clamp(1.75rem, 4vh, 3rem) clamp(1.5rem, 3vw, 2.75rem);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 46%, color-mix(in srgb, var(--login-accent, #e39b2b) 16%, transparent), transparent 58%),
+    linear-gradient(168deg, color-mix(in srgb, var(--login-primary, #12243c) 78%, #3d5a78) 0%, var(--login-primary, #12243c) 46%, #0b1728 100%);
   color: #fff;
+  isolation: isolate;
+}
+
+.login__watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 5% 4%;
+  object-fit: contain;
+  object-position: center;
+  opacity: 0.07;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  user-select: none;
 }
 
 .login__brand-inner {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  gap: 1.75rem;
-  width: 100%;
-  min-height: 100%;
-  margin: 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.1rem, 2.4vh, 1.7rem);
+  flex-shrink: 0;
+  width: min(100%, 34rem);
+  margin: auto;
+  padding-block: 0.35rem;
+  text-align: center;
 }
 
 .login__identity {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.9rem;
   min-width: 0;
 }
@@ -474,7 +434,8 @@ async function submit() {
 .login__brand-mid {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  width: 100%;
 }
 
 .login__rule {
@@ -488,12 +449,14 @@ async function submit() {
 
 .login__brand-mid h1 {
   margin: 0;
-  max-width: 22ch;
+  max-width: 16ch;
   font-family: var(--font-brand);
-  font-size: clamp(1.85rem, 2.5vw, 2.45rem);
+  font-size: clamp(1.85rem, 2.6vw, 2.55rem);
   font-weight: 600;
   letter-spacing: -0.03em;
-  line-height: 1.18;
+  line-height: 1.15;
+  text-align: center;
+  text-wrap: balance;
 }
 
 .login__trade {
@@ -501,37 +464,44 @@ async function submit() {
   font-size: 0.95rem;
   font-weight: 650;
   color: rgba(255, 255, 255, 0.88);
+  text-align: center;
 }
 
 .login__brand-mid p {
   margin: 0.9rem 0 0;
-  max-width: 34ch;
-  font-size: 0.95rem;
+  max-width: 36ch;
+  font-size: 0.98rem;
   line-height: 1.55;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.78);
+  text-align: center;
 }
 
 .login__brand-bottom {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 1.35rem;
+  width: 100%;
 }
 
 .login__points {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem 1rem;
+  gap: 1rem 1.15rem;
+  width: 100%;
   margin: 0;
-  padding: 1rem 0 0;
+  padding: 1.15rem 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.16);
   list-style: none;
 }
 
 .login__points li {
   display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
   min-width: 0;
+  text-align: center;
 }
 
 .login__point--wide {
@@ -573,6 +543,7 @@ async function submit() {
   margin: 0;
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.46);
+  text-align: center;
 }
 
 .login__panel {
@@ -583,7 +554,7 @@ async function submit() {
   align-items: center;
   justify-content: center;
   padding: clamp(4.5rem, 8vh, 5.5rem) clamp(1.75rem, 4vw, 3.25rem) clamp(2rem, 5vh, 3rem);
-  overflow: auto;
+  overflow: hidden;
   background: var(--color-canvas);}
 
 .login__tools {
@@ -762,17 +733,21 @@ async function submit() {
   margin-top: 0.35rem;
   min-height: 3.35rem;
   border: 0;
-  border-radius: var(--radius-md, 6px);
+  border-radius: var(--radius-lg, 10px);
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: 0;
-  background: var(--color-brand-600, #12243c);
-  box-shadow: none;
-  transition: background 0.15s ease;
+  background: var(--color-brand-700, #0f1f34);
+  box-shadow: 0 1px 1px rgba(15, 31, 52, 0.14);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .login__submit:hover:not(:disabled) {
-  background: var(--color-brand-700, #314B5E);
+  background: var(--color-brand-800, #0d1a2b);
+}
+
+.login__submit:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .login__submit:disabled {
@@ -795,15 +770,18 @@ async function submit() {
   margin-top: 0.7rem;
   padding: 0.45rem 0;
   border: 0;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
   font-size: 0.78rem;
-  font-weight: 550;
+  font-weight: 500;
   cursor: pointer;
   text-align: center;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .login__quiet:hover {
+  background: var(--color-canvas);
   color: var(--color-ink-brand, var(--login-primary));
 }
 
@@ -820,10 +798,16 @@ async function submit() {
     padding: 1.35rem 1.25rem 1.2rem;
   }
 
+  .login__watermark {
+    padding: 10% 22%;
+    opacity: 0.06;
+  }
+
   .login__brand-inner {
     gap: 0.85rem;
     width: 100%;
     height: auto;
+    min-height: 0;
   }
 
   .login__brand-bottom,

@@ -57,6 +57,16 @@ const LEGACY_MESSAGE_KEYS: Record<string, string> = {
   'server error.': 'errors.server',
 }
 
+const KEY_FALLBACKS: Record<string, string> = {
+  'errors.connection': 'Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.',
+  'errors.offline': 'Vous êtes hors ligne. Les modifications seront synchronisées à la reconnexion.',
+  'errors.unauthenticated': 'Votre session a expiré. Veuillez vous reconnecter.',
+  'errors.tenant_forbidden': 'Vous ne pouvez pas accéder à ce compte entreprise.',
+  'errors.tenant_not_found': 'Ce compte entreprise est introuvable.',
+  'errors.tenant_required': 'Aucun commerce n’est sélectionné. Rechargez la page puis réessayez.',
+  'errors.generic': 'Une erreur est survenue. Veuillez réessayer.',
+}
+
 const STATUS_KEYS: Record<number, string> = {
   0: 'errors.connection',
   400: 'errors.bad_request',
@@ -91,6 +101,14 @@ const TECHNICAL_PATTERNS = [
   /^\s*\{[\s\S]*\}\s*$/,
 ]
 
+function phrase(key: string, params?: Record<string, unknown>): string {
+  const localized = translate(key, params)
+  if (localized && localized !== key) return localized
+  return KEY_FALLBACKS[key]
+    ?? KEY_FALLBACKS[key.startsWith('errors.') ? 'errors.generic' : key]
+    ?? 'Une erreur est survenue. Veuillez réessayer.'
+}
+
 function currentLocale(): AppLocale {
   const fromI18n = i18n.global.locale.value
   if (fromI18n === 'fr' || fromI18n === 'en' || fromI18n === 'sw') return fromI18n
@@ -109,6 +127,7 @@ function translate(key: string, params?: Record<string, unknown>): string | null
 function looksTechnical(message: string): boolean {
   const trimmed = message.trim()
   if (!trimmed) return true
+  if (/^(errors|saas|offline)\.[a-z0-9_.]+$/i.test(trimmed)) return true
   if (TECHNICAL_PATTERNS.some((pattern) => pattern.test(trimmed))) return true
   // Long opaque tokens / paths are not useful for cashiers.
   if (trimmed.length > 220) return true
@@ -137,7 +156,7 @@ function localizeRaw(raw: string | undefined | null, fallbackKey: string, params
 } {
   if (!raw) {
     return {
-      message: translate(fallbackKey, params) ?? translate('errors.generic') ?? 'Something went wrong.',
+      message: phrase(fallbackKey, params),
       code: fallbackKey,
       known: true,
     }
@@ -145,13 +164,12 @@ function localizeRaw(raw: string | undefined | null, fallbackKey: string, params
 
   const key = normalizeKeyCandidate(raw)
   if (key) {
-    const localized = translate(key, params)
-    if (localized) return { message: localized, code: key, known: true }
+    return { message: phrase(key, params), code: key, known: true }
   }
 
   if (looksTechnical(raw)) {
     return {
-      message: translate(fallbackKey, params) ?? translate('errors.generic') ?? 'Something went wrong.',
+      message: phrase(fallbackKey, params),
       code: fallbackKey,
       known: true,
     }
@@ -170,7 +188,20 @@ function statusFallbackKey(status: number | null): string {
  * Resolve any thrown value into a user-safe, translatable error.
  * Never returns stack traces, HTTP codes, or framework noise.
  */
+function isStaleWorkspace(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === 'object'
+    && 'staleWorkspace' in error
+    && (error as { staleWorkspace?: boolean }).staleWorkspace,
+  )
+}
+
 export function resolveApiError(error: unknown, fallback?: string): ResolvedApiError {
+  if (isStaleWorkspace(error)) {
+    return { code: null, message: '', status: null, fields: {}, known: true }
+  }
+
   const fallbackKey = fallback && normalizeKeyCandidate(fallback) ? fallback : 'errors.generic'
   const explicitFallback = fallback && !normalizeKeyCandidate(fallback) ? fallback : null
 
@@ -257,6 +288,6 @@ export function formatApiErrorMessage(error: unknown, fallback?: string): string
 
 /** Humanize a raw offline/sync error string. */
 export function humanizeErrorText(raw: string | null | undefined, fallbackKey = 'errors.sync_failed'): string {
-  if (!raw) return translate(fallbackKey) ?? translate('errors.generic') ?? 'Something went wrong.'
+  if (!raw) return phrase(fallbackKey)
   return localizeRaw(raw, fallbackKey).message
 }

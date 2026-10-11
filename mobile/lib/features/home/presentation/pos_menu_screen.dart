@@ -6,6 +6,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/data/pin_auth_service.dart';
+import '../../auth/presentation/logout_profile_dialog.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../sync/presentation/sync_status_bar.dart';
 
@@ -124,7 +125,7 @@ class PosMenuScreen extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(item.icon, color: AppColors.brand700),
+                        Icon(item.icon, color: AppColors.brandInk),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -146,7 +147,7 @@ class PosMenuScreen extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                        Icon(Icons.chevron_right, color: AppColors.textMuted),
                       ],
                     ),
                   ),
@@ -157,26 +158,8 @@ class PosMenuScreen extends StatelessWidget {
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () async {
-              final ok = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Se déconnecter ?'),
-                  content: const Text(
-                    'Le caissier sera déconnecté. Le terminal reste configuré.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Annuler'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Déconnexion'),
-                    ),
-                  ],
-                ),
-              );
-              if (ok == true) await PinAuthService.signOut();
+              final ok = await showLogoutProfileDialog(context);
+              if (ok) await PinAuthService.signOut();
             },
             icon: const Icon(Icons.logout),
             label: const Text('Se déconnecter'),

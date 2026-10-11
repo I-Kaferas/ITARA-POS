@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/terminal_config_repository.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_dialogs.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
@@ -13,10 +14,8 @@ Future<bool?> showPosReturnSheet(
   PosApiService? api,
   String? initialReference,
 }) {
-  return showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: AppColors.surface,
+  return showAppSheet<bool>(
+    context,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(PosUi.radiusXl)),
     ),

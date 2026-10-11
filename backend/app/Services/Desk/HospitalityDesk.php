@@ -2,7 +2,9 @@
 
 namespace App\Services\Desk;
 
+use App\Enums\SalePaymentMethod;
 use App\Models\DeskDocument;
+use App\Models\Sale;
 use App\Models\Store;
 use App\Models\Tenant;
 use App\Services\Realtime\RealtimePublisher;
@@ -2156,6 +2158,119 @@ class HospitalityDesk
         $this->closeOrderIfDone($store, $order);
     }
 
+    /**
+     * Post a POS sale onto the stay folio. The stay, not the room number, owns the charge.
+     */
+    public function postSaleCharge(Store $store, Sale $sale, string $reservationId, int $amountCents): void
+    {
+        if ((string) $sale->tenant_id !== (string) $store->tenant_id || (string) $sale->store_id !== (string) $store->id) {
+            throw ValidationException::withMessages([
+                'sale_id' => ['La vente n\'appartient pas à cet établissement.'],
+            ]);
+        }
+
+        if ($amountCents <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => ['Montant invalide.'],
+            ]);
+        }
+
+        $sale->loadMissing(['items', 'payments', 'store']);
+
+        $settledInCash = (int) $sale->paid_amount >= (int) $sale->total
+            && (int) $sale->total > 0
+            && $sale->payments->isNotEmpty()
+            && $sale->payments->contains(function ($payment) {
+                $method = $payment->payment_method;
+                $value = $method instanceof SalePaymentMethod ? $method->value : (string) $method;
+
+                return $value !== SalePaymentMethod::Room->value;
+            });
+        if ($settledInCash) {
+            throw ValidationException::withMessages([
+                'sale_id' => ['Cette vente est déjà encaissée.'],
+            ]);
+        }
+
+        $reservation = $this->doc($store, $reservationId);
+        if (($reservation['status'] ?? '') !== 'checked_in') {
+            throw ValidationException::withMessages([
+                'reservation_id' => ['Séjour non ouvert.'],
+            ]);
+        }
+
+        $folioId = (string) ($reservation['folio_id'] ?? '');
+        if ($folioId === '') {
+            throw ValidationException::withMessages([
+                'folio_id' => ['Aucun folio ouvert pour ce séjour.'],
+            ]);
+        }
+
+        $folio = $this->doc($store, $folioId);
+        if (($folio['status'] ?? 'open') !== 'open') {
+            throw ValidationException::withMessages([
+                'folio_id' => ['Le folio de ce séjour est déjà clos.'],
+            ]);
+        }
+
+        $folioLines = $folio['lines'] ?? [];
+        foreach ($folioLines as $existing) {
+            if ((string) ($existing['sale_id'] ?? '') === (string) $sale->id) {
+                throw ValidationException::withMessages([
+                    'sale_id' => ['Cette vente est déjà imputée à un séjour.'],
+                ]);
+            }
+        }
+
+        $posted = 0;
+        $storeName = (string) ($sale->store?->name ?? '');
+        foreach ($sale->items as $item) {
+            $lineTotal = (int) $item->line_total;
+            $posted += $lineTotal;
+            $folioLines[] = [
+                'id' => (string) Str::uuid(),
+                'kind' => 'pos',
+                'reservation_id' => $reservation['id'],
+                'sale_id' => $sale->id,
+                'sale_reference' => $sale->reference,
+                'store_id' => $sale->store_id,
+                'store_name' => $storeName,
+                'description' => trim($storeName.' · '.$sale->reference.' · '.(int) $item->quantity.' × '.$item->product_name),
+                'quantity' => (int) $item->quantity,
+                'unit_price' => (int) $item->unit_price,
+                'tax_amount' => (int) $item->line_tax,
+                'amount' => $lineTotal,
+                'created_at' => now()->toIso8601String(),
+                'by' => $storeName !== '' ? $storeName : null,
+            ];
+        }
+
+        $delta = $amountCents - $posted;
+        if ($sale->items->isEmpty() || $delta !== 0) {
+            $folioLines[] = [
+                'id' => (string) Str::uuid(),
+                'kind' => 'pos',
+                'reservation_id' => $reservation['id'],
+                'sale_id' => $sale->id,
+                'sale_reference' => $sale->reference,
+                'store_id' => $sale->store_id,
+                'store_name' => $storeName,
+                'description' => $sale->items->isEmpty()
+                    ? trim($storeName.' · '.$sale->reference)
+                    : 'Ajustement '.$sale->reference,
+                'quantity' => $sale->items->isEmpty() ? 1 : null,
+                'unit_price' => $sale->items->isEmpty() ? $amountCents : null,
+                'tax_amount' => 0,
+                'amount' => $sale->items->isEmpty() ? $amountCents : $delta,
+                'created_at' => now()->toIso8601String(),
+                'by' => $storeName !== '' ? $storeName : null,
+            ];
+        }
+
+        $folio['lines'] = $folioLines;
+        $this->save($store, 'folio', $folioId, $folio, (string) ($folio['room_id'] ?? $reservation['room_id'] ?? ''), 'open');
+    }
+
     /** @param  array<string, mixed>  $action */
     private function chargeRoom(Store $store, array $action): void
     {
@@ -2165,28 +2280,70 @@ class HospitalityDesk
             throw ValidationException::withMessages(['room_id' => ['Chambre non occupée.']]);
         }
         $checkId = $this->required($action, 'check_id');
+        $checks = $order['checks'] ?? [];
+        $open = false;
+        foreach ($checks as $check) {
+            if (($check['id'] ?? '') !== $checkId) {
+                continue;
+            }
+            if (($check['status'] ?? '') !== 'open') {
+                throw ValidationException::withMessages(['check_id' => ['Addition déjà imputée ou fermée.']]);
+            }
+            $open = true;
+        }
+        if (! $open) {
+            throw ValidationException::withMessages(['check_id' => ['Addition introuvable.']]);
+        }
         $lines = collect($order['lines'] ?? [])->where('check_id', $checkId);
         if ($lines->isEmpty()) {
             throw ValidationException::withMessages(['check_id' => ['Addition vide.']]);
         }
         $folio = $this->openFolio($store, $room);
+        if (($folio['status'] ?? 'open') !== 'open') {
+            throw ValidationException::withMessages(['folio_id' => ['Le folio de ce séjour est déjà clos.']]);
+        }
+        $reservationId = (string) ($folio['reservation_id'] ?? '');
+        if ($reservationId === '') {
+            throw ValidationException::withMessages(['room_id' => ['Aucun séjour actif pour cette chambre.']]);
+        }
+        $reservation = $this->doc($store, $reservationId);
+        if (($reservation['status'] ?? '') !== 'checked_in') {
+            throw ValidationException::withMessages(['reservation_id' => ['Séjour non ouvert.']]);
+        }
+        $requestedStay = trim((string) ($action['reservation_id'] ?? ''));
+        if ($requestedStay !== '' && $requestedStay !== $reservationId) {
+            throw ValidationException::withMessages(['reservation_id' => ['Ce séjour n\'occupe pas cette chambre.']]);
+        }
         $folioLines = $folio['lines'] ?? [];
+        foreach ($folioLines as $existing) {
+            if ((string) ($existing['order_id'] ?? '') === (string) $order['id'] && (string) ($existing['check_id'] ?? '') === $checkId) {
+                throw ValidationException::withMessages(['check_id' => ['Cette addition est déjà imputée.']]);
+            }
+        }
         foreach ($lines as $line) {
+            $quantity = (int) ($line['quantity'] ?? 0);
+            $unitPrice = (int) ($line['unit_price'] ?? 0);
             $folioLines[] = [
                 'id' => (string) Str::uuid(),
                 'kind' => 'restaurant',
-                'description' => 'Table '.($order['table_label'] ?? '').' · '.($line['name'] ?? ''),
-                'amount' => ((int) ($line['unit_price'] ?? 0)) * ((int) ($line['quantity'] ?? 0)),
+                'reservation_id' => $reservationId,
+                'order_id' => $order['id'],
+                'check_id' => $checkId,
+                'description' => 'Table '.($order['table_label'] ?? '').' · '.$quantity.' × '.($line['name'] ?? ''),
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'amount' => $unitPrice * $quantity,
                 'created_at' => now()->toIso8601String(),
             ];
         }
         $folio['lines'] = $folioLines;
         $this->save($store, 'folio', (string) $folio['id'], $folio, (string) $room['id'], 'open');
-        $order['checks'] = collect($order['checks'] ?? [])->map(function ($check) use ($checkId, $room) {
+        $order['checks'] = collect($order['checks'] ?? [])->map(function ($check) use ($checkId, $room, $reservationId) {
             if (($check['id'] ?? '') === $checkId) {
                 $check['status'] = 'folio';
                 $check['room_id'] = $room['id'];
                 $check['room_number'] = $room['number'] ?? '';
+                $check['reservation_id'] = $reservationId;
             }
 
             return $check;

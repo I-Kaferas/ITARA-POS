@@ -1,6 +1,6 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'link'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger' | 'success' | 'link'
   size?: 'sm' | 'md' | 'lg'
   type?: 'button' | 'submit' | 'reset'
   disabled?: boolean

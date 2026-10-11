@@ -191,6 +191,23 @@ class CashierShiftService
             ]);
         }
 
+        if ($type === CashMovementType::CashCount) {
+            throw ValidationException::withMessages([
+                'movement_type' => ['Use the cash count endpoint to record a count.'],
+            ]);
+        }
+
+        if ($type === CashMovementType::CashAdjustment) {
+            $direction = strtolower(trim((string) $reference));
+            if (! in_array($direction, ['in', 'out', 'increase', 'decrease'], true)) {
+                throw ValidationException::withMessages([
+                    'direction' => ['Cash adjustment requires direction in or out.'],
+                ]);
+            }
+            $reference = in_array($direction, ['out', 'decrease'], true) ? 'out' : 'in';
+            $referenceType = $referenceType ?: 'adjustment_direction';
+        }
+
         $session = $this->registerSessionService->currentSession($register);
 
         if ($session === null) {
@@ -381,9 +398,6 @@ class CashierShiftService
                 CashMovementType::Discount => $discounts += $movement->amount,
                 CashMovementType::CashIn => $cashIn += $movement->amount,
                 CashMovementType::CashOut => $cashOut += $movement->amount,
-                CashMovementType::CashAdjustment => $movement->isAdjustmentDecrease()
-                    ? $cashOut += $movement->amount
-                    : $cashIn += $movement->amount,
                 CashMovementType::Expense => $expenses += $movement->amount,
                 default => null,
             };

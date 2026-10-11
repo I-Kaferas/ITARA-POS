@@ -82,6 +82,24 @@ class ModuleManager
     }
 
     /**
+     * Modules the tenant can actually open: enabled, and included in the plan
+     * when a subscription exists. Menus use this list so a formula never shows
+     * a feature that the plan does not include.
+     *
+     * @return list<string>
+     */
+    public function usableCodes(?Tenant $tenant): array
+    {
+        $enabled = $this->enabledCodes($tenant);
+        $plan = $this->planCodes($tenant);
+        if ($plan === []) {
+            return $enabled;
+        }
+
+        return array_values(array_intersect($enabled, $plan));
+    }
+
+    /**
      * Catalog rows for modules the tenant may see.
      * Modules outside the plan (and not already enabled) are omitted so the UI
      * never advertises features that return errors.module_disabled.

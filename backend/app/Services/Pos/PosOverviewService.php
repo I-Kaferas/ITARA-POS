@@ -20,7 +20,7 @@ class PosOverviewService
 
         return app(ReadCache::class)->remember(
             'sales',
-            'pos-overview:'.$store->id.':'.$day->toDateString(),
+            'pos-overview-v2:'.$store->id.':'.$day->toDateString(),
             fn () => $this->build($store, $day),
         );
     }
@@ -60,7 +60,47 @@ class PosOverviewService
             'recent_orders' => $recent->map(fn (Sale $sale) => $sale->toSummaryArray())->values(),
             'payment_methods' => $salesCount > 0 ? $this->paymentMethods($store, $day, $end) : [],
             'sales_by_hour' => $this->salesByHour($store, $day, $end),
+            'daily_summary' => $this->dailySummary($store, $day),
+            'active_orders' => $this->activeOrders($store),
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function dailySummary(Store $store, Carbon $day): array
+    {
+        $rows = [];
+        for ($offset = 2; $offset >= 0; $offset--) {
+            $start = $day->copy()->subDays($offset)->startOfDay();
+            $end = $start->copy()->endOfDay();
+            $totals = Sale::query()
+                ->where('store_id', $store->id)
+                ->where('status', 'completed')
+                ->whereBetween('completed_at', [$start, $end])
+                ->toBase()
+                ->selectRaw('COUNT(*) as sales_count, COALESCE(SUM(total), 0) as revenue')
+                ->first();
+            $count = (int) ($totals->sales_count ?? 0);
+            $revenue = (int) ($totals->revenue ?? 0);
+            $rows[] = [
+                'date' => $start->toDateString(),
+                'is_today' => $offset === 0,
+                'sales' => $revenue,
+                'orders' => $count,
+                'average' => $count > 0 ? (int) round($revenue / $count) : 0,
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function activeOrders(Store $store): int
+    {
+        return Sale::query()
+            ->where('store_id', $store->id)
+            ->whereIn('status', ['draft', 'pending'])
+            ->count();
     }
 
     /**

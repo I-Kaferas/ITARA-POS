@@ -636,6 +636,7 @@ class SaleEngine
                 'order_date' => $this->orderDateFromPayload($payload) ?? $sale->order_date?->toDateString() ?? now()->toDateString(),
                 'completed_at' => $this->completedAtFromPayload($payload),
                 'notes' => $payload['notes'] ?? $sale->notes,
+                ...$this->serviceFields($payload),
             ]);
 
             $saleItems = $this->createSaleItems($sale, $cart);
@@ -1396,6 +1397,7 @@ class SaleEngine
             'completed_at' => null,
             'notes' => $payload['notes'] ?? null,
             'table_id' => $payload['table_id'] ?? null,
+            ...$this->serviceFields($payload),
         ]);
 
         $saleItems = $this->createSaleItems($sale, $cart);
@@ -1419,6 +1421,7 @@ class SaleEngine
             'warehouse_id' => $warehouse->id,
             'cash_register_id' => $payload['cash_register_id'] ?? $sale->cash_register_id,
             'notes' => $payload['notes'] ?? null,
+            ...$this->serviceFields($payload),
             'subtotal' => $cart->subtotal,
             'tax_total' => $cart->taxTotal,
             'discount_total' => $cart->discountTotal,
@@ -1603,6 +1606,29 @@ class SaleEngine
                 );
             }
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{service_mode?: string|null, delivery_address?: string|null}
+     */
+    private function serviceFields(array $payload): array
+    {
+        if (! array_key_exists('service_mode', $payload)) {
+            return [];
+        }
+
+        $mode = $payload['service_mode'] ?? null;
+        if (! in_array($mode, ['takeaway', 'delivery'], true) || ! empty($payload['table_id'])) {
+            return ['service_mode' => null, 'delivery_address' => null];
+        }
+
+        $address = trim((string) ($payload['delivery_address'] ?? ''));
+
+        return [
+            'service_mode' => $mode,
+            'delivery_address' => $mode === 'delivery' && $address !== '' ? $address : null,
+        ];
     }
 
     private function occupyTable(Sale $sale, string $tableId): void

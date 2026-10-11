@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../core/text/text_encoding.dart';
 import '../local_master_server.dart';
 import '../sync_numbers.dart';
 
@@ -119,7 +120,7 @@ abstract final class MasterBeaconCodec {
 
   static Map<String, dynamic>? decode(List<int> bytes) {
     try {
-      final decoded = jsonDecode(utf8.decode(bytes));
+      final decoded = jsonDecode(decodeText(bytes));
       if (decoded is! Map) return null;
       return Map<String, dynamic>.from(decoded);
     } catch (_) {
@@ -193,6 +194,6 @@ abstract final class MasterBeaconCodec {
   static String? txtString(Map<String, Uint8List?>? txt, String key) {
     final raw = txt?[key];
     if (raw == null || raw.isEmpty) return null;
-    return utf8.decode(raw);
+    return decodeText(raw);
   }
 }

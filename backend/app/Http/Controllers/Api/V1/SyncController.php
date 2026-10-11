@@ -214,7 +214,7 @@ class SyncController extends Controller
             ->where('is_active', true)
             ->whereNotNull('pin')
             ->where('pin', '!=', '')
-            ->with(['roles.permissions:id,slug', 'stores:id'])
+            ->with(['roles.permissions:id,slug', 'stores:id', 'employee:id,user_id,code'])
             ->where(function ($query) use ($store): void {
                 $query->whereDoesntHave('stores')
                     ->orWhereHas('stores', fn ($stores) => $stores->where('stores.id', $store->id));
@@ -228,6 +228,7 @@ class SyncController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'employee_code' => $user->employee?->code,
                     'is_active' => true,
                     'pin_verifier' => hash('sha256', "itara-pos|{$user->id}|{$pin}"),
                     'roles' => $user->roles->pluck('slug')->values(),
@@ -405,7 +406,8 @@ class SyncController extends Controller
         $payload['idempotency_key'] = $payload['idempotency_key'] ?? $entityId;
 
         // Master → Cloud entity matrix (mobile.md §35).
-        return match ($entityType) {
+        try {
+            return match ($entityType) {
             'customer' => $op === 'create'
                 ? $this->applyCustomerCreate($store, $operation)
                 : $this->unsupported($operation, $entityId),
@@ -426,7 +428,17 @@ class SyncController extends Controller
                 'server_id' => $entityId,
             ],
             default => $this->unsupported($operation, $entityId),
-        };
+            };
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return [
+                'id' => $operation['id'] ?? null,
+                'entity_id' => $entityId,
+                'status' => 'failed',
+                'error' => 'Sync failed.',
+            ];
+        }
     }
 
     /**
@@ -517,7 +529,7 @@ class SyncController extends Controller
             'entity_id' => $entityId,
             'payload' => $payload,
             'occurred_at' => now(),
-            'sequence' => now()->timestamp,
+            'sequence' => SyncEvent::allocateSequence((string) $store->tenant_id),
         ]);
 
         return [
@@ -543,7 +555,7 @@ class SyncController extends Controller
             'entity_id' => $entityId,
             'payload' => $payload,
             'occurred_at' => now(),
-            'sequence' => now()->timestamp,
+            'sequence' => SyncEvent::allocateSequence((string) $store->tenant_id),
         ]);
 
         return [
@@ -569,7 +581,7 @@ class SyncController extends Controller
             'entity_id' => $entityId,
             'payload' => $payload,
             'occurred_at' => now(),
-            'sequence' => now()->timestamp,
+            'sequence' => SyncEvent::allocateSequence((string) $store->tenant_id),
         ]);
 
         return [
@@ -672,7 +684,7 @@ class SyncController extends Controller
                 'entity_id' => $entityId,
                 'payload' => $payload,
                 'occurred_at' => now(),
-                'sequence' => now()->timestamp,
+                'sequence' => SyncEvent::allocateSequence((string) $store->tenant_id),
             ]);
 
             return [
@@ -706,7 +718,7 @@ class SyncController extends Controller
             'entity_id' => $entityId,
             'payload' => $payload,
             'occurred_at' => now(),
-            'sequence' => now()->timestamp,
+            'sequence' => SyncEvent::allocateSequence((string) $store->tenant_id),
         ]);
 
         return [

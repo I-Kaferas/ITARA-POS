@@ -19,6 +19,7 @@ class CompanyPaymentMethodService
         'mobile_money',
         'wallet',
         'credit',
+        'room',
     ];
 
     /** Methods shown on the POS cash register by default. */

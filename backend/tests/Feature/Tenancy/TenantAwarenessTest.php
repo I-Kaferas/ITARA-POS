@@ -38,6 +38,8 @@ class TenantAwarenessTest extends TestCase
             'tax_id' => '4001732983',
             'registration_number' => 'RC-31453',
             'address' => ['city' => 'Bujumbura'],
+            'admin_email' => 'admin@maison.test',
+            'admin_password' => 'secret-pass',
         ]);
 
         $profile = $created['tenant']->fresh()->profile();

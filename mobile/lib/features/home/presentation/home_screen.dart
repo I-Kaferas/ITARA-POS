@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../accounting/presentation/accounting_screen.dart';
 import '../../backup/presentation/backup_screen.dart';
 import '../../barcode/presentation/barcode_hub_screen.dart';
@@ -96,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             else if (_health != null)
               Card(
-                color: Colors.green.shade50,
+                color: AppColors.successBg,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -106,18 +107,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         'Status: ${_health!['status']}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: AppColors.success,
                         ),
                       ),
-                      Text('Service: ${_health!['service']}'),
-                      Text('Version: ${_health!['version']}'),
+                      Text('Service: ${_health!['service']}', style: TextStyle(color: AppColors.textPrimary)),
+                      Text('Version: ${_health!['version']}', style: TextStyle(color: AppColors.textPrimary)),
                     ],
                   ),
                 ),
               )
             else
               Card(
-                color: Colors.red.shade50,
+                color: AppColors.dangerBg,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -127,10 +128,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         'API unreachable',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.red,
+                          color: AppColors.danger,
                         ),
                       ),
-                      if (_error != null) Text(_error!),
+                      if (_error != null) Text(_error!, style: TextStyle(color: AppColors.textPrimary)),
                     ],
                   ),
                 ),

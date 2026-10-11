@@ -35,6 +35,7 @@ const apiUrl = computed(() => {
 const hub = computed(() => [
   { to: '/admin/organization/company', label: t('settings.domains.company'), hint: t('settings.companyHint') },
   { to: '/admin/organization/stores', label: t('settings.domains.store'), hint: t('settings.storeHint') },
+  { to: '/admin/organization/users', label: t('org.tabs.users'), hint: t('org.assignStoresHint') },
   { to: '/admin/organization/terminals', label: t('settings.domains.pos'), hint: t('settings.domains.posHint') },
   { to: '/admin/catalog/taxes', label: t('settings.domains.taxes'), hint: t('settings.domains.taxesHint') },
   { to: '/admin/organization/currencies', label: t('settings.domains.currency'), hint: t('settings.domains.currencyHint') },

@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../core/widgets/role_guard.dart';
 import '../../../sync/offline_store.dart';
@@ -43,50 +44,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
   String? _invoicesError;
   String? _docBusyId;
   int _section = 0;
+  int _lane = 0;
+  bool _quarantine = false;
+  String _storeKey = 'all';
   String? _status;
   String? _payment;
   DateTime? _from;
   DateTime? _to;
   String? _selectedId;
-  bool _filtersOpen = false;
-
-  List<(String?, String)> get _statusFilters => switch (_section) {
-        0 => const [
-            (null, 'Tous les statuts'),
-            ('completed', 'Terminées'),
-            ('pending', 'En attente'),
-            ('draft', 'Brouillon'),
-            ('voided', 'Annulées'),
-            ('merged', 'Fusionnées'),
-            ('failed', 'À renvoyer'),
-          ],
-        1 => const [
-            (null, 'Tous les statuts'),
-            ('draft', 'Brouillon'),
-            ('pending', 'En attente'),
-            ('approved', 'Approuvées'),
-            ('partially_received', 'Partiellement reçues'),
-            ('received', 'Reçues'),
-            ('completed', 'Terminées'),
-            ('cancelled', 'Annulées'),
-          ],
-        _ => const [
-            (null, 'Tous les statuts'),
-            ('posted', 'Comptabilisées'),
-            ('partially_paid', 'Partiellement payées'),
-            ('paid', 'Payées'),
-            ('cancelled', 'Annulées'),
-          ],
-      };
-
-  static const _paymentFilters = [
-    (null, 'Tous les paiements'),
-    ('paid', 'Payées'),
-    ('partial', 'Partielles'),
-    ('on_credit', 'À crédit'),
-    ('unpaid', 'Impayées'),
-    ('credit', 'Crédit'),
-  ];
 
   @override
   void initState() {
@@ -125,9 +90,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     await _loadLocalSales();
-    await _loadRemoteSales();
-    await _loadOrders();
-    await _loadInvoices();
     if (mounted) setState(() => _loading = false);
   }
 
@@ -216,18 +178,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
-  void _reloadRemote() {
-    if (_section == 0) {
-      _loadRemoteSales();
-      return;
-    }
-    if (_section == 1) {
-      _loadOrders();
-      return;
-    }
-    if (_section == 2) _loadInvoices();
-  }
-
   String _networkMessage(Object error) {
     final text = error.toString();
     if (text.contains('refused') ||
@@ -273,6 +223,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           .where((sale) => _inRange(sale.createdAt))
           .where((sale) => _status == null || sale.filterStatus == _status)
           .where((sale) => _payment == null || sale.matchesPayment(_payment!))
+          .where((sale) => _matchesLane(_saleLane(sale)))
           .map((sale) => _ListItem(
                 id: sale.id,
                 title: sale.reference,
@@ -291,6 +242,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           .where((order) => matches('${order.orderNumber} ${order.supplierName ?? ''}'))
           .where((order) => _inRange(order.createdAt))
           .where((order) => _status == null || order.status == _status)
+          .where((order) => _matchesLane(_purchaseLane(order.status)))
           .map((order) => _ListItem(
                 id: order.id,
                 title: order.orderNumber,
@@ -308,6 +260,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         .where((invoice) => matches('${invoice.invoiceNumber} ${invoice.supplierName ?? ''}'))
         .where((invoice) => _inRange(invoice.invoicedAt))
         .where((invoice) => _status == null || invoice.status == _status)
+        .where((invoice) => _matchesLane(_invoiceLane(invoice.status)))
         .map((invoice) => _ListItem(
               id: invoice.id,
               title: invoice.invoiceNumber,
@@ -346,7 +299,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       saleReference: sale.reference,
       api: _posApi,
     );
-    if (merged == true && mounted) await _loadRemoteSales();
+    if (merged == true && mounted) await _load();
   }
 
   Future<void> _createReceipt(_SaleRow sale) async {
@@ -459,6 +412,41 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   String _date(DateTime value) => DateFormat('dd/MM/yyyy · HH:mm').format(value);
 
+  bool _matchesLane(String lane) {
+    if (_quarantine) return lane == 'quarantine';
+    if (lane == 'quarantine') return false;
+    return switch (_lane) {
+      1 => lane == 'open',
+      2 => lane == 'progress',
+      3 => lane == 'completed',
+      4 => lane == 'cancelled',
+      _ => true,
+    };
+  }
+
+  String _saleLane(_SaleRow sale) {
+    final raw = sale.status.toLowerCase();
+    if (raw == 'failed' || raw == 'retrying' || sale.filterStatus == 'failed') return 'quarantine';
+    if (raw == 'voided' || raw == 'cancelled' || raw == 'merged') return 'cancelled';
+    if (raw == 'completed' || raw == 'synced' || sale.filterStatus == 'completed') return 'completed';
+    if (sale.isHold || raw == 'pending' || raw == 'held') return 'progress';
+    return 'open';
+  }
+
+  String _purchaseLane(String status) => switch (status.toLowerCase()) {
+        'cancelled' => 'cancelled',
+        'completed' || 'received' => 'completed',
+        'approved' || 'partially_received' || 'partial' => 'progress',
+        _ => 'open',
+      };
+
+  String _invoiceLane(String status) => switch (status.toLowerCase()) {
+        'cancelled' => 'cancelled',
+        'paid' => 'completed',
+        'partially_paid' => 'progress',
+        _ => 'open',
+      };
+
   String _orderStatus(String status) => switch (status.toLowerCase()) {
         'draft' => 'Brouillon',
         'submitted' => 'Soumise',
@@ -548,79 +536,45 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 980;
     final items = _items;
-    final heldCount = _holds.length;
-    final pendingSync = _sales.where((sale) => sale.filterStatus == 'pending' || sale.filterStatus == 'failed').length;
+    final config = TerminalConfigRepository.instance.config;
+    final place = config.deviceName.trim().isEmpty
+        ? (config.brandName.trim().isEmpty ? 'Store' : config.brandName.trim())
+        : config.deviceName.trim();
 
     return ColoredBox(
       color: AppColors.canvas,
       child: Column(
         children: [
-          if (!TerminalConfigRepository.instance.config.canManageOrders)
+          if (!config.canManageOrders)
             const SlaveModeBanner(message: 'Consultation seule — les achats sont gérés par le master.'),
           Padding(
-            padding: EdgeInsets.fromLTRB(wide ? 20 : 14, 8, wide ? 20 : 14, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _OrdersHeader(
-                  heldCount: heldCount,
-                  pendingSync: pendingSync,
-                  totalSales: _venteRows.length,
-                ),
-                const SizedBox(height: 6),
-                _Segments(
-                  index: _section,
-                  counts: [_venteRows.length, _orders.length, _invoices.length],
-                  onChanged: (value) => setState(() {
-                    _section = value;
-                    _selectedId = null;
-                    _status = null;
-                    _payment = null;
-                    _filtersOpen = false;
-                  }),
-                ),
-                const SizedBox(height: 6),
-                _FilterBar(
-                  search: _search,
-                  status: _status,
-                  payment: _payment,
-                  from: _from,
-                  to: _to,
-                  showPayment: _section == 0,
-                  expanded: _filtersOpen,
-                  statuses: _statusFilters,
-                  payments: _paymentFilters,
-                  resultCount: items.length,
-                  onToggle: () => setState(() => _filtersOpen = !_filtersOpen),
-                  onSearch: (_) => setState(() {}),
-                  onStatus: (value) {
-                    setState(() => _status = value);
-                    _reloadRemote();
-                  },
-                  onPayment: (value) {
-                    setState(() => _payment = value);
-                    if (_section == 0) _reloadRemote();
-                  },
-                  onFrom: (value) {
-                    setState(() => _from = value);
-                    _reloadRemote();
-                  },
-                  onTo: (value) {
-                    setState(() => _to = value);
-                    _reloadRemote();
-                  },
-                  onReset: () {
-                    _search.clear();
-                    setState(() {
-                      _status = null;
-                      _payment = null;
-                      _from = null;
-                      _to = null;
-                    });
-                    _reloadRemote();
-                  },
-                ),
-              ],
+            padding: EdgeInsets.fromLTRB(wide ? 20 : 14, 16, wide ? 20 : 14, 0),
+            child: _OrdersChrome(
+              search: _search,
+              place: place,
+              storeKey: _storeKey,
+              lane: _quarantine ? -1 : _lane,
+              quarantine: _quarantine,
+              refreshing: _loading,
+              section: _section,
+              onStore: (value) => setState(() => _storeKey = value),
+              onSearch: (_) => setState(() {}),
+              onLane: (value) => setState(() {
+                _lane = value;
+                _quarantine = false;
+                _selectedId = null;
+              }),
+              onQuarantine: () => setState(() {
+                _quarantine = !_quarantine;
+                _selectedId = null;
+              }),
+              onRefresh: _loading ? null : _load,
+              onSection: (value) => setState(() {
+                _section = value;
+                _selectedId = null;
+                _lane = 0;
+                _quarantine = false;
+              }),
             ),
           ),
           if (_sectionError != null)
@@ -646,11 +600,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         child: RefreshIndicator(
                           onRefresh: _load,
                           child: items.isEmpty
-                              ? ListView(
-                                  children: [
-                                    SizedBox(height: wide ? 100 : 60),
-                                    _Empty(section: _section),
-                                  ],
+                              ? LayoutBuilder(
+                                  builder: (context, constraints) => ListView(
+                                    children: [
+                                      SizedBox(
+                                        height: constraints.maxHeight,
+                                        child: const _Empty(),
+                                      ),
+                                    ],
+                                  ),
                                 )
                               : ListView.separated(
                                   padding: EdgeInsets.fromLTRB(wide ? 20 : 14, 12, wide ? 12 : 14, 20),
@@ -662,7 +620,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                         ? _venteRows.where((row) => row.id == item.id).firstOrNull
                                         : null;
                                     final busy = sale != null && _docBusyId == sale.detailId;
-                                    return _RowCard(
+                                    return AppOnce(
+                                      id: 'order-${item.id}',
+                                      child: _RowCard(
                                       item: item,
                                       selected: _selectedId == item.id,
                                       onTap: () => _open(item.id),
@@ -681,17 +641,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                       onResume: sale != null && sale.canResume
                                           ? () => _resumeSale(sale)
                                           : null,
+                                      ),
                                     );
                                   },
                                 ),
                         ),
                       ),
-                      if (wide)
+                      if (wide && _detail != null)
                         SizedBox(
                           width: 360,
-                          child: _detail == null
-                              ? const _DetailPlaceholder()
-                              : _DetailPanel(detail: _detail!),
+                          child: _DetailPanel(detail: _detail!),
                         ),
                     ],
                   ),
@@ -702,108 +661,278 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 }
 
-class _OrdersHeader extends StatelessWidget {
-  const _OrdersHeader({
-    required this.heldCount,
-    required this.pendingSync,
-    required this.totalSales,
+class _OrdersChrome extends StatelessWidget {
+  const _OrdersChrome({
+    required this.search,
+    required this.place,
+    required this.storeKey,
+    required this.lane,
+    required this.quarantine,
+    required this.refreshing,
+    required this.section,
+    required this.onStore,
+    required this.onSearch,
+    required this.onLane,
+    required this.onQuarantine,
+    required this.onRefresh,
+    required this.onSection,
   });
 
-  final int heldCount;
-  final int pendingSync;
-  final int totalSales;
+  final TextEditingController search;
+  final String place;
+  final String storeKey;
+  final int lane;
+  final bool quarantine;
+  final bool refreshing;
+  final int section;
+  final ValueChanged<String> onStore;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<int> onLane;
+  final VoidCallback onQuarantine;
+  final VoidCallback? onRefresh;
+  final ValueChanged<int> onSection;
+
+  static const _lanes = ['All', 'Open', 'In Progress', 'Completed', 'Cancelled'];
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final subtitle = switch (section) {
+      1 => 'Purchase orders',
+      2 => 'Supplier invoices',
+      _ => 'Manage and track all POS orders',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(Icons.receipt_long_outlined, size: 18, color: AppColors.brand700),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            'Commandes',
-            style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: AppColors.cashierBlue,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Orders',
+                    style: GoogleFonts.ibmPlexSans(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      color: AppColors.brandInk,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  _OutlineAction(
+                    icon: Icons.warning_amber_rounded,
+                    label: 'Quarantine',
+                    selected: quarantine,
+                    onPressed: onQuarantine,
+                  ),
+                  _OutlineAction(
+                    icon: Icons.refresh_rounded,
+                    label: 'Refresh',
+                    busy: refreshing,
+                    onPressed: onRefresh,
+                  ),
+                  PopupMenuButton<int>(
+                    tooltip: 'More',
+                    onSelected: onSection,
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 0, child: Text('POS orders')),
+                      PopupMenuItem(value: 1, child: Text('Purchases')),
+                      PopupMenuItem(value: 2, child: Text('Invoices')),
+                    ],
+                    child: const _OutlineIcon(icon: Icons.more_horiz),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _StoreField(place: place, value: storeKey, onChanged: onStore),
+        const SizedBox(height: 10),
+        TextField(
+          controller: search,
+          onChanged: onSearch,
+          style: GoogleFonts.ibmPlexSans(fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'Search by order number, customer or waiter...',
+            hintStyle: GoogleFonts.ibmPlexSans(color: AppColors.textMuted, fontSize: 14),
+            prefixIcon: Icon(Icons.search, color: AppColors.textMuted, size: 20),
+            filled: true,
+            fillColor: AppColors.surface,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            border: _fieldBorder(AppColors.border),
+            enabledBorder: _fieldBorder(AppColors.border),
+            focusedBorder: _fieldBorder(AppColors.cashierBlue),
           ),
         ),
-        _MiniChip(label: '$totalSales ventes'),
-        if (heldCount > 0) ...[
-          const SizedBox(width: 6),
-          _MiniChip(label: '$heldCount attente', color: AppColors.warning),
-        ],
-        if (pendingSync > 0) ...[
-          const SizedBox(width: 6),
-          _MiniChip(label: '$pendingSync sync', color: AppColors.accent),
-        ],
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              for (var i = 0; i < _lanes.length; i++)
+                Expanded(
+                  child: Material(
+                    color: lane == i ? AppColors.brand100 : Colors.transparent,
+                    borderRadius: BorderRadius.circular(9),
+                    child: InkWell(
+                      onTap: () => onLane(i),
+                      borderRadius: BorderRadius.circular(9),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        child: Text(
+                          _lanes[i],
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.ibmPlexSans(
+                            fontSize: 13,
+                            fontWeight: lane == i ? FontWeight.w700 : FontWeight.w500,
+                            color: lane == i ? AppColors.brandInk : AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }
 }
 
-class _MiniChip extends StatelessWidget {
-  const _MiniChip({required this.label, this.color});
+OutlineInputBorder _fieldBorder(Color color) {
+  return OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: color),
+  );
+}
 
-  final String label;
-  final Color? color;
+class _StoreField extends StatelessWidget {
+  const _StoreField({required this.place, required this.value, required this.onChanged});
+
+  final String place;
+  final String value;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final tone = color ?? AppColors.brand700;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(99),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
       ),
-      child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 10, fontWeight: FontWeight.w700, color: tone)),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(12),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+          style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+          items: [
+            const DropdownMenuItem(value: 'all', child: Text('All stores')),
+            DropdownMenuItem(value: 'current', child: Text(place)),
+          ],
+          onChanged: (next) {
+            if (next != null) onChanged(next);
+          },
+        ),
+      ),
     );
   }
 }
 
-class _Segments extends StatelessWidget {
-  const _Segments({required this.index, required this.counts, required this.onChanged});
+class _OutlineAction extends StatelessWidget {
+  const _OutlineAction({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.selected = false,
+    this.busy = false,
+  });
 
-  final int index;
-  final List<int> counts;
-  final ValueChanged<int> onChanged;
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool selected;
+  final bool busy;
 
-  static const _labels = ['Ventes', 'Achats', 'Factures'];
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected ? Colors.white : AppColors.brandInk;
+    return OutlinedButton.icon(
+      onPressed: busy ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: foreground,
+        backgroundColor: selected ? AppColors.warning : AppColors.surface,
+        side: BorderSide(color: selected ? AppColors.warning : AppColors.borderStrong),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      icon: busy
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brandInk),
+            )
+          : Icon(icon, size: 16),
+      label: Text(label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13)),
+    );
+  }
+}
+
+class _OutlineIcon extends StatelessWidget {
+  const _OutlineIcon({required this.icon});
+
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(3),
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderStrong),
       ),
-      child: Row(
-        children: [
-          for (var i = 0; i < _labels.length; i++)
-            Expanded(
-              child: Material(
-                color: index == i ? AppColors.brand900 : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () => onChanged(i),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    child: Text(
-                      '${_labels[i]} ${counts[i]}',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.ibmPlexSans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: index == i ? Colors.white : AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+      child: Icon(icon, size: 18, color: AppColors.brandInk),
     );
   }
 }
@@ -839,7 +968,7 @@ class _RowCard extends StatelessWidget {
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
+        duration: AppMotion.resolve(context, AppMotion.micro),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: selected ? AppColors.brand600 : AppColors.border, width: selected ? 1.4 : 1),
@@ -888,7 +1017,7 @@ class _RowCard extends StatelessWidget {
                       children: [
                         Text(
                           MoneyFormatter.format(item.amount, currencyCode: item.currency),
-                          style: GoogleFonts.ibmPlexMono(fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.brand700),
+                          style: GoogleFonts.ibmPlexMono(fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.brandInk),
                         ),
                         const SizedBox(height: 6),
                         _Status(label: item.status, status: item.statusKey),
@@ -953,11 +1082,11 @@ class _SaleActionChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: AppColors.brand700),
+              Icon(icon, size: 14, color: AppColors.brandInk),
               const SizedBox(width: 4),
               Text(
                 label,
-                style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.brand700),
+                style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.brandInk),
               ),
             ],
           ),
@@ -1204,67 +1333,34 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
-class _DetailPlaceholder extends StatelessWidget {
-  const _DetailPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(4, 12, 20, 16),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.touch_app_outlined, color: AppColors.textMuted, size: 28),
-          const SizedBox(height: 8),
-          Text('Sélectionnez une commande', style: GoogleFonts.ibmPlexSans(color: AppColors.textMuted, fontSize: 13)),
-        ],
-      ),
-    );
-  }
-}
 
 class _Empty extends StatelessWidget {
-  const _Empty({required this.section});
-
-  final int section;
+  const _Empty();
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (section) {
-      1 => 'Aucun achat trouvé',
-      2 => 'Aucune facture trouvée',
-      _ => 'Aucune vente trouvée',
-    };
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppColors.brand50,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Icon(Icons.inbox_outlined, color: AppColors.brand600, size: 28),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 84,
+          height: 84,
+          decoration: BoxDecoration(
+            color: AppColors.brand100,
+            shape: BoxShape.circle,
           ),
-          const SizedBox(height: 12),
-          Text(label, style: GoogleFonts.ibmPlexSans(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 14)),
-          const SizedBox(height: 4),
-          Text(
-            'Modifiez les filtres ou tirez pour actualiser.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary, fontSize: 12),
+          child: Icon(Icons.receipt_long_outlined, color: AppColors.brandInk, size: 32),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'No data available',
+          style: GoogleFonts.ibmPlexSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1618,369 +1714,6 @@ class _SaleRow {
   String get syncLabel => statusLabel;
 }
 
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
-    required this.search,
-    required this.status,
-    required this.payment,
-    required this.from,
-    required this.to,
-    required this.showPayment,
-    required this.expanded,
-    required this.statuses,
-    required this.payments,
-    required this.resultCount,
-    required this.onToggle,
-    required this.onSearch,
-    required this.onStatus,
-    required this.onPayment,
-    required this.onFrom,
-    required this.onTo,
-    required this.onReset,
-  });
-
-  final TextEditingController search;
-  final String? status;
-  final String? payment;
-  final DateTime? from;
-  final DateTime? to;
-  final bool showPayment;
-  final bool expanded;
-  final List<(String?, String)> statuses;
-  final List<(String?, String)> payments;
-  final int resultCount;
-  final VoidCallback onToggle;
-  final ValueChanged<String> onSearch;
-  final ValueChanged<String?> onStatus;
-  final ValueChanged<String?> onPayment;
-  final ValueChanged<DateTime?> onFrom;
-  final ValueChanged<DateTime?> onTo;
-  final VoidCallback onReset;
-
-  static const _fieldPad = EdgeInsets.symmetric(horizontal: 10, vertical: 6);
-
-  int get _activeCount {
-    var count = 0;
-    if (status != null) count++;
-    if (payment != null) count++;
-    if (from != null) count++;
-    if (to != null) count++;
-    return count;
-  }
-
-  bool _useSheet(BuildContext context) => MediaQuery.sizeOf(context).width < 720;
-
-  Future<void> _openSheet(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) {
-        var localStatus = status;
-        var localPayment = payment;
-        var localFrom = from;
-        var localTo = to;
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + MediaQuery.paddingOf(sheetContext).bottom),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.border,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Text('Filtres', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () {
-                          onReset();
-                          Navigator.pop(sheetContext);
-                        },
-                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                        child: const Text('Réinitialiser'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final columns = constraints.maxWidth >= 340 ? 2 : 1;
-                      const gap = 6.0;
-                      final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-                      final fields = <Widget>[
-                        _dateField(context, 'Du', localFrom, (value) {
-                          localFrom = value;
-                          onFrom(value);
-                          setSheetState(() {});
-                        }),
-                        _dateField(context, 'Au', localTo, (value) {
-                          localTo = value;
-                          onTo(value);
-                          setSheetState(() {});
-                        }),
-                        _menu('Statut', localStatus, statuses, (value) {
-                          localStatus = value;
-                          onStatus(value);
-                          setSheetState(() {});
-                        }),
-                        if (showPayment)
-                          _menu('Paiement', localPayment, payments, (value) {
-                            localPayment = value;
-                            onPayment(value);
-                            setSheetState(() {});
-                          }),
-                      ];
-                      return Wrap(
-                        spacing: gap,
-                        runSpacing: gap,
-                        children: [
-                          for (final field in fields)
-                            SizedBox(width: columns == 1 ? constraints.maxWidth : width, child: field),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(sheetContext),
-                    child: const Text('Appliquer'),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final sheet = _useSheet(context);
-    final active = _activeCount > 0;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 34,
-                  child: TextField(
-                    controller: search,
-                    onChanged: onSearch,
-                    style: GoogleFonts.ibmPlexSans(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher…',
-                      prefixIcon: const Icon(Icons.search, size: 16),
-                      isDense: true,
-                      contentPadding: _fieldPad,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppColors.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: AppColors.border),
-                      ),
-                      filled: true,
-                      fillColor: AppColors.fieldFill,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Material(
-                color: (!sheet && expanded) || active ? AppColors.brand50 : AppColors.fieldFill,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () {
-                    if (sheet) {
-                      _openSheet(context);
-                    } else {
-                      onToggle();
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    height: 34,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: (!sheet && expanded) || active ? AppColors.brand200 : AppColors.border,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.tune, size: 15, color: AppColors.brand700),
-                        if (active) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_activeCount',
-                            style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brand700),
-                          ),
-                        ],
-                        if (!sheet) ...[
-                          const SizedBox(width: 2),
-                          Icon(
-                            expanded ? Icons.expand_less : Icons.expand_more,
-                            size: 16,
-                            color: AppColors.textMuted,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '$resultCount',
-                style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          if (!sheet && expanded) ...[
-            const SizedBox(height: 6),
-            _fieldsGrid(context, forceTwoColumns: false),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: onReset,
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                  minimumSize: const Size(0, 28),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('Réinitialiser'),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _fieldsGrid(BuildContext context, {required bool forceTwoColumns}) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = forceTwoColumns || constraints.maxWidth < 900
-            ? (constraints.maxWidth >= 340 ? 2 : 1)
-            : 4;
-        final gap = 6.0;
-        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-        final fields = <Widget>[
-          _dateField(context, 'Du', from, onFrom),
-          _dateField(context, 'Au', to, onTo),
-          _menu('Statut', status, statuses, onStatus),
-          if (showPayment) _menu('Paiement', payment, payments, onPayment),
-        ];
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final field in fields) SizedBox(width: columns == 1 ? constraints.maxWidth : width, child: field),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _menu(String label, String? value, List<(String?, String)> options, ValueChanged<String?> onChanged) {
-    final current = options.any((item) => item.$1 == value) ? (value ?? '') : '';
-    return DropdownButtonFormField<String>(
-      key: ValueKey('$label-$current'),
-      initialValue: current,
-      isExpanded: true,
-      decoration: InputDecoration(
-        hintText: label,
-        isDense: true,
-        contentPadding: _fieldPad,
-        floatingLabelBehavior: FloatingLabelBehavior.never,
-      ),
-      selectedItemBuilder: (context) => [
-        for (final option in options)
-          Text(
-            option.$1 == null || option.$1!.isEmpty ? label : option.$2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textPrimary),
-          ),
-      ],
-      items: [
-        for (final option in options)
-          DropdownMenuItem(
-            value: option.$1 ?? '',
-            child: Text(option.$2, overflow: TextOverflow.ellipsis, style: GoogleFonts.ibmPlexSans(fontSize: 12)),
-          ),
-      ],
-      onChanged: (picked) => onChanged(picked == null || picked.isEmpty ? null : picked),
-    );
-  }
-
-  Widget _dateField(BuildContext context, String label, DateTime? value, ValueChanged<DateTime?> onChanged) {
-    final text = value == null ? label : DateFormat('dd/MM/yy').format(value);
-    return InkWell(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: DateTime(2020),
-          lastDate: DateTime.now().add(const Duration(days: 365)),
-        );
-        if (picked != null) onChanged(picked);
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding: _fieldPad,
-          suffixIcon: value == null
-              ? const Icon(Icons.calendar_today_outlined, size: 14)
-              : IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                  onPressed: () => onChanged(null),
-                  icon: const Icon(Icons.close, size: 14),
-                ),
-        ),
-        child: Text(
-          text,
-          style: GoogleFonts.ibmPlexSans(
-            fontSize: 12,
-            color: value == null ? AppColors.textMuted : AppColors.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 ReceiptPrintPayload? _receiptPayload(dynamic result) {
   if (result is ReceiptPrintPayload) return result;

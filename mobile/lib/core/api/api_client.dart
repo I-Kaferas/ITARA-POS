@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import '../../features/auth/data/pin_auth_service.dart';
 import '../config/app_config.dart';
 import '../config/terminal_config_repository.dart';
+import '../i18n/app_locale.dart';
+import '../text/text_encoding.dart';
 
 class ApiClient {
   ApiClient({
@@ -148,9 +150,10 @@ class ApiClient {
   }
 
   Map<String, dynamic> _decode(http.Response response) {
-    final body = response.body.isNotEmpty
-        ? jsonDecode(response.body) as Map<String, dynamic>
-        : <String, dynamic>{};
+    final raw = response.bodyBytes.isEmpty ? '' : decodeText(response.bodyBytes);
+    final body = raw.trim().isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(raw) as Map<String, dynamic>;
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
@@ -172,8 +175,8 @@ class ApiClient {
       }
     }
 
-    var message = body['message'] as String? ??
-        'HTTP ${response.statusCode}: ${response.reasonPhrase}';
+    var message = humanizeApiCode(body['message'] as String? ??
+        'HTTP ${response.statusCode}: ${response.reasonPhrase}');
     if (response.statusCode == 401) {
       message =
           'Session expirée ou token invalide. Copiez un token frais depuis Paramètres (accès + rafraîchissement) et utilisez l’URL http://127.0.0.1:8001/api/v1.';

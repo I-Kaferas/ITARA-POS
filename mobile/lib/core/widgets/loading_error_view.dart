@@ -33,10 +33,12 @@ class LoadingView extends StatelessWidget {
           SizedBox(
             width: 28,
             height: 28,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: AppColors.brand500,
-            ),
+            child: AppMotion.reduceMotion(context)
+                ? const Icon(Icons.hourglass_top_rounded, color: AppColors.brand500)
+                : CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.brand500,
+                  ),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(message, style: AppTypography.subtitle()),
@@ -96,52 +98,61 @@ class ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppFadeIn(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 380),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: AppColors.dangerBg,
-                    borderRadius: AppRadius.borderXl,
-                    border: Border.all(color: AppColors.border),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final body = Padding(
+            padding: const EdgeInsets.all(AppSpacing.xxl),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppColors.dangerBg,
+                      borderRadius: AppRadius.borderXl,
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Icon(
+                      Icons.error_outline_rounded,
+                      color: AppColors.danger,
+                      size: 32,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.error_outline_rounded,
-                    color: AppColors.danger,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.sectionTitle(),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.body(color: AppColors.textSecondary),
-                ),
-                if (onRetry != null) ...[
                   const SizedBox(height: AppSpacing.lg),
-                  AppButton.primary(
-                    label: retryLabel,
-                    icon: Icons.refresh_rounded,
-                    onPressed: onRetry,
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.sectionTitle(),
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.body(color: AppColors.textSecondary),
+                  ),
+                  if (onRetry != null) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    AppButton.primary(
+                      label: retryLabel,
+                      icon: Icons.refresh_rounded,
+                      onPressed: onRetry,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+          if (!constraints.hasBoundedHeight) return Center(child: body);
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(child: body),
+            ),
+          );
+        },
       ),
     );
   }

@@ -3,11 +3,20 @@ import { isRecord } from './policy'
 
 export type DeskDoc = Record<string, unknown>
 
+function scopePrefix(): string {
+  if (typeof localStorage === 'undefined') return '_:_'
+  return `${localStorage.getItem('pos_tenant_id') ?? '_'}:${localStorage.getItem('pos_store_id') ?? '_'}`
+}
+
+export function hospitalityLatestKey(): string {
+  return `hospitality:latest:${scopePrefix()}`
+}
+
 export async function rememberHospitality(path: string, body: unknown): Promise<void> {
   await saveSnapshot(cacheKey(path), body)
   const docs = extractDocs(body)
   if (!docs) return
-  const current = extractDocs(await readSnapshot<unknown>('hospitality:latest')) ?? []
+  const current = extractDocs(await readSnapshot<unknown>(hospitalityLatestKey())) ?? []
   const merged = new Map<string, DeskDoc>()
   for (const doc of current) {
     const id = typeof doc.id === 'string' ? doc.id : ''
@@ -17,15 +26,15 @@ export async function rememberHospitality(path: string, body: unknown): Promise<
     const id = typeof doc.id === 'string' ? doc.id : ''
     if (id) merged.set(id, doc)
   }
-  await saveSnapshot('hospitality:latest', { data: { docs: [...merged.values()] } })
+  await saveSnapshot(hospitalityLatestKey(), { data: { docs: [...merged.values()] } })
 }
 
 export async function hospitalityDocs(): Promise<DeskDoc[]> {
-  return extractDocs(await readSnapshot<unknown>('hospitality:latest')) ?? []
+  return extractDocs(await readSnapshot<unknown>(hospitalityLatestKey())) ?? []
 }
 
 export function cacheKey(path: string): string {
-  return `read:${path}`
+  return `read:${scopePrefix()}:${path}`
 }
 
 export function extractDocs(body: unknown): DeskDoc[] | null {

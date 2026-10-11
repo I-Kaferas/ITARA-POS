@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/navigation/app_routes.dart';
+import '../../../core/i18n/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_controller.dart';
 import 'master_setup_wizard.dart';
@@ -67,6 +68,8 @@ class _WelcomePane extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: ThemeModeButton(),
           ),
+          const SizedBox(height: 12),
+          const LanguagePicker(),
           const Spacer(),
           Container(
             width: 64,
@@ -76,11 +79,11 @@ class _WelcomePane extends StatelessWidget {
               color: AppColors.brand50,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(Icons.point_of_sale, color: AppColors.brand700, size: 32),
+            child: Icon(Icons.point_of_sale, color: AppColors.brandInk, size: 32),
           ),
           const SizedBox(height: 20),
           Text(
-            'Welcome to ITARA POS',
+            AppCopy.get('welcomeTitle'),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 28,
               fontWeight: FontWeight.w700,
@@ -90,7 +93,7 @@ class _WelcomePane extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Configurez ce terminal comme Master local du commerce, ou connectez-le à un Master existant.',
+            AppCopy.get('welcomeBody'),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 15,
               color: AppColors.textSecondary,
@@ -103,7 +106,7 @@ class _WelcomePane extends StatelessWidget {
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
-            child: const Text('CREATE MASTER'),
+            child: Text(AppCopy.get('createMaster')),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
@@ -111,11 +114,11 @@ class _WelcomePane extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
             ),
-            child: const Text('CONNECT TO MASTER'),
+            child: Text(AppCopy.get('connectMaster')),
           ),
           const Spacer(flex: 2),
           Text(
-            'Offline-first · Master / Slave · Réseau local',
+            AppCopy.get('welcomeFoot'),
             textAlign: TextAlign.center,
             style: GoogleFonts.ibmPlexSans(
               fontSize: 12,

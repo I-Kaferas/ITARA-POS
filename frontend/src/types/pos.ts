@@ -155,4 +155,5 @@ export interface PosPaymentLine {
   tendered?: number
   /** Tender currency when different from the sale/cart currency */
   currency?: string
+  metadata?: Record<string, string | number | boolean | null>
 }

@@ -92,6 +92,8 @@ function readCache(): TenantBranding | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as { at: number; data: TenantBranding }
     if (Date.now() - parsed.at > CACHE_TTL_MS) return null
+    const sessionTenant = localStorage.getItem('pos_tenant_id')
+    if (sessionTenant && parsed.data?.tenant_id && parsed.data.tenant_id !== sessionTenant) return null
     return parsed.data
   } catch {
     return null
@@ -120,9 +122,6 @@ export const useBrandingStore = defineStore('branding', () => {
       if (!response.ok) throw new Error(response.status === 404 ? 'Tenant introuvable' : 'Erreur branding')
       const body = await response.json()
       branding.value = body.data as TenantBranding
-      if (branding.value.tenant_id && !localStorage.getItem('pos_token')) {
-        localStorage.setItem('pos_tenant_id', branding.value.tenant_id)
-      }
       applyCss(branding.value)
       writeCache(branding.value)
       return branding.value
@@ -134,8 +133,8 @@ export const useBrandingStore = defineStore('branding', () => {
     }
   }
 
-  async function loadCurrent() {
-    if (branding.value) {
+  async function loadCurrent(force = false) {
+    if (branding.value && !force) {
       applyCss(branding.value)
       return branding.value
     }

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
-import '../theme/app_radius.dart';
-import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 
 enum AppButtonVariant { primary, secondary, ghost, danger, accent }
@@ -84,7 +82,10 @@ class AppButton extends StatelessWidget {
       AppButtonSize.md => AppSpacing.lg,
       AppButtonSize.lg => AppSpacing.xl,
     };
-    final (bg, fg, border) = _colors(enabled);
+    final (bg, fg, border) = _colors();
+    final shadow = enabled && (variant == AppButtonVariant.primary || variant == AppButtonVariant.danger)
+        ? const [BoxShadow(color: Color(0x240F1F34), blurRadius: 1, offset: Offset(0, 1))]
+        : null;
 
     final child = AnimatedContainer(
       duration: AppMotion.fast,
@@ -95,6 +96,7 @@ class AppButton extends StatelessWidget {
         color: bg,
         borderRadius: AppRadius.borderMd,
         border: border != null ? Border.all(color: border) : null,
+        boxShadow: shadow,
       ),
       child: Row(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
@@ -119,7 +121,7 @@ class AppButton extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.button(color: fg),
+                style: AppTypography.button(color: fg).copyWith(fontWeight: FontWeight.w500),
               ),
             ),
           ],
@@ -127,30 +129,26 @@ class AppButton extends StatelessWidget {
       ),
     );
 
-    return AppTapScale(
+    final button = AppTapScale(
       enabled: enabled,
+      scale: 0.98,
+      haptic: variant == AppButtonVariant.primary || variant == AppButtonVariant.danger,
       onTap: enabled ? onPressed : null,
       child: expanded ? SizedBox(width: double.infinity, child: child) : child,
     );
+    return Opacity(opacity: enabled ? 1 : 0.5, child: button);
   }
 
-  (Color, Color, Color?) _colors(bool enabled) {
-    if (!enabled) {
-      return (
-        AppColors.brand50,
-        AppColors.textMuted,
-        AppColors.border,
-      );
-    }
+  (Color, Color, Color?) _colors() {
     return switch (variant) {
-      AppButtonVariant.primary => (AppColors.brand600, Colors.white, null),
+      AppButtonVariant.primary => (AppColors.brand700, Colors.white, null),
       AppButtonVariant.accent => (AppColors.accent, AppColors.brand900, null),
       AppButtonVariant.secondary => (
           AppColors.surface,
-          AppColors.brand700,
+          AppColors.textSecondary,
           AppColors.borderStrong,
         ),
-      AppButtonVariant.ghost => (Colors.transparent, AppColors.brand700, null),
+      AppButtonVariant.ghost => (Colors.transparent, AppColors.brandInk, null),
       AppButtonVariant.danger => (AppColors.danger, Colors.white, null),
     };
   }

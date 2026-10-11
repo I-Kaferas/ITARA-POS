@@ -66,4 +66,44 @@ class TenantContext
             }
         }
     }
+
+    /**
+     * Run work as one tenant, then put back the context that was already bound.
+     * A worker that still holds another tenant is switched, not reused.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn|null
+     */
+    public function runAs(?string $tenantId, callable $callback)
+    {
+        if ($tenantId === null || $tenantId === '') {
+            return null;
+        }
+
+        $previous = $this->tenant();
+        $changed = $this->id() !== $tenantId;
+
+        if ($changed) {
+            $tenant = Tenant::query()->find($tenantId);
+            if ($tenant === null) {
+                return null;
+            }
+
+            $this->bind($tenant);
+        }
+
+        try {
+            return $callback();
+        } finally {
+            if ($changed) {
+                if ($previous !== null) {
+                    $this->bind($previous);
+                } else {
+                    $this->clear();
+                }
+            }
+        }
+    }
 }

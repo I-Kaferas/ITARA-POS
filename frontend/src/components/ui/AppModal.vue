@@ -68,8 +68,8 @@ let held = false
 const isDrawer = computed(() => {
   if (props.presentation === 'drawer') return true
   if (props.presentation === 'dialog') return false
-  const admin = route.path.startsWith('/admin') && !route.path.startsWith('/admin/pos')
-  if (!admin || props.size === 'sm' || props.size === 'md' || props.size === 'lg') return false
+  if (!route.path.startsWith('/admin')) return false
+  if (route.name === 'pos') return false
   return true
 })
 

@@ -15,7 +15,7 @@ class BrandingService {
     final response = await http.get(uri, headers: {'Accept': 'application/json'});
 
     if (response.statusCode == 404) {
-      throw Exception('Tenant introuvable pour ce slug');
+      throw Exception('Tenant introuvable pour le slug « ${slug.trim().toLowerCase()} ».');
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('Impossible de charger la marque (${response.statusCode})');

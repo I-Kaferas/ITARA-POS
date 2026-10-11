@@ -294,7 +294,7 @@ async function openPreview(id: string) {
   showPreview.value = true
 }
 
-async function savePreview() {
+async function savePreview(closeAfter = true) {
   if (!preview.value || !previewEditable.value) return
   saving.value = true
   try {
@@ -304,6 +304,7 @@ async function savePreview() {
     )
     previewItems.value = mapPreviewItems(preview.value)
     await store.loadInventoryCounts()
+    if (closeAfter) showPreview.value = false
   } finally {
     saving.value = false
   }
@@ -330,11 +331,12 @@ async function confirmFromPreview() {
   if (!(await askStep('confirm'))) return
   saving.value = true
   try {
-    await savePreview()
+    await savePreview(false)
     await store.confirmInventoryCount(preview.value.id)
     preview.value = await store.loadInventoryCount(preview.value.id)
     previewItems.value = mapPreviewItems(preview.value)
     await store.loadInventoryCounts()
+    showPreview.value = false
   } catch (error) {
     await notify(extractApiErrorMessage(error))
   } finally {
@@ -353,8 +355,7 @@ async function completeFromPreview() {
   saving.value = true
   try {
     await complete(preview.value.id)
-    preview.value = await store.loadInventoryCount(preview.value.id)
-    previewItems.value = mapPreviewItems(preview.value)
+    showPreview.value = false
   } catch (error) {
     await notify(extractApiErrorMessage(error))
   } finally {

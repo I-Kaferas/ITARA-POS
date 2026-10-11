@@ -10,6 +10,7 @@ enum PaymentProviderType: string
     case BankTransfer = 'bank_transfer';
     case Credit = 'credit';
     case Wallet = 'wallet';
+    case Room = 'room';
 
     public static function forMethod(SalePaymentMethod $method): self
     {

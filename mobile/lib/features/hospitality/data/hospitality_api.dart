@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../sync/local_master_server.dart';
+import '../../../sync/local_realtime.dart';
 import 'hospitality_store.dart';
 
 class HospitalityApi {
@@ -49,6 +50,29 @@ class HospitalityApi {
       }
     }
     if (action['action'] == 'snapshot') return HospitalityStore.instance.snapshot();
-    return HospitalityStore.instance.apply(action);
+    final data = await HospitalityStore.instance.apply(action);
+    _publish(action);
+    return data;
+  }
+
+  /// Master applies hospitality locally (no HTTP hop). Wake Kitchen Display anyway.
+  void _publish(Map<String, dynamic> action) {
+    final name = action['action']?.toString() ?? '';
+    if (name.isEmpty || name == 'snapshot') return;
+    final ticketStatus = action['status']?.toString().toLowerCase();
+    final eventType = switch (name) {
+      'send_course' => RealtimeEventType.kitchenOrderCreated,
+      'set_ticket_status' when ticketStatus == 'ready' => RealtimeEventType.kitchenOrderReady,
+      'set_ticket_status' => RealtimeEventType.orderUpdated,
+      'open_order' => RealtimeEventType.orderCreated,
+      'transfer_table' || 'merge_orders' || 'set_status' => RealtimeEventType.tableUpdated,
+      'add_line' || 'split_lines' => RealtimeEventType.orderUpdated,
+      'pay_check' => RealtimeEventType.paymentReceived,
+      _ => RealtimeEventType.orderUpdated,
+    };
+    LocalRealtimeHub.instance.publish(RealtimeEvent(
+      type: eventType,
+      payload: {'action': name, 'status': ?ticketStatus},
+    ));
   }
 }

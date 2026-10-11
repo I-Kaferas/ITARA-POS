@@ -9,6 +9,7 @@ import '../../../core/branding/branding_service.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../core/i18n/app_locale.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_controller.dart';
@@ -17,6 +18,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../auth/data/pin_auth_service.dart';
+import '../../auth/presentation/logout_profile_dialog.dart';
 import '../../backup/presentation/backup_screen.dart';
 import '../../printers/presentation/printer_routing_screen.dart';
 import '../../devices/presentation/bloc/master_discovery_bloc.dart';
@@ -49,13 +51,13 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     final code = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Secure Pairing — ${master.name}'),
+        title: Text('Secure Pairing â€” ${master.name}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'La découverte ne suffit pas. Saisissez le code à 6 chiffres '
+              'La dÃ©couverte ne suffit pas. Saisissez le code Ã  6 chiffres '
               'du Master, puis attendez ACCEPT.',
               style: GoogleFonts.ibmPlexSans(fontSize: 13),
             ),
@@ -76,7 +78,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, codeCtrl.text.trim()),
-            child: const Text('Demander l\'accès'),
+            child: const Text('Demander l\'accÃ©s'),
           ),
         ],
       ),
@@ -94,7 +96,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
             SizedBox(width: 16),
             Expanded(
               child: Text(
-                'Authorization… en attente ACCEPT sur le Master.',
+                'Authorizationâ€¦ en attente ACCEPT sur le Master.',
               ),
             ),
           ],
@@ -121,7 +123,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     }
     applyMasterHost('${master.host}:${master.port}');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Appareil enregistré — appairage réussi.')),
+      const SnackBar(content: Text('Appareil enregistrÃ© â€” appairage rÃ©ussi.')),
     );
   }
 
@@ -149,13 +151,14 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   String? _message;
   bool _messageOk = false;
   int _section = 0;
+  String _boundAuthToken = '';
 
-  static const _sections = <_Section>[
-    _Section(icon: Icons.memory_outlined, label: 'Terminal', caption: 'Identité et mode'),
-    _Section(icon: Icons.storefront_outlined, label: 'Magasin', caption: 'Identifiants'),
-    _Section(icon: Icons.lan_outlined, label: 'Connexion', caption: 'Serveurs, token, impression'),
-    _Section(icon: Icons.print_outlined, label: 'Impression', caption: 'Ticket réseau'),
-    _Section(icon: Icons.tune_outlined, label: 'Paramètres', caption: 'Configurations'),
+  List<_Section> get _sections => [
+    _Section(icon: Icons.memory_outlined, label: AppCopy.get('secTerminal'), caption: AppCopy.get('secTerminalHint')),
+    _Section(icon: Icons.storefront_outlined, label: AppCopy.get('secStore'), caption: AppCopy.get('secStoreHint')),
+    _Section(icon: Icons.lan_outlined, label: AppCopy.get('secLink'), caption: AppCopy.get('secLinkHint')),
+    _Section(icon: Icons.print_outlined, label: AppCopy.get('secPrint'), caption: AppCopy.get('secPrintHint')),
+    _Section(icon: Icons.tune_outlined, label: AppCopy.get('secParams'), caption: AppCopy.get('secParamsHint')),
   ];
 
   @override
@@ -179,10 +182,40 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     _printerModel = config.printerModel;
     _printerConnection = PrinterConnectionType.fromString(config.printerConnection);
     _printerName = config.printerName;
+    _boundAuthToken = config.authToken;
+    _repo.addListener(_onRepoChanged);
+    if (_role == PosRole.slave) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _searchMasters());
+    }
+  }
+
+  void _selectRole(PosRole role) {
+    setState(() => _role = role);
+    if (role == PosRole.slave) _searchMasters();
+  }
+
+  void _searchMasters() {
+    if (!mounted) return;
+    context.read<MasterDiscoveryBloc>().add(const MasterDiscoverySearchRequested());
+  }
+
+  void _onRepoChanged() {
+    if (!mounted) return;
+    final config = _repo.config;
+    if (config.authToken == _boundAuthToken) return;
+    _boundAuthToken = config.authToken;
+    _tokenCtrl.text = config.authToken;
+    _tenantCtrl.text = config.tenantId;
+    _slugCtrl.text = config.tenantSlug;
+    if (_storeCtrl.text.trim().isEmpty) {
+      _storeCtrl.text = config.storeId;
+    }
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _repo.removeListener(_onRepoChanged);
     _apiUrlCtrl.dispose();
     _internalUrlCtrl.dispose();
     _tokenCtrl.dispose();
@@ -220,6 +253,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           slug: slug,
           apiBaseUrl: _apiUrlCtrl.text.trim(),
         );
+        final signedInTenant = current.tenantId.trim();
+        final superAdmin = current.roles.contains('super_admin');
+        if (!superAdmin && signedInTenant.isNotEmpty && branding.tenantId != signedInTenant) {
+          throw Exception(AppCopy.get('tenantMismatch'));
+        }
         tenantId = branding.tenantId;
         _tenantCtrl.text = tenantId;
         brandName = branding.brandName;
@@ -269,13 +307,13 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
       await _repo.save(_repo.config.copyWith(deviceId: device.id));
 
       setState(() {
-        _message = 'Réglages enregistrés';
+        _message = AppCopy.get('saved');
         _messageOk = true;
         _saving = false;
       });
     } catch (e) {
       setState(() {
-        _message = e.toString().replaceFirst('Exception: ', '');
+        _message = humanizeApiCode(e.toString().replaceFirst('Exception: ', ''));
         _messageOk = false;
         _saving = false;
       });
@@ -283,19 +321,8 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   }
 
   Future<void> _logout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Se déconnecter ?'),
-        content: const Text('Le caissier sera déconnecté. Le terminal reste configuré.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Déconnexion')),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
+    final confirmed = await showLogoutProfileDialog(context);
+    if (!confirmed || !mounted) return;
     await PinAuthService.signOut();
   }
 
@@ -303,14 +330,14 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reconfigurer le terminal ?'),
-        content: const Text('Les identifiants locaux seront effacés. Le terminal devra être configuré à nouveau.'),
+        title: Text(AppCopy.get('resetTitle')),
+        content: Text(AppCopy.get('resetBody')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppCopy.get('cancel'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continuer'),
+            child: Text(AppCopy.get('continue')),
           ),
         ],
       ),
@@ -419,9 +446,9 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   Widget _terminalSection(TerminalConfig config) {
     final wide = MediaQuery.sizeOf(context).width >= PosUi.tabletBreakpoint;
     final tiles = [
-      _Fact(label: 'Caissier', value: config.cashierName.isEmpty ? 'Non connecté' : config.cashierName),
-      _Fact(label: 'Identifiant', value: config.deviceIdentifier.isEmpty ? '—' : config.deviceIdentifier),
-      _Fact(label: 'Device ID', value: config.deviceId.isEmpty ? 'Non enregistré' : config.deviceId),
+      _Fact(label: 'Caissier', value: config.cashierName.isEmpty ? 'Non connectÃ©' : config.cashierName),
+      _Fact(label: 'Identifiant', value: config.deviceIdentifier.isEmpty ? 'â€”' : config.deviceIdentifier),
+      _Fact(label: 'Device ID', value: config.deviceId.isEmpty ? 'Non enregistrÃ©' : config.deviceId),
       _Fact(label: 'Plateforme', value: _platformLabel()),
       _Fact(label: 'Version', value: AppConfig.appVersion),
     ];
@@ -447,7 +474,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         Text('Mode du terminal', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text(
-          'Choisissez comment ce poste se comporte sur le réseau du magasin.',
+          'Choisissez comment ce poste se comporte sur le rÃ©seau du magasin.',
           style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
@@ -461,7 +488,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                   child: _RoleCard(
                     role: PosRole.values[i],
                     selected: _role == PosRole.values[i],
-                    onTap: () => setState(() => _role = PosRole.values[i]),
+                    onTap: () => _selectRole(PosRole.values[i]),
                   ),
                 ),
               ],
@@ -474,10 +501,39 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
               child: _RoleCard(
                 role: role,
                 selected: _role == role,
-                onTap: () => setState(() => _role = role),
+                onTap: () => _selectRole(role),
               ),
             ),
           ),
+        if (_role == PosRole.slave) ...[
+          const SizedBox(height: 18),
+          Text('DÃ©couverte automatique', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+            'Les Masters du rÃ©seau local apparaissent ici. Touchez-en un pour lâ€™appairer.',
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          const _DiscoveredMasters(),
+        ],
+        if (_role == PosRole.master) ...[
+          const SizedBox(height: 18),
+          Text('Annonce sur le rÃ©seau', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+            'Ce poste se fait dÃ©couvrir par les Esclaves. Enregistrez le mode Master pour lancer lâ€™annonce.',
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          const _LocalMasterStatus(),
+        ],
+        if (_role == PosRole.standalone) ...[
+          const SizedBox(height: 12),
+          Text(
+            'En mode Autonome, cette caisse ne cherche pas de Master. Passez en Esclave pour lancer la dÃ©couverte.',
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+          ),
+        ],
         const SizedBox(height: 16),
         Align(
           alignment: Alignment.centerLeft,
@@ -493,27 +549,30 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
 
   Widget _settingsHub() {
     final items = <(String, String, VoidCallback)>[
-      ('Entreprise', 'Identité du magasin', () => setState(() => _section = 1)),
+      (AppCopy.get('createMaster'), AppCopy.get('connectMaster'), () => context.go(AppRoutes.setup)),
+      ('Entreprise', 'IdentitÃ© du magasin', () => setState(() => _section = 1)),
       ('Magasin', 'Identifiants', () => setState(() => _section = 1)),
       ('POS', 'Mode du terminal', () => setState(() => _section = 0)),
-      ('Taxes', 'Appliquées par le catalogue', () => setState(() => _section = 1)),
+      ('Taxes', 'AppliquÃ©es par le catalogue', () => setState(() => _section = 1)),
       ('Devise', configCurrency(), () => setState(() => _section = 1)),
       ('Impression', 'Ticket', () => setState(() => _section = 3)),
-      ('Routage imprimantes', 'Catégorie / Produit / Document ? imprimante', () {
+      ('Routage imprimantes', 'CatÃ©gorie / Produit / Document ? imprimante', () {
         Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const PrinterRoutingScreen()),
         );
       }),
       ('Stock', 'Mouvements du terminal', () => context.go(AppRoutes.reports)),
-      ('Sync', 'File et maître local', () => context.go(AppRoutes.sync)),
+      ('Sync', 'File et maÃ®tre local', () => context.go(AppRoutes.sync)),
       ('Sauvegardes', 'SQLite, sync, configuration, cloud', () {
         Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen()));
       }),
       ('Restaurant', 'Tables et cuisine', () => context.go(AppRoutes.hospitality)),
-      ('Hôtel', 'Chambres et folios', () => context.go(AppRoutes.hospitality)),
+      ('HÃ´tel', 'Chambres et folios', () => context.go(AppRoutes.hospitality)),
     ];
     return Column(
       children: [
+        const LanguagePicker(),
+        const SizedBox(height: 16),
         for (final item in items)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -522,9 +581,9 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(color: AppColors.border),
               ),
-              title: Text(item.$1),
-              subtitle: Text(item.$2),
-              trailing: const Icon(Icons.chevron_right),
+              title: Text(item.$1, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              subtitle: Text(item.$2, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
+              trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
               onTap: item.$3,
             ),
           ),
@@ -544,7 +603,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            'À l'enregistrement, le slug charge la marque et remplit le Tenant ID.',
+            "Ã€ l'enregistrement, le slug charge la marque et remplit le Tenant ID.",
             style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
           ),
         ),
@@ -552,6 +611,14 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         _field(_tenantCtrl, 'Tenant ID', icon: Icons.apartment_outlined),
         const SizedBox(height: 12),
         _field(_storeCtrl, 'Store ID', icon: Icons.store_outlined),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Identifiant du magasin, diffÃ©rent du Tenant ID du commerce.',
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+          ),
+        ),
         const SizedBox(height: 12),
         _field(_currencyCtrl, 'Devise', icon: Icons.payments_outlined, hint: 'FBU'),
       ],
@@ -571,7 +638,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Utilisé en priorité. Le cloud sert de secours si le réseau local ne répond pas.',
+          'UtilisÃ© en prioritÃ©. Le cloud sert de secours si le rÃ©seau local ne rÃ©pond pas.',
           style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
@@ -579,7 +646,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         const SizedBox(height: 12),
         _field(
           _tokenCtrl,
-          'Token d\'accès',
+          'Token d\'accÃ©s',
           icon: Icons.key_outlined,
           obscure: !_showToken,
           suffix: IconButton(
@@ -594,10 +661,10 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           const _DiscoveredMasters(),
         ],
         const SizedBox(height: 22),
-        Text('Réglage impression', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
+        Text('RÃ©glage impression', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Text(
-          'Modèle, connexion et ticket, configurés avec le terminal.',
+          'ModÃ¨le, connexion et ticket, configurÃ©s avec le terminal.',
           style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
@@ -618,7 +685,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     final printers = await Printing.listPrinters();
     if (!mounted) return;
     if (printers.isEmpty) {
-      setState(() => _message = 'Aucune imprimante système détectée');
+      setState(() => _message = 'Aucune imprimante systÃ¨me dÃ©tectÃ©e');
       _messageOk = false;
       return;
     }
@@ -673,7 +740,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
       final bytes = await doc.save();
       if (_printerConnection.isNetwork) {
         final host = _printerHostCtrl.text.trim();
-        if (host.isEmpty) throw Exception('Saisissez l'adresse de l'imprimante');
+        if (host.isEmpty) throw Exception("Saisissez l'adresse de l'imprimante");
         final port = int.tryParse(_printerPortCtrl.text.trim()) ?? 9100;
         await Printing.directPrintPdf(
           printer: Printer(url: 'socket://$host:$port', name: model.label),
@@ -689,7 +756,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
       }
       if (!mounted) return;
       setState(() {
-        _message = 'Ticket de test envoyé';
+        _message = 'Ticket de test envoyÃ©';
         _messageOk = true;
       });
     } catch (error) {
@@ -711,9 +778,9 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: _printerEnabled ? AppColors.successBg : const Color(0xFFF8FAFB),
+            color: _printerEnabled ? AppColors.successBg : AppColors.fieldFill,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _printerEnabled ? const Color(0xFFA7F3D0) : AppColors.border),
+            border: Border.all(color: _printerEnabled ? AppColors.success.withValues(alpha: 0.45) : AppColors.border),
           ),
           child: Row(
             children: [
@@ -727,11 +794,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _printerEnabled ? 'Impression activée' : 'Impression désactivée',
-                      style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13),
+                      _printerEnabled ? 'Impression activÃ©e' : 'Impression dÃ©sactivÃ©e',
+                      style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary),
                     ),
                     Text(
-                      '${model.brand} · ${model.label}',
+                      '${model.brand} Â· ${model.label}',
                       style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
@@ -745,14 +812,14 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        Text('Modèle', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text('ModÃ¨le', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         ...PrinterModelPreset.all.map((item) {
           final selected = _printerModel == item.id;
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Material(
-              color: selected ? AppColors.brand50 : const Color(0xFFF8FAFB),
+              color: selected ? AppColors.brand50 : AppColors.fieldFill,
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: _printerEnabled ? () => _selectPrinterModel(item) : null,
@@ -768,16 +835,16 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                       Icon(
                         selected ? Icons.radio_button_checked : Icons.radio_button_off,
                         size: 18,
-                        color: selected ? AppColors.brand600 : AppColors.textMuted,
+                        color: selected ? AppColors.brandInk : AppColors.textMuted,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+                            Text(item.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary)),
                             Text(
-                              '${item.brand} · ${item.hint}',
+                              '${item.brand} Â· ${item.hint}',
                               style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary),
                             ),
                           ],
@@ -829,7 +896,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           OutlinedButton.icon(
             onPressed: _printerEnabled ? _pickSystemPrinter : null,
             icon: Icon(printerConnectionIcon(_printerConnection), size: 18),
-            label: Text(_printerName.isEmpty ? 'Choisir l''imprimante' : _printerName),
+            label: Text(_printerName.isEmpty ? "Choisir l'imprimante" : _printerName),
           ),
         ],
         const SizedBox(height: 12),
@@ -863,7 +930,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         labelText: label,
         hintText: hint,
         filled: true,
-        fillColor: enabled ? const Color(0xFFF8FAFB) : AppColors.brand50,
+        fillColor: enabled ? AppColors.fieldFill : AppColors.brand50,
         prefixIcon: icon == null ? null : Icon(icon, size: 18),
         suffixIcon: suffix,
         isDense: true,
@@ -904,6 +971,13 @@ class _Header extends StatelessWidget {
   final String platform;
   final bool compact;
 
+  String _tenantLine() {
+    final config = TerminalConfigRepository.instance.config;
+    final brand = config.brandName.trim().isEmpty ? AppCopy.get('tenantAccess') : config.brandName.trim();
+    final slug = config.tenantSlug.trim();
+    return slug.isEmpty ? brand : '$brand Â· $slug';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -920,7 +994,7 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Configuration',
+                  AppCopy.get('configTitle'),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: compact ? 20 : 24,
                     fontWeight: FontWeight.w800,
@@ -931,7 +1005,14 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$name · $platform · ${role.label}',
+                  _tenantLine(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.brandInk),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$name Â· $platform Â· ${role.label}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
@@ -964,7 +1045,7 @@ class _StatusPill extends StatelessWidget {
         ),
       ),
       child: Text(
-        configured ? 'Configuré' : 'Incomplet',
+        configured ? 'ConfigurÃ©' : 'Incomplet',
         style: GoogleFonts.ibmPlexSans(
           fontSize: 11,
           fontWeight: FontWeight.w700,
@@ -1040,7 +1121,7 @@ class _NavTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(section.icon, size: 18, color: selected ? AppColors.brand700 : AppColors.textMuted),
+            Icon(section.icon, size: 18, color: selected ? AppColors.brandInk : AppColors.textMuted),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -1195,17 +1276,17 @@ class _RoleCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(role.icon, size: 18, color: selected ? AppColors.brand700 : AppColors.textMuted),
+                  Icon(role.icon, size: 18, color: selected ? AppColors.brandInk : AppColors.textMuted),
                   const Spacer(),
                   Icon(
                     selected ? Icons.check_circle : Icons.circle_outlined,
                     size: 16,
-                    color: selected ? AppColors.brand600 : AppColors.textMuted,
+                    color: selected ? AppColors.brandInk : AppColors.textMuted,
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              Text(role.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+              Text(role.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary)),
               const SizedBox(height: 4),
               Text(
                 role.description,
@@ -1320,7 +1401,7 @@ class _Footer extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.save_outlined, size: 18),
-                    label: const Text('Enregistrer'),
+                    label: Text(AppCopy.get('save')),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1330,7 +1411,7 @@ class _Footer extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: saving ? null : onLogout,
                         icon: const Icon(Icons.logout, size: 18),
-                        label: const Text('Déconnexion'),
+                        label: Text(AppCopy.get('logout')),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1339,7 +1420,7 @@ class _Footer extends StatelessWidget {
                         onPressed: saving ? null : onReset,
                         style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                         icon: const Icon(Icons.restart_alt, size: 18),
-                        label: const Text('Reset'),
+                        label: Text(AppCopy.get('reconfigure')),
                       ),
                     ),
                   ],
@@ -1362,20 +1443,20 @@ class _Footer extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.save_outlined, size: 18),
-                  label: const Text('Enregistrer'),
+                  label: Text(AppCopy.get('save')),
                 ),
                 const SizedBox(width: 10),
                 OutlinedButton.icon(
                   onPressed: saving ? null : onLogout,
                   icon: const Icon(Icons.logout, size: 18),
-                  label: const Text('Déconnexion'),
+                  label: Text(AppCopy.get('logout')),
                 ),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: saving ? null : onReset,
                   style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                   icon: const Icon(Icons.restart_alt, size: 18),
-                  label: const Text('Reconfigurer'),
+                  label: Text(AppCopy.get('reconfigure')),
                 ),
               ],
             ),
@@ -1400,24 +1481,24 @@ class _LocalMasterStatus extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: ready ? const Color(0xFFECFDF3) : const Color(0xFFFFF7ED),
+            color: ready ? AppColors.successBg : AppColors.warningBg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: ready ? const Color(0xFF86EFAC) : const Color(0xFFFDBA74)),
+            border: Border.all(color: ready ? AppColors.success.withValues(alpha: 0.45) : AppColors.warning.withValues(alpha: 0.45)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                ready ? 'Serveur maître local actif' : 'Serveur maître local arrêté',
-                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13),
+                ready ? 'Serveur maÃ®tre local actif' : 'Serveur maÃ®tre local arrÃªtÃ©',
+                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 4),
               Text(
                 ready
-                    ? '$url — les autres caisses (Android ou Windows) se connectent ici, même sans Internet. Sous Windows, autorisez le port ${LocalMasterServer.port} (API) et ${LocalMasterDiscovery.beaconPort} (découverte) si le pare-feu le demande.'
+                    ? '$url â€” les autres caisses (Android ou Windows) se connectent ici, mÃªme sans Internet. Sous Windows, autorisez le port ${LocalMasterServer.port} (API) et ${LocalMasterDiscovery.beaconPort} (dÃ©couverte) si le pare-feu le demande.'
                     : server.listening
-                        ? "Écoute sur le port ${LocalMasterServer.port}, mais l'adresse IP locale est introuvable."
-                        : server.lastError ?? "Le terminal maître n'écoute pas encore sur le réseau local.",
+                        ? "Ã‰coute sur le port ${LocalMasterServer.port}, mais l'adresse IP locale est introuvable."
+                        : server.lastError ?? "Le terminal maÃ®tre n'Ã©coute pas encore sur le rÃ©seau local.",
                 style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
               ),
               if (ready) ...[

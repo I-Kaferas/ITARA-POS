@@ -3,11 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_cart_engine.dart';
-import 'pos_product_grid.dart';
 import 'pos_ui.dart';
 
 class PosCartPanel extends StatelessWidget {
@@ -18,6 +18,17 @@ class PosCartPanel extends StatelessWidget {
     required this.onDecrement,
     required this.onRemove,
     this.onLineDiscount,
+    this.onSearchCustomer,
+    this.showCheckout = false,
+    this.onHold,
+    this.onClear,
+    this.onPay,
+    this.onDiscount,
+    this.onNewSale,
+    this.onRetrieve,
+    this.onNote,
+    this.onLoyalty,
+    this.onSplit,
   });
 
   final PosCartEngine cart;
@@ -25,55 +36,119 @@ class PosCartPanel extends StatelessWidget {
   final ValueChanged<String> onDecrement;
   final ValueChanged<String> onRemove;
   final void Function(String lineId)? onLineDiscount;
+  final VoidCallback? onSearchCustomer;
+  final bool showCheckout;
+  final VoidCallback? onHold;
+  final VoidCallback? onClear;
+  final VoidCallback? onPay;
+  final VoidCallback? onDiscount;
+  final VoidCallback? onNewSale;
+  final VoidCallback? onRetrieve;
+  final VoidCallback? onNote;
+  final VoidCallback? onLoyalty;
+  final VoidCallback? onSplit;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: PosUi.cartCanvas,
+        color: AppColors.canvas,
         border: Border(left: BorderSide(color: AppColors.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border(bottom: BorderSide(color: AppColors.border)),
+              color: AppColors.canvas,
+              border: Border(bottom: BorderSide(color: AppColors.border.withValues(alpha: 0.7))),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                SizedBox(
+                  height: 46,
+                  child: Row(
                     children: [
-                      Text(
-                        'Panier',
-                        style: AppTypography.sectionTitle(),
+                      Icon(Icons.shopping_cart_outlined, size: 18, color: AppColors.brandInk),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          cart.tableId == null || cart.tableId!.isEmpty
+                              ? 'Current Order'
+                              : 'Table ${cart.tableId}',
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.plex(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.brandInk,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${cart.itemCount} article${cart.itemCount == 1 ? '' : 's'}',
-                        style: PosUi.caption(),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.brand700,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${cart.lines.length}',
+                          style: AppTypography.plex(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: 'Held orders',
+                        onPressed: onRetrieve,
+                        icon: Icon(Icons.monitor_outlined, size: 18, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  constraints: const BoxConstraints(minWidth: 28),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.brand100,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                  child: Text(
-                    '${cart.lines.length}',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.plex(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.brand700,
+                const SizedBox(height: 8),
+                Material(
+                  color: AppColors.fieldFill,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: onSearchCustomer,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      height: 42,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.person_outline, size: 18, color: AppColors.textMuted),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              cart.customer?.displayLabel ?? 'Search a customer...',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.plex(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: cart.customer == null ? AppColors.textMuted : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          if (cart.customer != null)
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => cart.setCustomer(null),
+                              icon: Icon(Icons.close, size: 16, color: AppColors.textMuted),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -132,8 +207,202 @@ class PosCartPanel extends StatelessWidget {
                     },
                   ),
           ),
+          if (showCheckout) _OrderCheckout(
+            cart: cart,
+            onHold: onHold,
+            onClear: onClear,
+            onPay: onPay,
+            onDiscount: onDiscount,
+            onNewSale: onNewSale,
+            onRetrieve: onRetrieve,
+            onNote: onNote,
+            onLoyalty: onLoyalty,
+            onSplit: onSplit,
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _OrderCheckout extends StatelessWidget {
+  const _OrderCheckout({
+    required this.cart,
+    this.onHold,
+    this.onClear,
+    this.onPay,
+    this.onDiscount,
+    this.onNewSale,
+    this.onRetrieve,
+    this.onNote,
+    this.onLoyalty,
+    this.onSplit,
+  });
+
+  final PosCartEngine cart;
+  final VoidCallback? onHold;
+  final VoidCallback? onClear;
+  final VoidCallback? onPay;
+  final VoidCallback? onDiscount;
+  final VoidCallback? onNewSale;
+  final VoidCallback? onRetrieve;
+  final VoidCallback? onNote;
+  final VoidCallback? onLoyalty;
+  final VoidCallback? onSplit;
+
+  String _money(int amount) => MoneyFormatter.format(amount, currencyCode: AppConfig.currencyCode);
+
+  @override
+  Widget build(BuildContext context) {
+    final discountLabel = cart.discountTotal > 0 ? _money(cart.discountTotal) : 'Discount';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: AppColors.fieldFill,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: onDiscount,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Text('%', style: AppTypography.plex(color: AppColors.textMuted, fontWeight: FontWeight.w700)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        discountLabel,
+                        style: AppTypography.plex(
+                          fontSize: 13,
+                          color: cart.discountTotal > 0 ? AppColors.textPrimary : AppColors.textMuted,
+                        ),
+                      ),
+                    ),
+                    Text('%', style: AppTypography.plex(color: AppColors.textMuted, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _TotalRow(label: 'Subtotal', value: _money(cart.subtotal)),
+          const SizedBox(height: 4),
+          _TotalRow(label: 'Tax', value: _money(cart.taxTotal)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text('Total', style: AppTypography.plex(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+              const Spacer(),
+              AppValueFade(
+                value: cart.total,
+                child: Text(
+                  _money(cart.total),
+                  style: AppTypography.plex(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.brandInk),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: cart.isEmpty ? null : onHold,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.brandInk,
+                    side: BorderSide(color: AppColors.borderStrong),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.pause_rounded, size: 16),
+                  label: const Text('Hold'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: cart.isEmpty ? null : onClear,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                    side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('Clear Cart'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                tooltip: 'More',
+                onSelected: (value) {
+                  switch (value) {
+                    case 'pay':
+                      onPay?.call();
+                    case 'new':
+                      onNewSale?.call();
+                    case 'retrieve':
+                      onRetrieve?.call();
+                    case 'note':
+                      onNote?.call();
+                    case 'loyalty':
+                      onLoyalty?.call();
+                    case 'split':
+                      onSplit?.call();
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'pay', child: Text('Pay')),
+                  const PopupMenuItem(value: 'new', child: Text('New sale')),
+                  const PopupMenuItem(value: 'retrieve', child: Text('Held orders')),
+                  const PopupMenuItem(value: 'split', child: Text('Split')),
+                  const PopupMenuItem(value: 'note', child: Text('Note')),
+                  const PopupMenuItem(value: 'loyalty', child: Text('Loyalty')),
+                ],
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.brand700,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.apps_rounded, color: Colors.white, size: 18),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TotalRow extends StatelessWidget {
+  const _TotalRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(label, style: AppTypography.plex(fontSize: 13, color: AppColors.textSecondary)),
+        const Spacer(),
+        Text(value, style: AppTypography.plex(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+      ],
     );
   }
 }
@@ -149,28 +418,12 @@ class _EmptyCart extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.brand100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '+',
-                style: GoogleFonts.ibmPlexSans(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.brand600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text('Aucun article', style: PosUi.cardTitle(color: AppColors.textMuted)),
+            Icon(Icons.shopping_cart_outlined, size: 56, color: AppColors.textMuted.withValues(alpha: 0.7)),
+            const SizedBox(height: 16),
+            Text('Cart is empty', style: PosUi.cardTitle(color: AppColors.textSecondary)),
             const SizedBox(height: 4),
             Text(
-              'Touchez un produit pour l’ajouter.',
+              'Tap on products to add them',
               textAlign: TextAlign.center,
               style: PosUi.caption(),
             ),
@@ -199,157 +452,84 @@ class _CartLineTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unit = line.product.unit?.trim();
-    final imageUrl = resolvePosImageUrl(line.product.primaryImageUrl);
-    final initial = line.product.name.trim().isEmpty
-        ? '?'
-        : line.product.name.trim()[0].toUpperCase();
     final net = (line.lineSubtotal - line.lineDiscountFixed).clamp(0, line.lineSubtotal);
+    final onHand = line.product.quantityOnHand;
+    final money = MoneyFormatter.format(line.unitPrice, currencyCode: AppConfig.currencyCode);
 
-    return Container(
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(PosUi.radiusMd),
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppColors.elevationSm,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _CartThumb(url: imageUrl, initial: initial),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            line.displayName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: PosUi.cardTitle(),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            line.product.sku,
-                            style: PosUi.caption(color: const Color(0xFF94A3B8)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (onDiscount != null)
-                      InkWell(
-                        onTap: onDiscount,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.percent_rounded,
-                            size: 16,
-                            color: line.lineDiscountFixed > 0
-                                ? AppColors.brand600
-                                : AppColors.textMuted,
-                          ),
-                        ),
-                      ),
-                    InkWell(
-                      onTap: onRemove,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
-                      ),
-                    ),
-                  ],
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  unit == null || unit.isEmpty ? line.displayName : '${line.displayName} ($unit)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: PosUi.cardTitle(),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  [
-                    'P.U. ${MoneyFormatter.format(line.unitPrice, currencyCode: AppConfig.currencyCode)}',
-                    if (unit != null && unit.isNotEmpty) unit,
-                    if (line.taxRate > 0) 'TVA ${line.taxRate.toStringAsFixed(line.taxRate % 1 == 0 ? 0 : 1)}%',
-                    if (line.lineDiscountFixed > 0)
-                      'Remise -${MoneyFormatter.format(line.lineDiscountFixed, currencyCode: AppConfig.currencyCode)}',
-                  ].join(' · '),
-                  style: PosUi.caption(),
+              ),
+              if (onDiscount != null)
+                InkWell(
+                  onTap: onDiscount,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.edit_outlined, size: 16, color: AppColors.brandInk),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _QtyButton(icon: Icons.remove_rounded, onPressed: onDecrement),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(
-                        '${line.quantity}',
-                        style: GoogleFonts.ibmPlexSans(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    _QtyButton(icon: Icons.add_rounded, onPressed: onIncrement),
-                    const Spacer(),
-                    Text(
-                      MoneyFormatter.format(net, currencyCode: AppConfig.currencyCode),
-                      style: PosUi.money(size: 13),
-                    ),
-                  ],
+              InkWell(
+                onTap: onRemove,
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CartThumb extends StatelessWidget {
-  const _CartThumb({required this.url, required this.initial});
-
-  final String? url;
-  final String initial;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(11),
-      child: SizedBox(
-        width: 50,
-        height: 50,
-        child: ColoredBox(
-          color: AppColors.brand100,
-          child: url == null
-              ? Center(
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  money,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.plex(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.brandInk),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.check_rounded, size: 14, color: AppColors.brandInk),
+              const SizedBox(width: 6),
+              _QtyButton(icon: Icons.remove, onPressed: onDecrement),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: AppValueFade(
+                  value: line.quantity,
                   child: Text(
-                    initial,
-                    style: GoogleFonts.ibmPlexSans(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.brand700,
-                    ),
-                  ),
-                )
-              : Image.network(
-                  url!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Center(
-                    child: Text(
-                      initial,
-                      style: GoogleFonts.ibmPlexSans(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.brand700,
-                      ),
-                    ),
+                    '${line.quantity}',
+                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w800, fontSize: 14),
                   ),
                 ),
-        ),
+              ),
+              _QtyButton(icon: Icons.add, onPressed: onIncrement),
+              const Spacer(),
+              Text(
+                MoneyFormatter.format(net, currencyCode: AppConfig.currencyCode),
+                style: PosUi.money(size: 13),
+              ),
+            ],
+          ),
+          if (onHand != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              '$onHand ${unit == null || unit.isEmpty ? 'pcs' : unit} available',
+              style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.brandInk),
+            ),
+          ],
+        ],
       ),
     );
   }

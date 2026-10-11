@@ -38,6 +38,10 @@ export const useRealtimeStore = defineStore('realtime', () => {
   function emit(payload: RealtimePayload | { type: 'resync' }) {
     if ('event_id' in payload && !remember(payload.event_id)) return
     if ('tenant_id' in payload) {
+      const currentTenant = getTenantId()
+      if (!currentTenant || payload.tenant_id !== currentTenant) return
+      const currentStore = getStoreId()
+      if (currentStore && payload.store_id && payload.store_id !== currentStore) return
       lastEvent.value = payload
       if (payload.occurred_at) lastSyncAt.value = payload.occurred_at
       if (payload.type === 'stock.low') notice.value = 'stock.low'
@@ -150,6 +154,14 @@ export const useRealtimeStore = defineStore('realtime', () => {
     }, 30_000)
   }
 
+  function clearSensitive() {
+    lastEvent.value = null
+    lastSyncAt.value = null
+    notice.value = ''
+    seenIds.clear()
+    seenOrder.length = 0
+  }
+
   function disconnect() {
     leaveCurrent()
     subscribedTenant = null
@@ -186,6 +198,7 @@ export const useRealtimeStore = defineStore('realtime', () => {
     isLive,
     connect,
     disconnect,
+    clearSensitive,
     resubscribe,
     subscribe,
   }

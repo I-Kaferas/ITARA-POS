@@ -23,6 +23,7 @@ function cancel() {
     :icon="state.mode === 'notice' ? 'info' : (state.danger ? 'trash' : 'alert')"
     :tone="state.mode === 'notice' ? 'info' : (state.danger ? 'danger' : 'warning')"
     :close-on-backdrop="false"
+    presentation="dialog"
     elevated
     @close="cancel"
   >

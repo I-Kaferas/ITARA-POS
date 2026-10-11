@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import '../../../core/config/terminal_config_repository.dart';
 import '../../../data/local/local_database.dart';
 import '../../../data/local/notification_store.dart';
+import '../../../features/shifts/data/local_shifts_store.dart';
 import '../../../sync/offline_store.dart';
 
 class NotificationWatch {
@@ -59,12 +59,18 @@ class NotificationWatch {
       });
     }
 
-    final config = TerminalConfigRepository.instance.config;
-    if (config.cashSessionId.isNotEmpty) {
+    final openShift = await LocalShiftsStore.instance.openShift();
+    if (openShift == null) {
+      items.insert(0, {
+        'kind': 'shift_required',
+        'title': 'Aucun shift ouvert',
+        'detail': 'Ouvrez un shift avant d\'ajouter des articles au panier.',
+      });
+    } else {
       items.add({
         'kind': 'cash_open',
-        'title': 'Caisse ouverte',
-        'detail': config.cashierName.isEmpty ? 'Session en cours' : config.cashierName,
+        'title': 'Shift ouvert · ${openShift.register.name}',
+        'detail': 'Vous pouvez ajouter des articles et encaisser.',
       });
     }
 

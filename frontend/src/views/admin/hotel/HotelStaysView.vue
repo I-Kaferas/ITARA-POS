@@ -510,7 +510,7 @@ function printStayExport(title: string, bodyHtml: string) {
 
 function exportStayLodging(row: Doc) {
   const currency = stayCurrency(row)
-  const lines = detailFolioLines(row).filter(l => ['room', 'stay', 'tax', 'vat', 'tc'].includes(String(l.kind || '')) || Number(l.amount || 0) > 0 && !['payment', 'deposit', 'minibar', 'room_service', 'restaurant'].includes(String(l.kind || '')))
+  const lines = detailFolioLines(row).filter(l => ['room', 'stay', 'tax', 'vat', 'tc'].includes(String(l.kind || '')) || Number(l.amount || 0) > 0 && !['payment', 'deposit', 'minibar', 'room_service', 'restaurant', 'pos'].includes(String(l.kind || '')))
   const rows = (lines.length ? lines : [{
     description: t('hotel.stays.detail.groupStay'),
     amount: detailChargesCents(row),
@@ -526,7 +526,7 @@ function exportStayLodging(row: Doc) {
 
 function exportStayConsumption(row: Doc) {
   const currency = stayCurrency(row)
-  const lines = detailFolioLines(row).filter(l => ['minibar', 'room_service', 'restaurant', 'other', 'missing_amenity', 'damaged_amenity'].includes(String(l.kind || '')))
+  const lines = detailFolioLines(row).filter(l => ['minibar', 'room_service', 'restaurant', 'pos', 'other', 'missing_amenity', 'damaged_amenity'].includes(String(l.kind || '')))
   const rows = lines.map(l => `<tr><td>${escapeHtml(String(l.kind || '—'))}</td><td>${escapeHtml(String(l.description || '—'))}</td><td>${escapeHtml(formatMoney(Math.abs(Number(l.amount || 0)), currency))}</td></tr>`).join('')
     || `<tr><td colspan="3">${escapeHtml(t('hotel.stays.detail.noTransactions'))}</td></tr>`
   printStayExport(t('hotel.stays.detail.exportConsumption'), `
@@ -706,6 +706,9 @@ function lineGroupLabel(line: Doc) {
   if (kind === 'room' || kind === 'stay') return t('hotel.stays.detail.groupStay')
   if (kind === 'tax' || kind === 'vat' || kind === 'tc') return t('hotel.stays.detail.groupTax')
   if (kind === 'payment' || kind === 'deposit') return t('hotel.stays.detail.groupPayment')
+  if (kind === 'pos' || kind === 'restaurant' || kind === 'room_service' || kind === 'minibar') {
+    return t('hotel.stays.detail.groupPos')
+  }
   if (kind === 'missing_amenity' || kind === 'damaged_amenity' || kind === 'late_departure' || kind === 'early_arrival') {
     return t('hotel.stays.detail.groupFees')
   }
@@ -2786,7 +2789,11 @@ function roomLabel(room: Doc) {
                         <small>{{ lineStatusLabel(line) }}</small>
                       </div>
                     </td>
-                    <td>{{ line.description || '—' }}</td>
+                    <td>
+                      {{ line.description || '—' }}
+                      <small v-if="line.quantity"> · {{ line.quantity }} × {{ formatMoney(Number(line.unit_price || 0), stayCurrency(detailStay)) }}</small>
+                      <small v-if="line.sale_reference"> · {{ line.sale_reference }}</small>
+                    </td>
                     <td>{{ formatMoney(Math.abs(Number(line.amount || 0)), stayCurrency(detailStay)) }}</td>
                     <td>{{ formatDateTime(line.created_at || detailStay.arrive_on) }}</td>
                     <td>{{ line.by || detailStay.receptionist_name || '—' }}</td>

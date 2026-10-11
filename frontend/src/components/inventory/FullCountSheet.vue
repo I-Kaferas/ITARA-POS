@@ -386,6 +386,7 @@ async function runAction(action: 'submit' | 'review' | 'approve' | 'complete' | 
       await store.completeInventoryCount(id)
       await load(id)
       if (adjustments) scanMessage.value = t('inventory.adjustmentPosted', { count: adjustments })
+      emit('close')
     }
     emit('changed')
   } catch (err) {
@@ -404,6 +405,7 @@ async function confirmCancel() {
     cancelling.value = false
     cancelReason.value = ''
     emit('changed')
+    emit('close')
   } catch (err) {
     error.value = extractApiErrorMessage(err)
   } finally {

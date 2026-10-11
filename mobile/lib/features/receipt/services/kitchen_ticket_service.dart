@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -91,7 +92,7 @@ class KitchenTicketService {
       );
       if (decision.primary == null) {
         await Printing.layoutPdf(
-          onLayout: (_) async => bytes,
+          onLayout: (_) async => Uint8List.fromList(bytes),
           name: 'bon-${group.name}-${sale.id}',
         );
       }

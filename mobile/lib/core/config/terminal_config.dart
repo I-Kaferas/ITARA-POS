@@ -36,7 +36,7 @@ enum PosRole {
 
 class TerminalConfig {
   const TerminalConfig({
-    this.apiBaseUrl = 'http://localhost:8001/api/v1',
+    this.apiBaseUrl = 'http://127.0.0.1:8001/api/v1',
     this.internalApiBaseUrl = '',
     this.authToken = '',
     this.refreshToken = '',
@@ -63,6 +63,8 @@ class TerminalConfig {
     this.isSignedIn = false,
     this.cashierId = '',
     this.cashierName = '',
+    this.cashierEmail = '',
+    this.cashierCode = '',
     this.cashRegisterId = '',
     this.cashSessionId = '',
     this.permissions = const [],
@@ -79,7 +81,7 @@ class TerminalConfig {
 
   factory TerminalConfig.fromJson(Map<String, dynamic> json) {
     return TerminalConfig(
-      apiBaseUrl: _string(json['api_base_url'], 'http://localhost:8001/api/v1'),
+      apiBaseUrl: _string(json['api_base_url'], 'http://127.0.0.1:8001/api/v1'),
       internalApiBaseUrl: _string(json['internal_api_base_url']),
       authToken: _string(json['auth_token']),
       refreshToken: _string(json['refresh_token']),
@@ -106,6 +108,8 @@ class TerminalConfig {
       isSignedIn: _bool(json['is_signed_in']),
       cashierId: _string(json['cashier_id']),
       cashierName: _string(json['cashier_name']),
+      cashierEmail: _string(json['cashier_email']),
+      cashierCode: _string(json['cashier_code']),
       cashRegisterId: _string(json['cash_register_id']),
       cashSessionId: _string(json['cash_session_id']),
       permissions: (json['permissions'] as List?)?.map((item) => item.toString()).toList() ?? const [],
@@ -170,6 +174,8 @@ class TerminalConfig {
   final bool isSignedIn;
   final String cashierId;
   final String cashierName;
+  final String cashierEmail;
+  final String cashierCode;
   final String cashRegisterId;
   final String cashSessionId;
   final List<String> permissions;
@@ -218,6 +224,8 @@ class TerminalConfig {
         'is_signed_in': isSignedIn,
         'cashier_id': cashierId,
         'cashier_name': cashierName,
+        'cashier_email': cashierEmail,
+        'cashier_code': cashierCode,
         'cash_register_id': cashRegisterId,
         'cash_session_id': cashSessionId,
         'permissions': permissions,
@@ -260,6 +268,8 @@ class TerminalConfig {
     bool? isSignedIn,
     String? cashierId,
     String? cashierName,
+    String? cashierEmail,
+    String? cashierCode,
     String? cashRegisterId,
     String? cashSessionId,
     List<String>? permissions,
@@ -301,6 +311,8 @@ class TerminalConfig {
       isSignedIn: isSignedIn ?? this.isSignedIn,
       cashierId: cashierId ?? this.cashierId,
       cashierName: cashierName ?? this.cashierName,
+      cashierEmail: cashierEmail ?? this.cashierEmail,
+      cashierCode: cashierCode ?? this.cashierCode,
       cashRegisterId: cashRegisterId ?? this.cashRegisterId,
       cashSessionId: cashSessionId ?? this.cashSessionId,
       permissions: permissions ?? this.permissions,

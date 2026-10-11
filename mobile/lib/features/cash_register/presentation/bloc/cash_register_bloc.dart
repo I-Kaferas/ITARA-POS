@@ -84,7 +84,6 @@ class CashRegisterBloc extends Bloc<CashRegisterEvent, CashRegisterState> {
         reconciliation: payload.reconciliation,
         message: 'Caisse ouverte',
       ));
-      add(const CashRegisterRefreshed());
     } catch (e) {
       emit(state.copyWith(busy: false, errorMessage: e.toString()));
     }

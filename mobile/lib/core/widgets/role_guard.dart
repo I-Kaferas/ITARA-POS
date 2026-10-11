@@ -19,7 +19,7 @@ class SlaveModeBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F3FF),
+        color: AppColors.accentSoft,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.violet500.withValues(alpha: 0.3)),
       ),
@@ -40,7 +40,7 @@ class SlaveModeBanner extends StatelessWidget {
                 Text(
                   message ??
                       'Accès limité — les opérations sont relayées au terminal Master.',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
                 ),
                 if (config.masterHost.isNotEmpty)
                   Text(

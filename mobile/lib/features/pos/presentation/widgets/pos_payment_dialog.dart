@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../domain/pos_models.dart';
 
 class PaymentDialogResult {
@@ -377,7 +378,7 @@ class _Header extends StatelessWidget {
               borderRadius: BorderRadius.circular(11),
               border: Border.all(color: AppColors.border),
             ),
-            child: Icon(Icons.payments_outlined, size: 18, color: AppColors.brand700),
+            child: Icon(Icons.payments_outlined, size: 18, color: AppColors.brandInk),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -421,7 +422,7 @@ class _TotalCard extends StatelessWidget {
         children: [
           Text('Montant dû', style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
           const SizedBox(height: 4),
-          Text(totalLabel, style: GoogleFonts.ibmPlexMono(fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.brand700)),
+          Text(totalLabel, style: GoogleFonts.ibmPlexMono(fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
           if (customerBalance != null) ...[
             const SizedBox(height: 4),
             Text('Solde client $customerBalance', style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
@@ -509,7 +510,7 @@ class _MethodTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: selected ? AppColors.brand700 : AppColors.textMuted),
+              Icon(icon, size: 18, color: selected ? AppColors.brandInk : AppColors.textMuted),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -521,7 +522,7 @@ class _MethodTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (selected) Icon(Icons.check_circle, size: 16, color: AppColors.brand600),
+              if (selected) Icon(Icons.check_circle, size: 16, color: AppColors.brandInk),
             ],
           ),
         ),
@@ -680,19 +681,31 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.dangerBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, size: 16, color: AppColors.danger),
-          const SizedBox(width: 8),
-          Expanded(child: Text(message, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600))),
-        ],
+    return AppFadeIn(
+      duration: AppMotion.micro,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AppColors.dangerBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, size: 16, color: AppColors.danger),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 12,
+                  color: AppColors.danger,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

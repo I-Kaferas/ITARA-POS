@@ -50,19 +50,20 @@ class SyncEvent extends Model
         });
     }
 
+    public static function allocateSequence(string $tenantId): int
+    {
+        $last = (int) static::query()->where('tenant_id', $tenantId)->max('sequence');
+
+        return max($last, (int) floor(microtime(true) * 1000)) + 1;
+    }
+
     public static function recordCompletedSale(Sale $sale, SaleReceipt $receipt): self
     {
-        $last = static::query()
-            ->where('tenant_id', $sale->tenant_id)
-            ->orderByDesc('sequence')
-            ->lockForUpdate()
-            ->first();
-
         return static::query()->create([
             'tenant_id' => $sale->tenant_id,
             'store_id' => $sale->store_id,
             'device_id' => $sale->device_id,
-            'sequence' => ($last?->sequence ?? 0) + 1,
+            'sequence' => static::allocateSequence((string) $sale->tenant_id),
             'event_type' => 'sale.completed',
             'entity_type' => 'sale',
             'entity_id' => $sale->id,

@@ -33,6 +33,12 @@ return [
             'provider' => 'credit',
             'supports_change' => false,
         ],
+        'room' => [
+            'label' => 'Stay',
+            'label_fr' => 'Séjour',
+            'provider' => 'room',
+            'supports_change' => false,
+        ],
         'wallet' => [
             'label' => 'Wallet',
             'label_fr' => 'Portefeuille',

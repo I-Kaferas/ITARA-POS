@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/branding/branding_service.dart';
 import '../../../core/config/terminal_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../core/i18n/app_locale.dart';
 import '../../../sync/local_master_server.dart';
 import '../../../sync/offline_store.dart';
 
@@ -24,6 +26,64 @@ class PinAuthService {
     ];
   }
 
+  /// The saved tenant id can outlive a reseeded database. The slug still names the shop.
+  static Future<void> _alignTenantWithSlug() async {
+    final repo = TerminalConfigRepository.instance;
+    final current = repo.config;
+    final slug = current.tenantSlug.trim();
+    if (slug.isEmpty) return;
+
+    try {
+      final branding = await BrandingService()
+          .fetchPublic(slug: slug, apiBaseUrl: current.apiBaseUrl)
+          .timeout(const Duration(seconds: 8));
+      if (branding.tenantId.isEmpty || branding.tenantId == current.tenantId) return;
+
+      await repo.save(current.copyWith(
+        tenantId: branding.tenantId,
+        tenantSlug: branding.slug.isEmpty ? slug : branding.slug,
+        brandName: branding.brandName,
+        brandLogoUrl: branding.logoUrl ?? '',
+        brandPrimaryColor: branding.primaryColor,
+        brandAccentColor: branding.accentColor,
+        authToken: '',
+        refreshToken: '',
+        isSignedIn: false,
+        deviceId: '',
+        deviceIdentifier: '',
+        storeId: '',
+      ));
+    } catch (_) {}
+  }
+
+  Future<void> _adoptStore(String token, String tenantId) async {
+    final repo = TerminalConfigRepository.instance;
+    final config = repo.config;
+    if (config.storeId.isNotEmpty) return;
+
+    try {
+      final base = config.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
+      final response = await _client
+          .get(
+            Uri.parse('$base/stores'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'X-Tenant-ID': tenantId,
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) return;
+      final decoded = jsonDecode(response.body);
+      final data = decoded is Map ? decoded['data'] : null;
+      if (data is! List || data.isEmpty) return;
+      final first = data.first;
+      final id = first is Map ? first['id']?.toString() ?? '' : '';
+      if (id.isEmpty) return;
+      await repo.save(repo.config.copyWith(storeId: id));
+    } catch (_) {}
+  }
+
   static String pinVerifier(String userId, String pin) {
     return sha256.convert(utf8.encode('itara-pos|$userId|$pin')).toString();
   }
@@ -37,6 +97,7 @@ class PinAuthService {
     List<String> permissions,
     List<String> roles,
   })> login(String pin) async {
+    await _alignTenantWithSlug();
     final config = TerminalConfigRepository.instance.config;
     if (config.tenantId.isEmpty) {
       throw Exception('Tenant ID manquant. Configurez le terminal.');
@@ -76,7 +137,7 @@ class PinAuthService {
       if (config.pinVerifier.isNotEmpty) {
         throw Exception('PIN refusé');
       }
-      throw Exception(lastError?.toString() ?? 'Serveur injoignable');
+      throw Exception(humanizeApiCode(lastError?.toString() ?? 'Serveur injoignable'));
     }
 
     Map<String, dynamic> body = {};
@@ -89,7 +150,7 @@ class PinAuthService {
       final errors = body['errors'] as Map<String, dynamic>?;
       final pinError = (errors?['pin'] as List?)?.first?.toString();
       final deviceError = (errors?['device_id'] as List?)?.first?.toString();
-      throw Exception(pinError ?? deviceError ?? body['message']?.toString() ?? 'PIN refusé');
+      throw Exception(humanizeApiCode(pinError ?? deviceError ?? body['message']?.toString() ?? 'PIN refusé'));
     }
 
     final user = body['user'] as Map<String, dynamic>? ?? {};
@@ -99,7 +160,15 @@ class PinAuthService {
     }
 
     final userId = user['id'] as String? ?? '';
-    await _heartbeat(token, config);
+    final email = user['email']?.toString().trim() ?? '';
+    final code = user['employee_code']?.toString().trim() ?? '';
+    final repo = TerminalConfigRepository.instance;
+    await repo.save(repo.config.copyWith(
+      cashierEmail: email,
+      cashierCode: code,
+    ));
+    await _adoptStore(token, config.tenantId);
+    await _heartbeat(token, TerminalConfigRepository.instance.config);
     return (
       name: user['name'] as String? ?? 'Caissier',
       id: userId,
@@ -281,6 +350,8 @@ class PinAuthService {
       tokenExpiresAt: '',
       cashierId: '',
       cashierName: '',
+      cashierEmail: '',
+      cashierCode: '',
       permissions: const [],
       roles: const [],
       pinVerifier: '',

@@ -148,6 +148,13 @@ async function exportInvoice(saleId: string) {
   }
 }
 
+function serviceLabel(row: { table_id?: string | null; table?: { id: string } | null; service_mode?: string | null }): string {
+  if (row.table_id || row.table) return t('pointOfSale.orders.serviceDineIn')
+  if (row.service_mode === 'delivery') return t('pointOfSale.orders.serviceDelivery')
+  if (row.service_mode === 'takeaway') return t('pointOfSale.orders.serviceTakeaway')
+  return '—'
+}
+
 function paymentStatusLabel(status: string): string {
   const key = `pointOfSale.orders.payment.${status}`
   const label = t(key)
@@ -280,6 +287,7 @@ watch(
             <tr>
               <th>{{ t('sales.reference') }}</th>
               <th>{{ t('nav.customers') }}</th>
+              <th>{{ t('pointOfSale.orders.service') }}</th>
               <th>{{ t('products.status') }}</th>
               <th>{{ t('sales.paymentStatus') }}</th>
               <th class="num">{{ t('products.price') }}</th>
@@ -294,6 +302,9 @@ watch(
               </td>
               <td class="cursor-pointer" @click="router.push({ name: 'sale-detail', params: { id: row.id } })">
                 {{ row.customer?.name ?? '—' }}
+              </td>
+              <td :title="row.delivery_address || undefined">
+                {{ serviceLabel(row) }}
               </td>
               <td>
                 <Badge v-if="row.status === 'pending'" variant="warning">{{ statusLabel(row.status) }}</Badge>
