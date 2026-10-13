@@ -29,6 +29,7 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
   final OfflineStore _offline;
   final SyncEngine _sync;
   int _lastRevision = -1;
+  String _loadedStoreId = '';
 
   void _onSyncChanged() {
     if (_sync.catalogRevision == _lastRevision) return;
@@ -41,13 +42,24 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
     Emitter<ProductState> emit,
   ) async {
     final storeId = _api.storeId;
-    final showSpinner = state.products.isEmpty;
+    final storeChanged = storeId != _loadedStoreId;
+    final showSpinner = state.products.isEmpty || storeChanged;
     if (showSpinner) {
-      emit(state.copyWith(status: ProductStatus.loading, clearError: true));
+      emit(state.copyWith(
+        status: ProductStatus.loading,
+        products: storeChanged ? const [] : null,
+        categories: storeChanged ? const [] : null,
+        searchQuery: storeChanged ? '' : null,
+        clearCategory: storeChanged,
+        clearError: true,
+        clearStatusMessage: true,
+      ));
     }
 
     final cached = storeId.isEmpty ? null : await _offline.loadCatalog(storeId);
+    if (_api.storeId != storeId) return;
     if (cached != null) {
+      _loadedStoreId = storeId;
       emit(state.copyWith(
         status: ProductStatus.ready,
         products: cached.products.where((p) => p.isAvailable).toList(),
@@ -55,9 +67,20 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
         clearError: true,
         clearStatusMessage: true,
       ));
+    } else if (storeChanged) {
+      _loadedStoreId = storeId;
+      emit(state.copyWith(
+        status: ProductStatus.ready,
+        products: const [],
+        categories: const [],
+        clearCategory: true,
+        searchQuery: '',
+        clearError: true,
+        clearStatusMessage: true,
+      ));
     }
 
-    if (!event.forceNetwork) {
+    if (!event.forceNetwork && !storeChanged) {
       if (cached == null) {
         emit(state.copyWith(status: ProductStatus.ready));
       }
@@ -66,7 +89,9 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
 
     try {
       final catalog = await _api.fetchCatalog();
+      if (_api.storeId != storeId) return;
       await _offline.cacheCatalog(catalog);
+      _loadedStoreId = storeId;
       emit(state.copyWith(
         status: ProductStatus.ready,
         products: catalog.products.where((p) => p.isAvailable).toList(),
@@ -75,6 +100,7 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
         clearStatusMessage: true,
       ));
     } catch (error) {
+      if (_api.storeId != storeId) return;
       if (cached != null) {
         emit(state.copyWith(
           status: ProductStatus.ready,

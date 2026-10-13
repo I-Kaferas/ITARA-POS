@@ -30,6 +30,11 @@ import '../../features/sync/presentation/sync_screen.dart';
 import '../../sync/local_master_server.dart';
 import '../../sync/sync_engine.dart';
 import '../../features/auth/presentation/auth_gate_screen.dart';
+import '../../features/onboarding/onboarding_gate.dart';
+import '../../features/onboarding/presentation/onboarding_finish_screen.dart';
+import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/onboarding/presentation/product_showcase_screen.dart';
+import '../../features/onboarding/presentation/welcome_screen.dart';
 import '../config/terminal_config_repository.dart';
 import '../di/service_locator.dart';
 import 'app_routes.dart';
@@ -42,9 +47,12 @@ class AppRouter {
   static GoRouter? _router;
 
   static GoRouter create() {
-    final sync = sl.isRegistered<SyncEngine>() ? sl<SyncEngine>() : SyncEngine.instance;
-    final master =
-        sl.isRegistered<LocalMasterServer>() ? sl<LocalMasterServer>() : LocalMasterServer.instance;
+    final sync = sl.isRegistered<SyncEngine>()
+        ? sl<SyncEngine>()
+        : SyncEngine.instance;
+    final master = sl.isRegistered<LocalMasterServer>()
+        ? sl<LocalMasterServer>()
+        : LocalMasterServer.instance;
     sync.start();
     master.startIfMaster();
     final configRepo = sl.isRegistered<TerminalConfigRepository>()
@@ -53,15 +61,26 @@ class AppRouter {
     return _router ??= GoRouter(
       navigatorKey: _rootNavigatorKey,
       initialLocation: AppRoutes.pos,
-      refreshListenable: configRepo,
+      refreshListenable: Listenable.merge([
+        configRepo,
+        OnboardingGate.instance,
+      ]),
       redirect: (context, state) {
         final repo = configRepo;
         if (!repo.isLoaded) return null;
 
         final location = state.matchedLocation;
+        final replay = state.uri.queryParameters['replay'] == '1';
+        final isTour =
+            location == AppRoutes.welcome ||
+            location == AppRoutes.onboarding ||
+            location == AppRoutes.showcase ||
+            location == AppRoutes.onboardingFinish;
+        if (!OnboardingGate.instance.seen && !isTour) return AppRoutes.welcome;
+        if (isTour && (!OnboardingGate.instance.seen || replay)) return null;
         final isAdminLogin = location == AppRoutes.adminLogin;
-        final isSetup = location == AppRoutes.setup ||
-            location == AppRoutes.slaveSetup;
+        final isSetup =
+            location == AppRoutes.setup || location == AppRoutes.slaveSetup;
         final isConfig = location == AppRoutes.configuration;
         final isPin = location == AppRoutes.pin;
         final hasToken = repo.config.authToken.trim().isNotEmpty;
@@ -86,10 +105,28 @@ class AppRouter {
           }
           return AppRoutes.configuration;
         }
-        if (signedIn && (isSetup || isPin || isAdminLogin)) return AppRoutes.pos;
+        if (signedIn && (isSetup || isPin || isAdminLogin)) {
+          return AppRoutes.pos;
+        }
         return null;
       },
       routes: [
+        GoRoute(
+          path: AppRoutes.welcome,
+          builder: (_, _) => const WelcomeScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.onboarding,
+          builder: (_, _) => const OnboardingScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.showcase,
+          builder: (_, _) => const ProductShowcaseScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.onboardingFinish,
+          builder: (_, _) => const OnboardingFinishScreen(),
+        ),
         GoRoute(
           path: AppRoutes.adminLogin,
           builder: (_, __) => const AdminLoginScreen(),
@@ -111,7 +148,6 @@ class AppRouter {
             return AppShell(navigationShell: navigationShell);
           },
           branches: [
-            // 0 — POS
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -120,7 +156,6 @@ class AppRouter {
                 ),
               ],
             ),
-            // 1 — Sales
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -137,7 +172,6 @@ class AppRouter {
                 ),
               ],
             ),
-            // 2 — Tables
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -146,7 +180,6 @@ class AppRouter {
                 ),
               ],
             ),
-            // 3 — Stock
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -155,7 +188,6 @@ class AppRouter {
                 ),
               ],
             ),
-            // 4 — Menu + secondary modules
             StatefulShellBranch(
               routes: [
                 GoRoute(

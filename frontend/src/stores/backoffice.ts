@@ -2049,9 +2049,12 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   }
 
   // Import / Export products
-  async function exportProducts(catalogId?: string) {
-    const q = catalogId ? `?catalog_id=${catalogId}` : ''
-    await api.download(`/import-export/products/export${q}`, 'products-export.csv')
+  async function exportProducts(catalogId?: string, format: 'csv' | 'xlsx' = 'csv') {
+    const query = new URLSearchParams()
+    if (catalogId) query.set('catalog_id', catalogId)
+    if (format === 'xlsx') query.set('format', 'xlsx')
+    const suffix = query.toString() ? `?${query.toString()}` : ''
+    await api.download(`/import-export/products/export${suffix}`, format === 'xlsx' ? 'products-export.xlsx' : 'products-export.csv')
   }
 
   async function downloadProductTemplate() {

@@ -1023,6 +1023,16 @@ class PosFooterPanel extends StatelessWidget {
     int change = 0,
   }) async {
     try {
+      if (cart.serviceMode == 'delivery' && cart.deliveryAddress.trim().isEmpty && (cart.tableId == null || cart.tableId!.isEmpty)) {
+        onPayment(PosPaymentResult(
+          success: false,
+          total: cart.total,
+          method: methodLabel,
+          message: 'Indiquez une adresse de livraison.',
+        ));
+        return;
+      }
+      final atTable = cart.tableId != null && cart.tableId!.isNotEmpty;
       final saleResult = await api.createSale(
         items: cart.lines.map((line) => line.toSaleItem()).toList(),
         payments: payments,
@@ -1030,6 +1040,8 @@ class PosFooterPanel extends StatelessWidget {
         notes: cart.note,
         saleId: cart.pendingServerId,
         loyaltyPoints: cart.loyaltyPoints > 0 ? cart.loyaltyPoints : null,
+        serviceMode: atTable ? null : cart.serviceMode,
+        deliveryAddress: !atTable && cart.serviceMode == 'delivery' ? cart.deliveryAddress.trim() : null,
       );
       cart.consumeActiveHold();
       cart.cancel();
@@ -1128,6 +1140,7 @@ class PosFooterPanel extends StatelessWidget {
     final result = await showPosPaymentDialog(
       context: context,
       total: cart.total,
+      subtotal: cart.subtotal,
       currencyCode: AppConfig.currencyCode,
       methods: paymentMethods,
       customer: cart.customer,

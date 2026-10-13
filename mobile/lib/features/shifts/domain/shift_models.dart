@@ -46,6 +46,7 @@ class CashRegisterSession {
     this.closingNotes,
     this.closedAt,
     this.openedByName,
+    this.openedById,
   });
 
   factory CashRegisterSession.fromJson(Map<String, dynamic> json) {
@@ -68,6 +69,7 @@ class CashRegisterSession {
           ? DateTime.tryParse(json['closed_at'] as String)
           : null,
       openedByName: openedBy?['name'] as String?,
+      openedById: json['user_id']?.toString(),
     );
   }
 
@@ -86,8 +88,9 @@ class CashRegisterSession {
   final String? closingNotes;
   final DateTime? closedAt;
   final String? openedByName;
+  final String? openedById;
 
-  bool get isOpen => status == 'open';
+  bool get isOpen => status.toLowerCase() == 'open' && closedAt == null;
 
   static int _int(dynamic value) {
     if (value is int) return value;
@@ -112,6 +115,7 @@ class SessionSummary {
     this.paymentMethods = const [],
     this.openedAt,
     this.closedAt,
+    this.handover = const ShiftHandover(),
   });
 
   factory SessionSummary.fromJson(Map<String, dynamic> json) {
@@ -138,6 +142,9 @@ class SessionSummary {
       closedAt: json['closed_at'] != null
           ? DateTime.tryParse(json['closed_at'] as String)
           : null,
+      handover: json['handover'] is Map
+          ? ShiftHandover.fromJson(Map<String, dynamic>.from(json['handover'] as Map))
+          : const ShiftHandover(),
     );
   }
 
@@ -155,6 +162,7 @@ class SessionSummary {
   final List<PaymentMethodBreakdown> paymentMethods;
   final DateTime? openedAt;
   final DateTime? closedAt;
+  final ShiftHandover handover;
 
   static int _int(dynamic value) {
     if (value is int) return value;
@@ -169,6 +177,11 @@ class ShiftInvoice {
     required this.total,
     this.completedAt,
     this.currency,
+    this.itemCount = 0,
+    this.customerName,
+    this.method,
+    this.outstanding = 0,
+    this.discount = 0,
   });
 
   factory ShiftInvoice.fromJson(Map<String, dynamic> json) {
@@ -179,6 +192,11 @@ class ShiftInvoice {
           ? DateTime.tryParse(json['completed_at'] as String)
           : null,
       currency: json['currency'] as String?,
+      itemCount: SessionSummary._int(json['item_count']),
+      customerName: json['customer_name'] as String?,
+      method: json['method'] as String?,
+      outstanding: SessionSummary._int(json['outstanding_amount']),
+      discount: SessionSummary._int(json['discount_total']),
     );
   }
 
@@ -186,6 +204,11 @@ class ShiftInvoice {
   final int total;
   final DateTime? completedAt;
   final String? currency;
+  final int itemCount;
+  final String? customerName;
+  final String? method;
+  final int outstanding;
+  final int discount;
 }
 
 class PaymentMethodBreakdown {
@@ -209,6 +232,101 @@ class PaymentMethodBreakdown {
   final String label;
   final int count;
   final int amount;
+}
+
+class ShiftSoldLine {
+  const ShiftSoldLine({
+    required this.name,
+    required this.code,
+    required this.sold,
+    required this.creditQty,
+    required this.remaining,
+    required this.total,
+  });
+
+  factory ShiftSoldLine.fromJson(Map<String, dynamic> json) {
+    return ShiftSoldLine(
+      name: json['name']?.toString() ?? 'Article',
+      code: json['code']?.toString() ?? '',
+      sold: SessionSummary._int(json['sold']),
+      creditQty: SessionSummary._int(json['credit_qty']),
+      remaining: json['remaining'] == null ? null : SessionSummary._int(json['remaining']),
+      total: SessionSummary._int(json['total']),
+    );
+  }
+
+  final String name;
+  final String code;
+  final int sold;
+  final int creditQty;
+  final int? remaining;
+  final int total;
+}
+
+class ShiftStoreGroup {
+  const ShiftStoreGroup({
+    required this.id,
+    required this.name,
+    required this.lines,
+  });
+
+  factory ShiftStoreGroup.fromJson(Map<String, dynamic> json) {
+    return ShiftStoreGroup(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString().trim().isNotEmpty == true ? json['name'].toString() : 'Magasin',
+      lines: (json['lines'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map((row) => ShiftSoldLine.fromJson(Map<String, dynamic>.from(row)))
+          .toList(),
+    );
+  }
+
+  final String id;
+  final String name;
+  final List<ShiftSoldLine> lines;
+
+  int get articlesCount => lines.fold(0, (sum, line) => sum + line.sold);
+}
+
+class ShiftHandover {
+  const ShiftHandover({
+    this.articlesSold = 0,
+    this.articlesOnCredit = 0,
+    this.ordersCount = 0,
+    this.storesCount = 0,
+    this.creditSalesTotal = 0,
+    this.creditOrdersCount = 0,
+    this.currency = 'USD',
+    this.stores = const [],
+  });
+
+  factory ShiftHandover.fromJson(Map<String, dynamic> json) {
+    final stores = (json['stores'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((row) => ShiftStoreGroup.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+    return ShiftHandover(
+      articlesSold: SessionSummary._int(json['articles_sold']),
+      articlesOnCredit: SessionSummary._int(json['articles_on_credit']),
+      ordersCount: SessionSummary._int(json['orders_count']),
+      storesCount: json.containsKey('stores_count') ? SessionSummary._int(json['stores_count']) : stores.length,
+      creditSalesTotal: SessionSummary._int(json['credit_sales_total']),
+      creditOrdersCount: SessionSummary._int(json['credit_orders_count']),
+      currency: json['currency']?.toString().trim().isNotEmpty == true ? json['currency'].toString() : 'USD',
+      stores: stores,
+    );
+  }
+
+  final int articlesSold;
+  final int articlesOnCredit;
+  final int ordersCount;
+  final int storesCount;
+  final int creditSalesTotal;
+  final int creditOrdersCount;
+  final String currency;
+  final List<ShiftStoreGroup> stores;
+
+  int get soldTotal => stores.fold(0, (sum, store) => sum + store.lines.fold(0, (lineSum, line) => lineSum + line.total));
 }
 
 class CurrentSessionResponse {

@@ -1,5 +1,9 @@
 abstract final class AppRoutes {
   static const adminLogin = '/admin-login';
+  static const welcome = '/welcome';
+  static const onboarding = '/onboarding';
+  static const showcase = '/showcase';
+  static const onboardingFinish = '/welcome/start';
   static const setup = '/setup';
   static const slaveSetup = '/setup/slave';
   static const pin = '/pin';

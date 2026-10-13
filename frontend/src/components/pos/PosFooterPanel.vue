@@ -1266,19 +1266,36 @@ const discountLabel = () => {
 .pos-modal__item span { font-size: 0.75rem; color: var(--color-text-muted);}
 .pos-modal__item--danger { color: light-dark(#dc2626, #f0a4a4); border-color: #fecaca;}
 .pos-modal__item--create { color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600))); border-color: #c5d4df; font-weight: 600;}
-.pos-modal__tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+.pos-modal__tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 0.75rem;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  backdrop-filter: blur(12px);
+}
 .pos-modal__tab {
   flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  background: var(--color-table-header);
+  padding: 0.45rem 0.7rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--color-text-muted);
   font-size: 0.8125rem;
-  cursor: pointer;}
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 180ms var(--ease-out), color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+}
+.pos-modal__tab:hover { color: var(--color-text-primary); background: color-mix(in srgb, var(--color-canvas) 80%, transparent); }
+.pos-modal__tab:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-focus-ring); }
 .pos-modal__tab--active {
-  background: var(--color-brand-600, var(--color-brand-600));
-  color: white;
-  border-color: var(--color-brand-600, var(--color-brand-600));
+  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-brand-50));
+  color: var(--color-ink-brand, var(--color-brand-700));
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 78%, transparent), 0 1px 2px rgba(20, 32, 43, 0.06);
 }
 .pos-modal__empty { color: var(--color-text-faint); text-align: center; padding: 1rem;}
 .pos-modal__row { display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.875rem; }

@@ -496,9 +496,11 @@ watch(() => ctx.currentStoreId, () => {
           <div class="cal__toolbar">
             <div class="cal__nav">
               <button type="button" class="cal__nav-btn" :title="t('hotel.calendar.prev')" @click="prevPeriod">‹</button>
-              <button type="button" class="cal__nav-btn" :title="t('hotel.calendar.next')" @click="nextPeriod">›</button>
               <strong class="cal__month">{{ monthLabel }}</strong>
-              <button type="button" class="cal__today" @click="goToday">{{ t('hotel.calendar.today') }}</button>
+              <div class="cal__nav-end">
+                <button type="button" class="cal__nav-btn" :title="t('hotel.calendar.next')" @click="nextPeriod">›</button>
+                <button type="button" class="cal__today" @click="goToday">{{ t('hotel.calendar.today') }}</button>
+              </div>
             </div>
             <div class="cal__filters">
               <button
@@ -754,9 +756,16 @@ watch(() => ctx.currentStoreId, () => {
   box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.04));}
 
 .cal__nav {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  gap: 0.5rem;
+}
+
+.cal__nav-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 0.4rem;
 }
 
@@ -776,7 +785,9 @@ watch(() => ctx.currentStoreId, () => {
   color: var(--color-ink-brand, var(--color-brand-700));}
 
 .cal__month {
-  margin: 0 0.35rem 0 0.25rem;
+  margin: 0;
+  justify-self: center;
+  text-align: center;
   font-size: 1.05rem;
   font-weight: 750;
   color: var(--color-text-primary, var(--color-text-primary));

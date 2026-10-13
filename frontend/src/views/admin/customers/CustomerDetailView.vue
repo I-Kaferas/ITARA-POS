@@ -225,7 +225,7 @@ function transactionTypeLabel(type: string): string {
         </div>
       </div>
 
-      <div class="flex gap-2 border-b border-slate-200">
+      <div class="ui-tabbar" role="tablist">
         <button
           v-for="tab in ([['statement', t('payables.tabs.statement')], ['payments', t('payables.tabs.payments')], ['sales', t('nav.sales')], ['loyalty', t('customers.loyalty')], ['addresses', t('customers.addresses')]] as const)"
           :key="tab[0]"
@@ -422,7 +422,5 @@ function transactionTypeLabel(type: string): string {
 .stat-card { border-radius: var(--radius-lg); background: var(--color-surface); padding: 1rem; box-shadow: none; border: 1px solid var(--color-border);}
 .stat-label { margin: 0; font-size: 0.75rem; color: var(--color-text-muted);}
 .stat-value { margin: 0.25rem 0 0; font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);}
-.tab-btn { padding: 0.5rem 1rem; font-size: 0.875rem; color: var(--color-text-muted); border-bottom: 2px solid transparent;}
-.tab-btn--active { color: var(--color-ink-brand, var(--color-brand-600)); border-bottom-color: var(--color-brand-600); font-weight: 500;}
 .text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 </style>

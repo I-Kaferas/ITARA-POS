@@ -34,6 +34,9 @@ dependencies:
   archive: ^4.0.9
   # mDNS / DNS-SD — Master advertise + Slave browse (_itara-pos._tcp)
   nsd: ^4.0.3
+  desktop_multi_window: ^0.3.1
+  screen_retriever: ^0.2.2
+  window_manager: ^0.5.2
   # Drift local database — full implementation in Phase 36
   # drift: ^2.28.0
   # drift_flutter: ^0.2.4

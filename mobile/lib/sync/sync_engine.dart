@@ -20,6 +20,14 @@ import 'offline_store.dart';
 import 'sync_models.dart';
 import 'sync_numbers.dart';
 
+String _syncFailure(Object error) {
+  final text = error.toString();
+  if (error is TimeoutException || text.startsWith('TimeoutException')) {
+    return 'Le serveur n’a pas répondu à temps. Les données locales sont conservées.';
+  }
+  return text.replaceFirst('Exception: ', '');
+}
+
 class _BatchResult {
   const _BatchResult({this.sent = 0, this.acknowledged = 0, this.kept = 0, this.stopped = false});
 
@@ -277,7 +285,7 @@ class SyncEngine extends ChangeNotifier {
         taxes: refs.taxes,
       );
     } catch (error) {
-      lastError = error.toString().replaceFirst('Exception: ', '');
+      lastError = _syncFailure(error);
       connectivity = ConnectivityState.syncError;
       return lastReport = SyncReport(ok: false, message: lastError!);
     } finally {
@@ -324,7 +332,7 @@ class SyncEngine extends ChangeNotifier {
         sent: sent,
       );
     } catch (error) {
-      lastError = error.toString().replaceFirst('Exception: ', '');
+      lastError = _syncFailure(error);
       connectivity = ConnectivityState.syncError;
       return lastReport = SyncReport(ok: false, message: lastError!);
     } finally {
@@ -372,7 +380,7 @@ class SyncEngine extends ChangeNotifier {
           : 'Envoi partiel · $pending en attente';
       return lastReport = SyncReport(ok: pending == 0 || sent > 0, message: message, sent: sent);
     } catch (error) {
-      lastError = error.toString().replaceFirst('Exception: ', '');
+      lastError = _syncFailure(error);
       connectivity = ConnectivityState.syncError;
       return lastReport = SyncReport(ok: false, message: lastError!);
     } finally {
@@ -459,7 +467,7 @@ class SyncEngine extends ChangeNotifier {
           taxes = refs.taxes;
         }
       } catch (error) {
-        lastError = error.toString();
+        lastError = _syncFailure(error);
         await OfflineStore.instance.log('error', lastError!);
       }
       if (pushOutbound) {
@@ -495,7 +503,7 @@ class SyncEngine extends ChangeNotifier {
       );
       if (showBusy || catalogChanged || sent > 0) notifyListeners();
     } catch (error) {
-      lastError = error.toString();
+      lastError = _syncFailure(error);
       connectivity = ConnectivityState.syncError;
       lastReport = SyncReport(ok: false, message: lastError!);
       await OfflineStore.instance.log('error', lastError!);
@@ -781,7 +789,7 @@ class SyncEngine extends ChangeNotifier {
       if (storeId.isNotEmpty) 'store_id': storeId,
       'pos_only': '1',
     });
-    final response = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
+    final response = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
     if (response.statusCode != 200) {
       throw Exception('Pull payment methods failed: HTTP ${response.statusCode}');
     }
@@ -1190,8 +1198,12 @@ class SyncEngine extends ChangeNotifier {
   }
 
   Future<({int products, int categories})> _refreshCatalogCounts() async {
-    final api = PosApiService();
-    final catalog = await api.fetchCatalog();
+    final PosCatalog catalog;
+    try {
+      catalog = await PosApiService().fetchCatalog();
+    } on TimeoutException {
+      return _pullCatalog(replaceAll: true);
+    }
     await OfflineStore.instance.cacheCatalog(catalog);
     await OfflineStore.instance.setCheckpoint('catalog_synced_at', DateTime.now().toIso8601String());
     catalogRevision++;

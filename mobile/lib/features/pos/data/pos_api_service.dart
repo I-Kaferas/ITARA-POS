@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../data/local/local_database.dart';
 import '../../../sync/local_master_server.dart';
 import '../../../sync/offline_store.dart';
 import '../../customers/data/customer_account_store.dart';
@@ -79,16 +82,26 @@ class PosApiService {
     }
 
     Object? lastError;
-    for (final base in _bases) {
+    final bases = _bases;
+    for (var i = 0; i < bases.length; i++) {
+      final base = bases[i];
+      // A dead local master must not consume the whole wait. The last base
+      // (usually the cloud API) gets a longer budget because php artisan serve
+      // handles one request at a time.
+      final limit = i == bases.length - 1
+          ? const Duration(seconds: 30)
+          : const Duration(seconds: 6);
       try {
         final response = await _client
             .get(Uri.parse('$base/stores/$_storeId/pos/catalog'), headers: _headers)
-            .timeout(const Duration(seconds: 15));
+            .timeout(limit);
         if (response.statusCode != 200) {
           lastError = Exception('Catalog fetch failed: HTTP ${response.statusCode}');
           continue;
         }
         return PosCatalog.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      } on TimeoutException {
+        lastError = TimeoutException('Le serveur n’a pas répondu à temps.', limit);
       } catch (error) {
         lastError = error;
       }
@@ -230,17 +243,25 @@ class PosApiService {
   }
 
   Future<PosLoyaltySummary> fetchLoyalty(String customerId) async {
-    final body = await _requestJson(method: 'GET', path: '/customers/$customerId/loyalty');
-    return PosLoyaltySummary.fromJson(body);
+    final body = await _requestOrNull(method: 'GET', path: '/customers/$customerId/loyalty');
+    if (body != null) return PosLoyaltySummary.fromJson(body);
+    return const PosLoyaltySummary(points: 0, rewardPerPoint: 0);
   }
 
   Future<PosLoyaltySummary> redeemLoyalty(String customerId, int points) async {
-    final body = await _requestJson(
+    final body = await _requestOrNull(
       method: 'POST',
       path: '/customers/$customerId/loyalty/redeem',
       body: {'points': points},
     );
-    return PosLoyaltySummary.fromJson(body);
+    if (body != null) return PosLoyaltySummary.fromJson(body);
+    final current = await fetchLoyalty(customerId);
+    final left = current.points - points;
+    return PosLoyaltySummary(
+      points: left < 0 ? 0 : left,
+      rewardPerPoint: current.rewardPerPoint,
+      tier: current.tier,
+    );
   }
 
   Future<PosOverview> fetchOverview() async {
@@ -258,7 +279,7 @@ class PosApiService {
     String? customerId,
   }) async {
     if (_storeId.isEmpty) return [];
-    final body = await _requestJson(
+    final body = await _requestOrNull(
       method: 'GET',
       path: '/stores/$_storeId/sales',
       query: {
@@ -270,10 +291,21 @@ class PosApiService {
         if (customerId != null && customerId.isNotEmpty) 'customer_id': customerId,
       },
     );
-    return _listOfMaps(body['data']);
+    if (body != null) return _listOfMaps(body['data']);
+    final local = await OfflineStore.instance.listLocalSales(limit: 100);
+    final query = search?.trim().toLowerCase() ?? '';
+    return local.where((sale) {
+      if (status != null && status.isNotEmpty && sale['status']?.toString() != status) return false;
+      if (query.isEmpty) return true;
+      final reference = sale['reference']?.toString().toLowerCase() ?? '';
+      final customer = sale['customer_name']?.toString().toLowerCase() ?? '';
+      return reference.contains(query) || customer.contains(query);
+    }).toList();
   }
 
   Future<Map<String, dynamic>> fetchSaleDetail(String id) async {
+    final local = await OfflineStore.instance.localSaleById(id);
+    if (local != null) return local;
     final body = await _requestJson(method: 'GET', path: '/sales/$id');
     final data = body['data'];
     if (data is Map) return Map<String, dynamic>.from(data);
@@ -281,6 +313,8 @@ class PosApiService {
   }
 
   Future<Map<String, dynamic>> createReceipt(String saleId) async {
+    final local = await _localDocument(saleId, documentType: 'receipt');
+    if (local != null) return local;
     final body = await _requestJson(method: 'POST', path: '/sales/$saleId/receipt', body: const {});
     final data = body['data'];
     if (data is Map) return Map<String, dynamic>.from(data);
@@ -288,6 +322,8 @@ class PosApiService {
   }
 
   Future<Map<String, dynamic>> createInvoice(String saleId) async {
+    final local = await _localDocument(saleId, documentType: 'invoice');
+    if (local != null) return local;
     final body = await _requestJson(method: 'POST', path: '/sales/$saleId/invoice', body: const {});
     final data = body['data'];
     if (data is Map) return Map<String, dynamic>.from(data);
@@ -295,44 +331,75 @@ class PosApiService {
   }
 
   Future<List<SaleReturnReason>> fetchReturnReasons() async {
-    final body = await _requestJson(method: 'GET', path: '/returns/reasons');
-    return _listOfMaps(body['data'])
-        .map(SaleReturnReason.fromJson)
-        .where((reason) => reason.value.isNotEmpty)
-        .toList();
+    final body = await _requestOrNull(method: 'GET', path: '/returns/reasons');
+    final reasons = body == null
+        ? const <SaleReturnReason>[]
+        : _listOfMaps(body['data'])
+            .map(SaleReturnReason.fromJson)
+            .where((reason) => reason.value.isNotEmpty)
+            .toList();
+    if (reasons.isNotEmpty) return reasons;
+    return const [
+      SaleReturnReason(value: 'customer_changed_mind', label: 'Changement d’avis'),
+      SaleReturnReason(value: 'defective', label: 'Article défectueux'),
+      SaleReturnReason(value: 'wrong_item', label: 'Mauvais article'),
+    ];
   }
 
   Future<List<SaleReturnRow>> fetchStoreReturns() async {
-    if (_storeId.isEmpty) return [];
-    final body = await _requestJson(
+    if (_storeId.isEmpty) return _localReturns();
+    final body = await _requestOrNull(
       method: 'GET',
       path: '/stores/$_storeId/sale-returns',
       query: const {'limit': '100'},
     );
-    return _listOfMaps(body['data']).map(SaleReturnRow.fromJson).where((row) => row.id.isNotEmpty).toList();
+    if (body != null) {
+      return _listOfMaps(body['data']).map(SaleReturnRow.fromJson).where((row) => row.id.isNotEmpty).toList();
+    }
+    return _localReturns();
   }
 
   Future<SaleReturnRow> createSaleReturn(String saleId, Map<String, dynamic> payload) async {
-    final body = await _requestJson(
+    final body = await _requestOrNull(
       method: 'POST',
       path: '/sales/$saleId/returns',
       body: payload,
     );
-    final data = body['data'];
-    return SaleReturnRow.fromJson(data is Map ? Map<String, dynamic>.from(data) : body);
+    if (body != null) {
+      final data = body['data'];
+      return SaleReturnRow.fromJson(data is Map ? Map<String, dynamic>.from(data) : body);
+    }
+    return _recordLocalReturn(saleId, payload);
   }
 
   Future<List<MergeCandidate>> mergeCandidates(String saleId) async {
-    final body = await _requestJson(method: 'GET', path: '/sales/$saleId/merge-candidates');
-    return _listOfMaps(body['data'])
-        .map(MergeCandidate.fromJson)
+    final body = await _requestOrNull(method: 'GET', path: '/sales/$saleId/merge-candidates');
+    if (body != null) {
+      return _listOfMaps(body['data'])
+          .map(MergeCandidate.fromJson)
+          .where((item) => item.id.isNotEmpty)
+          .toList();
+    }
+    final local = await OfflineStore.instance.listLocalSales(limit: 40);
+    return local
+        .where((sale) => sale['id']?.toString() != saleId && sale['status']?.toString() != 'cancelled')
+        .map(
+          (sale) => MergeCandidate(
+            id: sale['id']?.toString() ?? '',
+            reference: sale['reference']?.toString() ?? '',
+            total: _money(sale['total']),
+            currency: sale['currency']?.toString(),
+            customer: sale['customer_name'] == null ? null : {'name': sale['customer_name']},
+            itemCount: sale['items'] is List ? (sale['items'] as List).length : null,
+          ),
+        )
         .where((item) => item.id.isNotEmpty)
         .toList();
   }
 
   Future<MergePreview> mergePreview(String saleId, List<String> targetIds) async {
     if (targetIds.isEmpty) throw Exception('Au moins une vente cible est requise');
-    final body = await _requestJson(
+    final body = await _requestOrNull(
       method: 'POST',
       path: '/sales/$saleId/merge/preview',
       body: {
@@ -340,12 +407,13 @@ class PosApiService {
         if (targetIds.length > 1) 'target_sale_ids': targetIds,
       },
     );
-    return MergePreview.fromJson(body);
+    if (body != null) return MergePreview.fromJson(body);
+    return _localMergePreview(saleId, targetIds);
   }
 
   Future<Map<String, dynamic>> mergeSales(String saleId, List<String> targetIds) async {
     if (targetIds.isEmpty) throw Exception('Au moins une vente cible est requise');
-    final body = await _requestJson(
+    final body = await _requestOrNull(
       method: 'POST',
       path: '/sales/$saleId/merge',
       body: {
@@ -353,49 +421,68 @@ class PosApiService {
         if (targetIds.length > 1) 'target_sale_ids': targetIds,
       },
     );
-    final data = body['data'];
-    if (data is Map) return Map<String, dynamic>.from(data);
-    return body;
+    if (body != null) {
+      final data = body['data'];
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return body;
+    }
+    await _mergeLocalSales(saleId, targetIds);
+    return {'id': saleId, 'merged': targetIds};
   }
 
   Future<List<PosReservation>> fetchReservations() async {
-    if (_storeId.isEmpty) return [];
-    final body = await _requestJson(method: 'GET', path: '/stores/$_storeId/pos/reservations');
-    return _listOfMaps(body['data'])
-        .map(PosReservation.fromJson)
-        .where((item) => item.id.isNotEmpty)
-        .toList();
+    if (_storeId.isNotEmpty) {
+      final body = await _requestOrNull(method: 'GET', path: '/stores/$_storeId/pos/reservations');
+      if (body != null) {
+        return _listOfMaps(body['data'])
+            .map(PosReservation.fromJson)
+            .where((item) => item.id.isNotEmpty)
+            .toList();
+      }
+    }
+    return _localReservations();
   }
 
   Future<PosReservation> createReservation(Map<String, dynamic> payload) async {
-    if (_storeId.isEmpty) throw Exception('STORE_ID is required');
-    final body = await _requestJson(
-      method: 'POST',
-      path: '/stores/$_storeId/pos/reservations',
-      body: payload,
-    );
-    final data = body['data'];
-    return PosReservation.fromJson(data is Map ? Map<String, dynamic>.from(data) : body);
+    if (_storeId.isNotEmpty) {
+      final body = await _requestOrNull(
+        method: 'POST',
+        path: '/stores/$_storeId/pos/reservations',
+        body: payload,
+      );
+      if (body != null) {
+        final data = body['data'];
+        return PosReservation.fromJson(data is Map ? Map<String, dynamic>.from(data) : body);
+      }
+    }
+    return _saveLocalReservation(payload);
   }
 
   Future<PosReservation> updateReservation(String id, Map<String, dynamic> payload) async {
-    final body = await _requestJson(
+    final body = await _requestOrNull(
       method: 'PATCH',
       path: '/pos-reservations/$id',
       body: payload,
     );
-    final data = body['data'];
-    return PosReservation.fromJson(data is Map ? Map<String, dynamic>.from(data) : body);
+    if (body != null) {
+      final data = body['data'];
+      return PosReservation.fromJson(data is Map ? Map<String, dynamic>.from(data) : body);
+    }
+    return _saveLocalReservation({...payload, 'id': id});
   }
 
   Future<PosReservation> setReservationStatus(String id, String status) async {
-    final body = await _requestJson(
+    final body = await _requestOrNull(
       method: 'PATCH',
       path: '/pos-reservations/$id/status',
       body: {'status': status},
     );
-    final data = body['data'];
-    return PosReservation.fromJson(data is Map ? Map<String, dynamic>.from(data) : body);
+    if (body != null) {
+      final data = body['data'];
+      return PosReservation.fromJson(data is Map ? Map<String, dynamic>.from(data) : body);
+    }
+    final current = await _localReservation(id);
+    return _saveLocalReservation({...current, 'id': id, 'status': status});
   }
 
   Future<PosSaleResult> createSale({
@@ -408,6 +495,8 @@ class PosApiService {
     Map<String, dynamic>? installments,
     String? saleId,
     int? loyaltyPoints,
+    String? serviceMode,
+    String? deliveryAddress,
   }) async {
     if (_storeId.isEmpty) {
       throw Exception('STORE_ID is required for sale creation');
@@ -437,6 +526,8 @@ class PosApiService {
       outstandingAmount: total > paidAmount ? total - paidAmount : 0,
       method: method,
       saleId: saleId,
+      serviceMode: serviceMode,
+      deliveryAddress: deliveryAddress,
     );
 
     if (customerId != null && customerId.isNotEmpty) {
@@ -450,6 +541,275 @@ class PosApiService {
       ));
     }
     return result;
+  }
+
+  Future<MergePreview> _localMergePreview(String saleId, List<String> targetIds) async {
+    final source = await OfflineStore.instance.localSaleById(saleId);
+    final targets = <Map<String, dynamic>>[];
+    for (final id in targetIds) {
+      final sale = await OfflineStore.instance.localSaleById(id);
+      if (sale != null) targets.add(sale);
+    }
+    if (source == null || targets.isEmpty) {
+      throw Exception('Ces commandes ne sont pas sur cet appareil.');
+    }
+    MergeCandidate asCandidate(Map<String, dynamic> sale) => MergeCandidate(
+          id: sale['id']?.toString() ?? '',
+          reference: sale['reference']?.toString() ?? '',
+          total: _money(sale['total']),
+          currency: sale['currency']?.toString(),
+          customer: sale['customer_name'] == null ? null : {'name': sale['customer_name']},
+        );
+    final items = <Map<String, dynamic>>[
+      ...(source['items'] as List? ?? []).whereType<Map>().map(Map<String, dynamic>.from),
+      for (final sale in targets) ...(sale['items'] as List? ?? []).whereType<Map>().map(Map<String, dynamic>.from),
+    ];
+    final total = _money(source['total']) + targets.fold<int>(0, (sum, sale) => sum + _money(sale['total']));
+    return MergePreview(
+      source: asCandidate(source),
+      target: asCandidate(targets.first),
+      items: items,
+      totals: {'total': total},
+    );
+  }
+
+  Future<void> _mergeLocalSales(String saleId, List<String> targetIds) async {
+    final source = await OfflineStore.instance.localSaleById(saleId);
+    if (source == null) {
+      throw Exception('Cette commande n’est pas sur cet appareil.');
+    }
+    final db = await LocalDatabase.instance.database;
+    var addedTotal = 0;
+    var addedDue = 0;
+    var merged = 0;
+    for (final targetId in targetIds) {
+      final target = await OfflineStore.instance.localSaleById(targetId);
+      if (target == null || targetId == saleId) continue;
+      merged += 1;
+      addedTotal += _money(target['total']);
+      addedDue += _money(target['outstanding_amount']);
+      await db.update('sale_items', {'sale_id': saleId}, where: 'sale_id = ?', whereArgs: [targetId]);
+      await db.update(
+        'sales',
+        {'total': 0, 'outstanding_amount': 0, 'sync_status': 'merged'},
+        where: 'id = ?',
+        whereArgs: [targetId],
+      );
+    }
+    if (merged == 0) {
+      throw Exception('Aucune commande locale à fusionner.');
+    }
+    await db.rawUpdate(
+      'UPDATE sales SET total = total + ?, outstanding_amount = outstanding_amount + ? WHERE id = ?',
+      [addedTotal, addedDue, saleId],
+    );
+  }
+
+  Future<Map<String, dynamic>?> _requestOrNull({
+    required String method,
+    required String path,
+    Map<String, String>? query,
+    Object? body,
+  }) async {
+    try {
+      return await _requestJson(method: method, path: path, query: query, body: body);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int _money(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse('$value') ?? 0;
+  }
+
+  Future<Map<String, dynamic>?> _localDocument(String saleId, {required String documentType}) async {
+    final sale = await OfflineStore.instance.localSaleById(saleId);
+    if (sale == null) return null;
+    final config = TerminalConfigRepository.instance.config;
+    final reference = sale['reference']?.toString().trim().isNotEmpty == true
+        ? sale['reference'].toString()
+        : saleId;
+    final items = (sale['items'] as List? ?? []).whereType<Map>().map((raw) {
+      final item = Map<String, dynamic>.from(raw);
+      return {
+        'name': item['name']?.toString().trim().isNotEmpty == true
+            ? item['name'].toString()
+            : (item['product_name']?.toString() ?? 'Article'),
+        'sku': item['sku']?.toString(),
+        'quantity': _money(item['quantity'] ?? 1),
+        'unit_price': _money(item['unit_price']),
+        'line_discount': _money(item['line_discount']),
+        'line_tax': _money(item['line_tax']),
+        'line_total': _money(item['line_total']),
+      };
+    }).toList();
+    final payments = (sale['payments'] as List? ?? []).whereType<Map>().map((raw) {
+      final payment = Map<String, dynamic>.from(raw);
+      final method = payment['method']?.toString() ?? 'cash';
+      return {
+        'method': method,
+        'method_label': payment['method_label']?.toString() ?? method,
+        'amount': _money(payment['amount']),
+      };
+    }).toList();
+    final paid = payments.fold<int>(0, (sum, payment) => sum + _money(payment['amount']));
+    final total = _money(sale['total']);
+    final payload = {
+      'document_type': documentType,
+      'format': 'thermal_80',
+      'company': {
+        'name': config.brandName.trim().isEmpty ? 'ITARA' : config.brandName.trim(),
+        'currency_code': config.currencyCode,
+      },
+      'branch': {'name': config.deviceName},
+      'document_number': reference,
+      'sale_reference': reference,
+      'sale_id': sale['id']?.toString() ?? saleId,
+      'date': sale['created_at']?.toString() ?? '',
+      'cashier': {'name': sale['cashier_name']?.toString() ?? config.cashierName},
+      'customer': {'name': sale['customer_name']?.toString()},
+      'items': items,
+      'subtotal': _money(sale['subtotal'] ?? total),
+      'discount_total': _money(sale['discount_total']),
+      'tax_total': _money(sale['tax_total']),
+      'total': total,
+      'currency': sale['currency']?.toString().isNotEmpty == true ? sale['currency'] : config.currencyCode,
+      'payments': payments,
+      'amount_paid': paid,
+      'change': paid > total ? paid - total : 0,
+      if (documentType == 'receipt') 'receipt_number': reference,
+      if (documentType == 'invoice') 'invoice_number': reference,
+    };
+    return {'payload': payload};
+  }
+
+  Future<SaleReturnRow> _recordLocalReturn(String saleId, Map<String, dynamic> payload) async {
+    final sale = await OfflineStore.instance.localSaleById(saleId);
+    final id = const Uuid().v4();
+    final now = DateTime.now().toIso8601String();
+    final items = payload['items'];
+    var total = 0;
+    if (sale != null && items is List) {
+      final lines = (sale['items'] as List? ?? []).whereType<Map>().map(Map<String, dynamic>.from).toList();
+      for (final raw in items.whereType<Map>()) {
+        final itemId = raw['sale_item_id']?.toString() ?? '';
+        final qty = _money(raw['quantity']);
+        final line = lines.cast<Map<String, dynamic>?>().firstWhere(
+          (item) => item?['id']?.toString() == itemId || item?['sale_item_id']?.toString() == itemId,
+          orElse: () => null,
+        );
+        if (line == null || qty < 1) continue;
+        final lineQty = _money(line['quantity']);
+        final lineTotal = _money(line['line_total']);
+        total += lineQty > 0 ? ((lineTotal * qty) / lineQty).round() : lineTotal;
+      }
+    }
+    final number = 'RET-${now.substring(0, 10).replaceAll('-', '')}-${id.substring(0, 4).toUpperCase()}';
+    final document = {
+      'id': id,
+      'return_number': number,
+      'status': 'recorded',
+      'reason': payload['reason']?.toString() ?? '',
+      'refund_method': payload['refund_method']?.toString() ?? 'cash',
+      'total': total,
+      'created_at': now,
+      'sale_id': saleId,
+      'sale': sale == null ? null : {'id': sale['id'], 'reference': sale['reference']},
+    };
+    final db = await LocalDatabase.instance.database;
+    await db.insert('refunds', {
+      'id': id,
+      'sale_id': saleId,
+      'amount': total,
+      'method': document['refund_method'],
+      'reason': document['reason'],
+      'status': 'recorded',
+      'json': jsonEncode(document),
+      'created_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    return SaleReturnRow.fromJson(document);
+  }
+
+  Future<List<SaleReturnRow>> _localReturns() async {
+    final db = await LocalDatabase.instance.database;
+    final rows = await db.query('refunds', orderBy: 'created_at DESC', limit: 100);
+    return rows.map((row) {
+      Map<String, dynamic> json = {};
+      try {
+        final decoded = jsonDecode(row['json']?.toString() ?? '{}');
+        if (decoded is Map) json = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+      return SaleReturnRow.fromJson({
+        ...json,
+        'id': row['id'],
+        'total': row['amount'] ?? json['total'],
+        'reason': row['reason'] ?? json['reason'],
+        'status': row['status'] ?? json['status'],
+        'refund_method': row['method'] ?? json['refund_method'],
+        'created_at': row['created_at'] ?? json['created_at'],
+      });
+    }).where((row) => row.id.isNotEmpty).toList();
+  }
+
+  Future<List<PosReservation>> _localReservations() async {
+    final db = await LocalDatabase.instance.database;
+    final rows = await db.query(
+      'hospitality_docs',
+      where: 'kind = ?',
+      whereArgs: ['pos_reservation'],
+      orderBy: 'updated_at DESC',
+    );
+    return rows.map((row) {
+      Map<String, dynamic> json = {};
+      try {
+        final decoded = jsonDecode(row['json']?.toString() ?? '{}');
+        if (decoded is Map) json = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+      return PosReservation.fromJson({...json, 'id': row['id'], 'status': row['status'] ?? json['status']});
+    }).where((item) => item.id.isNotEmpty).toList();
+  }
+
+  Future<Map<String, dynamic>> _localReservation(String id) async {
+    final db = await LocalDatabase.instance.database;
+    final rows = await db.query(
+      'hospitality_docs',
+      where: 'id = ? AND kind = ?',
+      whereArgs: [id, 'pos_reservation'],
+      limit: 1,
+    );
+    if (rows.isEmpty) return {'id': id};
+    try {
+      final decoded = jsonDecode(rows.first['json']?.toString() ?? '{}');
+      if (decoded is Map) return {...Map<String, dynamic>.from(decoded), 'id': id};
+    } catch (_) {}
+    return {'id': id};
+  }
+
+  Future<PosReservation> _saveLocalReservation(Map<String, dynamic> payload) async {
+    final id = payload['id']?.toString().trim().isNotEmpty == true ? payload['id'].toString() : const Uuid().v4();
+    final now = DateTime.now().toIso8601String();
+    final document = {
+      ...payload,
+      'id': id,
+      'reference': payload['reference']?.toString().trim().isNotEmpty == true
+          ? payload['reference']
+          : 'RSV-${id.substring(0, 4).toUpperCase()}',
+      'guest_name': payload['guest_name'] ?? payload['name'] ?? '',
+      'party_size': _money(payload['party_size'] ?? 1),
+      'reserved_at': payload['reserved_at']?.toString().isNotEmpty == true ? payload['reserved_at'] : now,
+      'status': payload['status']?.toString().isNotEmpty == true ? payload['status'] : 'pending',
+    };
+    final db = await LocalDatabase.instance.database;
+    await db.insert('hospitality_docs', {
+      'id': id,
+      'kind': 'pos_reservation',
+      'status': document['status'],
+      'json': jsonEncode(document),
+      'updated_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    return PosReservation.fromJson(document);
   }
 
   Future<Map<String, dynamic>> _requestJson({

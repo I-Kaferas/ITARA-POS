@@ -17,6 +17,8 @@ class PosCartEngine extends ChangeNotifier {
   String? _pendingServerId;
   int loyaltyPoints = 0;
   String? tableId;
+  String serviceMode = 'takeaway';
+  String deliveryAddress = '';
   int? _serverSubtotal;
   int? _serverTaxTotal;
   int? _serverDiscountTotal;
@@ -74,6 +76,19 @@ class PosCartEngine extends ChangeNotifier {
   void setTableId(String? id) {
     final value = id?.trim();
     tableId = (value == null || value.isEmpty) ? null : value;
+    notifyListeners();
+  }
+
+  void setServiceMode(String mode) {
+    if (mode != 'takeaway' && mode != 'delivery') return;
+    if (serviceMode == mode) return;
+    serviceMode = mode;
+    notifyListeners();
+  }
+
+  void setDeliveryAddress(String value) {
+    if (deliveryAddress == value) return;
+    deliveryAddress = value;
     notifyListeners();
   }
 
@@ -231,6 +246,10 @@ class PosCartEngine extends ChangeNotifier {
     loyaltyPoints = 0;
     _clearServerTotals();
     notifyListeners();
+  }
+
+  void discardOpenSale() {
+    _clearCurrentSale();
   }
 
   void clearDiscount() {

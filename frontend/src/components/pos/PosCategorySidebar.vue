@@ -63,9 +63,14 @@ const { t } = useI18n()
 .pos-cat-tabs {
   display: flex;
   flex-wrap: nowrap;
-  gap: 0.5rem;
+  gap: 2px;
   overflow-x: auto;
-  padding: 0.15rem 0 0.35rem;
+  margin-bottom: 0.35rem;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  backdrop-filter: blur(12px);
   scrollbar-width: thin;
 }
 
@@ -73,7 +78,7 @@ const { t } = useI18n()
   flex-shrink: 0;
   border: 1px solid transparent;
   border-radius: 999px;
-  background: #eef1f5;
+  background: transparent;
   color: var(--color-text-secondary);
   padding: 0.45rem 0.95rem;
   font-size: 0.8125rem;
@@ -87,8 +92,14 @@ const { t } = useI18n()
 }
 
 .pos-cat-tabs__chip:hover {
-  background: #e4e8ef;
-  color: var(--color-ink-brand, var(--color-brand-700));}
+  background: color-mix(in srgb, var(--color-canvas) 80%, transparent);
+  color: var(--color-text-primary);
+}
+
+.pos-cat-tabs__chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-focus-ring);
+}
 
 .pos-cat-tabs__chip--skel {
   pointer-events: none;

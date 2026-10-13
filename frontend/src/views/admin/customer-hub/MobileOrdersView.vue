@@ -3,11 +3,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import { intlLocale } from '../../../i18n/locales'
 import { useContextStore } from '../../../stores/context'
 import {
-import AppIcon from '../../../components/ui/AppIcon.vue'
   cloneMobileOrders,
   nextStatuses,
   type MobileOrder,

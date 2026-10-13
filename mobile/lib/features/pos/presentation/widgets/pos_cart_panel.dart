@@ -26,6 +26,7 @@ class PosCartPanel extends StatelessWidget {
     this.onDiscount,
     this.onNewSale,
     this.onRetrieve,
+    this.onCustomerDisplay,
     this.onNote,
     this.onLoyalty,
     this.onSplit,
@@ -44,6 +45,7 @@ class PosCartPanel extends StatelessWidget {
   final VoidCallback? onDiscount;
   final VoidCallback? onNewSale;
   final VoidCallback? onRetrieve;
+  final VoidCallback? onCustomerDisplay;
   final VoidCallback? onNote;
   final VoidCallback? onLoyalty;
   final VoidCallback? onSplit;
@@ -52,8 +54,8 @@ class PosCartPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.canvas,
-        border: Border(left: BorderSide(color: AppColors.border)),
+        color: PosUi.deskPanel,
+        border: Border(left: BorderSide(color: PosUi.deskLine)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -61,8 +63,8 @@ class PosCartPanel extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
             decoration: BoxDecoration(
-              color: AppColors.canvas,
-              border: Border(bottom: BorderSide(color: AppColors.border.withValues(alpha: 0.7))),
+              color: PosUi.deskPanel,
+              border: Border(bottom: BorderSide(color: PosUi.deskLine)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -71,7 +73,7 @@ class PosCartPanel extends StatelessWidget {
                   height: 46,
                   child: Row(
                     children: [
-                      Icon(Icons.shopping_cart_outlined, size: 18, color: AppColors.brandInk),
+                      Icon(Icons.shopping_cart_outlined, size: 18, color: PosUi.deskText),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
@@ -82,38 +84,40 @@ class PosCartPanel extends StatelessWidget {
                           style: AppTypography.plex(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.brandInk,
+                            color: PosUi.deskText,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.brand700,
-                          borderRadius: BorderRadius.circular(8),
+                        width: 22,
+                        height: 22,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: PosUi.deskAccent,
+                          shape: BoxShape.circle,
                         ),
                         child: Text(
                           '${cart.lines.length}',
                           style: AppTypography.plex(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            color: PosUi.deskInk,
                           ),
                         ),
                       ),
                       const Spacer(),
                       IconButton(
-                        tooltip: 'Held orders',
-                        onPressed: onRetrieve,
-                        icon: Icon(Icons.monitor_outlined, size: 18, color: AppColors.textSecondary),
+                        tooltip: 'Preview Customer display',
+                        onPressed: onCustomerDisplay,
+                        icon: Icon(Icons.monitor_outlined, size: 18, color: PosUi.deskMuted),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
                 Material(
-                  color: AppColors.fieldFill,
+                  color: PosUi.deskField,
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     onTap: onSearchCustomer,
@@ -123,11 +127,11 @@ class PosCartPanel extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: PosUi.deskLine),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.person_outline, size: 18, color: AppColors.textMuted),
+                          Icon(Icons.person_outline, size: 18, color: PosUi.deskMuted),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -137,7 +141,7 @@ class PosCartPanel extends StatelessWidget {
                               style: AppTypography.plex(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: cart.customer == null ? AppColors.textMuted : AppColors.textPrimary,
+                                color: cart.customer == null ? PosUi.deskMuted : PosUi.deskText,
                               ),
                             ),
                           ),
@@ -145,7 +149,7 @@ class PosCartPanel extends StatelessWidget {
                             IconButton(
                               visualDensity: VisualDensity.compact,
                               onPressed: () => cart.setCustomer(null),
-                              icon: Icon(Icons.close, size: 16, color: AppColors.textMuted),
+                              icon: Icon(Icons.close, size: 16, color: PosUi.deskMuted),
                             ),
                         ],
                       ),
@@ -258,14 +262,14 @@ class _OrderCheckout extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        color: PosUi.deskPanel,
+        border: Border(top: BorderSide(color: PosUi.deskLine)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Material(
-            color: AppColors.fieldFill,
+            color: PosUi.deskField,
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
               onTap: onDiscount,
@@ -275,22 +279,22 @@ class _OrderCheckout extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: PosUi.deskLine),
                 ),
                 child: Row(
                   children: [
-                    Text('%', style: AppTypography.plex(color: AppColors.textMuted, fontWeight: FontWeight.w700)),
+                    Text('%', style: AppTypography.plex(color: PosUi.deskMuted, fontWeight: FontWeight.w700)),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         discountLabel,
                         style: AppTypography.plex(
                           fontSize: 13,
-                          color: cart.discountTotal > 0 ? AppColors.textPrimary : AppColors.textMuted,
+                          color: cart.discountTotal > 0 ? PosUi.deskText : PosUi.deskMuted,
                         ),
                       ),
                     ),
-                    Text('%', style: AppTypography.plex(color: AppColors.textMuted, fontWeight: FontWeight.w700)),
+                    Text('%', style: AppTypography.plex(color: PosUi.deskMuted, fontWeight: FontWeight.w700)),
                   ],
                 ),
               ),
@@ -303,26 +307,40 @@ class _OrderCheckout extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              Text('Total', style: AppTypography.plex(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+              Text('Total', style: AppTypography.plex(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText)),
               const Spacer(),
               AppValueFade(
                 value: cart.total,
                 child: Text(
                   _money(cart.total),
-                  style: AppTypography.plex(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.brandInk),
+                  style: AppTypography.plex(fontSize: 22, fontWeight: FontWeight.w800, color: PosUi.deskAccent),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: cart.isEmpty ? null : onPay,
+            style: FilledButton.styleFrom(
+              backgroundColor: PosUi.deskPay,
+              disabledBackgroundColor: PosUi.deskPay.withValues(alpha: 0.35),
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white70,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.lock_outline, size: 16),
+            label: const Text('Pay & Close', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: cart.isEmpty ? null : onHold,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.brandInk,
-                    side: BorderSide(color: AppColors.borderStrong),
+                    foregroundColor: PosUi.deskText,
+                    side: BorderSide(color: PosUi.deskLine),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -374,11 +392,13 @@ class _OrderCheckout extends StatelessWidget {
                 child: Container(
                   width: 42,
                   height: 42,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppColors.brand700,
+                    color: PosUi.deskField,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: PosUi.deskLine),
                   ),
-                  child: const Icon(Icons.apps_rounded, color: Colors.white, size: 18),
+                  child: Icon(Icons.apps_rounded, color: PosUi.deskText, size: 18),
                 ),
               ),
             ],
@@ -399,9 +419,9 @@ class _TotalRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(label, style: AppTypography.plex(fontSize: 13, color: AppColors.textSecondary)),
+        Text(label, style: AppTypography.plex(fontSize: 13, color: PosUi.deskMuted)),
         const Spacer(),
-        Text(value, style: AppTypography.plex(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+        Text(value, style: AppTypography.plex(fontSize: 13, fontWeight: FontWeight.w600, color: PosUi.deskText)),
       ],
     );
   }
@@ -418,14 +438,14 @@ class _EmptyCart extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.shopping_cart_outlined, size: 56, color: AppColors.textMuted.withValues(alpha: 0.7)),
+            Icon(Icons.shopping_cart_outlined, size: 56, color: PosUi.deskMuted.withValues(alpha: 0.7)),
             const SizedBox(height: 16),
-            Text('Cart is empty', style: PosUi.cardTitle(color: AppColors.textSecondary)),
+            Text('Cart is empty', style: PosUi.cardTitle(color: PosUi.deskText)),
             const SizedBox(height: 4),
             Text(
               'Tap on products to add them',
               textAlign: TextAlign.center,
-              style: PosUi.caption(),
+              style: PosUi.caption(color: PosUi.deskMuted),
             ),
           ],
         ),
@@ -468,7 +488,7 @@ class _CartLineTile extends StatelessWidget {
                   unit == null || unit.isEmpty ? line.displayName : '${line.displayName} ($unit)',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: PosUi.cardTitle(),
+                  style: PosUi.cardTitle(color: PosUi.deskText),
                 ),
               ),
               if (onDiscount != null)
@@ -477,7 +497,7 @@ class _CartLineTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.edit_outlined, size: 16, color: AppColors.brandInk),
+                    child: Icon(Icons.edit_outlined, size: 16, color: PosUi.deskAccent),
                   ),
                 ),
               InkWell(
@@ -497,11 +517,11 @@ class _CartLineTile extends StatelessWidget {
                 child: Text(
                   money,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.plex(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.brandInk),
+                  style: AppTypography.plex(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.check_rounded, size: 14, color: AppColors.brandInk),
+              Icon(Icons.check_rounded, size: 14, color: PosUi.deskStock),
               const SizedBox(width: 6),
               _QtyButton(icon: Icons.remove, onPressed: onDecrement),
               Padding(
@@ -510,7 +530,7 @@ class _CartLineTile extends StatelessWidget {
                   value: line.quantity,
                   child: Text(
                     '${line.quantity}',
-                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w800, fontSize: 14),
+                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w800, fontSize: 14, color: PosUi.deskText),
                   ),
                 ),
               ),
@@ -518,7 +538,7 @@ class _CartLineTile extends StatelessWidget {
               const Spacer(),
               Text(
                 MoneyFormatter.format(net, currencyCode: AppConfig.currencyCode),
-                style: PosUi.money(size: 13),
+                style: PosUi.money(size: 13, weight: FontWeight.w800, color: PosUi.deskText),
               ),
             ],
           ),
@@ -526,7 +546,7 @@ class _CartLineTile extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               '$onHand ${unit == null || unit.isEmpty ? 'pcs' : unit} available',
-              style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.brandInk),
+              style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w600, color: PosUi.deskStock),
             ),
           ],
         ],
@@ -551,10 +571,10 @@ class _QtyButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           padding: EdgeInsets.zero,
           minimumSize: const Size(34, 34),
-          side: BorderSide(color: AppColors.borderStrong),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(PosUi.radiusSm)),
-          foregroundColor: AppColors.brandInk,
-          backgroundColor: AppColors.fieldFill,
+          side: BorderSide(color: PosUi.deskLine),
+          shape: const CircleBorder(),
+          foregroundColor: PosUi.deskText,
+          backgroundColor: PosUi.deskField,
         ),
         child: Icon(icon, size: 16),
       ),

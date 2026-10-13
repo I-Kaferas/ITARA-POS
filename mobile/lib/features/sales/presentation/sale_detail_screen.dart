@@ -6,6 +6,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../core/widgets/loading_error_view.dart';
+import '../../../sync/offline_store.dart';
 import '../../pos/data/pos_api_service.dart';
 import '../../pos/domain/pos_models.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
@@ -51,10 +52,11 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
       _error = null;
     });
     try {
-      final sale = await _api.fetchSaleDetail(widget.saleId);
+      final sale = await OfflineStore.instance.localSaleById(widget.saleId);
       if (!mounted) return;
       setState(() {
-        _sale = _asMap(sale);
+        _sale = sale;
+        _error = sale == null ? 'Cette vente n’est pas enregistrée sur cet appareil.' : null;
         _loading = false;
       });
     } catch (error) {

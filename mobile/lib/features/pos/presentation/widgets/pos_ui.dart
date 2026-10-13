@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/theme_controller.dart';
 
 /// Spacing / radius tokens for the POS caisse surface.
 abstract final class PosUi {
@@ -34,6 +35,26 @@ abstract final class PosUi {
   static const double categoryWidthWindows = 220;
   static const double cartWidth = 340;
   static const double cartWidthWindows = 420;
+
+  /// Cashier surface. Dark desk at night, the light canvas when the app is in light mode.
+  static bool get isDarkDesk => ThemeController.instance.isDark;
+
+  static const Color deskInk = Color(0xFF12243C);
+  static const Color deskAccent = Color(0xFFE39B2B);
+  static const Color deskPay = Color(0xFF1FA971);
+
+  static Color get deskNight => isDarkDesk ? const Color(0xFF0C1422) : AppColors.canvas;
+  static Color get deskPanel => isDarkDesk ? const Color(0xFF121A2B) : AppColors.surface;
+  static Color get deskCard => isDarkDesk ? const Color(0xFF182233) : AppColors.surface;
+  static Color get deskField => isDarkDesk ? const Color(0xFF101828) : AppColors.fieldFill;
+  static Color get deskLine => isDarkDesk ? const Color(0xFF2C3A50) : AppColors.border;
+  static Color get deskText => isDarkDesk ? const Color(0xFFF4F7FB) : AppColors.textPrimary;
+  static Color get deskMuted => isDarkDesk ? const Color(0xFF9AABBE) : AppColors.textSecondary;
+  static Color get deskStock => isDarkDesk ? const Color(0xFF3DDC97) : AppColors.success;
+  static Color get deskPhoto => isDarkDesk ? const Color(0xFFE8EDF2) : const Color(0xFFE7EBEF);
+  static Color get deskRaised => isDarkDesk ? const Color(0xFF243044) : AppColors.brand100;
+  static Color get deskSoft => isDarkDesk ? const Color(0xFF1B2536) : AppColors.fieldFill;
+  static Color get deskSuccessBg => isDarkDesk ? const Color(0xFF143528) : AppColors.successBg;
 
   static bool isWindowsDesk(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= windowsDeskBreakpoint;

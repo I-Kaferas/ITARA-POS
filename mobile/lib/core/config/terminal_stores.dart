@@ -15,8 +15,17 @@ class TerminalStoreOption {
   String get label => code.trim().isEmpty ? name : '$name · ${code.trim()}';
 }
 
-Future<List<TerminalStoreOption>> loadTerminalStores() async {
-  final body = await ApiClient().get('/stores');
+Future<List<TerminalStoreOption>> loadTerminalStores({bool directory = false}) async {
+  try {
+    return await _readTerminalStores(directory ? const {'scope': 'directory'} : null);
+  } catch (_) {
+    if (!directory) rethrow;
+    return _readTerminalStores(null);
+  }
+}
+
+Future<List<TerminalStoreOption>> _readTerminalStores(Map<String, String>? query) async {
+  final body = await ApiClient().get('/stores', query: query);
   final data = body['data'];
   if (data is! List) return const [];
 

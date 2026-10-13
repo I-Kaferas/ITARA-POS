@@ -92,4 +92,22 @@ class SaleItem extends Model
     {
         return $this->quantityReturnable();
     }
+
+    public function resolvedProductName(): string
+    {
+        $stored = trim((string) $this->product_name);
+        $generic = $stored === '' || in_array(strtolower($stored), ['item', 'article'], true);
+        if (! $generic) {
+            return $stored;
+        }
+
+        $fromCatalog = trim((string) ($this->product?->name ?? ''));
+        if ($fromCatalog !== '') {
+            return $fromCatalog;
+        }
+
+        $sku = trim((string) ($this->product_sku ?? ''));
+
+        return $sku !== '' ? $sku : ($stored !== '' ? $stored : 'Article');
+    }
 }

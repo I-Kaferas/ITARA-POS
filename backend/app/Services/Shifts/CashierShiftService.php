@@ -322,6 +322,7 @@ class CashierShiftService
             'invoices_total' => $report['invoices_total'],
             'invoices' => $report['invoices'],
             'payment_methods' => $report['payment_methods'],
+            'handover' => $report['handover'],
         ];
     }
 

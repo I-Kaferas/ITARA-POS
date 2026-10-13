@@ -1071,12 +1071,20 @@ class SaleEngine
         $items = [];
 
         foreach ($cart->lines as $index => $line) {
+            $productName = trim((string) ($line->name ?? ''));
+            if ($productName === '' || in_array(strtolower($productName), ['item', 'article'], true)) {
+                $productName = (string) (Product::query()->whereKey($line->productId)->value('name') ?: $productName);
+            }
+            if ($productName === '') {
+                $productName = 'Item';
+            }
+
             $saleItem = SaleItem::query()->create([
                 'tenant_id' => $sale->tenant_id,
                 'sale_id' => $sale->id,
                 'product_id' => $line->productId,
                 'product_variant_id' => $line->productVariantId,
-                'product_name' => $line->name ?? 'Item',
+                'product_name' => $productName,
                 'product_sku' => $line->sku,
                 'quantity' => $line->quantity,
                 'sale_unit_id' => $line->saleUnitId,

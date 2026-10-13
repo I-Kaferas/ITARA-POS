@@ -543,6 +543,9 @@ class PosCartLine {
 
   Map<String, dynamic> toSaleItem() => {
         'product_id': product.productId,
+        'product_name': displayName,
+        'name': displayName,
+        if (product.sku.isNotEmpty) 'sku': product.sku,
         'quantity': quantity,
         'unit_price': unitPrice,
         if (variantId != null && variantId!.isNotEmpty) 'product_variant_id': variantId,

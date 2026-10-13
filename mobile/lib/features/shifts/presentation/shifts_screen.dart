@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -10,11 +10,12 @@ import '../../../core/widgets/role_guard.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../core/widgets/loading_error_view.dart';
-import '../../../core/widgets/status_badge.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../data/local_shifts_store.dart';
 import '../domain/shift_models.dart';
 import '../services/shift_z_report_printer.dart';
+import 'shift_detail_sheet.dart';
+import 'shift_handover_dialog.dart';
 
 class ShiftsScreen extends StatefulWidget {
   const ShiftsScreen({super.key});
@@ -25,11 +26,11 @@ class ShiftsScreen extends StatefulWidget {
 
 class _ShiftsScreenState extends State<ShiftsScreen> {
   final _api = LocalShiftsStore.instance;
-  final _dateFormat = DateFormat('dd/MM/yyyy HH:mm');
   final _search = TextEditingController();
 
   List<CashRegister> _registers = [];
   List<({CashRegister register, CashRegisterSession session})> _shifts = [];
+  Map<String, SessionSummary> _summaries = {};
   bool _loading = true;
   String? _error;
   int _lane = 0;
@@ -62,9 +63,14 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
         }
       }
       shifts.sort((a, b) => b.session.openedAt.compareTo(a.session.openedAt));
+      final summaries = <String, SessionSummary>{};
+      for (final shift in shifts) {
+        summaries[shift.session.id] = await _api.summaryFor(shift.session);
+      }
       setState(() {
         _registers = registers;
         _shifts = shifts;
+        _summaries = summaries;
         _loading = false;
       });
     } catch (e) {
@@ -98,79 +104,21 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     return (name: name, code: code);
   }
 
-  Future<void> _createRegister() async {
-    final defaults = _nextRegisterDefaults();
-    final nameCtrl = TextEditingController(text: defaults.name);
-    final codeCtrl = TextEditingController(text: defaults.code);
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(PosUi.radiusXl)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Nouvelle caisse', style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Nom'),
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: codeCtrl,
-                  decoration: const InputDecoration(labelText: 'Code'),
-                  textCapitalization: TextCapitalization.characters,
-                  style: GoogleFonts.ibmPlexMono(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler'))),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: SizedBox(
-                        height: PosUi.ctaHeight - 4,
-                        child: FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Créer')),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final name = nameCtrl.text.trim();
-    final code = codeCtrl.text.trim().toUpperCase();
-    nameCtrl.dispose();
-    codeCtrl.dispose();
-
-    if (confirmed != true) return;
-    if (name.isEmpty || code.isEmpty) {
-      _showMessage('Nom et code requis');
-      return;
+  ({CashRegister register, CashRegisterSession session})? get _myOpenShift {
+    final cashierId = TerminalConfigRepository.instance.config.cashierId.trim();
+    for (final shift in _shifts) {
+      if (!shift.session.isOpen) continue;
+      final owner = shift.session.openedById?.trim() ?? '';
+      if (cashierId.isEmpty || owner.isEmpty || owner == cashierId) return shift;
     }
-
-    try {
-      await _api.createRegister(name: name, code: code);
-      _showMessage('Caisse créée');
-      await _load();
-    } catch (e) {
-      _showMessage(e.toString());
-    }
+    return null;
   }
 
   Future<void> _openSession(CashRegister register) async {
+    if (_myOpenShift != null) {
+      _showMessage('Close your current shift before opening another.');
+      return;
+    }
     final balanceCtrl = TextEditingController(text: '0');
     final notesCtrl = TextEditingController();
 
@@ -243,7 +191,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
       _showMessage('Shift ouvert');
       await _load();
     } catch (e) {
-      _showMessage(e.toString());
+      _showMessage(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -410,39 +358,58 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     }
   }
 
-  Future<void> _showSessionDetail(CashRegister register) async {
+  Future<void> _showSessionDetail(CashRegister register, CashRegisterSession session) async {
     try {
-      final current = await _api.currentSession(register.id);
+      final summary = _summaries[session.id] ?? await _api.summaryFor(session);
       if (!mounted) return;
+      final current = CurrentSessionResponse(session: session, summary: summary, zReport: summary);
 
-      if (current.session == null) {
-        _showMessage('Aucun shift ouvert');
-        return;
-      }
-
-      final sessions = await _api.fetchSessions(register.id);
-      if (!mounted) return;
-
-      final detail = _SessionDetailView(
+      final detail = ShiftDetailSheet(
         register: register,
         current: current,
-        history: sessions,
-        dateFormat: _dateFormat,
-        onMovement: () {
-          Navigator.of(context).pop();
-          _recordMovement(register);
+        onRefresh: () async {
+          final next = await _api.summaryFor(session);
+          return CurrentSessionResponse(session: session, summary: next, zReport: next);
+        },
+        onCloseShift: session.isOpen
+            ? () {
+                Navigator.of(context).pop();
+                _closeSession(register);
+              }
+            : null,
+        onSituation: () async {
+          try {
+          final latest = await _api.summaryFor(session);
+          if (!mounted) return;
+          await showDialog<void>(
+            context: context,
+            builder: (context) => Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+              backgroundColor: PosUi.deskPanel,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+              child: SizedBox(
+                width: 980,
+                height: MediaQuery.sizeOf(context).height * 0.88,
+                child: ShiftHandoverDialog(
+                  session: session,
+                  summary: latest,
+                  onReload: () => _api.summaryFor(session),
+                ),
+              ),
+            ),
+          );
+          } catch (error) {
+            _showMessage(error.toString());
+          }
         },
       );
       await showDialog<void>(
         context: context,
         builder: (context) => Dialog(
           insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
-            child: detail,
-          ),
+          backgroundColor: PosUi.deskPanel,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: SizedBox(width: 480, height: 700, child: detail),
         ),
       );
       await _load();
@@ -570,13 +537,25 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     return (value * 100).round();
   }
 
-  void _startShift() {
-    if (_registers.isEmpty) {
-      _createRegister();
+  Future<void> _startShift() async {
+    if (_myOpenShift != null) {
+      _showMessage('Close your current shift before opening another.');
       return;
     }
-    final idle = _registers.where((register) => !register.hasOpenSession).toList();
-    _openSession(idle.isEmpty ? _registers.first : idle.first);
+    var idle = _registers.where((register) => !register.hasOpenSession).toList();
+    if (idle.isEmpty) {
+      final defaults = _nextRegisterDefaults();
+      try {
+        final created = await _api.createRegister(name: defaults.name, code: defaults.code);
+        await _load();
+        idle = _registers.where((register) => register.id == created.id).toList();
+      } catch (e) {
+        _showMessage(e.toString());
+        return;
+      }
+    }
+    if (idle.isEmpty || !mounted) return;
+    await _openSession(idle.first);
   }
 
   @override
@@ -594,21 +573,17 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
       if (shift.session.isOpen) return false;
       return matches('${shift.register.name} ${shift.register.code} ${shift.session.openedByName ?? ''}');
     }).toList();
-    final idle = _registers.where((register) {
-      if (register.hasOpenSession) return false;
-      return matches('${register.name} ${register.code}');
-    }).toList();
     final showActive = _lane != 2;
     final showClosed = _lane != 1;
-    final visibleIdle = showActive ? idle : const <CashRegister>[];
     final visibleActive = showActive ? active : const <CashRegister>[];
     final visibleClosed = showClosed ? closed : const <({CashRegister register, CashRegisterSession session})>[];
     final activeCount = _shifts.where((shift) => shift.session.isOpen).length;
     final closedCount = _shifts.where((shift) => !shift.session.isOpen).length;
-    final empty = visibleIdle.isEmpty && visibleActive.isEmpty && visibleClosed.isEmpty;
+    final empty = visibleActive.isEmpty && visibleClosed.isEmpty;
 
+    final mine = _myOpenShift;
     return ColoredBox(
-      color: AppColors.canvas,
+      color: PosUi.deskNight,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -627,7 +602,8 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               onLane: (value) => setState(() => _lane = value),
               onSearch: (_) => setState(() {}),
               onRefresh: _loading ? null : _load,
-              onOpen: canManage ? _startShift : null,
+              onOpen: canManage && mine == null ? () => _startShift() : null,
+              onClose: canManage && mine != null ? () => _closeSession(mine.register) : null,
             ),
           ),
           Expanded(
@@ -658,33 +634,19 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                                 : ListView(
                                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                                     children: [
-                                      for (final register in visibleIdle) ...[
-                                        _RegisterCard(
-                                          register: register,
-                                          dateFormat: _dateFormat,
-                                          onOpen: () => _openSession(register),
-                                          onClose: () => _closeSession(register),
-                                          onDetail: () => _showSessionDetail(register),
-                                          onMovement: () => _recordMovement(register),
-                                        ),
-                                        const SizedBox(height: 12),
-                                      ],
-                                      for (final register in visibleActive) ...[
-                                        _RegisterCard(
-                                          register: register,
-                                          dateFormat: _dateFormat,
-                                          onOpen: () => _openSession(register),
-                                          onClose: () => _closeSession(register),
-                                          onDetail: () => _showSessionDetail(register),
-                                          onMovement: () => _recordMovement(register),
-                                        ),
-                                        const SizedBox(height: 12),
-                                      ],
-                                      for (final shift in visibleClosed) ...[
-                                        _ClosedShiftRow(
+                                      for (final shift in [
+                                        if (showActive)
+                                          for (final register in visibleActive)
+                                            (register: register, session: register.openSession!),
+                                        ...visibleClosed,
+                                      ]) ...[
+                                        _WorkShiftCard(
                                           register: shift.register,
                                           session: shift.session,
-                                          dateFormat: _dateFormat,
+                                          summary: _summaries[shift.session.id],
+                                          onDetail: () => _showSessionDetail(shift.register, shift.session),
+                                          onClose: shift.session.isOpen ? () => _closeSession(shift.register) : null,
+                                          onMovement: shift.session.isOpen ? () => _recordMovement(shift.register) : null,
                                         ),
                                         const SizedBox(height: 12),
                                       ],
@@ -710,6 +672,7 @@ class _ShiftsChrome extends StatelessWidget {
     required this.onSearch,
     required this.onRefresh,
     this.onOpen,
+    this.onClose,
   });
 
   final TextEditingController search;
@@ -722,29 +685,30 @@ class _ShiftsChrome extends StatelessWidget {
   final ValueChanged<String> onSearch;
   final VoidCallback? onRefresh;
   final VoidCallback? onOpen;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 860;
     final stats = [
       _ShiftStat(
-        icon: Icons.play_circle_fill_rounded,
-        iconColor: AppColors.success,
-        iconBg: AppColors.successBg,
+        icon: Icons.circle,
+        iconColor: PosUi.deskStock,
+        iconBg: PosUi.deskSuccessBg,
         value: '$activeCount',
         label: 'Active Shifts',
       ),
       _ShiftStat(
         icon: Icons.stop_rounded,
-        iconColor: AppColors.textMuted,
-        iconBg: AppColors.brand100,
+        iconColor: PosUi.deskMuted,
+        iconBg: PosUi.deskRaised,
         value: '$closedCount',
         label: 'Closed Shifts',
       ),
       _ShiftStat(
         icon: Icons.grid_view_rounded,
-        iconColor: AppColors.brandInk,
-        iconBg: AppColors.brand50,
+        iconColor: PosUi.deskAccent,
+        iconBg: PosUi.deskRaised,
         value: '$totalCount',
         label: 'total shifts',
       ),
@@ -759,10 +723,10 @@ class _ShiftsChrome extends StatelessWidget {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: AppColors.brand700,
+                color: PosUi.deskAccent,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.schedule_rounded, color: Colors.white, size: 22),
+              child: const Icon(Icons.schedule_rounded, color: PosUi.deskInk, size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -775,36 +739,50 @@ class _ShiftsChrome extends StatelessWidget {
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
-                      color: AppColors.brandInk,
+                      color: PosUi.deskText,
                     ),
                   ),
                   Text(
-                    'Your personal shifts',
-                    style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
+                    'Manage work shifts, track cash flow and reconcile',
+                    style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted),
                   ),
                 ],
               ),
             ),
-            if (wide && onOpen != null) ...[
+            if (wide && onClose != null) ...[
               FilledButton.icon(
-                onPressed: onOpen,
+                onPressed: onClose,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.brand700,
+                  backgroundColor: const Color(0xFFE23D3D),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
+                icon: const Icon(Icons.stop_rounded, size: 16),
+                label: Text('Close Shift', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+              const SizedBox(width: 8),
+            ],
+            if (wide && onOpen != null) ...[
+              FilledButton.icon(
+                onPressed: onOpen,
+                style: FilledButton.styleFrom(
+                  backgroundColor: PosUi.deskAccent,
+                  foregroundColor: PosUi.deskInk,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: Text('Ouvrir shift', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+                label: Text('Open Shift', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
               ),
               const SizedBox(width: 8),
             ],
             OutlinedButton.icon(
               onPressed: onRefresh,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.brandInk,
-                backgroundColor: AppColors.surface,
-                side: BorderSide(color: AppColors.borderStrong),
+                foregroundColor: PosUi.deskText,
+                backgroundColor: PosUi.deskCard,
+                side: BorderSide(color: PosUi.deskLine),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -819,20 +797,23 @@ class _ShiftsChrome extends StatelessWidget {
             ),
           ],
         ),
-        if (!wide && onOpen != null) ...[
+        if (!wide && (onClose != null || onOpen != null)) ...[
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 46,
             child: FilledButton.icon(
-              onPressed: onOpen,
+              onPressed: onClose ?? onOpen,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.brand700,
-                foregroundColor: Colors.white,
+                backgroundColor: onClose != null ? const Color(0xFFE23D3D) : PosUi.deskAccent,
+                foregroundColor: onClose != null ? Colors.white : PosUi.deskInk,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              icon: const Icon(Icons.play_arrow_rounded, size: 18),
-              label: Text('Ouvrir shift', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14)),
+              icon: Icon(onClose != null ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 18),
+              label: Text(
+                onClose != null ? 'Close Shift' : 'Open Shift',
+                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
             ),
           ),
         ],
@@ -894,9 +875,9 @@ class _ShiftStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: PosUi.deskCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: PosUi.deskLine),
       ),
       child: Row(
         children: [
@@ -916,10 +897,10 @@ class _ShiftStat extends StatelessWidget {
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.brandInk,
+                    color: PosUi.deskText,
                   ),
                 ),
-                Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
+                Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
               ],
             ),
           ),
@@ -946,7 +927,7 @@ class _ShiftFilters extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Material(
-              color: lane == i ? AppColors.brand700 : AppColors.surface,
+              color: lane == i ? PosUi.deskAccent : PosUi.deskCard,
               borderRadius: BorderRadius.circular(10),
               child: InkWell(
                 onTap: () => onLane(i),
@@ -955,14 +936,14 @@ class _ShiftFilters extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: lane == i ? AppColors.brand700 : AppColors.border),
+                    border: Border.all(color: lane == i ? PosUi.deskAccent : PosUi.deskLine),
                   ),
                   child: Text(
                     _labels[i],
                     style: GoogleFonts.ibmPlexSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: lane == i ? Colors.white : AppColors.textSecondary,
+                      color: lane == i ? PosUi.deskInk : PosUi.deskMuted,
                     ),
                   ),
                 ),
@@ -985,18 +966,18 @@ class _ShiftSearch extends StatelessWidget {
     return TextField(
       controller: search,
       onChanged: onSearch,
-      style: GoogleFonts.ibmPlexSans(fontSize: 14),
+      style: GoogleFonts.ibmPlexSans(fontSize: 14, color: PosUi.deskText),
       decoration: InputDecoration(
         hintText: 'Search shifts...',
-        hintStyle: GoogleFonts.ibmPlexSans(color: AppColors.textMuted, fontSize: 14),
-        prefixIcon: Icon(Icons.search, color: AppColors.textMuted, size: 20),
+        hintStyle: GoogleFonts.ibmPlexSans(color: PosUi.deskMuted, fontSize: 14),
+        prefixIcon: Icon(Icons.search, color: PosUi.deskMuted, size: 20),
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: PosUi.deskCard,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.brand600)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: PosUi.deskLine)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: PosUi.deskLine)),
+        focusedBorder: OutlineInputBorder(borderRadius: const BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: PosUi.deskAccent)),
       ),
     );
   }
@@ -1012,18 +993,18 @@ class _ShiftsEmpty extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.schedule_outlined, size: 42, color: AppColors.textMuted),
+        Icon(Icons.schedule_outlined, size: 42, color: PosUi.deskMuted),
         const SizedBox(height: 16),
         Text(
           'No shifts yet',
-          style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+          style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText),
         ),
         const SizedBox(height: 6),
         TextButton(
           onPressed: onStart,
           child: Text(
             'Count your opening cash and start your shift',
-            style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted),
           ),
         ),
       ],
@@ -1031,422 +1012,190 @@ class _ShiftsEmpty extends StatelessWidget {
   }
 }
 
-class _ClosedShiftRow extends StatelessWidget {
-  const _ClosedShiftRow({
+class _WorkShiftCard extends StatelessWidget {
+  const _WorkShiftCard({
     required this.register,
     required this.session,
-    required this.dateFormat,
+    required this.onDetail,
+    this.summary,
+    this.onClose,
+    this.onMovement,
   });
 
   final CashRegister register;
   final CashRegisterSession session;
-  final DateFormat dateFormat;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(color: AppColors.brand50, borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.schedule_outlined, color: AppColors.brandInk),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${register.name} · ${register.code}',
-                  style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  session.closedAt == null
-                      ? dateFormat.format(session.openedAt)
-                      : 'Closed ${dateFormat.format(session.closedAt!)}',
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            'Closed',
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RegisterCard extends StatelessWidget {
-  const _RegisterCard({
-    required this.register,
-    required this.dateFormat,
-    required this.onOpen,
-    required this.onClose,
-    required this.onDetail,
-    required this.onMovement,
-  });
-
-  final CashRegister register;
-  final DateFormat dateFormat;
-  final VoidCallback onOpen;
-  final VoidCallback onClose;
+  final SessionSummary? summary;
   final VoidCallback onDetail;
-  final VoidCallback onMovement;
+  final VoidCallback? onClose;
+  final VoidCallback? onMovement;
+
+  String get _code {
+    final day = DateFormat('yyyyMMdd').format(session.openedAt.toLocal());
+    final compact = session.id.replaceAll('-', '');
+    final tail = compact.length <= 4 ? compact : compact.substring(compact.length - 4);
+    return 'SH-$day-$tail';
+  }
+
+  String get _duration {
+    final end = session.closedAt ?? DateTime.now();
+    final mins = end.difference(session.openedAt).inMinutes.clamp(0, 99999);
+    if (mins < 60) return '${mins}m';
+    final hours = mins ~/ 60;
+    final rest = mins % 60;
+    return rest == 0 ? '${hours}h' : '${hours}h ${rest}m';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isOpen = register.hasOpenSession;
-    final session = register.openSession;
+    final open = session.isOpen;
+    final sales = summary?.salesTotal ?? session.salesTotal;
+    final orders = summary?.invoicesCount ?? 0;
+    final cashier = (session.openedByName ?? '').trim().isEmpty ? 'Cashier' : session.openedByName!.trim();
+    final time = DateFormat('HH:mm').format(session.openedAt.toLocal());
 
     return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(PosUi.radiusXl),
-        border: Border.all(
-          color: isOpen ? AppColors.success.withValues(alpha: 0.35) : AppColors.border,
-          width: isOpen ? 1.4 : 1,
-        ),
+        color: PosUi.deskCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: open ? PosUi.deskPay : PosUi.deskLine, width: open ? 1.4 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
-            onTap: onDetail,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(PosUi.radiusXl)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: isOpen ? AppColors.successBg : AppColors.brand50,
-                      borderRadius: BorderRadius.circular(PosUi.radiusMd),
-                    ),
-                    child: Icon(
-                      isOpen ? Icons.lock_open_rounded : Icons.point_of_sale_outlined,
-                      color: isOpen ? AppColors.success : AppColors.brandInk,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                register.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(register.code, style: PosUi.money(size: 12, color: AppColors.textMuted)),
-                            const SizedBox(width: 8),
-                            PosBadge(
-                              label: isOpen ? 'Ouvert' : 'Fermé',
-                              tone: isOpen ? PosBadgeTone.success : PosBadgeTone.neutral,
-                              compact: true,
-                            ),
-                          ],
-                        ),
-                        if (isOpen && session != null) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Ouvert le ${dateFormat.format(session.openedAt)}',
-                            style: PosUi.caption(),
-                          ),
-                          if (session.openedByName != null)
-                            Text('Par ${session.openedByName}', style: PosUi.caption()),
-                        ],
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, color: AppColors.textMuted),
-                ],
-              ),
-            ),
-          ),
-          if (isOpen && session != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Row(
-                children: [
-                  _MiniStat(label: 'Fonds', value: MoneyFormatter.format(session.openingBalance)),
-                  _MiniStat(label: 'Ventes', value: MoneyFormatter.format(session.salesTotal)),
-                  _MiniStat(label: 'Attendu', value: MoneyFormatter.format(session.expectedCash)),
-                ],
-              ),
-            ),
-          Divider(height: 1, color: AppColors.border),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                if (!isOpen)
-                  Expanded(
-                    child: SizedBox(
-                      height: PosUi.ctaHeight - 4,
-                      child: FilledButton.icon(
-                        onPressed: onOpen,
-                        icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                        label: const Text('Ouvrir shift'),
-                      ),
-                    ),
-                  )
-                else ...[
-                  Expanded(
-                    child: SizedBox(
-                      height: PosUi.ctaHeight - 4,
-                      child: OutlinedButton.icon(
-                        onPressed: onMovement,
-                        icon: const Icon(Icons.swap_horiz, size: 18),
-                        label: const Text('Mouvement'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: SizedBox(
-                      height: PosUi.ctaHeight - 4,
-                      child: FilledButton.icon(
-                        onPressed: onClose,
-                        icon: const Icon(Icons.stop_rounded, size: 18),
-                        label: const Text('Fermer'),
-                        style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.fieldFill,
-          borderRadius: BorderRadius.circular(PosUi.radiusSm),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: PosUi.caption()),
-            const SizedBox(height: 2),
-            Text(value, style: PosUi.money(size: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SessionDetailView extends StatelessWidget {
-  const _SessionDetailView({
-    required this.register,
-    required this.current,
-    required this.history,
-    required this.dateFormat,
-    required this.onMovement,
-  });
-
-  final CashRegister register;
-  final CurrentSessionResponse current;
-  final List<CashRegisterSession> history;
-  final DateFormat dateFormat;
-  final VoidCallback onMovement;
-
-  @override
-  Widget build(BuildContext context) {
-    final summary = current.summary;
-    final session = current.session;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(register.name, style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(register.code, style: GoogleFonts.ibmPlexMono(fontSize: 12, color: AppColors.textMuted)),
-                ],
-              ),
-            ),
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close, size: 18),
-            ),
-          ],
-        ),
-        if (session != null) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
+          Row(
             children: [
-              StatusBadge(
-                label: session.isOpen ? 'Ouvert' : 'Fermé',
-                variant: StatusBadge.forSessionStatus(session.status),
-              ),
-              Text(
-                'Depuis ${dateFormat.format(session.openedAt)}',
-                style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              if (session.openedByName != null)
-                Text(
-                  session.openedByName!,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: open ? PosUi.deskStock : PosUi.deskMuted,
+                  shape: BoxShape.circle,
                 ),
-            ],
-          ),
-        ],
-        if (summary != null) ...[
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.fieldFill,
-              borderRadius: BorderRadius.circular(PosUi.radiusLg),
-              border: Border.all(color: AppColors.borderStrong),
-            ),
-            child: Column(
-              children: [
-                Text('ESPÈCES ATTENDUES', style: PosUi.totalCaption()),
-                const SizedBox(height: 6),
-                Text(
-                  MoneyFormatter.format(summary.expectedCash),
-                  style: PosUi.totalAmount(size: 28),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _AmountLine(label: 'Fonds d’ouverture', amount: summary.openingBalance),
-          _AmountLine(label: 'Ventes', amount: summary.salesTotal),
-          _AmountLine(label: 'Entrées de caisse', amount: summary.cashInTotal),
-          _AmountLine(label: 'Sorties de caisse', amount: summary.cashOutTotal),
-          _AmountLine(label: 'Dépenses', amount: summary.expensesTotal),
-          if (summary.actualCash != null)
-            _AmountLine(label: 'Comptage réel', amount: summary.actualCash!),
-          if (summary.variance != null)
-            _AmountLine(label: 'Écart', amount: summary.variance!, emphasize: true),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onMovement,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Ajouter un mouvement'),
-            ),
-          ),
-        ],
-        const SizedBox(height: 18),
-        Text('Historique', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        if (history.isEmpty)
-          Text('Aucun shift précédent', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted))
-        else
-          ...history.take(8).map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: InkWell(
+                  onTap: onDetail,
                   child: Row(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(dateFormat.format(item.openedAt), style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600)),
-                            Text(
-                              item.closedAt == null ? 'En cours' : 'Fermé ${dateFormat.format(item.closedAt!)}',
-                              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
-                            ),
-                          ],
+                      Flexible(
+                        child: Text(
+                          _code,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
                         ),
                       ),
-                      Text(
-                        item.variance == null ? '—' : MoneyFormatter.format(item.variance!),
-                        style: GoogleFonts.ibmPlexMono(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: (item.variance ?? 0) < 0 ? AppColors.danger : AppColors.textPrimary,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: open ? PosUi.deskSuccessBg : PosUi.deskRaised,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          open ? 'Active' : 'Closed',
+                          style: GoogleFonts.ibmPlexSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: open ? PosUi.deskStock : PosUi.deskMuted,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              )),
-      ],
+              ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_horiz, color: PosUi.deskMuted),
+                color: PosUi.deskPanel,
+                onSelected: (value) {
+                  switch (value) {
+                    case 'detail':
+                      onDetail();
+                    case 'movement':
+                      onMovement?.call();
+                    case 'close':
+                      onClose?.call();
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'detail', child: Text('Details')),
+                  if (onMovement != null) const PopupMenuItem(value: 'movement', child: Text('Cash movement')),
+                  if (onClose != null) const PopupMenuItem(value: 'close', child: Text('Close shift')),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Row(
+              children: [
+                Icon(Icons.person_outline, size: 14, color: PosUi.deskMuted),
+                const SizedBox(width: 4),
+                Text(cashier, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                const SizedBox(width: 12),
+                Icon(Icons.schedule, size: 14, color: PosUi.deskMuted),
+                const SizedBox(width: 4),
+                Text(time, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.only(left: 20, right: 12),
+            child: Row(
+              children: [
+                _Metric(value: MoneyFormatter.format(session.openingBalance), label: 'Opening'),
+                _Metric(value: MoneyFormatter.format(sales), label: 'Sales', valueColor: PosUi.deskStock),
+                _Metric(value: '$orders', label: 'Orders'),
+                _Metric(value: _duration, label: 'Duration', valueColor: PosUi.deskAccent),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Row(
+              children: [
+                Icon(Icons.storefront_outlined, size: 14, color: PosUi.deskAccent),
+                const SizedBox(width: 6),
+                Text(
+                  register.name.toUpperCase(),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _AmountLine extends StatelessWidget {
-  const _AmountLine({
-    required this.label,
-    required this.amount,
-    this.emphasize = false,
-  });
+class _Metric extends StatelessWidget {
+  const _Metric({required this.value, required this.label, this.valueColor});
 
+  final String value;
   final String label;
-  final int amount;
-  final bool emphasize;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
-    final color = emphasize
-        ? (amount < 0 ? AppColors.danger : AppColors.success)
-        : AppColors.textPrimary;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary))),
           Text(
-            MoneyFormatter.format(amount),
-            style: GoogleFonts.ibmPlexMono(fontSize: 13, fontWeight: FontWeight.w700, color: color),
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w800, color: valueColor ?? PosUi.deskText),
           ),
+          const SizedBox(height: 2),
+          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted)),
         ],
       ),
     );

@@ -147,7 +147,9 @@ class CloudSyncEngine extends ChangeNotifier {
         cloudReachable: true,
       );
     } catch (error) {
-      lastError = error.toString().replaceFirst('Exception: ', '');
+      lastError = error is TimeoutException
+          ? 'Le serveur n’a pas répondu à temps. Les données locales sont conservées.'
+          : error.toString().replaceFirst('Exception: ', '');
       return lastReport = CloudSyncReport(
         ok: false,
         message: lastError!,

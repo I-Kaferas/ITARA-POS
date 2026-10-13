@@ -357,6 +357,7 @@ export interface CashierShift {
   opened_time?: string | null
   closed_at?: string | null
   closed_time?: string | null
+  orders_count?: number
   cashier?: { id: string; name: string }
   branch?: { id: string; name: string; code?: string } | null
   device?: { id: string; name: string; code?: string | null } | null

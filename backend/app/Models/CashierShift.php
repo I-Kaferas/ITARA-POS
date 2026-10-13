@@ -89,6 +89,11 @@ class CashierShift extends Model
         return $this->hasMany(CashMovement::class);
     }
 
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
+    }
+
     public function cashier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cashier_id');

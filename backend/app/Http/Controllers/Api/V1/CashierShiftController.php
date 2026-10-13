@@ -38,6 +38,9 @@ class CashierShiftController extends Controller
         $shifts = CashierShift::query()
             ->whereHas('cashRegister', fn ($q) => $q->where('store_id', $store->id))
             ->with(['cashier', 'branch', 'cashRegister', 'device'])
+            ->withCount([
+                'sales as orders_count' => fn ($query) => $query->where('status', 'completed'),
+            ])
             ->orderByDesc('opened_at')
             ->limit(50)
             ->get();

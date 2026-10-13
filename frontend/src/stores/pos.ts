@@ -887,8 +887,13 @@ export const usePosStore = defineStore('pos', () => {
     let saleId: string | undefined
     let receipt: SaleDocPayload | null = null
     let loyalty: { earned: number; redeemed: number; points: number } | null = null
+    let created: ApiItemResponse<{
+      sale: { id: string }
+      receipt?: SaleDocPayload | null
+      loyalty?: { earned: number; redeemed: number; points: number } | null
+    }> | undefined
     try {
-      const created = await api.post<ApiItemResponse<{
+      created = await api.post<ApiItemResponse<{
         sale: { id: string }
         receipt?: SaleDocPayload | null
         loyalty?: { earned: number; redeemed: number; points: number } | null

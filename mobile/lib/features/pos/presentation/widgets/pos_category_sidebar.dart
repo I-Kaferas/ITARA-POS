@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_favorites_store.dart';
+import 'pos_ui.dart';
 
 class PosCategorySidebar extends StatelessWidget {
   const PosCategorySidebar({
@@ -75,24 +75,24 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? Colors.white : AppColors.textSecondary;
+    final fg = selected ? PosUi.deskInk : PosUi.deskText;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(999),
           child: AnimatedContainer(
             duration: AppMotion.resolve(context, AppMotion.micro),
             curve: AppMotion.standard,
             constraints: const BoxConstraints(minHeight: 36),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: selected ? AppColors.cashierBlue : AppColors.fieldFill,
-              borderRadius: BorderRadius.circular(24),
+              color: selected ? PosUi.deskAccent : Colors.transparent,
+              borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: selected ? AppColors.cashierBlue : AppColors.border,
+                color: selected ? PosUi.deskAccent : PosUi.deskLine,
               ),
             ),
             child: Row(

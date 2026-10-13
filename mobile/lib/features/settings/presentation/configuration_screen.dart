@@ -568,6 +568,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
       }),
       ('Restaurant', 'Tables et cuisine', () => context.go(AppRoutes.hospitality)),
       ('Hôtel', 'Chambres et folios', () => context.go(AppRoutes.hospitality)),
+      ('Présentation', 'Revoir l’accueil du logiciel', () => context.go('${AppRoutes.welcome}?replay=1')),
     ];
     return Column(
       children: [

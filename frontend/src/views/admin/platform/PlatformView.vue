@@ -1109,6 +1109,6 @@ onMounted(() => {
   color: var(--color-ink-brand, var(--color-brand-700));
 }
 .platform-message { max-width: 28rem; white-space: normal; }
-.sub-nav__link { border: 0; background: transparent; cursor: pointer; font-family: inherit; }
+.sub-nav__link { border: 0; cursor: pointer; font-family: inherit; }
 button.btn-secondary + button.btn-secondary { margin-left: 0.4rem; }
 </style>

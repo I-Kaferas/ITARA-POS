@@ -93,6 +93,70 @@ class ShiftZReportPrinter {
     );
   }
 
+  Future<void> printHandover({
+    required String sessionCode,
+    required String cashier,
+    required String duration,
+    required SessionSummary report,
+  }) async {
+    final handover = report.handover;
+    final currency = handover.currency;
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (context) => [
+          pw.Text('Situation & Remise de Caisse', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 4),
+          pw.Text('Session $sessionCode · Caissier : $cashier · $duration', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+          pw.SizedBox(height: 16),
+          pw.Text('Synthèse des ventes & articles', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 6),
+          _row('Articles vendus', '${handover.articlesSold}'),
+          _row('À crédit (articles)', '${handover.articlesOnCredit}'),
+          _row('Chiffre d\'affaires', _handoverMoney(handover.soldTotal > 0 ? handover.soldTotal : report.salesTotal, currency)),
+          _row('Commandes traitées', '${handover.ordersCount}'),
+          _row('Magasins concernés', '${handover.storesCount}'),
+          _row('Ventes à crédit', _handoverMoney(handover.creditSalesTotal, currency)),
+          _row('Commandes à crédit', '${handover.creditOrdersCount}'),
+          pw.SizedBox(height: 18),
+          pw.Text('Articles vendus & stocks par magasin', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 8),
+          if (handover.stores.isEmpty)
+            pw.Text('Aucun article vendu durant cette session.')
+          else
+            ...handover.stores.expand((store) => [
+                  pw.SizedBox(height: 8),
+                  pw.Text('${store.name} · ${store.articlesCount} article(s)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 4),
+                  ...store.lines.map(
+                    (line) => _row(
+                      '${line.name}${line.code.isEmpty ? '' : ' · ${line.code}'} · vendu ${line.sold} · reste ${line.remaining ?? '—'}${line.creditQty > 0 ? ' · ${line.creditQty} à crédit' : ''}',
+                      _handoverMoney(line.total, currency, withCode: false),
+                    ),
+                  ),
+                ]),
+          pw.SizedBox(height: 10),
+          _row('Total articles vendus', _handoverMoney(handover.soldTotal > 0 ? handover.soldTotal : report.salesTotal, currency)),
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (_) async => doc.save(),
+      name: 'remise-$sessionCode',
+    );
+  }
+
+  String _handoverMoney(int minor, String currency, {bool withCode = true}) {
+    final major = minor / 100;
+    final whole = (major - major.round()).abs() < 0.001;
+    final text = NumberFormat(whole ? '#,##0' : '#,##0.00', 'fr').format(whole ? major.round() : major);
+    return withCode ? '$text $currency' : text;
+  }
+
   String _fmt(DateTime? value) {
     if (value == null) return '—';
     return _dateFormat.format(value.toLocal());

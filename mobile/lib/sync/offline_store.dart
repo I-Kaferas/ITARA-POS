@@ -607,6 +607,8 @@ class OfflineStore {
     String? dueDate,
     Map<String, dynamic>? installments,
     String? saleId,
+    String? serviceMode,
+    String? deliveryAddress,
     required int total,
     required int paidAmount,
     required int outstandingAmount,
@@ -651,6 +653,9 @@ class OfflineStore {
       if (warehouseId != null) 'warehouse_id': warehouseId,
       if (notes != null) 'notes': notes,
       if (saleId != null && saleId.isNotEmpty) 'sale_id': saleId,
+      if (serviceMode == 'takeaway' || serviceMode == 'delivery') 'service_mode': serviceMode,
+      if (serviceMode == 'delivery' && deliveryAddress != null && deliveryAddress.trim().isNotEmpty)
+        'delivery_address': deliveryAddress.trim(),
       if (dueDate != null) 'due_date': dueDate,
       if (installments != null) 'installments': installments,
       'sold_at': now,
@@ -877,11 +882,13 @@ class OfflineStore {
     final holds = await loadLocalHolds();
     final existingId = hold['id']?.toString();
     final id = existingId != null && existingId.isNotEmpty ? existingId : const Uuid().v4();
+    final storeId = TerminalConfigRepository.instance.config.storeId.trim();
     final next = holds.where((item) => item['id']?.toString() != id).toList()
       ..add({
         ...hold,
         'id': id,
         'server_id': id,
+        if (storeId.isNotEmpty) 'store_id': hold['store_id']?.toString().trim().isNotEmpty == true ? hold['store_id'] : storeId,
       });
     await saveLocalHolds(next);
     return id;
@@ -1178,9 +1185,166 @@ class OfflineStore {
 
   Future<Map<String, int>> counts() => SyncOutbox.instance.counts();
 
-  Future<List<Map<String, dynamic>>> listLocalSales({int limit = 80}) async {
+  Future<Map<String, String>> productNamesById({String? storeId}) async {
     final db = await _db;
-    return db.query('sales', orderBy: 'created_at DESC', limit: limit);
+    final scope = (storeId ?? TerminalConfigRepository.instance.config.storeId).trim();
+    final rows = await db.query(
+      'products',
+      columns: ['product_id', 'json'],
+      where: scope.isEmpty ? null : 'store_id = ?',
+      whereArgs: scope.isEmpty ? null : [scope],
+    );
+    final names = <String, String>{};
+    for (final row in rows) {
+      final id = row['product_id']?.toString() ?? '';
+      if (id.isEmpty) continue;
+      try {
+        final decoded = jsonDecode(row['json'] as String? ?? '{}');
+        if (decoded is! Map) continue;
+        final name = decoded['name']?.toString().trim() ?? '';
+        if (name.isNotEmpty && name.toLowerCase() != 'article') names[id] = name;
+      } catch (_) {}
+    }
+    return names;
+  }
+
+  Future<List<Map<String, dynamic>>> listLocalSales({int limit = 80, String? storeId}) async {
+    final db = await _db;
+    final scope = (storeId ?? TerminalConfigRepository.instance.config.storeId).trim();
+    final rows = await db.query(
+      'sales',
+      where: scope.isEmpty ? null : 'store_id = ?',
+      whereArgs: scope.isEmpty ? null : [scope],
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+    return _withLocalSaleContext(db, rows);
+  }
+
+  /// Sale document built only from SQLite. No network.
+  Future<Map<String, dynamic>?> localSaleById(String id) async {
+    final key = id.trim();
+    if (key.isEmpty) return null;
+    final db = await _db;
+    final rows = await db.query(
+      'sales',
+      where: 'id = ? OR server_id = ?',
+      whereArgs: [key, key],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final enriched = await _withLocalSaleContext(db, rows);
+    return enriched.first;
+  }
+
+  Future<List<Map<String, dynamic>>> _withLocalSaleContext(
+    Database db,
+    List<Map<String, Object?>> rows,
+  ) async {
+    if (rows.isEmpty) return const [];
+    final ids = rows.map((row) => row['id']?.toString() ?? '').where((id) => id.isNotEmpty).toList();
+    final paymentsBySale = <String, List<Map<String, dynamic>>>{};
+    final itemsBySale = <String, List<Map<String, dynamic>>>{};
+    if (ids.isNotEmpty) {
+      final placeholders = List.filled(ids.length, '?').join(',');
+      final payments = await db.query(
+        'payments',
+        where: 'sale_id IN ($placeholders)',
+        whereArgs: ids,
+      );
+      for (final payment in payments) {
+        final saleId = payment['sale_id']?.toString() ?? '';
+        if (saleId.isEmpty) continue;
+        paymentsBySale.putIfAbsent(saleId, () => []).add(Map<String, dynamic>.from(payment));
+      }
+      final items = await db.query(
+        'sale_items',
+        where: 'sale_id IN ($placeholders)',
+        whereArgs: ids,
+      );
+      for (final item in items) {
+        final saleId = item['sale_id']?.toString() ?? '';
+        if (saleId.isEmpty) continue;
+        Map<String, dynamic> json = {};
+        try {
+          final decoded = jsonDecode(item['json']?.toString() ?? '{}');
+          if (decoded is Map) json = Map<String, dynamic>.from(decoded);
+        } catch (_) {}
+        itemsBySale.putIfAbsent(saleId, () => []).add({
+          ...json,
+          'product_id': item['product_id'] ?? json['product_id'],
+          'quantity': item['quantity'] ?? json['quantity'],
+          'unit_price': item['unit_price'] ?? json['unit_price'],
+          'line_total': item['line_total'] ?? json['line_total'],
+        });
+      }
+    }
+
+    final customerIds = <String>{};
+    final payloads = <Map<String, dynamic>>[];
+    for (final row in rows) {
+      Map<String, dynamic> payload = {};
+      try {
+        final decoded = jsonDecode(row['payload_json']?.toString() ?? '{}');
+        if (decoded is Map) payload = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+      payloads.add(payload);
+      final customerId = payload['customer_client_id']?.toString().trim() ?? payload['customer_id']?.toString().trim() ?? '';
+      if (customerId.isNotEmpty) customerIds.add(customerId);
+    }
+
+    final customerNames = <String, String>{};
+    if (customerIds.isNotEmpty) {
+      final placeholders = List.filled(customerIds.length, '?').join(',');
+      final idList = customerIds.toList();
+      try {
+        final customers = await db.query(
+          'customers',
+          columns: ['id', 'server_id', 'name'],
+          where: 'id IN ($placeholders) OR server_id IN ($placeholders)',
+          whereArgs: [...idList, ...idList],
+        );
+        for (final customer in customers) {
+          final name = customer['name']?.toString().trim() ?? '';
+          if (name.isEmpty) continue;
+          final id = customer['id']?.toString() ?? '';
+          final serverId = customer['server_id']?.toString() ?? '';
+          if (id.isNotEmpty) customerNames[id] = name;
+          if (serverId.isNotEmpty) customerNames[serverId] = name;
+        }
+      } catch (_) {}
+    }
+
+    final enriched = <Map<String, dynamic>>[];
+    for (var i = 0; i < rows.length; i++) {
+      final row = Map<String, dynamic>.from(rows[i]);
+      final saleId = row['id']?.toString() ?? '';
+      final payload = payloads[i];
+      final customerId = payload['customer_client_id']?.toString().trim() ?? payload['customer_id']?.toString().trim() ?? '';
+      final customerName = customerNames[customerId] ?? payload['customer_name']?.toString();
+      final localPayments = paymentsBySale[saleId] ?? const <Map<String, dynamic>>[];
+      final payloadPayments = payload['payments'];
+      row['customer_name'] = customerName;
+      row['local_payments'] = localPayments.isNotEmpty
+          ? localPayments
+          : (payloadPayments is List ? payloadPayments : const <dynamic>[]);
+      row['local_items'] = itemsBySale[saleId] ?? const <Map<String, dynamic>>[];
+      if (customerName != null && customerName.trim().isNotEmpty) {
+        row['customer'] = {'name': customerName};
+      }
+      final payloadItems = payload['items'];
+      row['items'] = payloadItems is List && payloadItems.isNotEmpty ? payloadItems : row['local_items'];
+      row['payments'] = row['local_payments'];
+      row['currency'] = payload['currency'] ?? row['currency'];
+      row['notes'] = payload['notes'];
+      row['tax_total'] = payload['tax_total'];
+      row['subtotal'] = payload['subtotal'];
+      row['service_mode'] = payload['service_mode'];
+      row['cashier_name'] = payload['cashier_name'];
+      row['completed_at'] = row['created_at'];
+      enriched.add(row);
+    }
+    return enriched;
   }
 
   /// KPIs du jour calculés depuis SQLite, sans réseau.
@@ -1291,7 +1455,7 @@ class OfflineStore {
       });
     }
 
-    final holds = await loadLocalHolds();
+    final holds = holdsForStore(await loadLocalHolds(), storeId);
 
     return {
       'date': days.last['date'],
@@ -1326,6 +1490,15 @@ class OfflineStore {
   Future<void> saveLocalHolds(List<Map<String, dynamic>> holds) async {
     await setCheckpoint(localHoldsKey, jsonEncode(holds));
     holdsRevision.value++;
+  }
+
+  List<Map<String, dynamic>> holdsForStore(List<Map<String, dynamic>> holds, String storeId) {
+    final scope = storeId.trim();
+    if (scope.isEmpty) return holds;
+    return holds.where((row) {
+      final rowStore = row['store_id']?.toString().trim() ?? '';
+      return rowStore.isEmpty || rowStore == scope;
+    }).toList();
   }
 
   Future<List<Map<String, dynamic>>> loadLocalHolds() async {

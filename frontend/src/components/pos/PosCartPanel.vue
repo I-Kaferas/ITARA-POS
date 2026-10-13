@@ -605,7 +605,7 @@ async function createCustomerQuick() {
     z-index: 50;
     width: min(22rem, 92%);
     transform: translateX(110%);
-    transition: transform 0.2s ease;
+    transition: transform 320ms var(--ease-emphasized);
     box-shadow: -12px 0 28px rgba(15, 23, 42, 0.16);
     pointer-events: none;
   }

@@ -153,7 +153,7 @@ class SaleController extends Controller
         return response()->json([
             'data' => [
                 ...$sale->toSummaryArray(),
-                'items' => $sale->items,
+                'items' => $this->presentItems($sale),
                 'payments' => $sale->payments->load('paymentTransaction'),
                 'taxes' => $sale->taxes,
                 'discounts' => $sale->discounts,
@@ -215,7 +215,7 @@ class SaleController extends Controller
         return response()->json([
             'data' => [
                 ...$merged->toSummaryArray(),
-                'items' => $merged->items,
+                'items' => $this->presentItems($merged),
                 'merged_sales' => $merged->mergedSales->map->toSummaryArray()->values(),
                 'table' => $merged->diningTable?->only(['id', 'name', 'code']),
             ],
@@ -324,8 +324,21 @@ class SaleController extends Controller
         return [
             ...$sale->toSummaryArray(),
             'notes' => $sale->notes,
-            'items' => $sale->items,
+            'items' => $this->presentItems($sale),
             'discounts' => $sale->discounts,
         ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function presentItems(Sale $sale): array
+    {
+        $sale->loadMissing('items.product');
+
+        return $sale->items->map(function ($item) {
+            $row = $item->toArray();
+            $row['product_name'] = $item->resolvedProductName();
+
+            return $row;
+        })->values()->all();
     }
 }

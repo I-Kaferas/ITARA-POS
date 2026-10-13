@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/architecture/business_continuity.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../core/config/terminal_stores.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -40,10 +41,12 @@ import '../../receipt/services/receipt_print_service.dart';
 import '../../shifts/data/local_shifts_store.dart';
 import '../data/pos_api_service.dart';
 import '../domain/pos_models.dart';
+import '../services/customer_display_bus.dart';
 import '../services/pos_cart_engine.dart';
 import '../services/pos_favorites_store.dart';
 import '../services/pos_pending_intent.dart';
 import 'widgets/pos_cart_panel.dart';
+import 'customer_display_launcher.dart';
 import 'widgets/pos_category_sidebar.dart';
 import 'widgets/pos_desktop_shortcuts.dart';
 import 'widgets/pos_footer_panel.dart';
@@ -95,6 +98,8 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   final _shiftsApi = LocalShiftsStore.instance;
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
+  List<TerminalStoreOption> _deliveryLocations = const [];
+  bool _deliveryLocationsLoading = false;
   late final HidScannerController _hidScanner;
   final _cashDrawer = CashDrawerService();
 
@@ -126,6 +131,8 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   Timer? _recalcTimer;
   Timer? _searchDebounce;
   int _catalogRevision = -1;
+  String _activeStoreId = '';
+  bool _suppressHoldPersist = false;
   Map<String, int> _categoryCounts = const {};
   List<PosProduct> _filteredCache = const [];
   String? _filteredCategoryId;
@@ -142,6 +149,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     PosPendingIntent.notifier.addListener(_onPendingIntent);
     _favorites.addListener(_onFavoritesChanged);
     unawaited(_favorites.ensureLoaded());
+    _activeStoreId = TerminalConfigRepository.instance.config.storeId;
     unawaited(_loadPendingOrders().then((_) => _consumePendingIntent()));
     _catalogRevision = SyncEngine.instance.catalogRevision;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -153,6 +161,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     });
     unawaited(_loadShiftSession());
     TerminalConfigRepository.instance.addListener(_onShiftConfigChanged);
+    _publishCustomerDisplay();
   }
 
   @override
@@ -169,6 +178,34 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     _searchFocus.dispose();
     _hidScanner.dispose();
     super.dispose();
+  }
+
+  void _onServiceMode(String mode) {
+    if (mode == 'delivery') {
+      _cart.setServiceMode('delivery');
+      unawaited(_loadDeliveryLocations());
+      return;
+    }
+    _cart.setServiceMode('takeaway');
+  }
+
+  Future<void> _loadDeliveryLocations() async {
+    if (_deliveryLocations.isNotEmpty || _deliveryLocationsLoading) return;
+    _deliveryLocationsLoading = true;
+    try {
+      final stores = await loadTerminalStores(directory: true);
+      if (!mounted) return;
+      setState(() => _deliveryLocations = stores);
+    } catch (_) {
+      if (mounted) setState(() {});
+    } finally {
+      _deliveryLocationsLoading = false;
+    }
+  }
+
+  void _pickDeliveryLocation(String name) {
+    _cart.setServiceMode('delivery');
+    _cart.setDeliveryAddress(name);
   }
 
   void _onProductState(ProductState state) {
@@ -341,7 +378,18 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     return total;
   }
 
+  void _publishCustomerDisplay() {
+    final config = TerminalConfigRepository.instance.config;
+    final currency = config.currencyCode.trim().isEmpty ? AppConfig.currencyCode : config.currencyCode;
+    CustomerDisplayBus.instance.publishCart(
+      _cart,
+      brandName: config.brandName,
+      currencyCode: currency,
+    );
+  }
+
   void _onCartChanged() {
+    _publishCustomerDisplay();
     setState(() {});
     _scheduleRecalc();
     final signature = _cart.heldSales.map((sale) => '${sale.id}:${sale.itemCount}:${sale.lines.length}:${sale.note}').join('|');
@@ -351,7 +399,33 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   }
 
   void _onShiftConfigChanged() {
+    final storeId = TerminalConfigRepository.instance.config.storeId;
+    if (storeId != _activeStoreId) {
+      final previousStoreId = _activeStoreId;
+      unawaited(_applyStoreChange(previousStoreId, storeId));
+    }
     unawaited(_loadShiftSession());
+  }
+
+  Future<void> _applyStoreChange(String previousStoreId, String storeId) async {
+    _suppressHoldPersist = true;
+    try {
+      await _writeHolds(previousStoreId);
+      _activeStoreId = storeId;
+      _cart.discardOpenSale();
+      _searchController.clear();
+      _searchQuery = '';
+      _selectedCategoryId = null;
+      _filteredCategoryId = null;
+      _filteredQuery = '';
+      _filteredCache = const [];
+      if (mounted) setState(() {});
+      await _loadPendingOrders();
+    } finally {
+      _suppressHoldPersist = false;
+    }
+    if (!mounted) return;
+    await _loadCatalog(forceNetwork: true);
   }
 
   Future<void> _loadShiftSession() async {
@@ -397,6 +471,11 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   }
 
   Future<void> _persistHolds() async {
+    if (_suppressHoldPersist) return;
+    await _writeHolds(_activeStoreId);
+  }
+
+  Future<void> _writeHolds(String storeId) async {
     final existing = await OfflineStore.instance.loadLocalHolds();
     final serverIds = {
       for (final row in existing)
@@ -408,9 +487,19 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       if ((json['server_id'] == null || json['server_id'].toString().isEmpty) && stored != null && stored.isNotEmpty) {
         json['server_id'] = stored;
       }
+      if (storeId.trim().isNotEmpty) json['store_id'] = storeId.trim();
       return json;
     }).toList();
-    await OfflineStore.instance.saveLocalHolds(payload);
+    final currentIds = payload.map((row) => row['id']?.toString() ?? '').where((id) => id.isNotEmpty).toSet();
+    final scope = storeId.trim();
+    final kept = existing.where((row) {
+      final id = row['id']?.toString() ?? '';
+      if (currentIds.contains(id)) return false;
+      final rowStore = row['store_id']?.toString().trim() ?? '';
+      if (rowStore.isEmpty) return true;
+      return scope.isNotEmpty && rowStore != scope;
+    }).toList();
+    await OfflineStore.instance.saveLocalHolds([...payload, ...kept]);
   }
 
   void _onSyncChanged() {
@@ -586,7 +675,10 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
 
   Future<void> _loadPendingOrders() async {
     try {
-      final local = await OfflineStore.instance.loadLocalHolds();
+      final local = OfflineStore.instance.holdsForStore(
+        await OfflineStore.instance.loadLocalHolds(),
+        _activeStoreId,
+      );
       _cart.restoreHeldSales(local.map(PosHeldSale.fromLocalJson).where((sale) => sale.lines.isNotEmpty).toList());
     } catch (_) {}
   }
@@ -801,13 +893,61 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                   : _error != null
                       ? _ErrorView(error: _error!, onRetry: () => _loadCatalog(forceNetwork: true))
                       : _PosWorkspace(
-                          search: PosSearchBar(
-                            controller: _searchController,
-                            focusNode: _searchFocus,
-                            showDesktopHint: desktop,
-                            onChanged: _onSearchChanged,
-                            onSubmitted: _onSearchSubmitted,
-                            onScanTap: () => _onSearchSubmitted(_searchController.text),
+                          search: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (PosUi.usePosThreePane(context))
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      child: PosSearchBar(
+                                        controller: _searchController,
+                                        focusNode: _searchFocus,
+                                        onChanged: _onSearchChanged,
+                                        onSubmitted: _onSearchSubmitted,
+                                        onScanTap: () => _onSearchSubmitted(_searchController.text),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8, right: 12),
+                                      child: _ServiceModeSwitch(
+                                        mode: _cart.serviceMode,
+                                        onChanged: _onServiceMode,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else ...[
+                                PosSearchBar(
+                                  controller: _searchController,
+                                  focusNode: _searchFocus,
+                                  onChanged: _onSearchChanged,
+                                  onSubmitted: _onSearchSubmitted,
+                                  onScanTap: () => _onSearchSubmitted(_searchController.text),
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 12, bottom: 4),
+                                    child: _ServiceModeSwitch(
+                                      mode: _cart.serviceMode,
+                                      onChanged: _onServiceMode,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              if (_cart.serviceMode == 'delivery' && (_cart.tableId == null || _cart.tableId!.isEmpty))
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                                  child: _DeliveryLocationCard(
+                                    locations: _deliveryLocations,
+                                    selected: _cart.deliveryAddress,
+                                    loading: _deliveryLocationsLoading && _deliveryLocations.isEmpty,
+                                    onPick: _pickDeliveryLocation,
+                                  ),
+                                ),
+                            ],
                           ),
                           threePane: PosUi.usePosThreePane(context),
                           windowsDesk: PosUi.isWindowsDesk(context),
@@ -873,6 +1013,9 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                             onRemove: _cart.removeLine,
                             onLineDiscount: _showLineDiscountDialog,
                             onSearchCustomer: _shortcutCustomer,
+                            onCustomerDisplay: () {
+                              CustomerDisplayLauncher.open(context);
+                            },
                             showCheckout: PosUi.usePosThreePane(context),
                             onHold: () => unawaited(_shortcutHold()),
                             onClear: () {
@@ -966,7 +1109,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     );
 
     if (widget.embedded) {
-      return ColoredBox(color: AppColors.canvas, child: content);
+      return ColoredBox(color: PosUi.deskNight, child: content);
     }
 
     return Scaffold(
@@ -1105,6 +1248,57 @@ class _ShiftRequiredNotice extends StatelessWidget {
   }
 }
 
+class _ServiceModeSwitch extends StatelessWidget {
+  const _ServiceModeSwitch({required this.mode, required this.onChanged});
+
+  final String mode;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _pill('takeaway', 'Takeaway', Icons.shopping_bag_outlined),
+        const SizedBox(width: 8),
+        _pill('delivery', 'Delivery', Icons.delivery_dining_outlined),
+      ],
+    );
+  }
+
+  Widget _pill(String value, String label, IconData icon) {
+    final selected = mode == value;
+    final fg = selected ? PosUi.deskInk : PosUi.deskText;
+    return Material(
+      color: selected ? PosUi.deskAccent : Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: () => onChanged(value),
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: selected ? PosUi.deskAccent : PosUi.deskLine),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: PosUi.body(weight: FontWeight.w700, color: fg),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PosWorkspace extends StatelessWidget {
   const _PosWorkspace({
     required this.search,
@@ -1141,7 +1335,7 @@ class _PosWorkspace extends StatelessWidget {
           ? PosUi.cartWidthWindows
           : (tablet ? 300.0 : PosUi.cartWidth);
       return ColoredBox(
-        color: AppColors.canvas,
+        color: PosUi.deskNight,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1165,7 +1359,7 @@ class _PosWorkspace extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final cartWidth = width < 400 ? width * 0.92 : 320.0;
     return ColoredBox(
-      color: AppColors.canvas,
+      color: PosUi.deskNight,
       child: Stack(
         children: [
           Column(
@@ -1191,7 +1385,7 @@ class _PosWorkspace extends StatelessWidget {
             right: cartOpen ? 0 : -cartWidth - 20,
             width: cartWidth,
             child: Material(
-              color: AppColors.surface,
+              color: PosUi.deskPanel,
               elevation: 8,
               child: cart,
             ),
@@ -1201,8 +1395,8 @@ class _PosWorkspace extends StatelessWidget {
             bottom: 12,
             child: FloatingActionButton.extended(
               onPressed: onToggleCart,
-              backgroundColor: AppColors.cashierNavy,
-              foregroundColor: Colors.white,
+              backgroundColor: PosUi.deskAccent,
+              foregroundColor: PosUi.deskInk,
               extendedPadding: const EdgeInsets.symmetric(horizontal: 16),
               icon: Badge(
                 isLabelVisible: cartCount > 0,
@@ -1528,6 +1722,123 @@ class _ErrorView extends StatelessWidget {
               label: const Text('Réessayer'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeliveryLocationCard extends StatelessWidget {
+  const _DeliveryLocationCard({
+    required this.locations,
+    required this.selected,
+    required this.loading,
+    required this.onPick,
+  });
+
+  final List<TerminalStoreOption> locations;
+  final String selected;
+  final bool loading;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = selected.trim();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: PosUi.deskCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PosUi.deskAccent.withValues(alpha: 0.55)),
+        boxShadow: const [
+          BoxShadow(color: Colors.black45, blurRadius: 16, offset: Offset(0, 6)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choisir le lieu',
+              style: PosUi.cardTitle(color: PosUi.deskText).copyWith(fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Touchez un lieu pour cette livraison.',
+              style: PosUi.body(color: PosUi.deskMuted),
+            ),
+            const SizedBox(height: 12),
+            if (loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final place in locations)
+                    _LocationPick(
+                      label: place.name,
+                      selected: current == place.name,
+                      onTap: () => onPick(place.name),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationPick extends StatelessWidget {
+  const _LocationPick({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? PosUi.deskAccent : PosUi.deskField,
+      elevation: selected ? 4 : 1,
+      shadowColor: Colors.black54,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? PosUi.deskAccent : PosUi.deskLine),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.location_on_outlined,
+                size: 16,
+                color: selected ? PosUi.deskInk : PosUi.deskAccent,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: PosUi.body(
+                  weight: FontWeight.w700,
+                  color: selected ? PosUi.deskInk : PosUi.deskText,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

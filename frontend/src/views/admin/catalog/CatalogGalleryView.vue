@@ -313,12 +313,13 @@ async function uploadTo(productId: string, files: File[]) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 0.75rem;
   background: var(--color-surface);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;}
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;}
 
 .gallery-card--file {
   margin: 0;
@@ -328,7 +329,8 @@ async function uploadTo(productId: string, files: File[]) {
 .gallery-card:hover,
 .gallery-card--drop {
   border-color: var(--color-brand-500);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
 }
 
 .gallery-card__image {

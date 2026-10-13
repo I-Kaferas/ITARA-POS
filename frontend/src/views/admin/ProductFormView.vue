@@ -693,6 +693,13 @@ async function removeImage() {
   overflow: hidden;
   background: var(--color-surface);
   cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.gallery-pick__item:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
 }
 
 .gallery-block {
@@ -714,6 +721,7 @@ async function removeImage() {
 
 .gallery-pick__item.is-on {
   outline: 2px solid var(--color-brand-700, #12243c);
+  box-shadow: var(--shadow-lg);
 }
 
 .product-photo {
@@ -730,6 +738,7 @@ async function removeImage() {
   object-fit: cover;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
 }
 
 .gallery-pick__item img {

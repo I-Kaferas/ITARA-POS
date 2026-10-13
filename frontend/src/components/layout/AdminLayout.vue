@@ -363,8 +363,10 @@ watch(companyLogo, () => {
 })
 
 function isActive(path: string) {
-  if (path === '/admin') return route.path === '/admin'
-  return route.path === path || route.path.startsWith(path + '/')
+  const current = route.path.length > 1 ? route.path.replace(/\/+$/, '') : route.path
+  const target = path.length > 1 ? path.replace(/\/+$/, '') : path
+  if (target === '/admin') return current === '/admin' || route.name === 'dashboard'
+  return current === target || current.startsWith(`${target}/`)
 }
 
 function matchesChild(child: NavChild) {
@@ -424,7 +426,7 @@ function toggleMenu(item: NavItem) {
   openMenuId.value = isExpanded(item) ? null : item.name
 }
 
-const submenuMotionMs = 220
+const submenuMotionMs = 280
 let scrollTimer = 0
 let navReady = false
 
@@ -508,7 +510,7 @@ function onSubEnter(el: Element, done: () => void) {
   node.addEventListener('transitionend', finish)
   requestAnimationFrame(() => {
     const height = node.scrollHeight
-    node.style.transition = `height ${submenuMotionMs}ms var(--ease-out), opacity 200ms var(--ease-out)`
+    node.style.transition = `height ${submenuMotionMs}ms var(--ease-emphasized), opacity 220ms var(--ease-emphasized)`
     node.style.height = `${height}px`
     node.style.opacity = '1'
     node._subTimer = window.setTimeout(() => finish(), submenuMotionMs + 40)
@@ -531,7 +533,7 @@ function onSubLeave(el: Element, done: () => void) {
   node.style.height = `${node.scrollHeight}px`
   node.style.opacity = '1'
   requestAnimationFrame(() => {
-    node.style.transition = `height ${submenuMotionMs}ms var(--ease-out), opacity 200ms var(--ease-out)`
+    node.style.transition = `height ${submenuMotionMs}ms var(--ease-emphasized), opacity 220ms var(--ease-emphasized)`
     node.style.height = '0px'
     node.style.opacity = '0'
   })

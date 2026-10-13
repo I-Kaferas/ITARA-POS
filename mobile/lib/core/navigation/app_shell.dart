@@ -778,7 +778,9 @@ class _Sidebar extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: syncing ? null : () => _syncStock(context),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.sidebarText,
+                      backgroundColor: Colors.transparent,
+                      disabledForegroundColor: AppColors.sidebarText,
                       side: const BorderSide(color: AppColors.sidebarBorder),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     ),

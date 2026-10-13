@@ -42,6 +42,23 @@ const optionQty = ref(1)
 const accompanimentHost = ref<{ product: PosProduct; lineId: string } | null>(null)
 const selectedAccompanimentIds = ref<string[]>([])
 const cartOpen = ref(false)
+const deliveryLocations = computed(() =>
+  context.activeDirectoryStores.length ? context.activeDirectoryStores : context.activeStores,
+)
+
+function chooseDelivery() {
+  if (pos.activeTable) return
+  pos.orderMode = 'delivery'
+  if (!context.directoryStores.length) {
+    void context.loadDirectoryStores().catch(() => {
+      if (!context.stores.length) void context.loadStores()
+    })
+  }
+}
+
+function pickLocation(name: string) {
+  pos.deliveryAddress = name
+}
 
 function ensureServiceReady(): boolean {
   if (pos.activeTable || pos.orderMode !== 'delivery') return true
@@ -538,7 +555,7 @@ onUnmounted(() => {
                   class="pos-order-mode__btn"
                   :class="{ 'pos-order-mode__btn--active': !pos.activeTable && pos.orderMode === 'delivery' }"
                   :disabled="Boolean(pos.activeTable)"
-                  @click="pos.orderMode = 'delivery'"
+                  @click="chooseDelivery"
                 >
                   {{ t('pos.delivery') }}
                 </button>
@@ -566,17 +583,27 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <div v-if="!pos.activeTable && pos.orderMode === 'delivery'" class="pos-delivery">
-              <label class="pos-delivery__label" for="pos-delivery-address">{{ t('pos.deliveryAddress') }}</label>
-              <input
-                id="pos-delivery-address"
-                v-model="pos.deliveryAddress"
-                class="pos-delivery__input"
-                type="text"
-                maxlength="255"
-                :placeholder="t('pos.deliveryAddressPlaceholder')"
-              />
-              <p class="pos-delivery__hint">{{ t('pos.deliveryHint') }}</p>
+            <div v-if="!pos.activeTable && pos.orderMode === 'delivery'" class="pos-location-card">
+              <div class="pos-location-card__head">
+                <AppIcon name="store-pin" :size="18" />
+                <strong>{{ t('pos.chooseLocation') }}</strong>
+              </div>
+              <p class="pos-delivery__hint">{{ t('pos.chooseLocationHint') }}</p>
+              <div class="pos-location-picks" role="listbox" :aria-label="t('pos.chooseLocation')">
+                <button
+                  v-for="store in deliveryLocations"
+                  :key="store.id"
+                  type="button"
+                  class="pos-location-pick"
+                  role="option"
+                  :aria-selected="pos.deliveryAddress === store.name"
+                  :class="{ 'pos-location-pick--selected': pos.deliveryAddress === store.name }"
+                  @click="pickLocation(store.name)"
+                >
+                  <AppIcon name="store-pin" :size="16" />
+                  <span>{{ store.name }}</span>
+                </button>
+              </div>
             </div>
             <p v-else-if="!pos.activeTable" class="pos-delivery__hint pos-delivery__hint--alone">
               {{ t('pos.takeawayHint') }}
@@ -856,7 +883,7 @@ onUnmounted(() => {
   cursor: pointer;
   white-space: nowrap;
   box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 65%, transparent);
-  transition: background-color 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out, transform 200ms ease-out;
+  transition: background-color 220ms var(--ease-emphasized), box-shadow 220ms var(--ease-emphasized), border-color 220ms var(--ease-emphasized), transform 220ms var(--ease-emphasized);
 }
 
 .pos-order-mode__btn:hover:not(:disabled) {
@@ -908,28 +935,54 @@ onUnmounted(() => {
   text-decoration: underline;
 }
 
-.pos-delivery {
+.pos-location-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 28rem);
-  gap: 0.35rem 0.75rem;
+  gap: 0.55rem;
+  width: min(100%, 42rem);
+  margin: -0.15rem 0 0.7rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--color-brand-600, #0b6e4f) 28%, var(--color-border, #dbe3ea));
+  border-radius: 1rem;
+  background: var(--color-surface, #fff);
+  box-shadow: var(--shadow-md);
+}
+
+.pos-location-card__head {
+  display: flex;
   align-items: center;
-  margin: -0.2rem 0 0.7rem;
+  gap: 0.45rem;
+  font-size: 0.92rem;
 }
 
-.pos-delivery__label {
-  font-size: 0.78rem;
-  font-weight: 700;
+.pos-location-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
-.pos-delivery__input {
-  width: 100%;
-  min-width: 0;
+.pos-location-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.6rem;
+  padding: 0.45rem 0.8rem;
   border: 1px solid var(--color-border, #dbe3ea);
-  border-radius: 0.75rem;
-  padding: 0.65rem 0.85rem;
-  background: var(--color-surface);
+  border-radius: 0.85rem;
+  background: var(--color-surface, #fff);
+  box-shadow: var(--shadow-md);
   color: inherit;
-  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pos-location-pick:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.pos-location-pick--selected {
+  border-color: var(--color-brand-600, #0b6e4f);
+  background: color-mix(in srgb, var(--color-brand-600, #0b6e4f) 12%, var(--color-surface, #fff));
 }
 
 .pos-delivery__hint {
@@ -1018,6 +1071,9 @@ onUnmounted(() => {
   .pos-cart-toggle {
     display: inline-flex;
   }
+  .pos-location-card {
+    width: 100%;
+  }
   .pos-cart-toggle span {
     display: none;
   }
@@ -1030,7 +1086,7 @@ onUnmounted(() => {
     z-index: 50;
     width: min(22rem, 92%);
     transform: translateX(110%);
-    transition: transform 0.2s ease;
+    transition: transform 320ms var(--ease-emphasized);
     pointer-events: none;
     box-shadow: -12px 0 28px rgba(15, 23, 42, 0.16);
   }
@@ -1047,6 +1103,12 @@ onUnmounted(() => {
     border: 0;
     background: rgba(15, 23, 42, 0.38);
     cursor: pointer;
+    animation: pos-backdrop-in var(--motion-page) var(--ease-out);
+  }
+
+  @keyframes pos-backdrop-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   .pos-side :deep(.pos-cart) {
     position: static;

@@ -7,6 +7,7 @@ import '../../../core/theme/app_motion.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../core/widgets/loading_error_view.dart';
 import '../../../sync/offline_store.dart';
+import '../data/pos_api_service.dart';
 import '../domain/pos_models.dart';
 import 'widgets/pos_ui.dart';
 
@@ -21,6 +22,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
   PosOverview? _overview;
   bool _loading = true;
   String? _error;
+  String _storeId = '';
 
   String get _currency => TerminalConfigRepository.instance.config.currencyCode;
 
@@ -29,10 +31,28 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
   @override
   void initState() {
     super.initState();
+    _storeId = TerminalConfigRepository.instance.config.storeId;
+    TerminalConfigRepository.instance.addListener(_onConfigChanged);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    TerminalConfigRepository.instance.removeListener(_onConfigChanged);
+    super.dispose();
+  }
+
+  void _onConfigChanged() {
+    final storeId = TerminalConfigRepository.instance.config.storeId;
+    if (storeId == _storeId) return;
+    _storeId = storeId;
+    _overview = null;
     _load();
   }
 
   Future<void> _load() async {
+    final storeId = TerminalConfigRepository.instance.config.storeId;
+    _storeId = storeId;
     if (_overview == null) {
       setState(() {
         _loading = true;
@@ -41,14 +61,14 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     }
     try {
       final local = PosOverview.fromJson(await OfflineStore.instance.localPosOverview());
-      if (!mounted) return;
+      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
       setState(() {
         _overview = local;
         _loading = false;
         _error = null;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
       setState(() {
         _loading = false;
         if (_overview == null) {
@@ -56,6 +76,16 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         }
       });
     }
+
+    try {
+      final remote = await PosApiService().fetchOverview();
+      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
+      setState(() {
+        _overview = remote;
+        _loading = false;
+        _error = null;
+      });
+    } catch (_) {}
   }
 
   @override

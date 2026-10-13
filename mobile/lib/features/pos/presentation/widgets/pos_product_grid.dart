@@ -18,7 +18,7 @@ class PosCatalogSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: PosUi.productsCanvas,
+      color: PosUi.deskNight,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
@@ -49,9 +49,9 @@ class _CatalogCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: PosUi.deskCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: PosUi.deskLine),
       ),
       child: const SizedBox.expand(
         child: Column(
@@ -100,7 +100,7 @@ class PosProductGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     assert(menuTitle == null || menuTitle is String);
     return ColoredBox(
-      color: AppColors.canvas,
+      color: PosUi.deskNight,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -160,16 +160,16 @@ class _EmptyProducts extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: AppColors.brand50,
+              color: PosUi.deskCard,
               borderRadius: BorderRadius.circular(AppRadius.xl),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: PosUi.deskLine),
             ),
-            child: Icon(Icons.inventory_2_outlined, size: 28, color: AppColors.brandInk),
+            child: Icon(Icons.inventory_2_outlined, size: 28, color: PosUi.deskMuted),
           ),
           const SizedBox(height: 12),
-          Text('Aucun produit', style: PosUi.cardTitle()),
+          Text('Aucun produit', style: PosUi.cardTitle(color: PosUi.deskText)),
           const SizedBox(height: 4),
-          Text('Modifiez la recherche ou la catégorie.', style: PosUi.caption()),
+          Text('Modifiez la recherche ou la catégorie.', style: PosUi.caption(color: PosUi.deskMuted)),
         ],
       ),
     );
@@ -205,7 +205,7 @@ class _ProductCardState extends State<_ProductCard> {
     final price = MoneyFormatter.format(product.price, currencyCode: AppConfig.currencyCode);
     final imageUrl = resolvePosImageUrl(product.primaryImageUrl);
     final category = product.categoryName?.trim();
-    final out = !available || product.quantityOnHand == 0;
+    final onHand = product.quantityOnHand;
     final unit = (product.unit ?? '').trim();
 
     return AnimatedScale(
@@ -213,7 +213,7 @@ class _ProductCardState extends State<_ProductCard> {
       duration: AppMotion.resolve(context, AppMotion.micro),
       curve: AppMotion.standard,
       child: Material(
-        color: AppColors.surface,
+        color: PosUi.deskCard,
         borderRadius: BorderRadius.circular(16),
         elevation: 0,
         child: InkWell(
@@ -225,12 +225,12 @@ class _ProductCardState extends State<_ProductCard> {
           borderRadius: BorderRadius.circular(16),
             child: Ink(
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: PosUi.deskCard,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: widget.quantity > 0
-                    ? AppColors.brand700
-                    : (out ? AppColors.danger.withValues(alpha: 0.35) : AppColors.border),
+                    ? PosUi.deskAccent
+                    : (!available ? AppColors.danger.withValues(alpha: 0.45) : PosUi.deskLine),
                 width: widget.quantity > 0 ? 1.6 : 1,
               ),
             ),
@@ -249,15 +249,14 @@ class _ProductCardState extends State<_ProductCard> {
                           const Positioned(
                             left: 8,
                             top: 8,
-                            child: Icon(Icons.star_rounded, size: 16, color: AppColors.accent),
+                            child: Icon(Icons.star_rounded, size: 16, color: PosUi.deskAccent),
                           ),
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: widget.quantity > 0
-                              ? _QtyBadge(quantity: widget.quantity)
-                              : const _StockFlag(label: 'N/S', out: false),
-                        ),
+                        if (widget.quantity > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: _QtyBadge(quantity: widget.quantity),
+                          ),
                       ],
                     ),
                   ),
@@ -273,7 +272,7 @@ class _ProductCardState extends State<_ProductCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: PosUi.cardTitle(
-                            color: available ? AppColors.textPrimary : AppColors.textSecondary,
+                            color: available ? PosUi.deskText : PosUi.deskMuted,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -287,12 +286,12 @@ class _ProductCardState extends State<_ProductCard> {
                                 style: PosUi.money(
                                   size: 14,
                                   weight: FontWeight.w800,
-                                  color: out ? AppColors.textMuted : AppColors.brandInk,
+                                  color: available ? PosUi.deskAccent : PosUi.deskMuted,
                                 ),
                               ),
                             ),
                             if (unit.isNotEmpty)
-                              Text('/$unit', style: PosUi.caption()),
+                              Text('/$unit', style: PosUi.caption(color: PosUi.deskMuted)),
                           ],
                         ),
                         const Spacer(),
@@ -303,17 +302,18 @@ class _ProductCardState extends State<_ProductCard> {
                                 (category != null && category.isNotEmpty) ? category : product.sku,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: PosUi.caption(),
+                                style: PosUi.caption(color: PosUi.deskMuted),
                               ),
                             ),
-                            Text(
-                              'Service',
-                              style: AppTypography.plex(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.brandInk,
+                            if (onHand != null)
+                              Text(
+                                '$onHand available',
+                                style: AppTypography.plex(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: PosUi.deskStock,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ],
@@ -353,40 +353,12 @@ class _QtyBadge extends StatelessWidget {
       height: 26,
       alignment: Alignment.center,
       decoration: const BoxDecoration(
-        color: AppColors.brand700,
+        color: PosUi.deskAccent,
         shape: BoxShape.circle,
       ),
       child: Text(
         '$quantity',
-        style: AppTypography.plex(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _StockFlag extends StatelessWidget {
-  const _StockFlag({required this.label, required this.out});
-
-  final String label;
-  final bool out;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = out ? AppColors.danger : AppColors.brand600;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.plex(
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          color: Colors.white,
-          letterSpacing: 0.3,
-        ),
+        style: AppTypography.plex(fontSize: 12, fontWeight: FontWeight.w800, color: PosUi.deskInk),
       ),
     );
   }
@@ -404,7 +376,7 @@ class _ProductPhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFFE7EBEF),
+      color: PosUi.deskPhoto,
       child: url == null
           ? _fallback()
           : Image.network(
@@ -427,7 +399,9 @@ class _ProductPhoto extends StatelessWidget {
       child: Icon(
         Icons.landscape_outlined,
         size: 42,
-        color: available ? AppColors.brand200 : AppColors.textMuted,
+        color: available
+            ? (PosUi.isDarkDesk ? const Color(0xFFB7C3D1) : const Color(0xFF8A97A6))
+            : PosUi.deskMuted,
       ),
     );
   }

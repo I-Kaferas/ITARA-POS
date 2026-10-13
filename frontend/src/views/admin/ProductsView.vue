@@ -9,6 +9,7 @@ import AppIcon from '../../components/ui/AppIcon.vue'
 import Badge from '../../components/ui/Badge.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import LoadingBlock from '../../components/ui/LoadingBlock.vue'
+import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useContextStore } from '../../stores/context'
 import type { Catalog, Company, Product } from '../../types'
@@ -30,6 +31,11 @@ const lastPage = ref(1)
 const total = ref(0)
 const loadingProducts = ref(false)
 const perPage = 40
+const fileInput = ref<HTMLInputElement | null>(null)
+const exportOpen = ref(false)
+const importing = ref(false)
+const importNotice = ref('')
+const importError = ref('')
 
 onMounted(async () => {
   await context.loadStores()
@@ -88,6 +94,63 @@ const catalogOptions = computed(() => store.catalogs)
 const productCount = computed(() => total.value)
 const pageFrom = computed(() => (total.value === 0 ? 0 : (page.value - 1) * perPage + 1))
 const pageTo = computed(() => Math.min(page.value * perPage, total.value))
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char))
+}
+
+async function onImport(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !selectedCatalog.value) return
+  importing.value = true
+  importNotice.value = ''
+  importError.value = ''
+  try {
+    const result = await store.importProducts(selectedCatalog.value.id, file, true)
+    importNotice.value = t('products.importDone', result)
+    await loadPage(1)
+  } catch (error) {
+    importError.value = extractApiErrorMessage(error, t('products.importFailed'))
+  } finally {
+    importing.value = false
+  }
+}
+
+async function exportExcel() {
+  exportOpen.value = false
+  if (!selectedCatalog.value) return
+  importError.value = ''
+  try {
+    await store.exportProducts(selectedCatalog.value.id, 'xlsx')
+  } catch (error) {
+    importError.value = extractApiErrorMessage(error, t('products.importFailed'))
+  }
+}
+
+async function exportPdf() {
+  exportOpen.value = false
+  if (!selectedCatalog.value) return
+  const products = await store.loadProducts(selectedCatalog.value.id)
+  const popup = window.open('', '_blank', 'noopener,noreferrer')
+  if (!popup) return
+  const body = products.map((product) => `<tr>
+    <td>${escapeHtml(product.sku)}</td>
+    <td>${escapeHtml(product.name)}</td>
+    <td>${escapeHtml(formatMoney(product.base_price))}</td>
+    <td>${escapeHtml(formatMoney(product.cost_price ?? 0))}</td>
+    <td>${escapeHtml(product.is_active ? t('products.active') : t('products.inactive'))}</td>
+  </tr>`).join('')
+  popup.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(selectedCatalog.value.name)}</title>
+    <style>body{font-family:sans-serif;padding:24px;color:#12243c}h1{font-size:18px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #e2e8f0;padding:8px;text-align:left;font-size:12px}</style>
+    </head><body><h1>${escapeHtml(selectedCatalog.value.name)}</h1>
+    <table><thead><tr><th>SKU</th><th>${escapeHtml(t('products.name'))}</th><th>${escapeHtml(t('products.price'))}</th><th>${escapeHtml(t('products.cost'))}</th><th>${escapeHtml(t('products.status'))}</th></tr></thead>
+    <tbody>${body}</tbody></table></body></html>`)
+  popup.document.close()
+  popup.focus()
+  popup.print()
+}
 </script>
 
 <template>
@@ -121,15 +184,36 @@ const pageTo = computed(() => Math.min(page.value * perPage, total.value))
           />
         </div>
       </div>
-      <button
-        class="ui-btn ui-btn--primary self-end"
-        :disabled="!selectedCatalog"
-        @click="router.push({ name: 'product-create', query: { catalogId: selectedCatalog?.id } })"
-      >
-        <AppIcon name="plus" :size="16" />
-        {{ t('products.new') }}
-      </button>
+      <div class="products-actions">
+        <button type="button" class="btn-secondary" :disabled="!selectedCatalog || importing" @click="fileInput?.click()">
+          <AppIcon name="upload" :size="16" />
+          {{ t('products.importExcel') }}
+        </button>
+        <input ref="fileInput" class="sr-only" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="onImport" />
+        <div class="products-export">
+          <button type="button" class="btn-secondary" :disabled="!selectedCatalog" @click="exportOpen = !exportOpen">
+            <AppIcon name="download" :size="16" />
+            {{ t('products.exportPdfExcel') }}
+          </button>
+          <div v-if="exportOpen" class="products-export__menu">
+            <button type="button" @click="exportPdf">{{ t('products.exportPdf') }}</button>
+            <button type="button" @click="exportExcel">{{ t('products.exportExcel') }}</button>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn-primary"
+          :disabled="!selectedCatalog"
+          @click="router.push({ name: 'product-create', query: { catalogId: selectedCatalog?.id } })"
+        >
+          <AppIcon name="plus" :size="16" />
+          {{ t('products.newAction') }}
+        </button>
+      </div>
     </div>
+
+    <p v-if="importNotice" class="products-note" role="status">{{ importNotice }}</p>
+    <p v-if="importError" class="products-note products-note--error" role="alert">{{ importError }}</p>
 
     <LoadingBlock v-if="loadingProducts" variant="table" :label="t('common.loading')" />
 
@@ -230,7 +314,7 @@ const pageTo = computed(() => Math.min(page.value * perPage, total.value))
           @click="router.push({ name: 'product-create', query: { catalogId: selectedCatalog?.id } })"
         >
           <AppIcon name="plus" :size="16" />
-          {{ t('products.new') }}
+          {{ t('products.newAction') }}
         </button>
       </EmptyState>
     </div>
@@ -238,5 +322,66 @@ const pageTo = computed(() => Math.min(page.value * perPage, total.value))
 </template>
 
 <style scoped>
-.border-brand-500 { border-color: var(--color-brand-500); }
+.products-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.products-export {
+  position: relative;
+}
+
+.products-export__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 8rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.products-export__menu button {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm, 0.4rem);
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+
+.products-export__menu button:hover {
+  background: var(--color-canvas);
+}
+
+.products-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.products-note--error {
+  color: var(--color-danger, #b91c1c);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 </style>

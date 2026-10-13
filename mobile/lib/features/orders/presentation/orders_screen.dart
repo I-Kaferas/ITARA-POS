@@ -1,20 +1,25 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_motion.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../core/widgets/role_guard.dart';
 import '../../../sync/offline_store.dart';
 import '../../pos/data/pos_api_service.dart';
 import '../../pos/domain/pos_models.dart';
+import '../../pos/presentation/customer_display_launcher.dart';
 import '../../pos/presentation/widgets/pos_merge_sheet.dart';
+import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../pos/services/pos_pending_intent.dart';
 import '../../receipt/domain/receipt_models.dart';
 import '../../receipt/services/receipt_print_service.dart';
@@ -47,24 +52,42 @@ class _OrdersScreenState extends State<OrdersScreen> {
   int _lane = 0;
   bool _quarantine = false;
   String _storeKey = 'all';
+  String _waiter = 'all';
   String? _status;
   String? _payment;
   DateTime? _from;
   DateTime? _to;
   String? _selectedId;
+  Map<String, String> _catalogNames = const {};
+  String _boundStoreId = '';
 
   @override
   void initState() {
     super.initState();
+    _boundStoreId = TerminalConfigRepository.instance.config.storeId;
     OfflineStore.instance.holdsRevision.addListener(_onHoldsChanged);
+    TerminalConfigRepository.instance.addListener(_onStoreChanged);
     _load();
   }
 
   @override
   void dispose() {
     OfflineStore.instance.holdsRevision.removeListener(_onHoldsChanged);
+    TerminalConfigRepository.instance.removeListener(_onStoreChanged);
     _search.dispose();
     super.dispose();
+  }
+
+  void _onStoreChanged() {
+    final storeId = TerminalConfigRepository.instance.config.storeId;
+    if (storeId == _boundStoreId) return;
+    _boundStoreId = storeId;
+    _selectedId = null;
+    _sales = [];
+    _holds = [];
+    _orders = [];
+    _invoices = [];
+    _load();
   }
 
   void _onHoldsChanged() {
@@ -73,8 +96,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _refreshHolds() async {
-    final holds = await OfflineStore.instance.loadLocalHolds();
-    if (!mounted) return;
+    final storeId = TerminalConfigRepository.instance.config.storeId;
+    final holds = OfflineStore.instance.holdsForStore(await OfflineStore.instance.loadLocalHolds(), storeId);
+    if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
     setState(() {
       _holds = holds.map(_SaleRow.fromHold).where((sale) => sale.reference.isNotEmpty).toList();
     });
@@ -89,58 +113,72 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    await _loadLocalSales();
+    if (_section == 0) {
+      await _loadLocalSales();
+    } else if (_section == 1) {
+      await _loadOrders();
+    } else {
+      await _loadInvoices();
+    }
     if (mounted) setState(() => _loading = false);
   }
 
+  List<String> get _waiterNames {
+    final names = <String>{};
+    for (final sale in _venteRows) {
+      final name = sale.cashierName?.trim() ?? '';
+      if (name.isNotEmpty) names.add(name);
+    }
+    final list = names.toList()..sort();
+    return list;
+  }
+
   Future<void> _loadLocalSales() async {
-    final sales = await OfflineStore.instance.listLocalSales();
-    final holds = await OfflineStore.instance.loadLocalHolds();
-    if (!mounted) return;
+    final storeId = TerminalConfigRepository.instance.config.storeId;
+    final sales = await OfflineStore.instance.listLocalSales(storeId: storeId);
+    final holds = OfflineStore.instance.holdsForStore(await OfflineStore.instance.loadLocalHolds(), storeId);
+    final names = await OfflineStore.instance.productNamesById(storeId: storeId);
+    final remote = await _remoteSales(sales);
+    if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
     setState(() {
-      _sales = sales.map(_SaleRow.fromLocal).toList();
+      _catalogNames = names;
+      _sales = [
+        ...sales.map((row) => _SaleRow.fromLocal(row, names)),
+        ...remote,
+      ];
       _holds = holds.map(_SaleRow.fromHold).where((sale) => sale.total > 0 || sale.reference.isNotEmpty).toList();
     });
   }
 
-  Future<void> _loadRemoteSales() async {
+  Future<List<_SaleRow>> _remoteSales(List<Map<String, dynamic>> local) async {
     try {
-      final remote = await _posApi.fetchSales(
-        search: _search.text.trim().isEmpty ? null : _search.text.trim(),
-        status: _section == 0 && _status != null && _status != 'failed' ? _status : null,
-        paymentStatus: _section == 0 ? _payment : null,
-        from: _from == null ? null : DateFormat('yyyy-MM-dd').format(_from!),
-        to: _to == null ? null : DateFormat('yyyy-MM-dd').format(_to!),
-      );
-      if (!mounted) return;
-      final remoteRows = remote.map(_SaleRow.fromRemote).where((sale) => sale.id.isNotEmpty).toList();
-      setState(() {
-        _sales = _mergeSales(local: _sales.where((sale) => !sale.isRemote).toList(), remote: remoteRows);
-        _salesError = null;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _salesError = _networkMessage(error));
+      final remote = await _posApi.fetchSales();
+      final seen = <String>{};
+      for (final row in local) {
+        final id = row['id']?.toString() ?? '';
+        final serverId = row['server_id']?.toString() ?? '';
+        final reference = row['reference']?.toString() ?? '';
+        if (id.isNotEmpty) seen.add(id);
+        if (serverId.isNotEmpty) seen.add(serverId);
+        if (reference.isNotEmpty) seen.add(reference);
+      }
+      return remote
+          .where((row) {
+            final id = row['id']?.toString() ?? '';
+            final reference = row['reference']?.toString() ?? '';
+            if (id.isNotEmpty && seen.contains(id)) return false;
+            if (reference.isNotEmpty && seen.contains(reference)) return false;
+            return id.isNotEmpty;
+          })
+          .map(_SaleRow.fromSummary)
+          .toList();
+    } catch (_) {
+      return const [];
     }
-  }
-
-  List<_SaleRow> _mergeSales({required List<_SaleRow> local, required List<_SaleRow> remote}) {
-    final remoteIds = <String>{};
-    for (final sale in remote) {
-      remoteIds.add(sale.id);
-      final serverId = sale.serverId;
-      if (serverId != null && serverId.isNotEmpty) remoteIds.add(serverId);
-    }
-    final keptLocal = local.where((sale) {
-      if (remoteIds.contains(sale.id)) return false;
-      final serverId = sale.serverId;
-      if (serverId != null && serverId.isNotEmpty && remoteIds.contains(serverId)) return false;
-      return true;
-    });
-    return [...keptLocal, ...remote];
   }
 
   Future<void> _loadOrders() async {
+    final storeId = TerminalConfigRepository.instance.config.storeId;
     try {
       final orders = await _api.fetchOrders(
         status: _section == 1 ? _status : null,
@@ -148,18 +186,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
         from: _from,
         to: _to,
       );
-      if (!mounted) return;
+      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
       setState(() {
         _orders = orders.items;
         _ordersError = null;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
       setState(() => _ordersError = _networkMessage(error));
     }
   }
 
   Future<void> _loadInvoices() async {
+    final storeId = TerminalConfigRepository.instance.config.storeId;
     try {
       final invoices = await _api.fetchInvoices(
         status: _section == 2 ? _status : null,
@@ -167,13 +206,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
         from: _from,
         to: _to,
       );
-      if (!mounted) return;
+      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
       setState(() {
         _invoices = invoices.items;
         _invoicesError = null;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
       setState(() => _invoicesError = _networkMessage(error));
     }
   }
@@ -219,21 +258,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     if (_section == 0) {
       return _venteRows
-          .where((sale) => matches('${sale.reference} ${sale.method} ${sale.status} ${sale.statusLabel} ${sale.customerName}'))
+          .where((sale) => matches('${sale.reference} ${sale.method} ${sale.status} ${sale.statusLabel} ${sale.customerName} ${sale.cashierName} ${sale.serviceMode}'))
           .where((sale) => _inRange(sale.createdAt))
           .where((sale) => _status == null || sale.filterStatus == _status)
           .where((sale) => _payment == null || sale.matchesPayment(_payment!))
+          .where((sale) => _waiter == 'all' || (sale.cashierName ?? '').trim() == _waiter)
           .where((sale) => _matchesLane(_saleLane(sale)))
           .map((sale) => _ListItem(
                 id: sale.id,
                 title: sale.reference,
-                subtitle: sale.subtitle,
-                meta: _date(sale.createdAt),
+                meta: DateFormat('dd/MM HH:mm').format(sale.createdAt),
                 amount: sale.total,
                 currency: sale.currency,
-                status: sale.statusLabel,
+                status: _laneLabel(_saleLane(sale)),
                 statusKey: sale.status,
-                kind: sale.isHold ? 'hold' : 'sale',
+                badge: sale.serviceBadge,
+                secondary: sale.secondaryReference,
+                customer: _person(sale.customerName),
+                servedBy: sale.cashierName?.trim() ?? '',
+                payment: sale.paymentColumn,
               ))
           .toList();
     }
@@ -246,13 +289,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
           .map((order) => _ListItem(
                 id: order.id,
                 title: order.orderNumber,
-                subtitle: order.supplierName ?? 'Fournisseur',
-                meta: _date(order.createdAt),
+                meta: DateFormat('dd/MM HH:mm').format(order.createdAt),
                 amount: order.total,
                 currency: order.currencyCode,
-                status: _orderStatus(order.status),
+                status: _laneLabel(_purchaseLane(order.status)),
                 statusKey: order.status,
-                kind: 'purchase',
+                customer: _person(order.supplierName),
+                servedPrefix: 'Warehouse',
+                servedBy: order.warehouseName?.trim() ?? '',
               ))
           .toList();
     }
@@ -264,13 +308,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
         .map((invoice) => _ListItem(
               id: invoice.id,
               title: invoice.invoiceNumber,
-              subtitle: invoice.supplierName ?? 'Facture',
-              meta: _date(invoice.invoicedAt),
+              meta: DateFormat('dd/MM HH:mm').format(invoice.invoicedAt),
               amount: invoice.total,
               currency: 'FBU',
-              status: _invoiceStatus(invoice.status),
+              status: _laneLabel(_invoiceLane(invoice.status)),
               statusKey: invoice.status,
-              kind: 'invoice',
+              customer: _person(invoice.supplierName),
+              servedPrefix: 'Order',
+              servedBy: invoice.orderNumber?.trim() ?? '',
             ))
         .toList();
   }
@@ -282,12 +327,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   void _resumeSale(_SaleRow sale) {
     _openHoldOnPos(sale.resumeId);
-  }
-
-  void _viewSale(_SaleRow sale) {
-    final id = sale.detailId;
-    if (id == null || id.isEmpty) return;
-    context.go(AppRoutes.saleDetail(id));
   }
 
   Future<void> _mergeSale(_SaleRow sale) async {
@@ -312,6 +351,50 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final id = sale.detailId;
     if (id == null || id.isEmpty) return;
     await _issueDocument(saleId: id, label: 'Facture', create: () => _posApi.createInvoice(id));
+  }
+
+  Future<void> _printKitchenTicket(_SaleRow sale) async {
+    if (sale.lines.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun article à imprimer')),
+      );
+      return;
+    }
+    final doc = pw.Document();
+    final date = DateFormat('dd/MM/yyyy HH:mm').format(sale.createdAt);
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            pw.Text(
+              'BON DE CUISINE',
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Text(sale.reference, textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 10)),
+            pw.Text(date, textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 9)),
+            if ((sale.customerName ?? '').trim().isNotEmpty)
+              pw.Text('Client: ${sale.customerName}', style: const pw.TextStyle(fontSize: 9)),
+            pw.SizedBox(height: 6),
+            pw.Divider(thickness: 0.6),
+            ...sale.lines.map(
+              (line) => pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 3),
+                child: pw.Text('${line.quantity}x  ${line.name}', style: const pw.TextStyle(fontSize: 11)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await Printing.layoutPdf(
+      onLayout: (_) async => Uint8List.fromList(await doc.save()),
+      name: 'kitchen-${sale.reference}',
+    );
   }
 
   Future<void> _issueDocument({
@@ -350,30 +433,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
           (sale.lines.length >= 2 || sale.lines.any((line) => line.quantity > 1));
       return _Detail(
         title: sale.reference,
-        status: sale.statusLabel,
+        status: _laneLabel(_saleLane(sale)),
         statusKey: sale.status,
+        paymentLabel: sale.paymentColumn == '—' ? '' : sale.paymentColumn,
+        whenLabel: DateFormat('dd/MM HH:mm').format(sale.createdAt),
+        serviceLabel: sale.serviceBadge ?? (sale.isHold ? 'Hold' : ''),
+        customer: _person(sale.customerName),
+        servedBy: (sale.cashierName ?? '').trim().isEmpty ? '—' : sale.cashierName!.trim(),
+        remaining: sale.outstanding,
         amount: MoneyFormatter.format(sale.total, currencyCode: sale.currency),
         currency: sale.currency,
         lines: sale.lines,
-        subtotal: sale.lines.fold<int>(0, (sum, line) => sum + line.lineTotal),
-        itemCount: sale.itemCount > 0
-            ? sale.itemCount
-            : sale.lines.fold<int>(0, (sum, line) => sum + line.quantity),
+        subtotal: sale.subtotalAmount > 0
+            ? sale.subtotalAmount
+            : sale.lines.fold<int>(0, (sum, line) => sum + line.lineTotal),
+        tax: sale.taxTotal,
+        totalAmount: sale.total,
+        amountDue: sale.outstanding,
+        payments: sale.resolvedPayments,
+        itemCount: sale.lines.length,
         rows: [
-          ('Date', _date(sale.createdAt)),
-          if (sale.customerName != null && sale.customerName!.isNotEmpty) ('Client', sale.customerName!),
           if (sale.note != null && sale.note!.isNotEmpty) ('Note', sale.note!),
-          if (!sale.isHold) ('Paiement', sale.methodLabel),
-          if (!sale.isHold) ('Payé', MoneyFormatter.format(sale.paid, currencyCode: sale.currency)),
-          if (!sale.isHold) ('Reste', MoneyFormatter.format(sale.outstanding, currencyCode: sale.currency)),
-          ('Origine', sale.isHold ? 'Caisse locale' : sale.isRemote ? 'Serveur' : 'Vente locale'),
-          if (!sale.isHold && !sale.isRemote) ('Synchro', sale.syncLabel),
-          if (sale.isRemote) ('Paiement statut', sale.paymentStatus),
         ],
         onModify: sale.isHold ? () => _openHoldOnPos(sale.id) : null,
         onAddArticles: sale.isHold ? () => _openHoldOnPos(sale.id, action: PosHoldAction.addArticles) : null,
         onSplit: canSplit ? () => _openHoldOnPos(sale.id, action: PosHoldAction.split) : null,
         onPay: sale.isHold ? () => _openHoldOnPos(sale.id, action: PosHoldAction.pay) : null,
+        onPrintInvoice: sale.canIssueDocs ? () => _createInvoice(sale) : null,
+        onPrintKitchen: () => _printKitchenTicket(sale),
       );
     }
     if (_section == 1) {
@@ -381,15 +468,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
       if (order == null) return null;
       return _Detail(
         title: order.orderNumber,
-        status: _orderStatus(order.status),
+        status: _laneLabel(_purchaseLane(order.status)),
         statusKey: order.status,
+        whenLabel: DateFormat('dd/MM HH:mm').format(order.createdAt),
+        customer: _person(order.supplierName),
+        servedBy: (order.warehouseName ?? '').trim().isEmpty ? '—' : order.warehouseName!.trim(),
+        remaining: order.total,
         amount: MoneyFormatter.format(order.total, currencyCode: order.currencyCode),
         currency: order.currencyCode,
+        subtotal: order.total,
+        totalAmount: order.total,
+        amountDue: order.total,
         rows: [
-          ('Fournisseur', order.supplierName ?? '—'),
-          ('Entrepôt', order.warehouseName ?? '—'),
-          ('Date', _date(order.createdAt)),
-          if (order.expectedAt != null) ('Livraison', _date(order.expectedAt!)),
           if (order.notes != null && order.notes!.isNotEmpty) ('Notes', order.notes!),
         ],
       );
@@ -398,19 +488,33 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (invoice == null) return null;
     return _Detail(
       title: invoice.invoiceNumber,
-      status: _invoiceStatus(invoice.status),
+      status: _laneLabel(_invoiceLane(invoice.status)),
       statusKey: invoice.status,
+      whenLabel: DateFormat('dd/MM HH:mm').format(invoice.invoicedAt),
+      customer: _person(invoice.supplierName),
+      servedBy: (invoice.orderNumber ?? '').trim().isEmpty ? '—' : invoice.orderNumber!.trim(),
+      remaining: (invoice.total - invoice.paidAmount).clamp(0, invoice.total),
       amount: MoneyFormatter.format(invoice.total),
-      rows: [
-        ('Fournisseur', invoice.supplierName ?? '—'),
-        ('Commande', invoice.orderNumber ?? '—'),
-        ('Date', _date(invoice.invoicedAt)),
-        ('Payé', MoneyFormatter.format(invoice.paidAmount)),
-      ],
+      subtotal: invoice.total,
+      totalAmount: invoice.total,
+      amountDue: (invoice.total - invoice.paidAmount).clamp(0, invoice.total),
+      rows: const [],
     );
   }
 
-  String _date(DateTime value) => DateFormat('dd/MM/yyyy · HH:mm').format(value);
+  String _person(String? value) {
+    final name = value?.trim() ?? '';
+    return name.isEmpty ? '—' : name;
+  }
+
+  String _laneLabel(String lane) => switch (lane) {
+        'open' => 'Open',
+        'progress' => 'In Progress',
+        'completed' => 'Completed',
+        'cancelled' => 'Cancelled',
+        'quarantine' => 'Quarantine',
+        _ => lane,
+      };
 
   bool _matchesLane(String lane) {
     if (_quarantine) return lane == 'quarantine';
@@ -447,84 +551,58 @@ class _OrdersScreenState extends State<OrdersScreen> {
         _ => 'open',
       };
 
-  String _orderStatus(String status) => switch (status.toLowerCase()) {
-        'draft' => 'Brouillon',
-        'submitted' => 'Soumise',
-        'pending' => 'En attente',
-        'approved' => 'Approuvée',
-        'completed' => 'Terminée',
-        'cancelled' => 'Annulée',
-        'partial' => 'Partielle',
-        _ => status,
-      };
-
-  String _invoiceStatus(String status) => switch (status.toLowerCase()) {
-        'posted' => 'Comptabilisée',
-        'partially_paid' => 'Partiellement payée',
-        'paid' => 'Payée',
-        'cancelled' => 'Annulée',
-        _ => status,
-      };
-
-  void _open(String id) {
-    if (_section == 0) {
-      final sale = _venteRows.where((item) => item.id == id).firstOrNull;
-      if (sale != null && sale.canOpenRemoteDetail) {
-        _viewSale(sale);
-        return;
-      }
-    }
-    final wide = MediaQuery.sizeOf(context).width >= 980;
+  Future<void> _open(String id) async {
     setState(() => _selectedId = id);
-    if (wide) return;
+    if (!mounted) return;
     final detail = _detail;
     if (detail == null) return;
+    final narrow = MediaQuery.sizeOf(context).width < 700;
+    if (narrow) {
+      await Navigator.of(context, rootNavigator: true).push<void>(
+        MaterialPageRoute<void>(
+          builder: (pageContext) => _OrderDetailPage(detail: detail),
+        ),
+      );
+      return;
+    }
     showDialog<void>(
       context: context,
+      useRootNavigator: true,
       builder: (dialogContext) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        backgroundColor: PosUi.deskPanel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: const BoxConstraints(maxWidth: 560),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
             child: _DetailBody(
-              detail: _Detail(
-                title: detail.title,
-                status: detail.status,
-                statusKey: detail.statusKey,
-                amount: detail.amount,
-                currency: detail.currency,
-                rows: detail.rows,
-                lines: detail.lines,
-                subtotal: detail.subtotal,
-                itemCount: detail.itemCount,
-                onModify: detail.onModify == null
-                    ? null
-                    : () {
-                        Navigator.pop(dialogContext);
-                        detail.onModify!();
-                      },
-                onAddArticles: detail.onAddArticles == null
-                    ? null
-                    : () {
-                        Navigator.pop(dialogContext);
-                        detail.onAddArticles!();
-                      },
-                onSplit: detail.onSplit == null
-                    ? null
-                    : () {
-                        Navigator.pop(dialogContext);
-                        detail.onSplit!();
-                      },
-                onPay: detail.onPay == null
-                    ? null
-                    : () {
-                        Navigator.pop(dialogContext);
-                        detail.onPay!();
-                      },
-              ),
+              detail: detail,
+              onClose: () => Navigator.of(dialogContext, rootNavigator: true).pop(),
+              onModify: detail.onModify == null
+                  ? null
+                  : () {
+                      Navigator.of(dialogContext, rootNavigator: true).pop();
+                      detail.onModify!();
+                    },
+              onAddArticles: detail.onAddArticles == null
+                  ? null
+                  : () {
+                      Navigator.of(dialogContext, rootNavigator: true).pop();
+                      detail.onAddArticles!();
+                    },
+              onSplit: detail.onSplit == null
+                  ? null
+                  : () {
+                      Navigator.of(dialogContext, rootNavigator: true).pop();
+                      detail.onSplit!();
+                    },
+              onPay: detail.onPay == null
+                  ? null
+                  : () {
+                      Navigator.of(dialogContext, rootNavigator: true).pop();
+                      detail.onPay!();
+                    },
             ),
           ),
         ),
@@ -541,8 +619,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ? (config.brandName.trim().isEmpty ? 'Store' : config.brandName.trim())
         : config.deviceName.trim();
 
-    return ColoredBox(
-      color: AppColors.canvas,
+    return Theme(
+      data: Theme.of(context).copyWith(
+        canvasColor: PosUi.deskCard,
+        popupMenuTheme: PopupMenuThemeData(
+          color: PosUi.deskCard,
+          textStyle: GoogleFonts.ibmPlexSans(color: PosUi.deskText, fontSize: 14),
+        ),
+      ),
+      child: ColoredBox(
+      color: PosUi.deskNight,
       child: Column(
         children: [
           if (!config.canManageOrders)
@@ -553,11 +639,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
               search: _search,
               place: place,
               storeKey: _storeKey,
+              waiter: _waiter,
+              waiters: _waiterNames,
               lane: _quarantine ? -1 : _lane,
               quarantine: _quarantine,
               refreshing: _loading,
               section: _section,
               onStore: (value) => setState(() => _storeKey = value),
+              onWaiter: (value) => setState(() => _waiter = value),
               onSearch: (_) => setState(() {}),
               onLane: (value) => setState(() {
                 _lane = value;
@@ -569,12 +658,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 _selectedId = null;
               }),
               onRefresh: _loading ? null : _load,
-              onSection: (value) => setState(() {
-                _section = value;
-                _selectedId = null;
-                _lane = 0;
-                _quarantine = false;
-              }),
+              onPreviewDisplay: () => CustomerDisplayLauncher.open(context),
+              onSection: (value) {
+                setState(() {
+                  _section = value;
+                  _selectedId = null;
+                  _lane = 0;
+                  _quarantine = false;
+                  _waiter = 'all';
+                });
+                _load();
+              },
             ),
           ),
           if (_sectionError != null)
@@ -593,69 +687,88 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: PosUi.deskAccent))
                 : Row(
                     children: [
                       Expanded(
-                        child: RefreshIndicator(
-                          onRefresh: _load,
-                          child: items.isEmpty
-                              ? LayoutBuilder(
-                                  builder: (context, constraints) => ListView(
-                                    children: [
-                                      SizedBox(
-                                        height: constraints.maxHeight,
-                                        child: const _Empty(),
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(wide ? 20 : 14, 12, wide ? 12 : 14, 16),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final tableWidth = constraints.maxWidth < 760 ? 920.0 : constraints.maxWidth;
+                              return RefreshIndicator(
+                                color: PosUi.deskAccent,
+                                onRefresh: _load,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: SizedBox(
+                                    width: tableWidth,
+                                    height: constraints.maxHeight,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: PosUi.deskPanel,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(color: PosUi.deskLine),
                                       ),
-                                    ],
+                                      child: Column(
+                                        children: [
+                                          const _OrdersTableHeader(),
+                                          Expanded(
+                                            child: items.isEmpty
+                                                ? ListView(
+                                                    children: [
+                                                      SizedBox(
+                                                        height: constraints.maxHeight - 52,
+                                                        child: const _Empty(),
+                                                      ),
+                                                    ],
+                                                  )
+                                                : ListView.separated(
+                                                    itemCount: items.length,
+                                                    separatorBuilder: (_, _) => Divider(height: 1, color: PosUi.deskLine),
+                                                    itemBuilder: (context, index) {
+                                                      final item = items[index];
+                                                      final sale = _section == 0
+                                                          ? _venteRows.where((row) => row.id == item.id).firstOrNull
+                                                          : null;
+                                                      final busy = _docBusyId != null && sale?.detailId == _docBusyId;
+                                                      return _OrderTableRow(
+                                                        item: item,
+                                                        selected: _selectedId == item.id,
+                                                        busy: busy,
+                                                        onTap: () => _open(item.id),
+                                                        onView: () => _open(item.id),
+                                                        onReceipt: sale != null && sale.canIssueDocs && !busy
+                                                            ? () => _createReceipt(sale)
+                                                            : null,
+                                                        onInvoice: sale != null && sale.canIssueDocs && !busy
+                                                            ? () => _createInvoice(sale)
+                                                            : null,
+                                                        onMerge: sale != null && sale.canMerge
+                                                            ? () => _mergeSale(sale)
+                                                            : null,
+                                                        onResume: sale != null && sale.canResume
+                                                            ? () => _resumeSale(sale)
+                                                            : null,
+                                                      );
+                                                    },
+                                                  ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                )
-                              : ListView.separated(
-                                  padding: EdgeInsets.fromLTRB(wide ? 20 : 14, 12, wide ? 12 : 14, 20),
-                                  itemCount: items.length,
-                                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                                  itemBuilder: (context, index) {
-                                    final item = items[index];
-                                    final sale = _section == 0
-                                        ? _venteRows.where((row) => row.id == item.id).firstOrNull
-                                        : null;
-                                    final busy = sale != null && _docBusyId == sale.detailId;
-                                    return AppOnce(
-                                      id: 'order-${item.id}',
-                                      child: _RowCard(
-                                      item: item,
-                                      selected: _selectedId == item.id,
-                                      onTap: () => _open(item.id),
-                                      onView: sale != null && sale.canOpenRemoteDetail
-                                          ? () => _viewSale(sale)
-                                          : null,
-                                      onReceipt: sale != null && sale.canIssueDocs && !busy
-                                          ? () => _createReceipt(sale)
-                                          : null,
-                                      onInvoice: sale != null && sale.canIssueDocs && !busy
-                                          ? () => _createInvoice(sale)
-                                          : null,
-                                      onMerge: sale != null && sale.canMerge
-                                          ? () => _mergeSale(sale)
-                                          : null,
-                                      onResume: sale != null && sale.canResume
-                                          ? () => _resumeSale(sale)
-                                          : null,
-                                      ),
-                                    );
-                                  },
                                 ),
+                              );
+                            },
+                          ),
                         ),
                       ),
-                      if (wide && _detail != null)
-                        SizedBox(
-                          width: 360,
-                          child: _DetailPanel(detail: _detail!),
-                        ),
                     ],
                   ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -666,30 +779,38 @@ class _OrdersChrome extends StatelessWidget {
     required this.search,
     required this.place,
     required this.storeKey,
+    required this.waiter,
+    required this.waiters,
     required this.lane,
     required this.quarantine,
     required this.refreshing,
     required this.section,
     required this.onStore,
+    required this.onWaiter,
     required this.onSearch,
     required this.onLane,
     required this.onQuarantine,
     required this.onRefresh,
+    required this.onPreviewDisplay,
     required this.onSection,
   });
 
   final TextEditingController search;
   final String place;
   final String storeKey;
+  final String waiter;
+  final List<String> waiters;
   final int lane;
   final bool quarantine;
   final bool refreshing;
   final int section;
   final ValueChanged<String> onStore;
+  final ValueChanged<String> onWaiter;
   final ValueChanged<String> onSearch;
   final ValueChanged<int> onLane;
   final VoidCallback onQuarantine;
   final VoidCallback? onRefresh;
+  final VoidCallback onPreviewDisplay;
   final ValueChanged<int> onSection;
 
   static const _lanes = ['All', 'Open', 'In Progress', 'Completed', 'Cancelled'];
@@ -705,16 +826,16 @@ class _OrdersChrome extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: AppColors.cashierBlue,
+                color: PosUi.deskAccent,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 22),
+              child: const Icon(Icons.receipt_long_rounded, color: PosUi.deskInk, size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -727,13 +848,13 @@ class _OrdersChrome extends StatelessWidget {
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
-                      color: AppColors.brandInk,
+                      color: PosUi.deskText,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
+                    style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted),
                   ),
                 ],
               ),
@@ -745,6 +866,13 @@ class _OrdersChrome extends StatelessWidget {
                 runSpacing: 8,
                 alignment: WrapAlignment.end,
                 children: [
+                  _OutlineAction(
+                    icon: Icons.monitor_outlined,
+                    label: 'Preview Customer display',
+                    onPressed: () {
+                      onPreviewDisplay();
+                    },
+                  ),
                   _OutlineAction(
                     icon: Icons.warning_amber_rounded,
                     label: 'Quarantine',
@@ -759,6 +887,7 @@ class _OrdersChrome extends StatelessWidget {
                   ),
                   PopupMenuButton<int>(
                     tooltip: 'More',
+                    color: PosUi.deskCard,
                     onSelected: onSection,
                     itemBuilder: (context) => const [
                       PopupMenuItem(value: 0, child: Text('POS orders')),
@@ -773,60 +902,79 @@ class _OrdersChrome extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _StoreField(place: place, value: storeKey, onChanged: onStore),
+        Row(
+          children: [
+            Expanded(
+              child: _FilterMenu(
+                icon: Icons.person_outline,
+                value: waiters.contains(waiter) || waiter == 'all' ? waiter : 'all',
+                items: [
+                  const DropdownMenuItem(value: 'all', child: Text('All waiters')),
+                  for (final name in waiters) DropdownMenuItem(value: name, child: Text(name)),
+                ],
+                onChanged: onWaiter,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _FilterMenu(
+                icon: Icons.storefront_outlined,
+                value: storeKey,
+                items: [
+                  const DropdownMenuItem(value: 'all', child: Text('All stores')),
+                  DropdownMenuItem(value: 'current', child: Text(place)),
+                ],
+                onChanged: onStore,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         TextField(
           controller: search,
           onChanged: onSearch,
-          style: GoogleFonts.ibmPlexSans(fontSize: 14),
+          style: GoogleFonts.ibmPlexSans(fontSize: 14, color: PosUi.deskText),
+          cursorColor: PosUi.deskAccent,
           decoration: InputDecoration(
             hintText: 'Search by order number, customer or waiter...',
-            hintStyle: GoogleFonts.ibmPlexSans(color: AppColors.textMuted, fontSize: 14),
-            prefixIcon: Icon(Icons.search, color: AppColors.textMuted, size: 20),
+            hintStyle: GoogleFonts.ibmPlexSans(color: PosUi.deskMuted, fontSize: 14),
+            prefixIcon: Icon(Icons.search, color: PosUi.deskMuted, size: 20),
             filled: true,
-            fillColor: AppColors.surface,
+            fillColor: PosUi.deskField,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            border: _fieldBorder(AppColors.border),
-            enabledBorder: _fieldBorder(AppColors.border),
-            focusedBorder: _fieldBorder(AppColors.cashierBlue),
+            border: _fieldBorder(PosUi.deskLine),
+            enabledBorder: _fieldBorder(PosUi.deskLine),
+            focusedBorder: _fieldBorder(PosUi.deskAccent),
           ),
         ),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: PosUi.deskCard,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: PosUi.deskLine),
           ),
-          child: Row(
-            children: [
-              for (var i = 0; i < _lanes.length; i++)
-                Expanded(
-                  child: Material(
-                    color: lane == i ? AppColors.brand100 : Colors.transparent,
-                    borderRadius: BorderRadius.circular(9),
-                    child: InkWell(
-                      onTap: () => onLane(i),
-                      borderRadius: BorderRadius.circular(9),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        child: Text(
-                          _lanes[i],
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.ibmPlexSans(
-                            fontSize: 13,
-                            fontWeight: lane == i ? FontWeight.w700 : FontWeight.w500,
-                            color: lane == i ? AppColors.brandInk : AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 640;
+              final tabs = [
+                for (var i = 0; i < _lanes.length; i++)
+                  _LaneTab(
+                    label: _lanes[i],
+                    selected: lane == i,
+                    onTap: () => onLane(i),
+                    expanded: !compact,
                   ),
-                ),
-            ],
+              ];
+              if (compact) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: tabs),
+                );
+              }
+              return Row(children: tabs);
+            },
           ),
         ),
       ],
@@ -841,39 +989,102 @@ OutlineInputBorder _fieldBorder(Color color) {
   );
 }
 
-class _StoreField extends StatelessWidget {
-  const _StoreField({required this.place, required this.value, required this.onChanged});
+class _FilterMenu extends StatelessWidget {
+  const _FilterMenu({
+    required this.icon,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
 
-  final String place;
+  final IconData icon;
   final String value;
+  final List<DropdownMenuItem<String>> items;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: PosUi.deskField,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: PosUi.deskLine),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          borderRadius: BorderRadius.circular(12),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
-          style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-          items: [
-            const DropdownMenuItem(value: 'all', child: Text('All stores')),
-            DropdownMenuItem(value: 'current', child: Text(place)),
-          ],
-          onChanged: (next) {
-            if (next != null) onChanged(next);
-          },
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Icon(icon, size: 18, color: PosUi.deskMuted),
+          Expanded(
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                canvasColor: PosUi.deskCard,
+                textTheme: Theme.of(context).textTheme.apply(
+                  bodyColor: PosUi.deskText,
+                  displayColor: PosUi.deskText,
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: value,
+                  isExpanded: true,
+                  dropdownColor: PosUi.deskCard,
+                  borderRadius: BorderRadius.circular(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  icon: Icon(Icons.keyboard_arrow_down_rounded, color: PosUi.deskMuted),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600, color: PosUi.deskText),
+                  items: items,
+                  onChanged: (next) {
+                    if (next != null) onChanged(next);
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LaneTab extends StatelessWidget {
+  const _LaneTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.expanded,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final tab = Material(
+      color: selected ? PosUi.deskRaised : Colors.transparent,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: expanded ? 8 : 16, vertical: 11),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.ibmPlexSans(
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? PosUi.deskText : PosUi.deskMuted,
+            ),
+          ),
         ),
       ),
     );
+    if (expanded) return Expanded(child: tab);
+    return tab;
   }
 }
 
@@ -894,21 +1105,21 @@ class _OutlineAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = selected ? Colors.white : AppColors.brandInk;
+    final foreground = selected ? PosUi.deskInk : PosUi.deskText;
     return OutlinedButton.icon(
       onPressed: busy ? null : onPressed,
       style: OutlinedButton.styleFrom(
         foregroundColor: foreground,
-        backgroundColor: selected ? AppColors.warning : AppColors.surface,
-        side: BorderSide(color: selected ? AppColors.warning : AppColors.borderStrong),
+        backgroundColor: selected ? AppColors.warning : Colors.transparent,
+        side: BorderSide(color: selected ? AppColors.warning : PosUi.deskLine),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       icon: busy
-          ? SizedBox(
+          ? const SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brandInk),
+              child: CircularProgressIndicator(strokeWidth: 2, color: PosUi.deskAccent),
             )
           : Icon(icon, size: 16),
       label: Text(label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13)),
@@ -928,125 +1139,36 @@ class _OutlineIcon extends StatelessWidget {
       height: 42,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderStrong),
+        border: Border.all(color: PosUi.deskLine),
       ),
-      child: Icon(icon, size: 18, color: AppColors.brandInk),
+      child: Icon(icon, size: 18, color: PosUi.deskText),
     );
   }
 }
 
-class _RowCard extends StatelessWidget {
-  const _RowCard({
-    required this.item,
-    required this.selected,
-    required this.onTap,
-    this.onView,
-    this.onReceipt,
-    this.onInvoice,
-    this.onMerge,
-    this.onResume,
-  });
-
-  final _ListItem item;
-  final bool selected;
-  final VoidCallback onTap;
-  final VoidCallback? onView;
-  final VoidCallback? onReceipt;
-  final VoidCallback? onInvoice;
-  final VoidCallback? onMerge;
-  final VoidCallback? onResume;
-
-  bool get _hasActions =>
-      onView != null || onReceipt != null || onInvoice != null || onMerge != null || onResume != null;
+class _OrdersTableHeader extends StatelessWidget {
+  const _OrdersTableHeader();
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(item.statusKey);
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: AnimatedContainer(
-        duration: AppMotion.resolve(context, AppMotion.micro),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? AppColors.brand600 : AppColors.border, width: selected ? 1.4 : 1),
-          color: selected ? AppColors.brand50.withValues(alpha: 0.55) : AppColors.surface,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    final style = GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: PosUi.deskMuted);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: PosUi.deskLine)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
           children: [
-            InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(14),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(12, 12, 12, _hasActions ? 8 : 12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(item.icon, size: 18, color: color),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.title, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.textPrimary)),
-                          const SizedBox(height: 3),
-                          Text(
-                            item.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(item.meta, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          MoneyFormatter.format(item.amount, currencyCode: item.currency),
-                          style: GoogleFonts.ibmPlexMono(fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.brandInk),
-                        ),
-                        const SizedBox(height: 6),
-                        _Status(label: item.status, status: item.statusKey),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (_hasActions)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    if (onView != null)
-                      _SaleActionChip(label: 'Voir', icon: Icons.visibility_outlined, onPressed: onView!),
-                    if (onReceipt != null)
-                      _SaleActionChip(label: 'Reçu', icon: Icons.receipt_outlined, onPressed: onReceipt!),
-                    if (onInvoice != null)
-                      _SaleActionChip(label: 'Facture', icon: Icons.description_outlined, onPressed: onInvoice!),
-                    if (onMerge != null)
-                      _SaleActionChip(label: 'Fusionner', icon: Icons.merge_type, onPressed: onMerge!),
-                    if (onResume != null)
-                      _SaleActionChip(label: 'Reprendre', icon: Icons.play_arrow_outlined, onPressed: onResume!),
-                  ],
-                ),
-              ),
+            Expanded(flex: 24, child: Text('Order #', style: style)),
+            Expanded(flex: 22, child: Text('Customer', style: style)),
+            Expanded(flex: 14, child: Text('Total', style: style)),
+            Expanded(flex: 16, child: Text('Status', style: style)),
+            Expanded(flex: 12, child: Text('Payment', style: style)),
+            Expanded(flex: 12, child: Text('Time', style: style)),
+            SizedBox(width: 96, child: Text('Actions', textAlign: TextAlign.right, style: style)),
           ],
         ),
       ),
@@ -1054,39 +1176,199 @@ class _RowCard extends StatelessWidget {
   }
 }
 
-class _SaleActionChip extends StatelessWidget {
-  const _SaleActionChip({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
+class _OrderTableRow extends StatelessWidget {
+  const _OrderTableRow({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+    required this.onView,
+    this.onReceipt,
+    this.onInvoice,
+    this.onMerge,
+    this.onResume,
+    this.busy = false,
   });
 
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
+  final _ListItem item;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onView;
+  final VoidCallback? onReceipt;
+  final VoidCallback? onInvoice;
+  final VoidCallback? onMerge;
+  final VoidCallback? onResume;
+  final bool busy;
+
+  bool get _hasMenu => onReceipt != null || onInvoice != null || onMerge != null || onResume != null;
 
   @override
   Widget build(BuildContext context) {
+    final color = _statusColor(item.statusKey);
     return Material(
-      color: AppColors.fieldFill,
-      borderRadius: BorderRadius.circular(8),
+      color: selected ? PosUi.deskRaised : Colors.transparent,
       child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.border),
-          ),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: AppColors.brandInk),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.brandInk),
+              Expanded(
+                flex: 24,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (item.badge != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: PosUi.deskAccent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              item.badge!,
+                              style: GoogleFonts.ibmPlexSans(fontSize: 10, fontWeight: FontWeight.w800, color: PosUi.deskInk),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        if (item.secondary != null)
+                          Flexible(
+                            child: Text(
+                              item.secondary!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 22,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.customer,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskText),
+                    ),
+                    if (item.servedBy.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        '${item.servedPrefix}: ${item.servedBy}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 14,
+                child: Text(
+                  MoneyFormatter.format(item.amount, currencyCode: item.currency),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                ),
+              ),
+              Expanded(
+                flex: 16,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        item.status,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.ibmPlexSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: color),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 12,
+                child: Text(
+                  item.payment,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
+                ),
+              ),
+              Expanded(
+                flex: 12,
+                child: Text(
+                  item.meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: PosUi.deskMuted),
+                ),
+              ),
+              SizedBox(
+                width: 96,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (busy)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: PosUi.deskAccent),
+                      )
+                    else
+                      IconButton(
+                        tooltip: 'View',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: onView,
+                        icon: Icon(Icons.visibility_outlined, size: 18, color: PosUi.deskMuted),
+                      ),
+                    if (_hasMenu)
+                      PopupMenuButton<String>(
+                        tooltip: 'More',
+                        color: PosUi.deskCard,
+                        onSelected: (value) {
+                          switch (value) {
+                            case 'receipt':
+                              onReceipt?.call();
+                            case 'invoice':
+                              onInvoice?.call();
+                            case 'merge':
+                              onMerge?.call();
+                            case 'resume':
+                              onResume?.call();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          if (onReceipt != null) const PopupMenuItem(value: 'receipt', child: Text('Receipt')),
+                          if (onInvoice != null) const PopupMenuItem(value: 'invoice', child: Text('Invoice')),
+                          if (onMerge != null) const PopupMenuItem(value: 'merge', child: Text('Merge')),
+                          if (onResume != null) const PopupMenuItem(value: 'resume', child: Text('Resume')),
+                        ],
+                        icon: Icon(Icons.more_horiz, size: 18, color: PosUi.deskMuted),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1096,233 +1378,343 @@ class _SaleActionChip extends StatelessWidget {
   }
 }
 
-class _Status extends StatelessWidget {
-  const _Status({required this.label, required this.status});
-
-  final String label;
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _statusColor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
-    );
-  }
-}
-
-class _DetailPanel extends StatelessWidget {
-  const _DetailPanel({required this.detail});
+class _OrderDetailPage extends StatelessWidget {
+  const _OrderDetailPage({required this.detail});
 
   final _Detail detail;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(4, 12, 20, 16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+    void closeThen(VoidCallback? action) {
+      Navigator.of(context).pop();
+      action?.call();
+    }
+
+    return Scaffold(
+      backgroundColor: PosUi.deskNight,
+      appBar: AppBar(
+        backgroundColor: PosUi.deskPanel,
+        foregroundColor: PosUi.deskText,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          detail.title,
+          style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w800, color: PosUi.deskText),
+        ),
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: _DetailBody(detail: detail),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _DetailBody(
+            detail: detail,
+            onModify: detail.onModify == null ? null : () => closeThen(detail.onModify),
+            onAddArticles: detail.onAddArticles == null ? null : () => closeThen(detail.onAddArticles),
+            onSplit: detail.onSplit == null ? null : () => closeThen(detail.onSplit),
+            onPay: detail.onPay == null ? null : () => closeThen(detail.onPay),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.detail});
+  const _DetailBody({
+    required this.detail,
+    this.onClose,
+    this.onModify,
+    this.onAddArticles,
+    this.onSplit,
+    this.onPay,
+  });
 
   final _Detail detail;
+  final VoidCallback? onClose;
+  final VoidCallback? onModify;
+  final VoidCallback? onAddArticles;
+  final VoidCallback? onSplit;
+  final VoidCallback? onPay;
+
+  String _money(int amount) => MoneyFormatter.format(amount, currencyCode: detail.currency);
 
   @override
   Widget build(BuildContext context) {
-    final currency = detail.currency;
+    final modify = onModify ?? detail.onModify;
+    final addArticles = onAddArticles ?? detail.onAddArticles;
+    final split = onSplit ?? detail.onSplit;
+    final pay = onPay ?? detail.onPay;
+    final when = [
+      if (detail.whenLabel.isNotEmpty) detail.whenLabel,
+      if (detail.serviceLabel.isNotEmpty) detail.serviceLabel,
+    ].join(' · ');
+    final statusColor = _statusColor(detail.statusKey);
+    final invoiceBlue = const Color(0xFF4C8DFF);
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: Text(detail.title, style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700))),
-            _Status(label: detail.status, status: detail.statusKey),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        detail.title,
+                        style: GoogleFonts.ibmPlexSans(fontSize: 20, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                      ),
+                      _DotPill(label: detail.status, color: statusColor),
+                      if (detail.paymentLabel.isNotEmpty)
+                        _DotPill(label: detail.paymentLabel, color: PosUi.deskAccent),
+                    ],
+                  ),
+                  if (when.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(when, style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: PosUi.deskMuted)),
+                  ],
+                ],
+              ),
+            ),
+            if (onClose != null)
+              IconButton(
+                tooltip: 'Close',
+                onPressed: onClose,
+                icon: Icon(Icons.close, color: PosUi.deskMuted),
+              ),
           ],
         ),
-        if (detail.onModify != null ||
-            detail.onAddArticles != null ||
-            detail.onSplit != null ||
-            detail.onPay != null) ...[
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(child: _PersonCard(icon: Icons.person, label: 'Customer', value: detail.customer)),
+            const SizedBox(width: 10),
+            Expanded(child: _PersonCard(icon: Icons.room_service_outlined, label: 'Served by', value: detail.servedBy)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: PosUi.deskSoft,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: PosUi.deskAccent.withValues(alpha: 0.85)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: PosUi.deskAccent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.account_balance_wallet_outlined, size: 18, color: PosUi.deskInk),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Remaining Balance', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                  const SizedBox(height: 2),
+                  Text(
+                    _money(detail.remaining),
+                    style: GoogleFonts.ibmPlexSans(fontSize: 20, fontWeight: FontWeight.w800, color: PosUi.deskAccent),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (detail.lines.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Items (${detail.lines.length})',
+            style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w800, color: PosUi.deskText),
+          ),
+          const SizedBox(height: 8),
+          for (final line in detail.lines) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: PosUi.deskSoft,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: PosUi.deskLine),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(line.name, style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText)),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${line.quantity} pcs x ${_money(line.unitPrice)}',
+                          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    _money(line.lineTotal),
+                    style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            color: PosUi.deskSoft,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: PosUi.deskLine),
+          ),
+          child: Column(
+            children: [
+              _MoneyLine(label: 'Subtotal', value: _money(detail.subtotal)),
+              const SizedBox(height: 6),
+              _MoneyLine(label: 'Tax', value: _money(detail.tax)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Divider(height: 1, color: PosUi.deskLine),
+              ),
+              _MoneyLine(label: 'Total', value: _money(detail.totalAmount > 0 ? detail.totalAmount : detail.subtotal), strong: true),
+              const SizedBox(height: 6),
+              _MoneyLine(label: 'Amount Due', value: _money(detail.amountDue), accent: true),
+            ],
+          ),
+        ),
+        if (detail.payments.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: BoxDecoration(
+              color: PosUi.deskField,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: invoiceBlue.withValues(alpha: 0.35)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.receipt_long_outlined, size: 16, color: invoiceBlue),
+                    const SizedBox(width: 8),
+                    Text('Payment History', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                for (var i = 0; i < detail.payments.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 8),
+                  _PaymentTile(index: i + 1, payment: detail.payments[i], money: _money, accent: invoiceBlue),
+                ],
+              ],
+            ),
+          ),
+        ],
+        if (detail.rows.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          for (final row in detail.rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text('${row.$1}: ${row.$2}', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+            ),
+        ],
+        if (modify != null || addArticles != null || split != null || pay != null) ...[
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              if (detail.onModify != null)
+              if (modify != null)
                 OutlinedButton.icon(
-                  onPressed: detail.onModify,
+                  onPressed: modify,
+                  style: OutlinedButton.styleFrom(foregroundColor: PosUi.deskText, side: BorderSide(color: PosUi.deskLine)),
                   icon: const Icon(Icons.edit_outlined, size: 16),
                   label: const Text('Modifier'),
                 ),
-              if (detail.onAddArticles != null)
+              if (addArticles != null)
                 OutlinedButton.icon(
-                  onPressed: detail.onAddArticles,
+                  onPressed: addArticles,
+                  style: OutlinedButton.styleFrom(foregroundColor: PosUi.deskText, side: BorderSide(color: PosUi.deskLine)),
                   icon: const Icon(Icons.add_shopping_cart_outlined, size: 16),
                   label: const Text('Ajouter articles'),
                 ),
-              if (detail.onSplit != null)
+              if (split != null)
                 OutlinedButton.icon(
-                  onPressed: detail.onSplit,
+                  onPressed: split,
+                  style: OutlinedButton.styleFrom(foregroundColor: PosUi.deskText, side: BorderSide(color: PosUi.deskLine)),
                   icon: const Icon(Icons.call_split, size: 16),
                   label: const Text('Séparer'),
                 ),
-              if (detail.onPay != null)
+              if (pay != null)
                 FilledButton.icon(
-                  onPressed: detail.onPay,
+                  onPressed: pay,
+                  style: FilledButton.styleFrom(backgroundColor: PosUi.deskPay, foregroundColor: Colors.white),
                   icon: const Icon(Icons.payments_outlined, size: 16),
                   label: const Text('Payer'),
                 ),
             ],
           ),
         ],
-        const SizedBox(height: 14),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.fieldFill,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Total', style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              Text(detail.amount, style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
-              if (detail.itemCount > 0) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '${detail.itemCount} article${detail.itemCount > 1 ? 's' : ''}',
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (detail.lines.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Text(
-            'Articles',
-            style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: 8),
-          for (final line in detail.lines)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.fieldFill,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          line.name,
-                          style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${line.quantity} × ${MoneyFormatter.format(line.unitPrice, currencyCode: currency)}',
-                          style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    MoneyFormatter.format(line.lineTotal, currencyCode: currency),
-                    style: GoogleFonts.ibmPlexMono(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.brandInk),
-                  ),
-                ],
-              ),
-            ),
+        if (detail.onPrintInvoice != null || detail.onPrintKitchen != null) ...[
+          const SizedBox(height: 12),
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: PosUi.deskLine),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Text('Sous-total', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
-                    const Spacer(),
-                    Text(
-                      MoneyFormatter.format(detail.subtotal, currencyCode: currency),
-                      style: GoogleFonts.ibmPlexMono(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                    ),
+                    Icon(Icons.print_outlined, size: 16, color: PosUi.deskMuted),
+                    const SizedBox(width: 8),
+                    Text('Print', style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskText)),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Row(
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    Text('Total', style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                    const Spacer(),
-                    Text(
-                      detail.amount,
-                      style: GoogleFonts.ibmPlexMono(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.brandInk),
-                    ),
+                    if (detail.onPrintInvoice != null)
+                      OutlinedButton.icon(
+                        onPressed: () => detail.onPrintInvoice!(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: invoiceBlue,
+                          side: BorderSide(color: invoiceBlue.withValues(alpha: 0.8)),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(Icons.description_outlined, size: 16),
+                        label: const Text('Print Invoice'),
+                      ),
+                    if (detail.onPrintKitchen != null)
+                      OutlinedButton.icon(
+                        onPressed: () => detail.onPrintKitchen!(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: PosUi.deskAccent,
+                          side: BorderSide(color: PosUi.deskAccent.withValues(alpha: 0.85)),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(Icons.restaurant, size: 16),
+                        label: const Text('Print Kitchen Ticket'),
+                      ),
                   ],
-                ),
-              ],
-            ),
-          ),
-        ] else if (detail.onModify != null) ...[
-          const SizedBox(height: 14),
-          Text(
-            'Aucun détail d’article disponible pour cette commande.',
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
-          ),
-        ],
-        const SizedBox(height: 14),
-        for (final row in detail.rows) ...[
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.fieldFill,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(row.$1, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
-                ),
-                Flexible(
-                  child: Text(
-                    row.$2,
-                    textAlign: TextAlign.right,
-                    style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                  ),
                 ),
               ],
             ),
@@ -1333,6 +1725,171 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
+class _DotPill extends StatelessWidget {
+  const _DotPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.7)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _PersonCard extends StatelessWidget {
+  const _PersonCard({required this.icon, required this.label, required this.value});
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: PosUi.deskSoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PosUi.deskLine),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: PosUi.deskAccent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted)),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoneyLine extends StatelessWidget {
+  const _MoneyLine({required this.label, required this.value, this.strong = false, this.accent = false});
+
+  final String label;
+  final String value;
+  final bool strong;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accent ? PosUi.deskAccent : PosUi.deskText;
+    final weight = strong || accent ? FontWeight.w800 : FontWeight.w500;
+    return Row(
+      children: [
+        Text(label, style: GoogleFonts.ibmPlexSans(fontSize: strong ? 14 : 13, fontWeight: weight, color: color)),
+        const Spacer(),
+        Text(value, style: GoogleFonts.ibmPlexSans(fontSize: strong ? 15 : 13, fontWeight: weight, color: color)),
+      ],
+    );
+  }
+}
+
+class _PaymentTile extends StatelessWidget {
+  const _PaymentTile({
+    required this.index,
+    required this.payment,
+    required this.money,
+    required this.accent,
+  });
+
+  final int index;
+  final _PaymentEntry payment;
+  final String Function(int amount) money;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final when = payment.at == null ? '' : DateFormat('dd/MM/yyyy HH:mm').format(payment.at!);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: PosUi.deskField,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PosUi.deskLine),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: accent.withValues(alpha: 0.7)),
+            ),
+            child: Text('$index', style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(payment.method, style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText)),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (when.isNotEmpty)
+                      Text(when, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: accent.withValues(alpha: 0.6)),
+                      ),
+                      child: Text(payment.method, style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
+                    ),
+                  ],
+                ),
+                if ((payment.treatedBy ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Treated by: ${payment.treatedBy}',
+                    style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: accent),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Text(money(payment.amount), style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: accent)),
+        ],
+      ),
+    );
+  }
+}
 
 class _Empty extends StatelessWidget {
   const _Empty();
@@ -1346,10 +1903,10 @@ class _Empty extends StatelessWidget {
           width: 84,
           height: 84,
           decoration: BoxDecoration(
-            color: AppColors.brand100,
+            color: PosUi.deskCard,
             shape: BoxShape.circle,
           ),
-          child: Icon(Icons.receipt_long_outlined, color: AppColors.brandInk, size: 32),
+          child: Icon(Icons.receipt_long_outlined, color: PosUi.deskAccent, size: 32),
         ),
         const SizedBox(height: 16),
         Text(
@@ -1357,7 +1914,7 @@ class _Empty extends StatelessWidget {
           style: GoogleFonts.ibmPlexSans(
             fontSize: 15,
             fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
+            color: PosUi.deskMuted,
           ),
         ),
       ],
@@ -1366,42 +1923,44 @@ class _Empty extends StatelessWidget {
 }
 
 Color _statusColor(String status) => switch (status.toLowerCase()) {
-      'completed' || 'approved' || 'paid' || 'synced' => AppColors.success,
-      'pending' || 'held' || 'submitted' || 'partial' || 'partially_paid' || 'retrying' || 'draft' => AppColors.warning,
+      'completed' || 'approved' || 'paid' || 'synced' => PosUi.deskStock,
+      'pending' || 'held' || 'submitted' || 'partial' || 'partially_paid' || 'retrying' || 'draft' => PosUi.deskAccent,
       'cancelled' || 'failed' || 'conflict' || 'voided' => AppColors.danger,
-      'merged' => AppColors.brand600,
-      _ => AppColors.brand600,
+      'merged' => PosUi.deskMuted,
+      _ => PosUi.deskMuted,
     };
 
 class _ListItem {
   const _ListItem({
     required this.id,
     required this.title,
-    required this.subtitle,
     required this.meta,
     required this.amount,
     required this.currency,
     required this.status,
     required this.statusKey,
-    this.kind = 'sale',
+    this.badge,
+    this.secondary,
+    this.customer = '—',
+    this.servedPrefix = 'Served by',
+    this.servedBy = '',
+    this.payment = '—',
   });
 
   final String id;
   final String title;
-  final String subtitle;
   final String meta;
   final int amount;
   final String currency;
   final String status;
   final String statusKey;
-  final String kind;
+  final String? badge;
+  final String? secondary;
+  final String customer;
+  final String servedPrefix;
+  final String servedBy;
+  final String payment;
 
-  IconData get icon => switch (kind) {
-        'hold' => Icons.schedule_outlined,
-        'purchase' => Icons.local_shipping_outlined,
-        'invoice' => Icons.description_outlined,
-        _ => Icons.receipt_long_outlined,
-      };
 }
 
 class _Detail {
@@ -1414,11 +1973,23 @@ class _Detail {
     this.currency = 'FBU',
     this.lines = const [],
     this.subtotal = 0,
+    this.tax = 0,
+    this.totalAmount = 0,
+    this.amountDue = 0,
+    this.remaining = 0,
     this.itemCount = 0,
+    this.paymentLabel = '',
+    this.whenLabel = '',
+    this.serviceLabel = '',
+    this.customer = '—',
+    this.servedBy = '—',
+    this.payments = const [],
     this.onModify,
     this.onAddArticles,
     this.onSplit,
     this.onPay,
+    this.onPrintInvoice,
+    this.onPrintKitchen,
   });
 
   final String title;
@@ -1429,11 +2000,64 @@ class _Detail {
   final List<(String, String)> rows;
   final List<_LineDetail> lines;
   final int subtotal;
+  final int tax;
+  final int totalAmount;
+  final int amountDue;
+  final int remaining;
   final int itemCount;
+  final String paymentLabel;
+  final String whenLabel;
+  final String serviceLabel;
+  final String customer;
+  final String servedBy;
+  final List<_PaymentEntry> payments;
   final VoidCallback? onModify;
   final VoidCallback? onAddArticles;
   final VoidCallback? onSplit;
   final VoidCallback? onPay;
+  final Future<void> Function()? onPrintInvoice;
+  final Future<void> Function()? onPrintKitchen;
+}
+
+class _PaymentEntry {
+  const _PaymentEntry({
+    required this.method,
+    required this.amount,
+    this.at,
+    this.treatedBy,
+  });
+
+  final String method;
+  final int amount;
+  final DateTime? at;
+  final String? treatedBy;
+}
+
+String _saleLineName(Map<String, dynamic> item, [Map<String, String> catalog = const {}]) {
+  String? useful(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return null;
+    final lower = text.toLowerCase();
+    if (lower == 'item' || lower == 'article') return null;
+    return text;
+  }
+
+  final product = item['product'];
+  final variant = item['product_variant'] ?? item['variant'];
+  final nestedId = product is Map ? product['product_id']?.toString() : null;
+  final productId = (item['product_id']?.toString().trim().isNotEmpty ?? false)
+      ? item['product_id'].toString()
+      : (nestedId ?? '');
+
+  return useful(item['product_name']) ??
+      useful(item['name']) ??
+      useful(item['productName']) ??
+      (product is Map ? useful(product['name']) : null) ??
+      (variant is Map ? useful(variant['name']) ?? useful(variant['label']) : null) ??
+      useful(item['product_sku']) ??
+      useful(item['sku']) ??
+      useful(catalog[productId]) ??
+      'Article';
 }
 
 class _LineDetail {
@@ -1441,13 +2065,15 @@ class _LineDetail {
     required this.name,
     required this.quantity,
     required this.unitPrice,
+    this.totalOverride,
   });
 
   final String name;
   final int quantity;
   final int unitPrice;
+  final int? totalOverride;
 
-  int get lineTotal => unitPrice * quantity;
+  int get lineTotal => totalOverride ?? unitPrice * quantity;
 }
 
 class _SaleRow {
@@ -1469,30 +2095,94 @@ class _SaleRow {
     this.isRemote = false,
     this.paymentStatusRaw,
     this.lines = const [],
+    this.serviceMode,
+    this.cashierName,
+    this.ticket,
+    this.tableId,
+    this.taxTotal = 0,
+    this.subtotalAmount = 0,
+    this.payments = const [],
+    this.hydrated = false,
   });
 
-  factory _SaleRow.fromLocal(Map<String, dynamic> row) {
+  final String id;
+  final String? serverId;
+  final String reference;
+  final int total;
+  final int paid;
+  final int outstanding;
+  final String method;
+  final String status;
+  final DateTime createdAt;
+  final String currency;
+  final String? customerName;
+  final String? note;
+  final int itemCount;
+  final bool isHold;
+  final bool isRemote;
+  final String? paymentStatusRaw;
+  final List<_LineDetail> lines;
+  final String? serviceMode;
+  final String? cashierName;
+  final String? ticket;
+  final String? tableId;
+  final int taxTotal;
+  final int subtotalAmount;
+  final List<_PaymentEntry> payments;
+  final bool hydrated;
+
+  factory _SaleRow.fromLocal(Map<String, dynamic> row, [Map<String, String> catalog = const {}]) {
     String currency = 'FBU';
     var lines = const <_LineDetail>[];
+    String? serviceMode;
+    String? cashierName;
+    String? ticket;
+    String? tableId;
+    var taxTotal = 0;
+    var subtotalAmount = 0;
     try {
       final payload = jsonDecode(row['payload_json'] as String? ?? '{}') as Map<String, dynamic>;
       currency = payload['currency']?.toString() ?? currency;
-      final items = payload['items'];
+      serviceMode = payload['service_mode']?.toString();
+      cashierName = payload['cashier_name']?.toString();
+      ticket = payload['payment_transaction_number']?.toString();
+      tableId = payload['table_id']?.toString();
+      final payloadItems = payload['items'];
+      final storedItems = row['local_items'];
+      final items = payloadItems is List && payloadItems.isNotEmpty ? payloadItems : storedItems;
       if (items is List) {
         lines = items.whereType<Map>().map((raw) {
           final item = Map<String, dynamic>.from(raw);
-          final name = item['product_name']?.toString() ??
-              item['name']?.toString() ??
-              item['sku']?.toString() ??
-              'Article';
+          final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+          final unitPrice = (item['unit_price'] as num?)?.toInt() ?? 0;
+          final lineTotal = (item['line_total'] as num?)?.toInt();
           return _LineDetail(
-            name: name,
-            quantity: (item['quantity'] as num?)?.toInt() ?? 1,
-            unitPrice: (item['unit_price'] as num?)?.toInt() ?? 0,
+            name: _saleLineName(item, catalog),
+            quantity: quantity,
+            unitPrice: unitPrice,
+            totalOverride: lineTotal,
           );
         }).toList();
       }
+      taxTotal = (payload['tax_total'] as num?)?.toInt() ?? 0;
+      subtotalAmount = (payload['subtotal'] as num?)?.toInt() ?? 0;
     } catch (_) {}
+    final customerName = row['customer_name']?.toString();
+    final rawPayments = row['local_payments'];
+    final payments = rawPayments is List
+        ? rawPayments.whereType<Map>().map((raw) {
+            final payment = Map<String, dynamic>.from(raw);
+            final method = payment['payment_method']?.toString() ?? payment['method']?.toString() ?? 'cash';
+            final amount = (payment['amount_in_sale_currency'] as num?)?.toInt() ?? (payment['amount'] as num?)?.toInt() ?? 0;
+            return _PaymentEntry(
+              method: _paymentName(method),
+              amount: amount,
+              at: DateTime.tryParse(payment['created_at']?.toString() ?? '') ??
+                  DateTime.tryParse(row['created_at']?.toString() ?? ''),
+              treatedBy: cashierName,
+            );
+          }).toList()
+        : const <_PaymentEntry>[];
     return _SaleRow(
       id: row['id'] as String,
       serverId: row['server_id']?.toString(),
@@ -1506,6 +2196,45 @@ class _SaleRow {
       currency: currency,
       lines: lines,
       itemCount: lines.fold<int>(0, (sum, line) => sum + line.quantity),
+      customerName: customerName,
+      serviceMode: serviceMode,
+      cashierName: cashierName,
+      ticket: ticket,
+      tableId: tableId,
+      taxTotal: taxTotal,
+      subtotalAmount: subtotalAmount,
+      payments: payments,
+      hydrated: true,
+    );
+  }
+
+  factory _SaleRow.fromSummary(Map<String, dynamic> row) {
+    final customer = row['customer'];
+    final cashier = row['processed_by'];
+    final created = DateTime.tryParse(row['completed_at']?.toString() ?? '') ??
+        DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+        DateTime.now();
+    return _SaleRow(
+      id: row['id']?.toString() ?? '',
+      serverId: row['id']?.toString(),
+      reference: row['reference']?.toString() ?? 'Vente',
+      total: (row['total'] as num?)?.toInt() ?? 0,
+      paid: (row['paid_amount'] as num?)?.toInt() ?? 0,
+      outstanding: (row['outstanding_amount'] as num?)?.toInt() ?? 0,
+      method: row['payment_status']?.toString() ?? 'cash',
+      status: row['status']?.toString() ?? 'completed',
+      createdAt: created,
+      currency: row['currency']?.toString() ?? 'FBU',
+      customerName: customer is Map ? customer['name']?.toString() : null,
+      cashierName: cashier is Map ? cashier['name']?.toString() : null,
+      serviceMode: row['service_mode']?.toString(),
+      ticket: row['payment_transaction_number']?.toString(),
+      tableId: row['table_id']?.toString(),
+      taxTotal: (row['tax_total'] as num?)?.toInt() ?? 0,
+      subtotalAmount: (row['subtotal'] as num?)?.toInt() ?? 0,
+      isRemote: true,
+      paymentStatusRaw: row['payment_status']?.toString(),
+      hydrated: false,
     );
   }
 
@@ -1528,6 +2257,8 @@ class _SaleRow {
       itemCount: held.itemCount,
       isHold: true,
       paymentStatusRaw: 'unpaid',
+      cashierName: TerminalConfigRepository.instance.config.cashierName,
+      tableId: held.tableId,
       lines: held.lines
           .map(
             (line) => _LineDetail(
@@ -1540,74 +2271,37 @@ class _SaleRow {
     );
   }
 
-  factory _SaleRow.fromRemote(Map<String, dynamic> row) {
-    final customer = row['customer'];
-    final customerName = customer is Map
-        ? customer['name']?.toString()
-        : row['customer_name']?.toString();
-    final items = row['items'];
-    final lines = items is List
-        ? items.whereType<Map>().map((raw) {
-            final item = Map<String, dynamic>.from(raw);
-            return _LineDetail(
-              name: item['product_name']?.toString() ??
-                  item['name']?.toString() ??
-                  item['product_sku']?.toString() ??
-                  'Article',
-              quantity: (item['quantity'] as num?)?.toInt() ?? 1,
-              unitPrice: (item['unit_price'] as num?)?.toInt() ?? 0,
-            );
-          }).toList()
-        : const <_LineDetail>[];
-    final payments = row['payments'];
-    var method = row['payment_method']?.toString() ?? row['method']?.toString() ?? 'cash';
-    if (payments is List && payments.isNotEmpty) {
-      final first = payments.first;
-      if (first is Map) {
-        method = first['method']?.toString() ?? first['payment_method']?.toString() ?? method;
-      }
-    }
-    return _SaleRow(
-      id: row['id']?.toString() ?? '',
-      serverId: row['id']?.toString(),
-      reference: row['reference']?.toString() ?? 'Vente',
-      total: (row['total'] as num?)?.toInt() ?? 0,
-      paid: (row['paid_amount'] as num?)?.toInt() ?? 0,
-      outstanding: (row['outstanding_amount'] as num?)?.toInt() ?? 0,
-      method: method,
-      status: row['status']?.toString() ?? 'completed',
-      createdAt: DateTime.tryParse(
-            row['completed_at']?.toString() ?? row['created_at']?.toString() ?? '',
-          ) ??
-          DateTime.now(),
-      currency: row['currency']?.toString() ??
-          TerminalConfigRepository.instance.config.currencyCode,
-      customerName: customerName,
-      note: row['notes']?.toString(),
-      itemCount: lines.fold<int>(0, (sum, line) => sum + line.quantity),
-      isRemote: true,
-      paymentStatusRaw: row['payment_status']?.toString(),
-      lines: lines,
-    );
+  List<_PaymentEntry> get resolvedPayments {
+    if (payments.isNotEmpty) return payments;
+    if (isHold) return const [];
+    final credit = method == 'credit' || paymentColumn == 'Credit';
+    final amount = credit ? (outstanding > 0 ? outstanding : total) : paid;
+    if (amount <= 0) return const [];
+    return [
+      _PaymentEntry(
+        method: paymentColumn == '—' ? methodLabel : paymentColumn,
+        amount: amount,
+        at: createdAt,
+        treatedBy: cashierName,
+      ),
+    ];
   }
 
-  final String id;
-  final String? serverId;
-  final String reference;
-  final int total;
-  final int paid;
-  final int outstanding;
-  final String method;
-  final String status;
-  final DateTime createdAt;
-  final String currency;
-  final String? customerName;
-  final String? note;
-  final int itemCount;
-  final bool isHold;
-  final bool isRemote;
-  final String? paymentStatusRaw;
-  final List<_LineDetail> lines;
+  String? get serviceBadge {
+    final mode = serviceMode?.toLowerCase().trim();
+    if (mode == 'takeaway') return 'Takeaway';
+    if (mode == 'delivery') return 'Delivery';
+    if (tableId != null && tableId!.trim().isNotEmpty) return 'Table';
+    return null;
+  }
+
+  String? get secondaryReference {
+    final value = ticket?.trim();
+    if (value == null || value.isEmpty || value == reference) return null;
+    return value;
+  }
+
+  String get paymentColumn => _paymentName(method);
 
   String? get detailId {
     if (isRemote) return id;
@@ -1646,23 +2340,6 @@ class _SaleRow {
         'partial' => 'Partiel',
         _ => method,
       };
-
-  String get subtitle {
-    if (isHold) {
-      final parts = <String>[
-        'Commande en attente',
-        if (itemCount > 0) '$itemCount art.',
-        if (customerName != null && customerName!.isNotEmpty) customerName!,
-      ];
-      return parts.join(' · ');
-    }
-    final parts = <String>[
-      methodLabel,
-      if (customerName != null && customerName!.isNotEmpty) customerName!,
-      if (isRemote) 'Serveur',
-    ];
-    return parts.join(' · ');
-  }
 
   String get statusLabel => switch (status.toLowerCase()) {
         'held' => 'En attente',
@@ -1714,6 +2391,17 @@ class _SaleRow {
   String get syncLabel => statusLabel;
 }
 
+
+String _paymentName(String method) => switch (method) {
+      'held' => '—',
+      'cash' => 'Cash',
+      'card' => 'Card',
+      'credit' => 'Credit',
+      'mobile_money' => 'Mobile',
+      'partial' => 'Partial',
+      'room' => 'Room',
+      _ => method,
+    };
 
 ReceiptPrintPayload? _receiptPayload(dynamic result) {
   if (result is ReceiptPrintPayload) return result;
