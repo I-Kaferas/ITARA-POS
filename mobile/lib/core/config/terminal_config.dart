@@ -77,6 +77,8 @@ class TerminalConfig {
     this.printerConnection = 'system',
     this.printerName = '',
     this.printerFormat = 'thermal_80',
+    this.printerBluetoothAddress = '',
+    this.printerBluetoothName = '',
   });
 
   factory TerminalConfig.fromJson(Map<String, dynamic> json) {
@@ -119,9 +121,14 @@ class TerminalConfig {
       printerPort: _int(json['printer_port'], 9100),
       printerEnabled: _bool(json['printer_enabled']),
       printerModel: _string(json['printer_model'], 'generic_80'),
-      printerConnection: _string(json['printer_connection'], 'system'),
+      printerConnection: _string(
+        json['printer_connection'],
+        _string(json['printer_host']).isEmpty ? 'system' : 'lan',
+      ),
       printerName: _string(json['printer_name']),
       printerFormat: _string(json['printer_format'], 'thermal_80'),
+      printerBluetoothAddress: _string(json['printer_bluetooth_address']),
+      printerBluetoothName: _string(json['printer_bluetooth_name']),
     );
   }
 
@@ -183,6 +190,13 @@ class TerminalConfig {
   final String pinVerifier;
 
   bool get canWorkOffline => pinVerifier.isNotEmpty && permissions.isNotEmpty && authToken.isNotEmpty;
+
+  bool get isAdmin =>
+      permissions.contains('*') ||
+      roles.any((role) {
+        final value = role.toLowerCase();
+        return value == 'administrator' || value == 'super_admin' || value == 'admin';
+      });
   final String printerHost;
   final int printerPort;
   final bool printerEnabled;
@@ -190,6 +204,35 @@ class TerminalConfig {
   final String printerConnection;
   final String printerName;
   final String printerFormat;
+  final String printerBluetoothAddress;
+  final String printerBluetoothName;
+
+  /// `system` (OS printers of this device), `lan` or `bluetooth`.
+  String get printerMode => switch (printerConnection) {
+        'bluetooth' => 'bluetooth',
+        'lan' || 'ethernet' || 'wifi' || 'network' => 'lan',
+        _ => 'system',
+      };
+
+  /// Older configs kept the Bluetooth MAC in [printerHost].
+  String get bluetoothPrinterAddress {
+    if (printerBluetoothAddress.isNotEmpty) return printerBluetoothAddress;
+    final legacy = printerHost.trim();
+    final isMac = RegExp(r'^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$').hasMatch(legacy);
+    return printerMode == 'bluetooth' && isMac ? legacy : '';
+  }
+
+  bool get printsOverNetwork =>
+      printerEnabled && printerMode == 'lan' && printerHost.trim().isNotEmpty;
+
+  bool get printsOverBluetooth =>
+      printerEnabled && printerMode == 'bluetooth' && bluetoothPrinterAddress.isNotEmpty;
+
+  int get printerPaperWidthMm => printerFormat.contains('58')
+      ? 58
+      : printerFormat.contains('a4')
+          ? 210
+          : 80;
 
   bool get isMaster => posRole == PosRole.master;
   bool get isSlave => posRole == PosRole.slave;
@@ -238,6 +281,8 @@ class TerminalConfig {
         'printer_connection': printerConnection,
         'printer_name': printerName,
         'printer_format': printerFormat,
+        'printer_bluetooth_address': printerBluetoothAddress,
+        'printer_bluetooth_name': printerBluetoothName,
       };
 
   TerminalConfig copyWith({
@@ -282,6 +327,8 @@ class TerminalConfig {
     String? printerConnection,
     String? printerName,
     String? printerFormat,
+    String? printerBluetoothAddress,
+    String? printerBluetoothName,
   }) {
     return TerminalConfig(
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
@@ -325,6 +372,8 @@ class TerminalConfig {
       printerConnection: printerConnection ?? this.printerConnection,
       printerName: printerName ?? this.printerName,
       printerFormat: printerFormat ?? this.printerFormat,
+      printerBluetoothAddress: printerBluetoothAddress ?? this.printerBluetoothAddress,
+      printerBluetoothName: printerBluetoothName ?? this.printerBluetoothName,
     );
   }
 }

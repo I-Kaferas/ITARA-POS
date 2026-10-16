@@ -10,15 +10,18 @@ import '../../core/config/terminal_config.dart';
 import '../../core/config/terminal_config_repository.dart';
 import '../../core/network/operating_mode.dart';
 import '../../core/network/operation_router.dart';
+import '../../data/local/document_dao.dart';
 import '../../data/local/local_database.dart';
 import '../../features/auth/data/pin_auth_service.dart';
 import '../../features/pos/domain/pos_models.dart';
 import '../master_config_store.dart';
 import '../offline_store.dart';
 import '../outbox/sync_outbox.dart';
+import '../shift_sync.dart';
 import '../sync_numbers.dart';
 import 'cloud_sync_entity.dart';
 import 'cloud_sync_report.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Master → ITARA ERP Cloud sync (mobile.md §35).
 ///
@@ -69,15 +72,15 @@ class CloudSyncEngine extends ChangeNotifier {
   /// Full Master → Cloud cycle: harvest → push → pull.
   Future<CloudSyncReport> syncNow({bool pull = true, bool push = true}) async {
     if (_running) {
-      return lastReport = const CloudSyncReport(
+      return lastReport = CloudSyncReport(
         ok: false,
-        message: 'Synchronisation cloud déjà en cours',
+        message: tr('Synchronisation cloud déjà en cours'),
       );
     }
     if (!isAllowed) {
-      return lastReport = const CloudSyncReport(
+      return lastReport = CloudSyncReport(
         ok: false,
-        message: 'Seul le Master (ou autonome) synchronise vers le Cloud',
+        message: tr('Seul le Master (ou autonome) synchronise vers le Cloud'),
       );
     }
 
@@ -121,9 +124,11 @@ class CloudSyncEngine extends ChangeNotifier {
       await harvestOutbound();
 
       if (push) {
+        await _pushShifts();
         final pushResult = await _drainOutbound();
         pushed.addAll(pushResult.counts);
         failed += pushResult.failed;
+        await _pushShifts();
       }
 
       if (pull) {
@@ -156,6 +161,87 @@ class CloudSyncEngine extends ChangeNotifier {
         pushed: pushed,
         pulled: pulled,
         failed: failed + 1,
+        cloudReachable: cloudReachable,
+      );
+    } finally {
+      _running = false;
+      notifyListeners();
+    }
+  }
+
+  /// Pulls or pushes a single module; returns the number of records exchanged.
+  Future<CloudSyncReport> syncModule(CloudSyncModule module) async {
+    if (_running) {
+      return lastReport = CloudSyncReport(
+        ok: false,
+        message: tr('Synchronisation cloud déjà en cours'),
+      );
+    }
+    if (!isAllowed) {
+      return lastReport = CloudSyncReport(
+        ok: false,
+        message: tr('Seul le Master (ou autonome) synchronise vers le Cloud'),
+      );
+    }
+
+    _running = true;
+    notifyListeners();
+    try {
+      cloudReachable = await probe();
+      if (!cloudReachable) {
+        lastError = 'ITARA ERP Cloud indisponible';
+        return lastReport = CloudSyncReport(
+          ok: false,
+          message: lastError!,
+          cloudReachable: false,
+        );
+      }
+      await PinAuthService.refreshIfNeeded();
+
+      final pushed = <CloudSyncEntity, int>{};
+      final pulled = <CloudSyncEntity, int>{};
+      var failed = 0;
+      switch (module) {
+        case CloudSyncModule.company:
+          pulled[CloudSyncEntity.configuration] =
+              await _pullCompany() + await _pullConfiguration();
+        case CloudSyncModule.usersRoles:
+          pulled[CloudSyncEntity.users] = (await _pullReferences()).users;
+        case CloudSyncModule.paymentMethods:
+          await _pullReferences();
+        case CloudSyncModule.categories:
+        case CloudSyncModule.products:
+        case CloudSyncModule.stock:
+          pulled[CloudSyncEntity.products] = await _pullCatalog();
+        case CloudSyncModule.customers:
+          pulled[CloudSyncEntity.customers] = await _pullCustomers();
+        case CloudSyncModule.shifts:
+          await _pushShifts();
+        case CloudSyncModule.sales:
+          await harvestOutbound();
+          final result = await _drainOutbound();
+          pushed.addAll(result.counts);
+          failed = result.failed;
+      }
+
+      lastSyncAt = DateTime.now();
+      lastError = failed > 0 ? '$failed opération(s) en échec' : null;
+      return lastReport = CloudSyncReport(
+        ok: failed == 0,
+        message: lastError ?? 'Module synchronisé',
+        pushed: Map.unmodifiable(pushed),
+        pulled: Map.unmodifiable(pulled),
+        failed: failed,
+        cloudReachable: true,
+      );
+    } catch (error) {
+      lastError = error is TimeoutException
+          ? 'Le serveur n’a pas répondu à temps. Les données locales sont conservées.'
+          : error.toString().replaceFirst('Exception: ', '');
+      return lastReport = CloudSyncReport(
+        ok: false,
+        message: lastError!,
+        failed: 1,
         cloudReachable: cloudReachable,
       );
     } finally {
@@ -378,6 +464,20 @@ class CloudSyncEngine extends ChangeNotifier {
     return rows.isNotEmpty;
   }
 
+  Future<void> _pushShifts() async {
+    try {
+      await ShiftSync.instance.push(
+        (body) => _authorized(
+          () => _client
+              .post(Uri.parse('$_cloudBase/sync/push'), headers: _headers, body: body)
+              .timeout(const Duration(seconds: 30)),
+        ),
+      );
+    } catch (error) {
+      await OfflineStore.instance.log('error', 'Shifts : $error');
+    }
+  }
+
   Future<({Map<CloudSyncEntity, int> counts, int failed})> _drainOutbound() async {
     final counts = <CloudSyncEntity, int>{};
     var failed = 0;
@@ -574,13 +674,113 @@ class CloudSyncEngine extends ChangeNotifier {
 
   Future<Map<CloudSyncEntity, int>> _pullInbound() async {
     final counts = <CloudSyncEntity, int>{};
+    var company = 0;
+    try {
+      company = await _pullCompany();
+    } catch (_) {}
     counts[CloudSyncEntity.products] = await _pullCatalog();
     counts[CloudSyncEntity.customers] = await _pullCustomers();
     final refs = await _pullReferences();
     counts[CloudSyncEntity.users] = refs.users;
-    counts[CloudSyncEntity.configuration] = await _pullConfiguration();
+    counts[CloudSyncEntity.configuration] = company + await _pullConfiguration();
     counts[CloudSyncEntity.stocks] = await _pullStockSnapshot();
     return counts;
+  }
+
+  /// Company profile (`tenant/profile`) and its branches into the local DB.
+  Future<int> _pullCompany() async {
+    final response = await _authorized(
+      () => _client
+          .get(Uri.parse('$_cloudBase/tenant/profile'), headers: _headers)
+          .timeout(const Duration(seconds: 20)),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Company: le serveur a répondu ${response.statusCode}');
+    }
+    final body = jsonDecode(response.body);
+    final raw = body is Map ? (body['data'] is Map ? body['data'] : body) : null;
+    if (raw is! Map) return 0;
+    final company = Map<String, dynamic>.from(raw);
+    final companyId = company['id']?.toString() ?? '';
+    if (companyId.isEmpty) return 0;
+
+    final config = TerminalConfigRepository.instance.config;
+    final tenantId = company['tenant_id']?.toString() ?? config.tenantId;
+    final name = [company['trade_name'], company['name'], company['legal_name']]
+        .map((value) => value?.toString().trim() ?? '')
+        .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+    final now = DateTime.now().toIso8601String();
+
+    await DataModelDaos.organizations.upsert(company, columns: {
+      'id': companyId,
+      'tenant_id': tenantId,
+      'name': name,
+      'updated_at': now,
+    });
+    if (tenantId.isNotEmpty) {
+      await DataModelDaos.tenants.upsert({
+        'id': tenantId,
+        'slug': config.tenantSlug,
+        'company_id': companyId,
+      }, columns: {
+        'id': tenantId,
+        'code': config.tenantSlug,
+        'name': name,
+        'updated_at': now,
+      });
+    }
+
+    var count = 1;
+    try {
+      final branches = await _authorized(
+        () => _client
+            .get(Uri.parse('$_cloudBase/companies/$companyId/branches'), headers: _headers)
+            .timeout(const Duration(seconds: 20)),
+      );
+      if (branches.statusCode == 200) {
+        final decoded = jsonDecode(branches.body);
+        final list = decoded is Map ? decoded['data'] : decoded;
+        if (list is List) {
+          for (final item in list.whereType<Map>()) {
+            final branch = Map<String, dynamic>.from(item);
+            final id = branch['id']?.toString() ?? '';
+            if (id.isEmpty) continue;
+            await DataModelDaos.branches.upsert(branch, columns: {
+              'id': id,
+              'tenant_id': tenantId,
+              'organization_id': companyId,
+              'name': branch['name']?.toString() ?? '',
+              'code': branch['code']?.toString() ?? '',
+              'updated_at': now,
+            });
+            count++;
+          }
+        }
+      }
+    } catch (_) {}
+
+    final currency = company['currency_code']?.toString().trim().toUpperCase() ?? '';
+    final timezone = company['timezone']?.toString().trim() ?? '';
+    final logo = company['logo_url']?.toString().trim() ?? '';
+    final next = config.copyWith(
+      currencyCode: currency.isEmpty ? null : currency,
+      timezone: timezone.isEmpty ? null : timezone,
+      brandName: config.brandName.trim().isEmpty && name.isNotEmpty ? name : null,
+      brandLogoUrl: config.brandLogoUrl.trim().isEmpty && logo.isNotEmpty ? logo : null,
+    );
+    if (next.currencyCode != config.currencyCode ||
+        next.timezone != config.timezone ||
+        next.brandName != config.brandName ||
+        next.brandLogoUrl != config.brandLogoUrl) {
+      await TerminalConfigRepository.instance.save(next);
+    }
+
+    await MasterConfigStore.instance.save({
+      'company': company,
+      'company_synced_at': now,
+    });
+    await OfflineStore.instance.setCheckpoint('cloud_company_synced_at', now);
+    return count;
   }
 
   Future<int> _pullCatalog() async {
@@ -709,6 +909,13 @@ class CloudSyncEngine extends ChangeNotifier {
   Future<int> _pullStockSnapshot() async {
     // Stock levels arrive via catalog pull / sale ACK; status endpoint may expose counts.
     return 0;
+  }
+
+  Future<void> heartbeat() async {
+    if (!isAllowed || _cloudBase.isEmpty) return;
+    try {
+      await _heartbeat();
+    } catch (_) {}
   }
 
   Future<void> _heartbeat() async {

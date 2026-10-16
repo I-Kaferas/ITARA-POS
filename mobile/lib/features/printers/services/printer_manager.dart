@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/config/terminal_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../data/local/local_database.dart';
 import '../domain/print_group.dart';
@@ -127,24 +128,48 @@ class PrinterManager extends ChangeNotifier {
         config.printerName.isEmpty) {
       return const [];
     }
-    final connection = PrinterConnectionType.fromString(config.printerConnection);
-    final printer = Printer(
-      id: 'default-cashier',
-      name: config.printerName.isEmpty ? 'Caisse' : config.printerName,
+    final printer = _defaultFromConfig(config);
+    await upsert(printer);
+    return [printer];
+  }
+
+  /// Keeps the `default-cashier` printer aligned with the settings screen.
+  Future<Printer> syncDefaultFromConfig() async {
+    final config = TerminalConfigRepository.instance.config;
+    final existing = await findById(_defaultId);
+    final printer = _defaultFromConfig(config).copyWith(
+      group: existing?.group,
+      priority: existing?.priority,
+    );
+    return upsert(printer);
+  }
+
+  static const defaultPrinterId = 'default-cashier';
+  static const _defaultId = defaultPrinterId;
+
+  Printer _defaultFromConfig(TerminalConfig config) {
+    final connection = switch (config.printerMode) {
+      'lan' => PrinterConnectionType.fromString(config.printerConnection),
+      'bluetooth' => PrinterConnectionType.bluetooth,
+      _ => PrinterConnectionType.system,
+    };
+    final bluetooth = connection == PrinterConnectionType.bluetooth;
+    final network = connection.isNetwork;
+    final label = bluetooth ? config.printerBluetoothName : config.printerName;
+    return Printer(
+      id: _defaultId,
+      name: label.isEmpty ? 'Caisse' : label,
       group: PrintGroup.cashier,
-      host: config.printerHost,
+      host: network ? config.printerHost : '',
       port: config.printerPort,
       model: config.printerModel,
       connection: connection,
       format: config.printerFormat,
-      paperWidthMm: config.printerFormat.contains('58') ? 58 : 80,
-      systemName: config.printerName,
-      bluetoothAddress: connection == PrinterConnectionType.bluetooth ? config.printerHost : '',
-      usbPath: connection == PrinterConnectionType.usb ? config.printerName : '',
-      enabled: config.printerEnabled || config.printerHost.isNotEmpty,
+      paperWidthMm: config.printerPaperWidthMm,
+      systemName: connection == PrinterConnectionType.system ? config.printerName : '',
+      bluetoothAddress: bluetooth ? config.bluetoothPrinterAddress : '',
+      enabled: config.printerEnabled,
       priority: 1,
     );
-    await upsert(printer);
-    return [printer];
   }
 }

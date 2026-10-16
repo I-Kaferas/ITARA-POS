@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../../core/config/terminal_config_repository.dart';
+import '../../printers/services/raw_printer_output.dart';
 
 /// Opens a cash drawer via ESC/POS kick on a network thermal printer.
 ///
@@ -47,9 +48,18 @@ class CashDrawerService {
 
   Future<bool> openFromTerminalConfig({bool alsoTryPin5 = false}) async {
     final config = TerminalConfigRepository.instance.config;
-    if (!config.printerEnabled && config.printerHost.trim().isEmpty) {
-      return false;
+    if (config.printsOverBluetooth) {
+      try {
+        await RawPrinterOutput.instance.send(
+          RawPrinterTarget.bluetooth(config.bluetoothPrinterAddress),
+          [...escPosKickPin2, if (alsoTryPin5) ...escPosKickPin5],
+        );
+        return true;
+      } catch (_) {
+        return false;
+      }
     }
+    if (config.printerMode == 'bluetooth') return false;
     final host = config.printerHost.trim();
     if (host.isEmpty) return false;
     final port = config.printerPort <= 0 ? 9100 : config.printerPort;

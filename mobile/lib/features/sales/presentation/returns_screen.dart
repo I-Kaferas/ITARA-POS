@@ -12,6 +12,7 @@ import '../../../core/widgets/loading_error_view.dart';
 import '../../pos/data/pos_api_service.dart';
 import '../../pos/domain/pos_models.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class ReturnsScreen extends StatefulWidget {
   const ReturnsScreen({super.key});
@@ -82,7 +83,7 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
         title: Text(
-          'Retours',
+          tr('Retours'),
           style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
         ),
         backgroundColor: AppColors.surface,
@@ -106,9 +107,9 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
     if (_loading && _rows.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
+        children: [
           SizedBox(height: 120),
-          LoadingView(message: 'Chargement des retours…'),
+          LoadingView(message: tr('Chargement des retours…')),
         ],
       );
     }
@@ -131,10 +132,10 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
         children: [
           SizedBox(
             height: MediaQuery.sizeOf(context).height * 0.55,
-            child: const EmptyState(
+            child: EmptyState(
               icon: Icons.undo_outlined,
-              title: 'Aucun retour',
-              subtitle: 'Les remboursements de ce magasin apparaîtront ici.',
+              title: tr('Aucun retour'),
+              subtitle: tr('Les remboursements de ce magasin apparaîtront ici.'),
             ),
           ),
         ],
@@ -148,7 +149,7 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         if (_error != null && index == 0) {
-          return Text(_error!, style: PosUi.caption(color: AppColors.danger));
+          return Text(tr(_error!), style: PosUi.caption(color: AppColors.danger));
         }
         final row = _rows[_error != null ? index - 1 : index];
         return _ReturnCard(
@@ -206,7 +207,7 @@ class _ReturnCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      row.returnNumber,
+                      tr(row.returnNumber),
                       style: GoogleFonts.ibmPlexMono(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -218,15 +219,15 @@ class _ReturnCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              _MetaRow(label: 'Vente', value: (saleRef == null || saleRef.isEmpty) ? '—' : saleRef),
-              _MetaRow(label: 'Client', value: (customerName == null || customerName.isEmpty) ? '—' : customerName),
+              _MetaRow(label: tr('Vente'), value: (saleRef == null || saleRef.isEmpty) ? '—' : saleRef),
+              _MetaRow(label: tr('Client'), value: (customerName == null || customerName.isEmpty) ? '—' : customerName),
               _MetaRow(
-                label: 'Total',
+                label: tr('Total'),
                 value: MoneyFormatter.format(row.total, currencyCode: currency),
                 mono: true,
               ),
               _MetaRow(
-                label: 'Date',
+                label: tr('Date'),
                 value: created == null ? '—' : dateFormat.format(created.toLocal()),
               ),
             ],
@@ -256,11 +257,11 @@ class _MetaRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 72,
-            child: Text(label, style: PosUi.caption()),
+            child: Text(tr(label), style: PosUi.caption()),
           ),
           Expanded(
             child: Text(
-              value,
+              tr(value),
               style: mono
                   ? PosUi.money(size: 13)
                   : PosUi.body(weight: FontWeight.w600),

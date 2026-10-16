@@ -38,8 +38,15 @@ class CustomerDisplaySnapshot {
     required this.currencyCode,
     required this.total,
     required this.lines,
+    this.locale = '',
+    this.dark = false,
   });
 
+  /// Language of the cashier app, so a second window can follow it.
+  final String locale;
+
+  /// Theme of the cashier app, for the same reason.
+  final bool dark;
   final String brandName;
   final String tagline;
   final String customerName;
@@ -65,6 +72,8 @@ class CustomerDisplaySnapshot {
         'currency': currencyCode,
         'total': total,
         'lines': [for (final line in lines) line.toJson()],
+        if (locale.isNotEmpty) 'locale': locale,
+        if (dark) 'dark': true,
       };
 
   factory CustomerDisplaySnapshot.fromMessage(dynamic raw) {
@@ -101,6 +110,8 @@ class CustomerDisplaySnapshot {
       currencyCode: text(json['currency'], 'USD'),
       total: (json['total'] as num?)?.toInt() ?? 0,
       lines: lines,
+      locale: json['locale']?.toString().trim() ?? '',
+      dark: json['dark'] == true,
     );
   }
 }

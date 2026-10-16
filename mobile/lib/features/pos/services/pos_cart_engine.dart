@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../domain/pos_models.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosCartEngine extends ChangeNotifier {
   final List<PosCartLine> _lines = [];
@@ -17,6 +18,7 @@ class PosCartEngine extends ChangeNotifier {
   String? _pendingServerId;
   int loyaltyPoints = 0;
   String? tableId;
+  String? tableLabel;
   String serviceMode = 'takeaway';
   String deliveryAddress = '';
   int? _serverSubtotal;
@@ -73,9 +75,18 @@ class PosCartEngine extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setTableId(String? id) {
+  bool get hasTable => tableId != null && tableId!.isNotEmpty;
+
+  /// Label shown to the cashier (e.g. "T3"), falling back to the raw id.
+  String? get tableDisplay => !hasTable
+      ? null
+      : (tableLabel != null && tableLabel!.isNotEmpty ? tableLabel : tableId);
+
+  void setTableId(String? id, {String? label}) {
     final value = id?.trim();
     tableId = (value == null || value.isEmpty) ? null : value;
+    final name = label?.trim();
+    tableLabel = tableId == null || name == null || name.isEmpty ? null : name;
     notifyListeners();
   }
 
@@ -281,6 +292,7 @@ class PosCartEngine extends ChangeNotifier {
         discountAmount: discountAmount,
         discountPercent: discountPercent,
         tableId: tableId,
+        tableLabel: tableLabel,
       ),
     );
 
@@ -324,6 +336,7 @@ class PosCartEngine extends ChangeNotifier {
         discountPercent: held.discountPercent,
         fees: held.fees,
         tableId: held.tableId,
+        tableLabel: held.tableLabel,
       );
       notifyListeners();
       return;
@@ -368,6 +381,7 @@ class PosCartEngine extends ChangeNotifier {
       discountPercent: held.discountPercent,
       fees: held.fees,
       tableId: held.tableId,
+      tableLabel: held.tableLabel,
     );
     notifyListeners();
   }
@@ -405,6 +419,7 @@ class PosCartEngine extends ChangeNotifier {
         customer: customer,
         note: note,
         tableId: tableId,
+        tableLabel: tableLabel,
       ),
     );
     notifyListeners();
@@ -430,6 +445,7 @@ class PosCartEngine extends ChangeNotifier {
     discountAmount = held.discountAmount;
     discountPercent = held.discountPercent;
     tableId = held.tableId;
+    tableLabel = held.tableLabel;
     _fees
       ..clear()
       ..addAll(held.fees);
@@ -462,11 +478,11 @@ class PosCartEngine extends ChangeNotifier {
 
   PosPaymentResult pay({required String method, int amountTendered = 0}) {
     if (_lines.isEmpty) {
-      return const PosPaymentResult(
+      return PosPaymentResult(
         success: false,
         total: 0,
         method: '',
-        message: 'Le panier est vide',
+        message: tr('Le panier est vide'),
       );
     }
 
@@ -476,7 +492,7 @@ class PosCartEngine extends ChangeNotifier {
         success: false,
         total: saleTotal,
         method: method,
-        message: 'Montant insuffisant',
+        message: tr('Montant insuffisant'),
       );
     }
 
@@ -488,7 +504,7 @@ class PosCartEngine extends ChangeNotifier {
       total: saleTotal,
       method: method,
       change: change,
-      message: 'Paiement accepté',
+      message: tr('Paiement accepté'),
     );
     notifyListeners();
     return result;
@@ -509,6 +525,7 @@ class PosCartEngine extends ChangeNotifier {
     discountPercent = 0;
     loyaltyPoints = 0;
     tableId = null;
+    tableLabel = null;
     _fees.clear();
     _clearServerTotals();
     _activeHoldId = null;

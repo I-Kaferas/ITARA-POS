@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../sync/local_master_server.dart';
 import '../data/notification_watch.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -84,20 +85,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(title: Text(tr('Notifications'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? Center(child: Text(tr(_error!)))
               : _items.isEmpty
-                  ? const Center(child: Text('Rien à signaler.'))
+                  ? Center(child: Text(tr('Rien à signaler.')))
                   : ListView(
                       children: [
                         for (final item in _items)
                           ListTile(
-                            title: Text(item['title']?.toString() ?? ''),
-                            subtitle: Text(item['detail']?.toString() ?? ''),
-                            trailing: Text(_labels[item['kind']] ?? item['kind'].toString()),
+                            title: Text(tr(item['title']?.toString() ?? '')),
+                            subtitle: Text(tr(item['detail']?.toString() ?? '')),
+                            trailing: Text(tr(_labels[item['kind']] ?? item['kind'].toString())),
                           ),
                       ],
                     ),

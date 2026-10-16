@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +20,7 @@ import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../sync/local_master_server.dart';
 import 'bloc/authentication_bloc.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Owner sign-in asks the router to open settings instead of the selling screen.
 abstract final class AuthNavigation {
@@ -242,7 +243,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       ));
       ThemeController.instance.applyFromConfig();
       if (!mounted) return;
-      if (!wasConfigured) context.go(AppRoutes.configuration);
+      if (!wasConfigured) context.go(AppRoutes.cashierSettings);
     } catch (error) {
       AuthNavigation.openSettings = false;
       if (!mounted) return;
@@ -333,13 +334,18 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
           rootError: _rootError,
           onToggleObscure: () => setState(() => _obscure = !_obscure),
           onSubmitRoot: _submitRoot,
-          bottomInset: bottomInset,
+          keyboardOpen: bottomInset > 0,
         );
 
         return Scaffold(
           backgroundColor: AppColors.canvas,
-          resizeToAvoidBottomInset: true,
-          body: SafeArea(
+          resizeToAvoidBottomInset: false,
+          body: AnimatedPadding(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            onEnd: _revealFocusedField,
+            child: SafeArea(
             child: wide
                 ? Row(
                     children: [
@@ -385,10 +391,19 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
                         Expanded(child: form),
                       ],
                     ),
+            ),
           ),
         );
       },
     );
+  }
+
+  void _revealFocusedField() {
+    if (!mounted || MediaQuery.viewInsetsOf(context).bottom == 0) return;
+    FocusManager.instance.primaryFocus?.context?.findRenderObject()?.showOnScreen(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+        );
   }
 }
 
@@ -418,7 +433,7 @@ class _AuthHero extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            brand,
+                            tr(brand),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.plex(
@@ -428,7 +443,7 @@ class _AuthHero extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            'ITARA POS',
+                            tr('ITARA POS'),
                             style: AppTypography.plex(
                               color: AppColors.accent,
                               fontSize: 12,
@@ -445,7 +460,7 @@ class _AuthHero extends StatelessWidget {
                 Container(width: 42, height: 3, color: AppColors.accent),
                 const SizedBox(height: 18),
                 Text(
-                  _greeting(),
+                  tr(_greeting()),
                   style: AppTypography.plex(
                     color: AppColors.accent,
                     fontSize: 14,
@@ -506,7 +521,7 @@ class _ProductPoint extends StatelessWidget {
             border: Border.all(color: AppColors.sidebarBorder),
           ),
           child: Text(
-            index,
+            tr(index),
             style: AppTypography.plex(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.w700),
           ),
         ),
@@ -515,8 +530,8 @@ class _ProductPoint extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: AppTypography.plex(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-              Text(hint, style: AppTypography.plex(color: AppColors.sidebarText, fontSize: 12.5)),
+              Text(tr(title), style: AppTypography.plex(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+              Text(tr(hint), style: AppTypography.plex(color: AppColors.sidebarText, fontSize: 12.5)),
             ],
           ),
         ),
@@ -546,7 +561,7 @@ class _AuthForm extends StatelessWidget {
     required this.rootError,
     required this.onToggleObscure,
     required this.onSubmitRoot,
-    required this.bottomInset,
+    required this.keyboardOpen,
   });
 
   final AuthGateMode mode;
@@ -568,7 +583,7 @@ class _AuthForm extends StatelessWidget {
   final String? rootError;
   final VoidCallback onToggleObscure;
   final VoidCallback onSubmitRoot;
-  final double bottomInset;
+  final bool keyboardOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -577,7 +592,7 @@ class _AuthForm extends StatelessWidget {
     final brand = config.brandName.trim().isEmpty ? 'ITARA' : config.brandName.trim();
     return Center(
       child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(24, wide ? 36 : 12, 24, 28 + bottomInset),
+        padding: EdgeInsets.fromLTRB(24, wide ? 36 : 12, 24, 28),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: DecoratedBox(
@@ -595,29 +610,51 @@ class _AuthForm extends StatelessWidget {
               child: Column(
                 children: [
                   if (!wide)
-                    Container(
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
                       width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+                      padding: EdgeInsets.fromLTRB(22, keyboardOpen ? 14 : 22, 22, keyboardOpen ? 14 : 20),
                       color: AppColors.brand600,
                       child: ListenableBuilder(
                         listenable: LocaleController.instance,
                         builder: (context, _) {
                           return Column(
                             children: [
-                              _BrandMark(logoUrl: config.brandLogoUrl, initials: _initials(brand), compact: true),
-                              const SizedBox(height: 14),
-                              Text(
-                                _greeting(),
-                                style: AppTypography.plex(
-                                  color: AppColors.accent,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.3,
+                              AnimatedCrossFade(
+                                duration: const Duration(milliseconds: 260),
+                                firstCurve: Curves.easeOut,
+                                secondCurve: Curves.easeIn,
+                                sizeCurve: Curves.easeOutCubic,
+                                crossFadeState:
+                                    keyboardOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                                firstChild: SizedBox(
+                                  width: double.infinity,
+                                  child: Column(
+                                    children: [
+                                      _BrandMark(
+                                        logoUrl: config.brandLogoUrl,
+                                        initials: _initials(brand),
+                                        compact: true,
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Text(
+                                        tr(_greeting()),
+                                        style: AppTypography.plex(
+                                          color: AppColors.accent,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                    ],
+                                  ),
                                 ),
+                                secondChild: const SizedBox(width: double.infinity),
                               ),
-                              const SizedBox(height: 4),
                               Text(
-                                brand,
+                                tr(brand),
                                 textAlign: TextAlign.center,
                                 style: AppTypography.plex(
                                   color: Colors.white,
@@ -720,7 +757,7 @@ class _ServerBadge extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        label,
+                        tr(label),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.plex(color: foreground, fontSize: 12.5, fontWeight: FontWeight.w600),
@@ -794,7 +831,7 @@ class _ModeChip extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           child: Text(
-            label,
+            tr(label),
             style: AppTypography.plex(
               color: selected ? Colors.white : AppColors.textSecondary,
               fontSize: 12.5,
@@ -829,7 +866,7 @@ class _BrandMark extends StatelessWidget {
           child: logo.isEmpty
               ? Center(
                   child: Text(
-                    initials,
+                    tr(initials),
                     style: AppTypography.plex(
                       color: AppColors.brand900,
                       fontSize: compact ? 22 : 28,
@@ -844,7 +881,7 @@ class _BrandMark extends StatelessWidget {
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Center(
                     child: Text(
-                      initials,
+                      tr(initials),
                       style: AppTypography.plex(
                         color: AppColors.brand900,
                         fontSize: compact ? 22 : 28,
@@ -945,7 +982,7 @@ class _StaffPane extends StatelessWidget {
                   borderRadius: AppRadius.borderLg,
                 ),
                 child: Text(
-                  error!,
+                  tr(error!),
                   textAlign: TextAlign.center,
                   style: AppTypography.plex(color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.w600, height: 1.35),
                 ),
@@ -1090,7 +1127,7 @@ class _RootPane extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(color: AppColors.dangerBg, borderRadius: AppRadius.borderLg),
                 child: Text(
-                  error!,
+                  tr(error!),
                   textAlign: TextAlign.center,
                   style: AppTypography.plex(color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.w600, height: 1.35),
                 ),
@@ -1214,7 +1251,7 @@ class _Pad extends StatelessWidget {
                 child: key == 'back'
                     ? const Icon(Icons.backspace_outlined, color: AppColors.brand700, size: 20)
                     : Text(
-                        key == 'clear' ? 'C' : key,
+                        tr(key == 'clear' ? 'C' : key),
                         style: AppTypography.plex(
                           color: utility ? AppColors.brand700 : AppColors.textPrimary,
                           fontSize: 20,

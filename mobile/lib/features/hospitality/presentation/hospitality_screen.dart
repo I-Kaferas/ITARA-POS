@@ -11,6 +11,7 @@ import '../../kitchen/presentation/kitchen_display_screen.dart';
 import '../../pos/services/pos_pending_intent.dart';
 import '../data/hospitality_api.dart';
 import '../domain/restaurant_models.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class HospitalityScreen extends StatefulWidget {
   const HospitalityScreen({super.key});
@@ -63,7 +64,7 @@ class _HospitalityScreenState extends State<HospitalityScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(tr(error.toString().replaceFirst('Exception: ', '')))),
       );
     }
   }
@@ -76,7 +77,7 @@ class _HospitalityScreenState extends State<HospitalityScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Restaurant & hôtel'),
+        title: Text(tr('Restaurant & hôtel')),
         actions: [
           IconButton(onPressed: _loading ? null : _reload, icon: const Icon(Icons.refresh)),
         ],
@@ -84,16 +85,16 @@ class _HospitalityScreenState extends State<HospitalityScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? Center(child: Text(tr(_error!)))
               : Column(
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'restaurant', label: Text('Tables'), icon: Icon(Icons.table_restaurant)),
-                          ButtonSegment(value: 'kitchen', label: Text('KDS'), icon: Icon(Icons.soup_kitchen)),
-                          ButtonSegment(value: 'hotel', label: Text('Hôtel'), icon: Icon(Icons.hotel)),
+                        segments: [
+                          ButtonSegment(value: 'restaurant', label: Text(tr('Tables')), icon: Icon(Icons.table_restaurant)),
+                          ButtonSegment(value: 'kitchen', label: Text(tr('KDS')), icon: Icon(Icons.soup_kitchen)),
+                          ButtonSegment(value: 'hotel', label: Text(tr('Hôtel')), icon: Icon(Icons.hotel)),
                         ],
                         selected: {_section},
                         onSelectionChanged: (value) => setState(() => _section = value.first),
@@ -156,12 +157,12 @@ class _FloorBoard extends StatelessWidget {
           child: OutlinedButton.icon(
             onPressed: () => _addServer(context),
             icon: const Icon(Icons.person_add_alt_1),
-            label: const Text('Ajouter un serveur'),
+            label: Text(tr('Ajouter un serveur')),
           ),
         ),
         const SizedBox(height: 12),
         for (final zone in zones) ...[
-          Text(zone['name']?.toString() ?? 'Zone', style: Theme.of(context).textTheme.titleMedium),
+          Text(tr(zone['name']?.toString() ?? 'Zone'), style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -242,31 +243,31 @@ class _FloorBoard extends StatelessWidget {
     final picked = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Serveur de la table'),
+        title: Text(tr('Serveur de la table')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final server in servers)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(server['name']?.toString() ?? 'Serveur'),
+                title: Text(tr(server['name']?.toString() ?? 'Serveur')),
                 onTap: () => Navigator.pop(context, server),
               ),
             TextField(
               controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Nouveau serveur'),
+              decoration: InputDecoration(labelText: tr('Nouveau serveur')),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Annuler'))),
           FilledButton(
             onPressed: () {
               final name = nameCtrl.text.trim();
               if (name.isEmpty) return;
               Navigator.pop(context, {'id': 'server-${DateTime.now().millisecondsSinceEpoch}', 'name': name, 'create': true});
             },
-            child: const Text('Ajouter'),
+            child: Text(tr('Ajouter')),
           ),
         ],
       ),
@@ -284,11 +285,11 @@ class _FloorBoard extends StatelessWidget {
     final value = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(controller: ctrl, decoration: const InputDecoration(labelText: 'Nom')),
+        title: Text(tr(title)),
+        content: TextField(controller: ctrl, decoration: InputDecoration(labelText: tr('Nom'))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Enregistrer')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Annuler'))),
+          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: Text(tr('Enregistrer'))),
         ],
       ),
     );
@@ -332,12 +333,12 @@ class _TableCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(table['label']?.toString() ?? 'Table', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-            Text(status.wire, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-            Text(status.label, style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+            Text(tr(table['label']?.toString() ?? 'Table'), style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(tr(status.wire), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+            Text(tr(status.label), style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
             if (active && (serverName ?? '').isNotEmpty)
-              Text(serverName!, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-            Text('${table['seats']} places', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              Text(tr(serverName!), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text(trf('{0} places', [table['seats']]), style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           ],
         ),
       ),
@@ -455,14 +456,13 @@ class _OrderSheetState extends State<_OrderSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Table ${widget.order['table_label']} · ${status.wire}'
-              '${(widget.order['server_name']?.toString() ?? '').isEmpty ? '' : ' · ${widget.order['server_name']}'}',
+              trf('Table {0} · {1}''{2}', [widget.order['table_label'], status.wire, (widget.order['server_name']?.toString() ?? '').isEmpty ? '' : ' · ${widget.order['server_name']}']),
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            Text(status.label),
+            Text(tr(status.label)),
             const SizedBox(height: 8),
-            const Text(
-              'FREE → OCCUPIED → ORDERING → PREPARING → READY → SERVED → PAYING → CLOSED',
+            Text(
+              tr('FREE → OCCUPIED → ORDERING → PREPARING → READY → SERVED → PAYING → CLOSED'),
               style: TextStyle(fontSize: 11),
             ),
             const SizedBox(height: 12),
@@ -479,28 +479,28 @@ class _OrderSheetState extends State<_OrderSheet> {
                     }
                   });
                 },
-                title: Text('${line['quantity']} × ${line['name']}'),
-                subtitle: Text('${_lineSubtitle(line)}\n${widget.money(_lineAmount(line))}'),
+                title: Text(trf('{0} × {1}', [line['quantity'], line['name']])),
+                subtitle: Text(trf('{0}\n{1}', [_lineSubtitle(line), widget.money(_lineAmount(line))])),
                 isThreeLine: true,
               ),
-            TextField(controller: _name, decoration: const InputDecoration(labelText: 'Article')),
+            TextField(controller: _name, decoration: InputDecoration(labelText: tr('Article'))),
             TextField(
               controller: _price,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Prix'),
+              decoration: InputDecoration(labelText: tr('Prix')),
             ),
             TextField(
               controller: _modifiers,
-              decoration: const InputDecoration(
-                labelText: 'Modifiers',
-                hintText: 'saignant, sans oignon',
+              decoration: InputDecoration(
+                labelText: tr('Modifiers'),
+                hintText: tr('saignant, sans oignon'),
               ),
             ),
             TextField(
               controller: _sides,
-              decoration: const InputDecoration(
-                labelText: 'Accompagnements',
-                hintText: 'frites, riz',
+              decoration: InputDecoration(
+                labelText: tr('Accompagnements'),
+                hintText: tr('frites, riz'),
               ),
             ),
             Row(
@@ -508,7 +508,7 @@ class _OrderSheetState extends State<_OrderSheet> {
                 Expanded(
                   child: TextField(
                     controller: _extraName,
-                    decoration: const InputDecoration(labelText: 'Extra'),
+                    decoration: InputDecoration(labelText: tr('Extra')),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -517,18 +517,18 @@ class _OrderSheetState extends State<_OrderSheet> {
                   child: TextField(
                     controller: _extraPrice,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Prix'),
+                    decoration: InputDecoration(labelText: tr('Prix')),
                   ),
                 ),
               ],
             ),
             DropdownButton<String>(
               value: _course,
-              items: const [
-                DropdownMenuItem(value: 'entree', child: Text('Entrée')),
-                DropdownMenuItem(value: 'plat', child: Text('Plat')),
-                DropdownMenuItem(value: 'dessert', child: Text('Dessert')),
-                DropdownMenuItem(value: 'boisson', child: Text('Boisson')),
+              items: [
+                DropdownMenuItem(value: 'entree', child: Text(tr('Entrée'))),
+                DropdownMenuItem(value: 'plat', child: Text(tr('Plat'))),
+                DropdownMenuItem(value: 'dessert', child: Text(tr('Dessert'))),
+                DropdownMenuItem(value: 'boisson', child: Text(tr('Boisson'))),
               ],
               onChanged: (value) => setState(() => _course = value ?? 'plat'),
             ),
@@ -566,7 +566,7 @@ class _OrderSheetState extends State<_OrderSheet> {
                     });
                     if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('Ajouter'),
+                  child: Text(tr('Ajouter')),
                 ),
                 OutlinedButton(
                   onPressed: () async {
@@ -577,7 +577,7 @@ class _OrderSheetState extends State<_OrderSheet> {
                     });
                     if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('Envoyer cuisine'),
+                  child: Text(tr('Envoyer cuisine')),
                 ),
                 OutlinedButton(
                   onPressed: () {
@@ -594,7 +594,7 @@ class _OrderSheetState extends State<_OrderSheet> {
                     Navigator.pop(context);
                     context.go(AppRoutes.pos);
                   },
-                  child: const Text('Ouvrir en caisse'),
+                  child: Text(tr('Ouvrir en caisse')),
                 ),
                 OutlinedButton(
                   onPressed: _selected.isEmpty
@@ -607,15 +607,15 @@ class _OrderSheetState extends State<_OrderSheet> {
                           });
                           if (context.mounted) Navigator.pop(context);
                         },
-                  child: const Text('Split'),
+                  child: Text(tr('Split')),
                 ),
                 OutlinedButton(
                   onPressed: () => _transfer(context),
-                  child: const Text('Transfert'),
+                  child: Text(tr('Transfert')),
                 ),
                 OutlinedButton(
                   onPressed: () => _merge(context),
-                  child: const Text('Merge'),
+                  child: Text(tr('Merge')),
                 ),
               ],
             ),
@@ -633,7 +633,7 @@ class _OrderSheetState extends State<_OrderSheet> {
                       });
                       if (context.mounted) Navigator.pop(context);
                     },
-                    child: Text('Payer ${check['label']}'),
+                    child: Text(trf('Payer {0}', [check['label']])),
                   ),
                   for (final room in widget.rooms)
                     OutlinedButton(
@@ -646,7 +646,7 @@ class _OrderSheetState extends State<_OrderSheet> {
                         });
                         if (context.mounted) Navigator.pop(context);
                       },
-                      child: Text('Folio ${room['number']}'),
+                      child: Text(trf('Folio {0}', [room['number']])),
                     ),
                 ],
               ),
@@ -663,19 +663,19 @@ class _OrderSheetState extends State<_OrderSheet> {
     }).toList();
     if (freeTables.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucune table libre pour le transfert')),
+        SnackBar(content: Text(tr('Aucune table libre pour le transfert'))),
       );
       return;
     }
     final picked = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Transférer vers'),
+        title: Text(tr('Transférer vers')),
         children: [
           for (final table in freeTables)
             SimpleDialogOption(
               onPressed: () => Navigator.pop(context, table),
-              child: Text(table['label']?.toString() ?? table['id'].toString()),
+              child: Text(tr(table['label']?.toString() ?? table['id'].toString())),
             ),
         ],
       ),
@@ -697,20 +697,20 @@ class _OrderSheetState extends State<_OrderSheet> {
     }).toList();
     if (others.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucune autre commande à fusionner')),
+        SnackBar(content: Text(tr('Aucune autre commande à fusionner'))),
       );
       return;
     }
     final picked = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Fusionner depuis'),
+        title: Text(tr('Fusionner depuis')),
         children: [
           for (final order in others)
             SimpleDialogOption(
               onPressed: () => Navigator.pop(context, order),
               child: Text(
-                'Table ${order['table_label']} · ${RestaurantStatus.fromWire(order['status']?.toString()).wire}',
+                trf('Table {0} · {1}', [order['table_label'], RestaurantStatus.fromWire(order['status']?.toString()).wire]),
               ),
             ),
         ],
@@ -750,19 +750,19 @@ class _HotelBoard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       children: [
         Text(
-          'Types: ${types.map((type) => '${type['name']} ${money((type['rate'] as num?)?.toInt() ?? 0)}').join(' · ')}',
+          trf('Types: {0}', [types.map((type) => '${type['name']} ${money((type['rate'] as num?)?.toInt() ?? 0)}').join(' · ')]),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 8),
         for (final room in rooms) _roomCard(context, room),
         if (invoices.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text('Factures hôtel', style: Theme.of(context).textTheme.titleMedium),
+          Text(tr('Factures hôtel'), style: Theme.of(context).textTheme.titleMedium),
           for (final folio in invoices)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text('Chambre ${folio['room_number']} · ${folio['guest_name'] ?? 'Client'}'),
-              subtitle: Text(folio['reference']?.toString() ?? 'Sans encaissement'),
+              title: Text(trf('Chambre {0} · {1}', [folio['room_number'], folio['guest_name'] ?? 'Client'])),
+              subtitle: Text(tr(folio['reference']?.toString() ?? 'Sans encaissement')),
             ),
         ],
       ],
@@ -779,10 +779,10 @@ class _HotelBoard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Chambre ${room['number']} · ${_roomStatus(room['status']?.toString())}',
+              trf('Chambre {0} · {1}', [room['number'], _roomStatus(room['status']?.toString())]),
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
-            Text(_subtitle(room)),
+            Text(tr(_subtitle(room))),
             for (final line in lines)
               Text(
                 '${_lineKind(line['kind']?.toString())} · ${line['description']} · ${money((line['amount'] as num?)?.toInt() ?? 0)}',
@@ -796,11 +796,11 @@ class _HotelBoard extends StatelessWidget {
                 if (room['status'] == 'vacant') ...[
                   FilledButton(
                     onPressed: () => _book(context, room, arrive: false),
-                    child: const Text('Réserver'),
+                    child: Text(tr('Réserver')),
                   ),
                   OutlinedButton(
                     onPressed: () => _book(context, room, arrive: true),
-                    child: const Text('Check-in'),
+                    child: Text(tr('Check-in')),
                   ),
                 ],
                 if (room['status'] == 'reserved')
@@ -810,16 +810,16 @@ class _HotelBoard extends StatelessWidget {
                       if (reservation == null) return;
                       onAction({'action': 'check_in', 'reservation_id': reservation['id']});
                     },
-                    child: const Text('Check-in'),
+                    child: Text(tr('Check-in')),
                   ),
                 if (room['status'] == 'occupied') ...[
                   OutlinedButton(
                     onPressed: () => _postConsumption(context, room, 'minibar', 'Minibar'),
-                    child: const Text('Minibar'),
+                    child: Text(tr('Minibar')),
                   ),
                   OutlinedButton(
                     onPressed: () => _postConsumption(context, room, 'room_service', 'Room service'),
-                    child: const Text('Room service'),
+                    child: Text(tr('Room service')),
                   ),
                   FilledButton(
                     onPressed: () {
@@ -827,7 +827,7 @@ class _HotelBoard extends StatelessWidget {
                       if (reservation == null) return;
                       onAction({'action': 'check_out', 'reservation_id': reservation['id']});
                     },
-                    child: const Text('Check-out'),
+                    child: Text(tr('Check-out')),
                   ),
                 ],
               ],
@@ -874,20 +874,20 @@ class _HotelBoard extends StatelessWidget {
     final stay = await showDialog<(String, int)>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(arrive ? 'Check-in chambre $number' : 'Réservation chambre $number'),
+        title: Text(tr(arrive ? 'Check-in chambre $number' : 'Réservation chambre $number')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Client')),
+            TextField(controller: nameCtrl, decoration: InputDecoration(labelText: tr('Client'))),
             TextField(
               controller: nightsCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Nuits'),
+              decoration: InputDecoration(labelText: tr('Nuits')),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Annuler'))),
           FilledButton(
             onPressed: () {
               final name = nameCtrl.text.trim();
@@ -895,7 +895,7 @@ class _HotelBoard extends StatelessWidget {
               final nights = int.tryParse(nightsCtrl.text.trim()) ?? 1;
               Navigator.pop(context, (name, nights < 1 ? 1 : nights));
             },
-            child: Text(arrive ? 'Check-in' : 'Réserver'),
+            child: Text(tr(arrive ? 'Check-in' : 'Réserver')),
           ),
         ],
       ),
@@ -911,27 +911,27 @@ class _HotelBoard extends StatelessWidget {
     final posted = await showDialog<(String, int)>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(label),
+        title: Text(tr(label)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: description, decoration: const InputDecoration(labelText: 'Libellé')),
+            TextField(controller: description, decoration: InputDecoration(labelText: tr('Libellé'))),
             TextField(
               controller: amount,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Montant'),
+              decoration: InputDecoration(labelText: tr('Montant')),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Annuler'))),
           FilledButton(
             onPressed: () {
               final minor = ((double.tryParse(amount.text.replaceAll(',', '.')) ?? 0) * 100).round();
               if (minor <= 0) return;
               Navigator.pop(context, (description.text.trim().isEmpty ? label : description.text.trim(), minor));
             },
-            child: const Text('Ajouter au folio'),
+            child: Text(tr('Ajouter au folio')),
           ),
         ],
       ),

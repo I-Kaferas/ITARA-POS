@@ -11,6 +11,7 @@ import 'permission_error.dart';
 import 'printer_error.dart';
 import 'sync_error.dart';
 import 'validation_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Maps any thrown value to a typed [AppError] with a safe user message.
 AppError resolveAppError(Object? error, {String? fallbackCode}) {
@@ -107,15 +108,15 @@ AppError _fromApiException(ApiException error) {
   }
   if (status >= 500) {
     return SyncError(
-      title: 'Le serveur a rencontré un problème.',
-      detail: 'Réessayez dans un instant. Vos données locales sont conservées.',
+      title: tr('Le serveur a rencontré un problème.'),
+      detail: tr('Réessayez dans un instant. Vos données locales sont conservées.'),
       cause: error,
     );
   }
 
   return ValidationError(
     title: _isTechnical(message) ? 'La demande n’a pas pu être traitée.' : message,
-    detail: 'Vérifiez les informations puis réessayez.',
+    detail: tr('Vérifiez les informations puis réessayez.'),
     cause: error,
   );
 }

@@ -1,4 +1,5 @@
 import 'app_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Secure Master ↔ Slave pairing failure.
 final class PairingError extends AppError {
@@ -10,26 +11,26 @@ final class PairingError extends AppError {
   }) : super(code: 'errors.pairing');
 
   factory PairingError.invalidCode({Object? cause}) => PairingError(
-        title: 'Code d’appairage incorrect.',
-        detail: 'Saisissez le code à 6 chiffres affiché sur le Master.',
+        title: tr('Code d’appairage incorrect.'),
+        detail: tr('Saisissez le code à 6 chiffres affiché sur le Master.'),
         cause: cause,
       );
 
   factory PairingError.expired({Object? cause}) => PairingError(
-        title: 'Code d’appairage expiré.',
-        detail: 'Demandez un nouveau code sur le Master puis réessayez.',
+        title: tr('Code d’appairage expiré.'),
+        detail: tr('Demandez un nouveau code sur le Master puis réessayez.'),
         cause: cause,
       );
 
   factory PairingError.rejected({Object? cause}) => PairingError(
-        title: 'Appairage refusé par le Master.',
-        detail: 'Demandez au responsable d’accepter la demande sur le Master.',
+        title: tr('Appairage refusé par le Master.'),
+        detail: tr('Demandez au responsable d’accepter la demande sur le Master.'),
         cause: cause,
       );
 
   factory PairingError.alreadyPaired({Object? cause}) => PairingError(
-        title: 'Cet appareil est déjà appairé.',
-        detail: 'Supprimez l’ancien appairage avant d’en créer un nouveau.',
+        title: tr('Cet appareil est déjà appairé.'),
+        detail: tr('Supprimez l’ancien appairage avant d’en créer un nouveau.'),
         cause: cause,
       );
 }

@@ -10,6 +10,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../sync/offline_store.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Profile card shown before logout, with a permissions list on the second step.
 Future<bool> showLogoutProfileDialog(BuildContext context) async {
@@ -159,7 +160,7 @@ class _ProfilePane extends StatelessWidget {
                   color: AppColors.accent,
                 ),
                 child: Text(
-                  initials,
+                  tr(initials),
                   style: GoogleFonts.ibmPlexSans(
                     color: AppColors.brand900,
                     fontSize: 30,
@@ -169,7 +170,7 @@ class _ProfilePane extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                name,
+                tr(name),
                 textAlign: TextAlign.center,
                 style: GoogleFonts.ibmPlexSans(
                   color: Colors.white,
@@ -186,7 +187,7 @@ class _ProfilePane extends StatelessWidget {
                     border: Border.all(color: AppColors.accent),
                   ),
                   child: Text(
-                    code,
+                    tr(code),
                     style: GoogleFonts.ibmPlexSans(
                       color: AppColors.accent,
                       fontSize: 12,
@@ -203,7 +204,7 @@ class _ProfilePane extends StatelessWidget {
                   borderRadius: AppRadius.borderPill,
                 ),
                 child: Text(
-                  role,
+                  tr(role),
                   style: GoogleFonts.ibmPlexSans(
                     color: Colors.white,
                     fontSize: 12,
@@ -230,7 +231,7 @@ class _ProfilePane extends StatelessWidget {
                   children: [
                     _InfoRow(icon: Icons.mail_outline, label: AppCopy.get('email'), value: email.isEmpty ? '—' : email),
                     const SizedBox(height: 10),
-                    _InfoRow(icon: Icons.fingerprint, label: 'ID', value: id.isEmpty ? '—' : id),
+                    _InfoRow(icon: Icons.fingerprint, label: tr('ID'), value: id.isEmpty ? '—' : id),
                   ],
                 ),
               ),
@@ -290,9 +291,9 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
+              Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
               Text(
-                value,
+                tr(value),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
@@ -363,7 +364,7 @@ class _PermissionsPane extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          section.title,
+                          tr(section.title),
                           style: GoogleFonts.ibmPlexSans(
                             color: AppColors.brandInk,
                             fontSize: 12,
@@ -381,7 +382,7 @@ class _PermissionsPane extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    action,
+                                    tr(action),
                                     style: GoogleFonts.ibmPlexSans(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
                                   ),
                                 ),

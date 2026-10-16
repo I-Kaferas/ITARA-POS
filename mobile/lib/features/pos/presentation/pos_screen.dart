@@ -33,6 +33,7 @@ import '../../notifications/presentation/notifications_screen.dart';
 import '../../production/presentation/production_screen.dart';
 import '../../reports/presentation/reports_screen.dart';
 import '../../services/presentation/services_screen.dart';
+import '../../settings/domain/cashier_preferences.dart';
 import '../../barcode/presentation/widgets/hid_scanner_field.dart';
 import '../../barcode/services/hid_scanner_controller.dart';
 import '../../receipt/domain/receipt_models.dart';
@@ -54,7 +55,9 @@ import 'widgets/pos_product_grid.dart';
 import 'widgets/pos_quick_products_bar.dart';
 import 'widgets/pos_return_sheet.dart';
 import 'widgets/pos_search_bar.dart';
+import 'widgets/pos_table_picker.dart';
 import 'widgets/pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosScreen extends StatelessWidget {
   const PosScreen({super.key, this.embedded = false});
@@ -161,7 +164,33 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     });
     unawaited(_loadShiftSession());
     TerminalConfigRepository.instance.addListener(_onShiftConfigChanged);
+    CashierPreferences.instance.addListener(_onBusinessModeChanged);
     _publishCustomerDisplay();
+  }
+
+  void _onBusinessModeChanged() {
+    if (!mounted) return;
+    if (CashierPreferences.instance.standardPos && _cart.hasTable) _cart.setTableId(null);
+    setState(() {});
+  }
+
+  Future<void> _selectTable() async {
+    final choice = await showPosTablePicker(
+      context,
+      selectedId: _cart.tableId,
+      busyIds: {
+        for (final sale in _cart.heldSales)
+          if ((sale.tableId ?? '').isNotEmpty) sale.tableId!,
+      },
+    );
+    if (choice == null || !mounted) return;
+    if (choice.isNone) {
+      _cart.setTableId(null);
+      _showStatus('Table retirée');
+      return;
+    }
+    _cart.setTableId(choice.id, label: choice.label);
+    _showStatus('Table ${choice.label}');
   }
 
   @override
@@ -173,6 +202,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     SyncEngine.instance.removeListener(_onSyncChanged);
     _favorites.removeListener(_onFavoritesChanged);
     TerminalConfigRepository.instance.removeListener(_onShiftConfigChanged);
+    CashierPreferences.instance.removeListener(_onBusinessModeChanged);
     _cart.removeListener(_onCartChanged);
     _searchController.dispose();
     _searchFocus.dispose();
@@ -450,10 +480,10 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
-        content: const Text(message),
+        content: Text(tr(message)),
         duration: const Duration(seconds: 6),
         action: SnackBarAction(
-          label: 'Shifts',
+          label: tr('Shifts'),
           onPressed: () => context.go(AppRoutes.shifts),
         ),
       ),
@@ -561,25 +591,25 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     final amount = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Remise ligne'),
+        title: Text(tr('Remise ligne')),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
           autofocus: true,
           decoration: InputDecoration(
-            labelText: 'Montant (max ${line.lineSubtotal})',
+            labelText: trf('Montant (max {0})', [line.lineSubtotal]),
             suffixText: AppConfig.currencyCode,
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, 0), child: const Text('Effacer')),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 0), child: Text(tr('Effacer'))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Annuler'))),
           FilledButton(
             onPressed: () {
               final value = int.tryParse(ctrl.text.trim()) ?? 0;
               Navigator.pop(ctx, value);
             },
-            child: const Text('OK'),
+            child: Text(tr('OK')),
           ),
         ],
       ),
@@ -604,7 +634,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   void _showStatus(String message) {
     setState(() => _statusMessage = message);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+      SnackBar(content: Text(tr(message)), duration: const Duration(seconds: 2)),
     );
   }
 
@@ -753,6 +783,8 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         : '';
     _showStatus('${result.message}$change$balance$loyalty');
     _cart.cancel();
+    // Refresh grid quantities from the stock rows written by commitSale.
+    SyncEngine.instance.markCatalogChanged(stock: result.stockUpdates);
     if (CashDrawerService.shouldOpenForPayment(
       method: result.method,
       change: result.change,
@@ -1013,6 +1045,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                             onRemove: _cart.removeLine,
                             onLineDiscount: _showLineDiscountDialog,
                             onSearchCustomer: _shortcutCustomer,
+                            onSelectTable: CashierPreferences.instance.standardPos ? null : _selectTable,
                             onCustomerDisplay: () {
                               CustomerDisplayLauncher.open(context);
                             },
@@ -1114,16 +1147,16 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(desktop ? 'ITARA POS · Windows' : 'Caisse POS'),
+        title: Text(tr(desktop ? 'ITARA POS · Windows' : 'Caisse POS')),
         actions: [
           const CalculatorButton(),
           IconButton(
-            tooltip: 'Retour',
+            tooltip: tr('Retour'),
             onPressed: () => showPosReturnSheet(context, api: _api),
             icon: const Icon(Icons.assignment_return_outlined),
           ),
           IconButton(
-            tooltip: 'Restaurant et hôtel',
+            tooltip: tr('Restaurant et hôtel'),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const HospitalityScreen()),
@@ -1132,7 +1165,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
             icon: const Icon(Icons.table_restaurant),
           ),
           IconButton(
-            tooltip: 'Services',
+            tooltip: tr('Services'),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const ServicesScreen()),
@@ -1141,7 +1174,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
             icon: const Icon(Icons.handyman_outlined),
           ),
           IconButton(
-            tooltip: 'Production',
+            tooltip: tr('Production'),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const ProductionScreen()),
@@ -1150,7 +1183,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
             icon: const Icon(Icons.restaurant),
           ),
           IconButton(
-            tooltip: 'Comptabilité',
+            tooltip: tr('Comptabilité'),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const AccountingScreen()),
@@ -1159,7 +1192,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
             icon: const Icon(Icons.account_balance_outlined),
           ),
           IconButton(
-            tooltip: 'Rapports',
+            tooltip: tr('Rapports'),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const ReportsScreen()),
@@ -1169,7 +1202,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
           ),
           NotificationBadge(
             child: IconButton(
-              tooltip: 'Notifications',
+              tooltip: tr('Notifications'),
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
@@ -1179,7 +1212,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
             ),
           ),
           IconButton(
-            tooltip: 'Fidélité et crédit',
+            tooltip: tr('Fidélité et crédit'),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const CustomerAccountScreen()),
@@ -1188,7 +1221,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
             icon: const Icon(Icons.card_membership_outlined),
           ),
           IconButton(
-            tooltip: 'Dépenses',
+            tooltip: tr('Dépenses'),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const ExpensesScreen()),
@@ -1197,7 +1230,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
             icon: const Icon(Icons.receipt_long_outlined),
           ),
           IconButton(
-            tooltip: 'Actualiser catalogue',
+            tooltip: tr('Actualiser catalogue'),
             onPressed: _loading ? null : () => _loadCatalog(forceNetwork: true),
             icon: const Icon(Icons.refresh),
           ),
@@ -1225,7 +1258,7 @@ class _ShiftRequiredNotice extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Aucun shift ouvert. Ouvrez un shift avant d’ajouter des articles au panier.',
+                tr('Aucun shift ouvert. Ouvrez un shift avant d’ajouter des articles au panier.'),
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -1237,7 +1270,7 @@ class _ShiftRequiredNotice extends StatelessWidget {
             TextButton(
               onPressed: onOpen,
               child: Text(
-                'Ouvrir un shift',
+                tr('Ouvrir un shift'),
                 style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, color: AppColors.warning),
               ),
             ),
@@ -1288,7 +1321,7 @@ class _ServiceModeSwitch extends StatelessWidget {
               Icon(icon, size: 16, color: fg),
               const SizedBox(width: 6),
               Text(
-                label,
+                tr(label),
                 style: PosUi.body(weight: FontWeight.w700, color: fg),
               ),
             ],
@@ -1403,7 +1436,7 @@ class _PosWorkspace extends StatelessWidget {
                 label: Text('$cartCount'),
                 child: const Icon(Icons.shopping_bag_outlined),
               ),
-              label: Text(cartCount == 0 ? 'Panier' : cartTotal),
+              label: Text(tr(cartCount == 0 ? 'Panier' : cartTotal)),
             ),
           ),
         ],
@@ -1465,7 +1498,7 @@ class _OptionDialogState extends State<_OptionDialog> {
         (saleUnits.length <= 1 || (_saleUnitId != null && _saleUnitId!.isNotEmpty));
 
     return AlertDialog(
-      title: Text('Choisir une option · ${widget.product.name}'),
+      title: Text(trf('Choisir une option · {0}', [widget.product.name])),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -1473,10 +1506,10 @@ class _OptionDialogState extends State<_OptionDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (widget.product.hasOptions) ...[
-              const Text('Sélectionnez l’option à vendre, puis la quantité.'),
+              Text(tr('Sélectionnez l’option à vendre, puis la quantité.')),
               const SizedBox(height: 12),
               if (variants.isEmpty)
-                const Text('Aucune option disponible pour cet article.')
+                Text(tr('Aucune option disponible pour cet article.'))
               else
                 Flexible(
                   child: ListView.separated(
@@ -1507,7 +1540,7 @@ class _OptionDialogState extends State<_OptionDialog> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        variant.displayLabel,
+                                        tr(variant.displayLabel),
                                         style: GoogleFonts.ibmPlexSans(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
@@ -1516,17 +1549,17 @@ class _OptionDialogState extends State<_OptionDialog> {
                                       ),
                                       if (variant.sku.isNotEmpty)
                                         Text(
-                                          variant.sku,
+                                          tr(variant.sku),
                                           style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
                                         ),
                                     ],
                                   ),
                                 ),
                                 Text(
-                                  MoneyFormatter.format(
+                                  tr(MoneyFormatter.format(
                                     variant.price,
                                     currencyCode: AppConfig.currencyCode,
-                                  ),
+                                  )),
                                   style: GoogleFonts.ibmPlexSans(
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.brandInk,
@@ -1545,7 +1578,7 @@ class _OptionDialogState extends State<_OptionDialog> {
             ],
             if (saleUnits.length > 1) ...[
               Text(
-                'Unité de vente',
+                tr('Unité de vente'),
                 style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 8),
@@ -1571,7 +1604,7 @@ class _OptionDialogState extends State<_OptionDialog> {
                           children: [
                             Expanded(
                               child: Text(
-                                unit.name,
+                                tr(unit.name),
                                 style: GoogleFonts.ibmPlexSans(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
@@ -1580,10 +1613,10 @@ class _OptionDialogState extends State<_OptionDialog> {
                               ),
                             ),
                             Text(
-                              MoneyFormatter.format(
+                              tr(MoneyFormatter.format(
                                 unit.price,
                                 currencyCode: AppConfig.currencyCode,
-                              ),
+                              )),
                               style: GoogleFonts.ibmPlexSans(
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.brandInk,
@@ -1601,7 +1634,7 @@ class _OptionDialogState extends State<_OptionDialog> {
             ],
             Row(
               children: [
-                Text('Quantité', style: GoogleFonts.ibmPlexSans(color: AppColors.textPrimary)),
+                Text(tr('Quantité'), style: GoogleFonts.ibmPlexSans(color: AppColors.textPrimary)),
                 const Spacer(),
                 IconButton(
                   onPressed: _quantity <= 1 ? null : () => setState(() => _quantity -= 1),
@@ -1621,7 +1654,7 @@ class _OptionDialogState extends State<_OptionDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Annuler'))),
         FilledButton(
           onPressed: !canSubmit
               ? null
@@ -1633,7 +1666,7 @@ class _OptionDialogState extends State<_OptionDialog> {
                       quantity: _quantity,
                     ),
                   ),
-          child: const Text('Ajouter'),
+          child: Text(tr('Ajouter')),
         ),
       ],
     );
@@ -1656,7 +1689,7 @@ class _AccompanimentDialogState extends State<_AccompanimentDialog> {
   Widget build(BuildContext context) {
     final items = widget.product.accompaniments;
     return AlertDialog(
-      title: Text('Accompagnements · ${widget.product.name}'),
+      title: Text(trf('Accompagnements · {0}', [widget.product.name])),
       content: SizedBox(
         width: 420,
         child: ListView.builder(
@@ -1676,8 +1709,8 @@ class _AccompanimentDialogState extends State<_AccompanimentDialog> {
                   }
                 });
               },
-              title: Text(item.name),
-              subtitle: item.sku.isEmpty ? null : Text(item.sku),
+              title: Text(tr(item.name)),
+              subtitle: item.sku.isEmpty ? null : Text(tr(item.sku)),
               controlAffinity: ListTileControlAffinity.leading,
               contentPadding: EdgeInsets.zero,
             );
@@ -1685,13 +1718,13 @@ class _AccompanimentDialogState extends State<_AccompanimentDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Passer')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Passer'))),
         FilledButton(
           onPressed: () {
             final selected = items.where((item) => _selected.contains(item.productId)).toList();
             Navigator.pop(context, selected);
           },
-          child: const Text('Ajouter'),
+          child: Text(tr('Ajouter')),
         ),
       ],
     );
@@ -1714,12 +1747,12 @@ class _ErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text(error, textAlign: TextAlign.center),
+            Text(tr(error), textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
+              label: Text(tr('Réessayer')),
             ),
           ],
         ),
@@ -1759,12 +1792,12 @@ class _DeliveryLocationCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Choisir le lieu',
+              tr('Choisir le lieu'),
               style: PosUi.cardTitle(color: PosUi.deskText).copyWith(fontSize: 16),
             ),
             const SizedBox(height: 4),
             Text(
-              'Touchez un lieu pour cette livraison.',
+              tr('Touchez un lieu pour cette livraison.'),
               style: PosUi.body(color: PosUi.deskMuted),
             ),
             const SizedBox(height: 12),
@@ -1831,7 +1864,7 @@ class _LocationPick extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                label,
+                tr(label),
                 style: PosUi.body(
                   weight: FontWeight.w700,
                   color: selected ? PosUi.deskInk : PosUi.deskText,

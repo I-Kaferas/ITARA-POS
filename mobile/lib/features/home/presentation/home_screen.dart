@@ -16,6 +16,7 @@ import '../../reports/presentation/reports_screen.dart';
 import '../../services/presentation/services_screen.dart';
 import '../../pos/presentation/pos_screen.dart';
 import '../data/health_service.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -60,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppConfig.appName),
+        title: Text(tr(AppConfig.appName)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Padding(
@@ -69,22 +70,22 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'POS Terminal',
+              tr('POS Terminal'),
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Version ${AppConfig.appVersion}',
+              trf('Version {0}', [AppConfig.appVersion]),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 32),
             Text(
-              'API Status',
+              tr('API Status'),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             if (_loading)
-              const Row(
+              Row(
                 children: [
                   SizedBox(
                     width: 20,
@@ -92,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                   SizedBox(width: 12),
-                  Text('Checking API connection...'),
+                  Text(tr('Checking API connection...')),
                 ],
               )
             else if (_health != null)
@@ -104,14 +105,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Status: ${_health!['status']}',
+                        trf('Status: {0}', [_health!['status']]),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.success,
                         ),
                       ),
-                      Text('Service: ${_health!['service']}', style: TextStyle(color: AppColors.textPrimary)),
-                      Text('Version: ${_health!['version']}', style: TextStyle(color: AppColors.textPrimary)),
+                      Text(trf('Service: {0}', [_health!['service']]), style: TextStyle(color: AppColors.textPrimary)),
+                      Text(trf('Version: {0}', [_health!['version']]), style: TextStyle(color: AppColors.textPrimary)),
                     ],
                   ),
                 ),
@@ -124,14 +125,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'API unreachable',
+                      Text(
+                        tr('API unreachable'),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: AppColors.danger,
                         ),
                       ),
-                      if (_error != null) Text(_error!, style: TextStyle(color: AppColors.textPrimary)),
+                      if (_error != null) Text(tr(_error!), style: TextStyle(color: AppColors.textPrimary)),
                     ],
                   ),
                 ),
@@ -140,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton.icon(
               onPressed: _loading ? null : _checkHealth,
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: Text(tr('Retry')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -152,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.point_of_sale),
-              label: const Text('Caisse POS'),
+              label: Text(tr('Caisse POS')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -164,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.table_restaurant),
-              label: const Text('Restaurant & hôtel'),
+              label: Text(tr('Restaurant & hôtel')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -176,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.soup_kitchen),
-              label: const Text('Kitchen Display'),
+              label: Text(tr('Kitchen Display')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -188,7 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.handyman_outlined),
-              label: const Text('Services'),
+              label: Text(tr('Services')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -200,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.restaurant),
-              label: const Text('Production'),
+              label: Text(tr('Production')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -212,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.account_balance_outlined),
-              label: const Text('Comptabilité'),
+              label: Text(tr('Comptabilité')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -224,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.bar_chart),
-              label: const Text('Rapports'),
+              label: Text(tr('Rapports')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -236,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const NotificationBadge(child: Icon(Icons.notifications_outlined)),
-              label: const Text('Notifications'),
+              label: Text(tr('Notifications')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -248,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.backup_outlined),
-              label: const Text('Sauvegardes'),
+              label: Text(tr('Sauvegardes')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -260,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.card_membership_outlined),
-              label: const Text('Fidélité et crédit'),
+              label: Text(tr('Fidélité et crédit')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -272,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.receipt_long_outlined),
-              label: const Text('Dépenses'),
+              label: Text(tr('Dépenses')),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -284,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Codes-barres'),
+              label: Text(tr('Codes-barres')),
             ),
           ],
         ),

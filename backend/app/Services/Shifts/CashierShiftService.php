@@ -33,6 +33,7 @@ class CashierShiftService
         ?Carbon $openedAt = null,
         ?string $clientUuid = null,
         ?string $deviceId = null,
+        bool $offlineReplay = false,
     ): CashierShift {
         if ($clientUuid !== null && $clientUuid !== '') {
             $replay = CashierShift::query()
@@ -56,7 +57,9 @@ class CashierShiftService
             ]);
         }
 
-        if (CashierShift::query()
+        // A shift already opened on a device is a fact to record, even if the
+        // same cashier holds another one on a different store's register.
+        if (! $offlineReplay && CashierShift::query()
             ->where('cashier_id', $cashier->id)
             ->where('status', CashierShiftStatus::Open)
             ->exists()) {
@@ -138,6 +141,43 @@ class CashierShiftService
                 'actual_cash' => $actualCash,
                 'variance' => $variance,
                 'variance_reason' => $variance !== 0 ? trim((string) $varianceReason) : null,
+                'closing_notes' => $notes,
+                'closed_at' => $closedAt,
+            ]);
+
+            return $shift->fresh(['cashier', 'branch', 'cashRegister', 'device', 'registerSession']);
+        });
+    }
+
+    /**
+     * Close a shift that was already closed on the device: the counted cash is
+     * final, so a variance is recorded with the device notes instead of blocking.
+     */
+    public function closeFromDevice(
+        CashierShift $shift,
+        int $actualCash,
+        ?string $notes = null,
+        ?Carbon $closedAt = null,
+    ): CashierShift {
+        $closedAt = $this->exactMoment($closedAt, 'closed_at');
+        if ($closedAt->lt($shift->opened_at)) {
+            $closedAt = $shift->opened_at->copy();
+        }
+
+        return DB::transaction(function () use ($shift, $actualCash, $notes, $closedAt) {
+            $this->refreshTotals($shift);
+            $shift->refresh();
+
+            $variance = $actualCash - $shift->expected_cash;
+            $reason = trim((string) $notes);
+
+            $shift->update([
+                'status' => CashierShiftStatus::Closed,
+                'actual_cash' => $actualCash,
+                'variance' => $variance,
+                'variance_reason' => $variance !== 0
+                    ? ($reason !== '' ? $reason : 'Clôture synchronisée depuis la caisse mobile.')
+                    : null,
                 'closing_notes' => $notes,
                 'closed_at' => $closedAt,
             ]);

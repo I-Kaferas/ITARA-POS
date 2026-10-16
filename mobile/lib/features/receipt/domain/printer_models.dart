@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../printers/domain/printer_connection_type.dart';
 import 'receipt_models.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 export '../../printers/domain/printer_connection_type.dart';
 
@@ -24,108 +25,108 @@ class PrinterModelPreset {
   final String hint;
   final PrinterConnectionType connection;
 
-  static const all = <PrinterModelPreset>[
+  static final all = <PrinterModelPreset>[
     PrinterModelPreset(
       id: 'generic_58',
-      label: 'Ticket 58 mm',
+      label: tr('Ticket 58 mm'),
       brand: 'Générique',
       format: ReceiptDocumentFormat.thermal58,
-      hint: 'Petite caisse, souvent Bluetooth',
+      hint: tr('Petite caisse, souvent Bluetooth'),
       connection: PrinterConnectionType.bluetooth,
     ),
     PrinterModelPreset(
       id: 'generic_80',
-      label: 'Ticket 80 mm',
+      label: tr('Ticket 80 mm'),
       brand: 'Générique',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'Ticket standard réseau',
+      hint: tr('Ticket standard réseau'),
     ),
     PrinterModelPreset(
       id: 'epson_tm_t20',
-      label: 'Epson TM-T20',
+      label: tr('Epson TM-T20'),
       brand: 'Epson',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'USB, réseau ou Bluetooth',
+      hint: tr('USB, réseau ou Bluetooth'),
     ),
     PrinterModelPreset(
       id: 'epson_tm_t82',
-      label: 'Epson TM-T82',
+      label: tr('Epson TM-T82'),
       brand: 'Epson',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'Ticket 80 mm',
+      hint: tr('Ticket 80 mm'),
     ),
     PrinterModelPreset(
       id: 'epson_tm_t88',
-      label: 'Epson TM-T88',
+      label: tr('Epson TM-T88'),
       brand: 'Epson',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'Ticket cuisine ou caisse',
+      hint: tr('Ticket cuisine ou caisse'),
     ),
     PrinterModelPreset(
       id: 'star_tsp100',
-      label: 'Star TSP100',
+      label: tr('Star TSP100'),
       brand: 'Star',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'Souvent en USB système',
+      hint: tr('Souvent en USB système'),
       connection: PrinterConnectionType.usb,
     ),
     PrinterModelPreset(
       id: 'star_tsp143',
-      label: 'Star TSP143',
+      label: tr('Star TSP143'),
       brand: 'Star',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'Réseau ou USB',
+      hint: tr('Réseau ou USB'),
     ),
     PrinterModelPreset(
       id: 'star_tsp650',
-      label: 'Star TSP650',
+      label: tr('Star TSP650'),
       brand: 'Star',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'Ticket 80 mm',
+      hint: tr('Ticket 80 mm'),
     ),
     PrinterModelPreset(
       id: 'xprinter_58',
-      label: 'Xprinter 58',
+      label: tr('Xprinter 58'),
       brand: 'Xprinter',
       format: ReceiptDocumentFormat.thermal58,
-      hint: 'Bluetooth ou USB',
+      hint: tr('Bluetooth ou USB'),
       connection: PrinterConnectionType.bluetooth,
     ),
     PrinterModelPreset(
       id: 'xprinter_80',
-      label: 'Xprinter 80',
+      label: tr('Xprinter 80'),
       brand: 'Xprinter',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'Réseau ou USB',
+      hint: tr('Réseau ou USB'),
     ),
     PrinterModelPreset(
       id: 'bixolon_srp350',
-      label: 'Bixolon SRP-350',
+      label: tr('Bixolon SRP-350'),
       brand: 'Bixolon',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'Ticket 80 mm',
+      hint: tr('Ticket 80 mm'),
     ),
     PrinterModelPreset(
       id: 'rongta_80',
-      label: 'Rongta 80',
+      label: tr('Rongta 80'),
       brand: 'Rongta',
       format: ReceiptDocumentFormat.thermal80,
-      hint: 'Ticket réseau',
+      hint: tr('Ticket réseau'),
     ),
     PrinterModelPreset(
       id: 'sunmi',
-      label: 'Sunmi intégré',
+      label: tr('Sunmi intégré'),
       brand: 'Sunmi',
       format: ReceiptDocumentFormat.thermal58,
-      hint: 'Imprimante du terminal Android',
+      hint: tr('Imprimante du terminal Android'),
       connection: PrinterConnectionType.system,
     ),
     PrinterModelPreset(
       id: 'a4',
-      label: 'Imprimante A4',
+      label: tr('Imprimante A4'),
       brand: 'Bureau',
       format: ReceiptDocumentFormat.a4,
-      hint: 'Facture laser ou jet d’encre',
+      hint: tr('Facture laser ou jet d’encre'),
       connection: PrinterConnectionType.system,
     ),
   ];

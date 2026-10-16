@@ -107,6 +107,7 @@ class LocalRealtimeHub extends ChangeNotifier {
 
   Stream<RealtimeEvent> get events => _controller.stream;
   int get clientCount => _sockets.length;
+  bool get isRunning => _ping != null;
 
   void start() {
     _ping?.cancel();

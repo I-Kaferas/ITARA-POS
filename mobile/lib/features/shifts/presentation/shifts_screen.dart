@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -16,6 +16,7 @@ import '../domain/shift_models.dart';
 import '../services/shift_z_report_printer.dart';
 import 'shift_detail_sheet.dart';
 import 'shift_handover_dialog.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class ShiftsScreen extends StatefulWidget {
   const ShiftsScreen({super.key});
@@ -83,7 +84,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(content: Text(tr(message))),
     );
   }
 
@@ -135,14 +136,14 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Ouvrir le shift', style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text(tr('Ouvrir le shift'), style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text('${register.name} · ${register.code}', style: PosUi.caption()),
                 const SizedBox(height: 14),
                 TextField(
                   controller: balanceCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Fonds initial (${AppConfig.currencyCode})',
+                    labelText: trf('Fonds initial ({0})', [AppConfig.currencyCode]),
                   ),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
@@ -150,19 +151,19 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: notesCtrl,
-                  decoration: const InputDecoration(labelText: 'Notes (optionnel)'),
+                  decoration: InputDecoration(labelText: tr('Notes (optionnel)')),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 18),
                 Row(
                   children: [
-                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler'))),
+                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler')))),
                     const SizedBox(width: 10),
                     Expanded(
                       flex: 2,
                       child: SizedBox(
                         height: PosUi.ctaHeight - 4,
-                        child: FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ouvrir')),
+                        child: FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Ouvrir'))),
                       ),
                     ),
                   ],
@@ -227,9 +228,9 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Fermer le shift', style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text(tr('Fermer le shift'), style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                Text(register.name, style: PosUi.caption()),
+                Text(tr(register.name), style: PosUi.caption()),
                 const SizedBox(height: 14),
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -240,9 +241,9 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                   ),
                   child: Column(
                     children: [
-                      Text('ESPÈCES ATTENDUES', style: PosUi.totalCaption()),
+                      Text(tr('ESPÈCES ATTENDUES'), style: PosUi.totalCaption()),
                       const SizedBox(height: 6),
-                      Text(MoneyFormatter.format(expected), style: PosUi.totalAmount(size: 26)),
+                      Text(tr(MoneyFormatter.format(expected)), style: PosUi.totalAmount(size: 26)),
                     ],
                   ),
                 ),
@@ -250,7 +251,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                 TextField(
                   controller: actualCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Espèces comptées (${AppConfig.currencyCode})',
+                    labelText: trf('Espèces comptées ({0})', [AppConfig.currencyCode]),
                   ),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
@@ -258,7 +259,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: pinCtrl,
-                  decoration: const InputDecoration(labelText: 'PIN caissier'),
+                  decoration: InputDecoration(labelText: tr('PIN caissier')),
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -266,18 +267,18 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: notesCtrl,
-                  decoration: const InputDecoration(labelText: 'Notes de clôture'),
+                  decoration: InputDecoration(labelText: tr('Notes de clôture')),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: varianceCtrl,
-                  decoration: const InputDecoration(labelText: 'Motif d’écart (si besoin)'),
+                  decoration: InputDecoration(labelText: tr('Motif d’écart (si besoin)')),
                 ),
                 const SizedBox(height: 18),
                 Row(
                   children: [
-                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler'))),
+                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler')))),
                     const SizedBox(width: 10),
                     Expanded(
                       flex: 2,
@@ -286,7 +287,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                         child: FilledButton(
                           onPressed: () => Navigator.pop(context, true),
                           style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-                          child: const Text('Fermer shift'),
+                          child: Text(tr('Fermer shift')),
                         ),
                       ),
                     ),
@@ -334,11 +335,11 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
         final printIt = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Rapport de shift'),
-            content: const Text('Voulez-vous imprimer le rapport de clôture ?'),
+            title: Text(tr('Rapport de shift')),
+            content: Text(tr('Voulez-vous imprimer le rapport de clôture ?')),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Non')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Imprimer')),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Non'))),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Imprimer'))),
             ],
           ),
         );
@@ -457,16 +458,16 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Mouvement de caisse', style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
+                  Text(tr('Mouvement de caisse'), style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     key: ValueKey(selectedType),
                     initialValue: selectedType,
-                    decoration: const InputDecoration(labelText: 'Type'),
+                    decoration: InputDecoration(labelText: tr('Type')),
                     items: types
                         .map((t) => DropdownMenuItem(
                               value: t.value,
-                              child: Text(t.labelFr.isNotEmpty ? t.labelFr : t.label),
+                              child: Text(tr(t.labelFr.isNotEmpty ? t.labelFr : t.label)),
                             ))
                         .toList(),
                     onChanged: (v) {
@@ -477,7 +478,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                   TextField(
                     controller: amountCtrl,
                     decoration: InputDecoration(
-                      labelText: 'Montant (${AppConfig.currencyCode})',
+                      labelText: trf('Montant ({0})', [AppConfig.currencyCode]),
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
@@ -485,18 +486,18 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: descCtrl,
-                    decoration: const InputDecoration(labelText: 'Description'),
+                    decoration: InputDecoration(labelText: tr('Description')),
                   ),
                   const SizedBox(height: 18),
                   Row(
                     children: [
-                      Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler'))),
+                      Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler')))),
                       const SizedBox(width: 10),
                       Expanded(
                         flex: 2,
                         child: SizedBox(
                           height: PosUi.ctaHeight - 4,
-                          child: FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Enregistrer')),
+                          child: FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Enregistrer'))),
                         ),
                       ),
                     ],
@@ -587,8 +588,8 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SlaveModeBanner(
-            message: 'Les shifts sont gérés par le terminal Master.',
+          SlaveModeBanner(
+            message: tr('Les shifts sont gérés par le terminal Master.'),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -614,7 +615,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                     child: SizedBox.shrink(),
                   )
                 : _loading
-                    ? const LoadingView(message: 'Loading shifts...')
+                    ? LoadingView(message: tr('Loading shifts...'))
                     : _error != null
                         ? ErrorView(message: _error!, onRetry: _load)
                         : RefreshIndicator(
@@ -631,26 +632,55 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                                       ],
                                     ),
                                   )
-                                : ListView(
-                                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                                    children: [
-                                      for (final shift in [
+                                : LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final items = [
                                         if (showActive)
                                           for (final register in visibleActive)
                                             (register: register, session: register.openSession!),
                                         ...visibleClosed,
-                                      ]) ...[
-                                        _WorkShiftCard(
-                                          register: shift.register,
-                                          session: shift.session,
-                                          summary: _summaries[shift.session.id],
-                                          onDetail: () => _showSessionDetail(shift.register, shift.session),
-                                          onClose: shift.session.isOpen ? () => _closeSession(shift.register) : null,
-                                          onMovement: shift.session.isOpen ? () => _recordMovement(shift.register) : null,
-                                        ),
-                                        const SizedBox(height: 12),
-                                      ],
-                                    ],
+                                      ];
+                                      const gap = 12.0;
+                                      final width = constraints.maxWidth - 40;
+                                      final columns = width >= 1100 ? 3 : (width >= 300 ? 2 : 1);
+                                      final tileWidth = (width - gap * (columns - 1)) / columns;
+                                      final compact = tileWidth < 360;
+                                      return ListView(
+                                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                                        children: [
+                                          for (var start = 0; start < items.length; start += columns) ...[
+                                            if (start > 0) const SizedBox(height: gap),
+                                            IntrinsicHeight(
+                                              child: Row(
+                                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                children: [
+                                                  for (var i = start; i < start + columns; i++) ...[
+                                                    if (i > start) const SizedBox(width: gap),
+                                                    Expanded(
+                                                      child: i < items.length
+                                                          ? _WorkShiftCard(
+                                                              register: items[i].register,
+                                                              session: items[i].session,
+                                                              summary: _summaries[items[i].session.id],
+                                                              compact: compact,
+                                                              onDetail: () => _showSessionDetail(items[i].register, items[i].session),
+                                                              onClose: items[i].session.isOpen
+                                                                  ? () => _closeSession(items[i].register)
+                                                                  : null,
+                                                              onMovement: items[i].session.isOpen
+                                                                  ? () => _recordMovement(items[i].register)
+                                                                  : null,
+                                                            )
+                                                          : const SizedBox.shrink(),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      );
+                                    },
                                   ),
                           ),
           ),
@@ -696,21 +726,21 @@ class _ShiftsChrome extends StatelessWidget {
         iconColor: PosUi.deskStock,
         iconBg: PosUi.deskSuccessBg,
         value: '$activeCount',
-        label: 'Active Shifts',
+        label: tr('Active Shifts'),
       ),
       _ShiftStat(
         icon: Icons.stop_rounded,
         iconColor: PosUi.deskMuted,
         iconBg: PosUi.deskRaised,
         value: '$closedCount',
-        label: 'Closed Shifts',
+        label: tr('Closed Shifts'),
       ),
       _ShiftStat(
         icon: Icons.grid_view_rounded,
         iconColor: PosUi.deskAccent,
         iconBg: PosUi.deskRaised,
         value: '$totalCount',
-        label: 'total shifts',
+        label: tr('total shifts'),
       ),
     ];
 
@@ -734,7 +764,7 @@ class _ShiftsChrome extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Work Shifts',
+                    tr('Work Shifts'),
                     style: GoogleFonts.ibmPlexSans(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -743,7 +773,7 @@ class _ShiftsChrome extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Manage work shifts, track cash flow and reconcile',
+                    tr('Manage work shifts, track cash flow and reconcile'),
                     style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted),
                   ),
                 ],
@@ -759,7 +789,7 @@ class _ShiftsChrome extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: const Icon(Icons.stop_rounded, size: 16),
-                label: Text('Close Shift', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+                label: Text(tr('Close Shift'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
               ),
               const SizedBox(width: 8),
             ],
@@ -773,7 +803,7 @@ class _ShiftsChrome extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: Text('Open Shift', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+                label: Text(tr('Open Shift'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
               ),
               const SizedBox(width: 8),
             ],
@@ -793,7 +823,7 @@ class _ShiftsChrome extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh_rounded, size: 16),
-              label: Text('Refresh', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13)),
+              label: Text(tr('Refresh'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13)),
             ),
           ],
         ),
@@ -811,7 +841,7 @@ class _ShiftsChrome extends StatelessWidget {
               ),
               icon: Icon(onClose != null ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 18),
               label: Text(
-                onClose != null ? 'Close Shift' : 'Open Shift',
+                tr(onClose != null ? 'Close Shift' : 'Open Shift'),
                 style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14),
               ),
             ),
@@ -828,13 +858,16 @@ class _ShiftsChrome extends StatelessWidget {
             ],
           )
         else
-          Column(
-            children: [
-              for (final stat in stats) ...[
-                stat,
-                const SizedBox(height: 10),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < stats.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(child: stats[i].asCompact()),
+                ],
               ],
-            ],
+            ),
           ),
         const SizedBox(height: 14),
         if (wide)
@@ -862,6 +895,7 @@ class _ShiftStat extends StatelessWidget {
     required this.iconBg,
     required this.value,
     required this.label,
+    this.compact = false,
   });
 
   final IconData icon;
@@ -869,9 +903,51 @@ class _ShiftStat extends StatelessWidget {
   final Color iconBg;
   final String value;
   final String label;
+  final bool compact;
+
+  _ShiftStat asCompact() => _ShiftStat(
+        icon: icon,
+        iconColor: iconColor,
+        iconBg: iconBg,
+        value: value,
+        label: label,
+        compact: true,
+      );
 
   @override
   Widget build(BuildContext context) {
+    if (compact) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: PosUi.deskCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: PosUi.deskLine),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(9)),
+              child: Icon(icon, size: 15, color: iconColor),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              tr(value),
+              style: GoogleFonts.ibmPlexSans(fontSize: 19, fontWeight: FontWeight.w800, color: PosUi.deskText),
+            ),
+            Text(
+              tr(label),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
@@ -893,14 +969,14 @@ class _ShiftStat extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  value,
+                  tr(value),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: PosUi.deskText,
                   ),
                 ),
-                Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
               ],
             ),
           ),
@@ -939,7 +1015,7 @@ class _ShiftFilters extends StatelessWidget {
                     border: Border.all(color: lane == i ? PosUi.deskAccent : PosUi.deskLine),
                   ),
                   child: Text(
-                    _labels[i],
+                    tr(_labels[i]),
                     style: GoogleFonts.ibmPlexSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -968,7 +1044,7 @@ class _ShiftSearch extends StatelessWidget {
       onChanged: onSearch,
       style: GoogleFonts.ibmPlexSans(fontSize: 14, color: PosUi.deskText),
       decoration: InputDecoration(
-        hintText: 'Search shifts...',
+        hintText: tr('Search shifts...'),
         hintStyle: GoogleFonts.ibmPlexSans(color: PosUi.deskMuted, fontSize: 14),
         prefixIcon: Icon(Icons.search, color: PosUi.deskMuted, size: 20),
         filled: true,
@@ -996,14 +1072,14 @@ class _ShiftsEmpty extends StatelessWidget {
         Icon(Icons.schedule_outlined, size: 42, color: PosUi.deskMuted),
         const SizedBox(height: 16),
         Text(
-          'No shifts yet',
+          tr('No shifts yet'),
           style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText),
         ),
         const SizedBox(height: 6),
         TextButton(
           onPressed: onStart,
           child: Text(
-            'Count your opening cash and start your shift',
+            tr('Count your opening cash and start your shift'),
             style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted),
           ),
         ),
@@ -1020,6 +1096,7 @@ class _WorkShiftCard extends StatelessWidget {
     this.summary,
     this.onClose,
     this.onMovement,
+    this.compact = false,
   });
 
   final CashRegister register;
@@ -1028,6 +1105,7 @@ class _WorkShiftCard extends StatelessWidget {
   final VoidCallback onDetail;
   final VoidCallback? onClose;
   final VoidCallback? onMovement;
+  final bool compact;
 
   String get _code {
     final day = DateFormat('yyyyMMdd').format(session.openedAt.toLocal());
@@ -1053,151 +1131,212 @@ class _WorkShiftCard extends StatelessWidget {
     final cashier = (session.openedByName ?? '').trim().isEmpty ? 'Cashier' : session.openedByName!.trim();
     final time = DateFormat('HH:mm').format(session.openedAt.toLocal());
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+    final indent = compact ? 0.0 : 20.0;
+    final metrics = [
+      _Metric(value: MoneyFormatter.format(session.openingBalance), label: tr('Opening'), compact: compact),
+      _Metric(value: MoneyFormatter.format(sales), label: tr('Sales'), valueColor: PosUi.deskStock, compact: compact),
+      _Metric(value: '$orders', label: tr('Orders'), compact: compact),
+      _Metric(value: _duration, label: tr('Duration'), valueColor: PosUi.deskAccent, compact: compact),
+    ];
+
+    final dot = Container(
+      width: 10,
+      height: 10,
       decoration: BoxDecoration(
-        color: PosUi.deskCard,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: open ? PosUi.deskPay : PosUi.deskLine, width: open ? 1.4 : 1),
+        color: open ? PosUi.deskStock : PosUi.deskMuted,
+        shape: BoxShape.circle,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+    );
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: open ? PosUi.deskSuccessBg : PosUi.deskRaised,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        tr(open ? 'Active' : 'Closed'),
+        style: GoogleFonts.ibmPlexSans(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: open ? PosUi.deskStock : PosUi.deskMuted,
+        ),
+      ),
+    );
+    final code = Text(
+      tr(_code),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.ibmPlexSans(
+        fontSize: compact ? 13.5 : 16,
+        fontWeight: FontWeight.w800,
+        color: PosUi.deskText,
+      ),
+    );
+    final menu = PopupMenuButton<String>(
+      icon: Icon(Icons.more_horiz, color: PosUi.deskMuted),
+      color: PosUi.deskPanel,
+      padding: compact ? EdgeInsets.zero : const EdgeInsets.all(8),
+      constraints: const BoxConstraints(minWidth: 160),
+      onSelected: (value) {
+        switch (value) {
+          case 'detail':
+            onDetail();
+          case 'movement':
+            onMovement?.call();
+          case 'close':
+            onClose?.call();
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(value: 'detail', child: Text(tr('Details'))),
+        if (onMovement != null) PopupMenuItem(value: 'movement', child: Text(tr('Cash movement'))),
+        if (onClose != null) PopupMenuItem(value: 'close', child: Text(tr('Close shift'))),
+      ],
+    );
+
+    return Material(
+      color: PosUi.deskCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: open ? PosUi.deskPay : PosUi.deskLine, width: open ? 1.4 : 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onDetail,
+        child: Padding(
+          padding: compact ? const EdgeInsets.fromLTRB(12, 6, 2, 12) : const EdgeInsets.fromLTRB(16, 14, 8, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: open ? PosUi.deskStock : PosUi.deskMuted,
-                  shape: BoxShape.circle,
+              if (compact) ...[
+                Row(
+                  children: [
+                    dot,
+                    const SizedBox(width: 8),
+                    badge,
+                    const Spacer(),
+                    SizedBox(width: 36, height: 36, child: menu),
+                  ],
+                ),
+                Padding(padding: const EdgeInsets.only(right: 10), child: code),
+              ] else
+                Row(
+                  children: [
+                    dot,
+                    const SizedBox(width: 10),
+                    Flexible(child: code),
+                    const SizedBox(width: 8),
+                    badge,
+                    const Spacer(),
+                    menu,
+                  ],
+                ),
+              const SizedBox(height: 6),
+              Padding(
+                padding: EdgeInsets.only(left: indent, right: compact ? 10 : 0),
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 14, color: PosUi.deskMuted),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        tr(cashier),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted),
+                      ),
+                    ),
+                    SizedBox(width: compact ? 8 : 12),
+                    Icon(Icons.schedule, size: 14, color: PosUi.deskMuted),
+                    const SizedBox(width: 4),
+                    Text(tr(time), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: InkWell(
-                  onTap: onDetail,
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          _code,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: open ? PosUi.deskSuccessBg : PosUi.deskRaised,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          open ? 'Active' : 'Closed',
-                          style: GoogleFonts.ibmPlexSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: open ? PosUi.deskStock : PosUi.deskMuted,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              SizedBox(height: compact ? 10 : 14),
+              Padding(
+                padding: EdgeInsets.only(left: indent, right: compact ? 10 : 12),
+                child: compact
+                    ? Column(
+                        children: [
+                          for (var i = 0; i < metrics.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 4),
+                            metrics[i],
+                          ],
+                        ],
+                      )
+                    : Row(children: [for (final metric in metrics) Expanded(child: metric)]),
               ),
-              PopupMenuButton<String>(
-                icon: Icon(Icons.more_horiz, color: PosUi.deskMuted),
-                color: PosUi.deskPanel,
-                onSelected: (value) {
-                  switch (value) {
-                    case 'detail':
-                      onDetail();
-                    case 'movement':
-                      onMovement?.call();
-                    case 'close':
-                      onClose?.call();
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'detail', child: Text('Details')),
-                  if (onMovement != null) const PopupMenuItem(value: 'movement', child: Text('Cash movement')),
-                  if (onClose != null) const PopupMenuItem(value: 'close', child: Text('Close shift')),
-                ],
+              const Spacer(),
+              SizedBox(height: compact ? 10 : 12),
+              Padding(
+                padding: EdgeInsets.only(left: indent, right: compact ? 10 : 0),
+                child: Row(
+                  children: [
+                    Icon(Icons.storefront_outlined, size: 14, color: PosUi.deskAccent),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        tr(register.name.toUpperCase()),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(left: 20),
-            child: Row(
-              children: [
-                Icon(Icons.person_outline, size: 14, color: PosUi.deskMuted),
-                const SizedBox(width: 4),
-                Text(cashier, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
-                const SizedBox(width: 12),
-                Icon(Icons.schedule, size: 14, color: PosUi.deskMuted),
-                const SizedBox(width: 4),
-                Text(time, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.only(left: 20, right: 12),
-            child: Row(
-              children: [
-                _Metric(value: MoneyFormatter.format(session.openingBalance), label: 'Opening'),
-                _Metric(value: MoneyFormatter.format(sales), label: 'Sales', valueColor: PosUi.deskStock),
-                _Metric(value: '$orders', label: 'Orders'),
-                _Metric(value: _duration, label: 'Duration', valueColor: PosUi.deskAccent),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.only(left: 20),
-            child: Row(
-              children: [
-                Icon(Icons.storefront_outlined, size: 14, color: PosUi.deskAccent),
-                const SizedBox(width: 6),
-                Text(
-                  register.name.toUpperCase(),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.value, required this.label, this.valueColor});
+  const _Metric({required this.value, required this.label, this.valueColor, this.compact = false});
 
   final String value;
   final String label;
   final Color? valueColor;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w800, color: valueColor ?? PosUi.deskText),
-          ),
-          const SizedBox(height: 2),
-          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted)),
-        ],
+    final valueText = Text(
+      tr(value),
+      maxLines: 1,
+      style: GoogleFonts.ibmPlexSans(
+        fontSize: compact ? 13 : 15,
+        fontWeight: FontWeight.w800,
+        color: valueColor ?? PosUi.deskText,
       ),
+    );
+    final labelText = Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted));
+
+    if (compact) {
+      return Row(
+        children: [
+          labelText,
+          const SizedBox(width: 6),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: valueText,
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: valueText),
+        const SizedBox(height: 2),
+        labelText,
+      ],
     );
   }
 }

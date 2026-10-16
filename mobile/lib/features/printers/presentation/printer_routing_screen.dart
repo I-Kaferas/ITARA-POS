@@ -9,6 +9,7 @@ import '../domain/print_group.dart';
 import '../domain/print_route.dart';
 import '../domain/printer.dart';
 import 'bloc/printer_routing_bloc.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// UI to define Category / Product / Document → Printer (mobile.md §40).
 class PrinterRoutingScreen extends StatelessWidget {
@@ -30,16 +31,16 @@ class _PrinterRoutingView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Routage imprimantes'),
+        title: Text(tr('Routage imprimantes')),
         actions: [
           IconButton(
-            tooltip: 'Rafraîchir',
+            tooltip: tr('Rafraîchir'),
             onPressed: () =>
                 context.read<PrinterRoutingBloc>().add(const PrinterRoutingRefreshed()),
             icon: const Icon(Icons.refresh),
           ),
           IconButton(
-            tooltip: 'Réinstaller les exemples',
+            tooltip: tr('Réinstaller les exemples'),
             onPressed: () => context
                 .read<PrinterRoutingBloc>()
                 .add(const PrinterRoutingSeedRequested(force: true)),
@@ -50,7 +51,7 @@ class _PrinterRoutingView extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(context),
         icon: const Icon(Icons.add),
-        label: const Text('Règle'),
+        label: Text(tr('Règle')),
       ),
       body: BlocBuilder<PrinterRoutingBloc, PrinterRoutingState>(
         builder: (context, state) {
@@ -64,14 +65,14 @@ class _PrinterRoutingView extends StatelessWidget {
               if (state.errorMessage != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  state.errorMessage!,
+                  tr(state.errorMessage!),
                   style: GoogleFonts.ibmPlexSans(color: AppColors.danger, fontSize: 13),
                 ),
               ],
               const SizedBox(height: 16),
               _Section(
-                title: 'Catégorie → Imprimante',
-                subtitle: 'Ex. Drink → Bar Printer',
+                title: tr('Catégorie → Imprimante'),
+                subtitle: tr('Ex. Drink → Bar Printer'),
                 routes: state.categoryRoutes,
                 destinationOf: state.describeDestination,
                 onEdit: (route) => _openEditor(context, existing: route),
@@ -81,8 +82,8 @@ class _PrinterRoutingView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _Section(
-                title: 'Produit → Imprimante',
-                subtitle: 'Ex. Pizza Margherita → Kitchen Printer',
+                title: tr('Produit → Imprimante'),
+                subtitle: tr('Ex. Pizza Margherita → Kitchen Printer'),
                 routes: state.productRoutes,
                 destinationOf: state.describeDestination,
                 onEdit: (route) => _openEditor(context, existing: route),
@@ -92,8 +93,8 @@ class _PrinterRoutingView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _Section(
-                title: 'Document → Imprimante',
-                subtitle: 'Ex. Receipt → Cashier Printer',
+                title: tr('Document → Imprimante'),
+                subtitle: tr('Ex. Receipt → Cashier Printer'),
                 routes: state.documentRoutes,
                 destinationOf: state.describeDestination,
                 onEdit: (route) => _openEditor(context, existing: route),
@@ -136,17 +137,17 @@ class _ExampleBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Routage POS',
+            tr('Routage POS'),
             style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14),
           ),
           const SizedBox(height: 6),
           Text(
-            'Drink → Bar · Pizza → Cuisine · Receipt → Caisse',
+            tr('Drink → Bar · Pizza → Cuisine · Receipt → Caisse'),
             style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           Text(
-            'Priorité : Produit > Catégorie > Document',
+            tr('Priorité : Produit > Catégorie > Document'),
             style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
           ),
         ],
@@ -177,13 +178,13 @@ class _Section extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 15)),
+        Text(tr(title), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 15)),
         const SizedBox(height: 2),
-        Text(subtitle, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
+        Text(tr(subtitle), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
         const SizedBox(height: 8),
         if (routes.isEmpty)
           Text(
-            'Aucune règle',
+            tr('Aucune règle'),
             style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textMuted),
           )
         else
@@ -199,21 +200,20 @@ class _Section extends StatelessWidget {
                   },
                   color: AppColors.brandInk,
                 ),
-                title: Text(route.displayLabel, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
+                title: Text(tr(route.displayLabel), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
                 subtitle: Text(
-                  '${route.matchKey} · ${destinationOf(route)} · prio ${route.priority}'
-                  '${route.enabled ? '' : ' · désactivé'}',
+                  trf('{0} · {1} · prio {2}''{3}', [route.matchKey, destinationOf(route), route.priority, route.enabled ? '' : ' · désactivé']),
                 ),
                 trailing: Wrap(
                   spacing: 0,
                   children: [
                     IconButton(
-                      tooltip: 'Modifier',
+                      tooltip: tr('Modifier'),
                       onPressed: () => onEdit(route),
                       icon: const Icon(Icons.edit_outlined, size: 20),
                     ),
                     IconButton(
-                      tooltip: 'Supprimer',
+                      tooltip: tr('Supprimer'),
                       onPressed: () => onDelete(route.id),
                       icon: const Icon(Icons.delete_outline, size: 20),
                     ),
@@ -272,7 +272,7 @@ class _RouteEditorDialogState extends State<_RouteEditorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.initial == null ? 'Nouvelle règle' : 'Modifier la règle'),
+      title: Text(tr(widget.initial == null ? 'Nouvelle règle' : 'Modifier la règle')),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -281,9 +281,9 @@ class _RouteEditorDialogState extends State<_RouteEditorDialog> {
             children: [
               DropdownButtonFormField<PrintRouteKind>(
                 value: _kind,
-                decoration: const InputDecoration(labelText: 'Type'),
+                decoration: InputDecoration(labelText: tr('Type')),
                 items: PrintRouteKind.values
-                    .map((k) => DropdownMenuItem(value: k, child: Text(k.label)))
+                    .map((k) => DropdownMenuItem(value: k, child: Text(tr(k.label))))
                     .toList(),
                 onChanged: (value) {
                   if (value == null) return;
@@ -309,9 +309,9 @@ class _RouteEditorDialogState extends State<_RouteEditorDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<PrintGroup>(
                 value: _group,
-                decoration: const InputDecoration(labelText: 'Groupe imprimante'),
+                decoration: InputDecoration(labelText: tr('Groupe imprimante')),
                 items: PrintGroup.values
-                    .map((g) => DropdownMenuItem(value: g, child: Text(g.label)))
+                    .map((g) => DropdownMenuItem(value: g, child: Text(tr(g.label))))
                     .toList(),
                 onChanged: (value) {
                   if (value != null) setState(() => _group = value);
@@ -320,11 +320,11 @@ class _RouteEditorDialogState extends State<_RouteEditorDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _printerId.isEmpty ? '' : _printerId,
-                decoration: const InputDecoration(
-                  labelText: 'Imprimante précise (optionnel)',
+                decoration: InputDecoration(
+                  labelText: tr('Imprimante précise (optionnel)'),
                 ),
                 items: [
-                  const DropdownMenuItem(value: '', child: Text('— Groupe uniquement —')),
+                  DropdownMenuItem(value: '', child: Text(tr('— Groupe uniquement —'))),
                   ...widget.printers.map(
                     (p) => DropdownMenuItem(
                       value: p.id,
@@ -337,22 +337,22 @@ class _RouteEditorDialogState extends State<_RouteEditorDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _labelCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Libellé',
-                  hintText: 'Drink → Bar Printer',
+                decoration: InputDecoration(
+                  labelText: tr('Libellé'),
+                  hintText: tr('Drink → Bar Printer'),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _priorityCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Priorité (plus bas = plus prioritaire)',
+                decoration: InputDecoration(
+                  labelText: tr('Priorité (plus bas = plus prioritaire)'),
                 ),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Activée'),
+                title: Text(tr('Activée')),
                 value: _enabled,
                 onChanged: (v) => setState(() => _enabled = v),
               ),
@@ -361,7 +361,7 @@ class _RouteEditorDialogState extends State<_RouteEditorDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Annuler'))),
         FilledButton(
           onPressed: () {
             final match = _matchCtrl.text.trim();
@@ -380,7 +380,7 @@ class _RouteEditorDialogState extends State<_RouteEditorDialog> {
               ),
             );
           },
-          child: const Text('Enregistrer'),
+          child: Text(tr('Enregistrer')),
         ),
       ],
     );

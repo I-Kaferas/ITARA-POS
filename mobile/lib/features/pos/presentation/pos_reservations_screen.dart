@@ -9,6 +9,7 @@ import '../../../core/widgets/loading_error_view.dart';
 import '../data/pos_api_service.dart';
 import '../domain/pos_models.dart';
 import 'widgets/pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosReservationsScreen extends StatefulWidget {
   const PosReservationsScreen({super.key});
@@ -86,7 +87,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(message))));
   }
 
   Future<void> _setStatus(PosReservation item, String status) async {
@@ -134,13 +135,13 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        existing == null ? 'Nouvelle réservation' : 'Modifier la réservation',
+                        tr(existing == null ? 'Nouvelle réservation' : 'Modifier la réservation'),
                         style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 14),
                       TextField(
                         controller: guestCtrl,
-                        decoration: _fieldDecoration(label: 'Nom du client'),
+                        decoration: _fieldDecoration(label: tr('Nom du client')),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 10),
@@ -148,7 +149,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                         controller: partyCtrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        decoration: _fieldDecoration(label: 'Nombre de couverts'),
+                        decoration: _fieldDecoration(label: tr('Nombre de couverts')),
                       ),
                       const SizedBox(height: 10),
                       InkWell(
@@ -177,21 +178,21 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                         },
                         borderRadius: BorderRadius.circular(PosUi.radiusMd),
                         child: InputDecorator(
-                          decoration: _fieldDecoration(label: 'Date et heure'),
-                          child: Text(_dateFormat.format(reservedAt)),
+                          decoration: _fieldDecoration(label: tr('Date et heure')),
+                          child: Text(tr(_dateFormat.format(reservedAt))),
                         ),
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: phoneCtrl,
                         keyboardType: TextInputType.phone,
-                        decoration: _fieldDecoration(label: 'Téléphone'),
+                        decoration: _fieldDecoration(label: tr('Téléphone')),
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: notesCtrl,
                         maxLines: 2,
-                        decoration: _fieldDecoration(label: 'Notes'),
+                        decoration: _fieldDecoration(label: tr('Notes')),
                       ),
                       const SizedBox(height: 16),
                       Row(
@@ -199,7 +200,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                           Expanded(
                             child: OutlinedButton(
                               onPressed: saving ? null : () => Navigator.pop(context),
-                              child: const Text('Annuler'),
+                              child: Text(tr('Annuler')),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -237,7 +238,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                                       }
                                     },
                               style: FilledButton.styleFrom(backgroundColor: AppColors.brand600),
-                              child: Text(existing == null ? 'Créer' : 'Enregistrer'),
+                              child: Text(tr(existing == null ? 'Créer' : 'Enregistrer')),
                             ),
                           ),
                         ],
@@ -268,7 +269,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: Text('Réservations', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
+        title: Text(tr('Réservations'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
@@ -279,7 +280,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
         backgroundColor: AppColors.brand600,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('Créer'),
+        label: Text(tr('Créer')),
       ),
       body: RefreshIndicator(
         color: AppColors.brand500,
@@ -293,9 +294,9 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
     if (_loading && _items.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
+        children: [
           SizedBox(height: 120),
-          LoadingView(message: 'Chargement des réservations…'),
+          LoadingView(message: tr('Chargement des réservations…')),
         ],
       );
     }
@@ -320,12 +321,12 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
             height: MediaQuery.sizeOf(context).height * 0.55,
             child: EmptyState(
               icon: Icons.event_seat_outlined,
-              title: 'Aucune réservation',
-              subtitle: 'Créez une réservation pour préparer l’accueil.',
+              title: tr('Aucune réservation'),
+              subtitle: tr('Créez une réservation pour préparer l’accueil.'),
               action: FilledButton(
                 onPressed: () => _openForm(),
                 style: FilledButton.styleFrom(backgroundColor: AppColors.brand600),
-                child: const Text('Nouvelle réservation'),
+                child: Text(tr('Nouvelle réservation')),
               ),
             ),
           ),
@@ -360,7 +361,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          item.guestName,
+                          tr(item.guestName),
                           style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -369,17 +370,17 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    [
+                    tr([
                       '${item.partySize} couverts',
                       if (reserved != null) _dateFormat.format(reserved),
                       if ((item.phone ?? '').isNotEmpty) item.phone!,
                       if (item.reference.isNotEmpty) item.reference,
-                    ].join(' · '),
+                    ].join(' · ')),
                     style: PosUi.caption(),
                   ),
                   if ((item.notes ?? '').isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    Text(item.notes!, style: PosUi.body(color: AppColors.textSecondary)),
+                    Text(tr(item.notes!), style: PosUi.body(color: AppColors.textSecondary)),
                   ],
                   const SizedBox(height: 10),
                   Wrap(
@@ -388,7 +389,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                     children: [
                       for (final status in _statuses)
                         ChoiceChip(
-                          label: Text(_statusLabel(status), style: const TextStyle(fontSize: 11)),
+                          label: Text(tr(_statusLabel(status)), style: const TextStyle(fontSize: 11)),
                           selected: item.status == status,
                           onSelected: _statusSavingId == item.id
                               ? null

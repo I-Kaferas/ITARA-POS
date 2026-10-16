@@ -1,4 +1,5 @@
 import 'app_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Slave ↔ Master LAN link failure.
 final class MasterConnectionError extends AppError {
@@ -11,16 +12,16 @@ final class MasterConnectionError extends AppError {
 
   factory MasterConnectionError.unreachable({Object? cause}) =>
       MasterConnectionError(
-        title: 'Master injoignable sur le réseau local.',
+        title: tr('Master injoignable sur le réseau local.'),
         detail:
-            'Vérifiez que le Master est allumé et sur le même Wi-Fi, puis réessayez.',
+            tr('Vérifiez que le Master est allumé et sur le même Wi-Fi, puis réessayez.'),
         cause: cause,
       );
 
   factory MasterConnectionError.refused({Object? cause}) =>
       MasterConnectionError(
-        title: 'Connexion au Master refusée.',
-        detail: 'Cet appareil n’est peut-être plus appairé. Relancez l’appairage.',
+        title: tr('Connexion au Master refusée.'),
+        detail: tr('Cet appareil n’est peut-être plus appairé. Relancez l’appairage.'),
         cause: cause,
       );
 }

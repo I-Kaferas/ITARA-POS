@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/cash_register_api_service.dart';
 import '../../domain/cash_register_models.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 part 'cash_register_event.dart';
 part 'cash_register_state.dart';
@@ -82,7 +83,7 @@ class CashRegisterBloc extends Bloc<CashRegisterEvent, CashRegisterState> {
         busy: false,
         summary: payload.summary,
         reconciliation: payload.reconciliation,
-        message: 'Caisse ouverte',
+        message: tr('Caisse ouverte'),
       ));
     } catch (e) {
       emit(state.copyWith(busy: false, errorMessage: e.toString()));
@@ -105,7 +106,7 @@ class CashRegisterBloc extends Bloc<CashRegisterEvent, CashRegisterState> {
         busy: false,
         summary: payload.summary,
         reconciliation: payload.reconciliation,
-        message: 'Caisse fermée',
+        message: tr('Caisse fermée'),
       ));
       add(const CashRegisterRefreshed());
     } catch (e) {
@@ -162,7 +163,7 @@ class CashRegisterBloc extends Bloc<CashRegisterEvent, CashRegisterState> {
         busy: false,
         summary: payload.summary,
         reconciliation: payload.reconciliation,
-        message: 'Comptage enregistré',
+        message: tr('Comptage enregistré'),
       ));
       add(const CashRegisterRefreshed());
     } catch (e) {

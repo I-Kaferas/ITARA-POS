@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosQuickProductsBar extends StatelessWidget {
   const PosQuickProductsBar({
@@ -30,7 +31,7 @@ class PosQuickProductsBar extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-            child: Text('PRODUITS RAPIDES', style: PosUi.sectionLabel()),
+            child: Text(tr('PRODUITS RAPIDES'), style: PosUi.sectionLabel()),
           ),
           SizedBox(
             height: 72,
@@ -81,7 +82,7 @@ class _QuickChip extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                product.name,
+                tr(product.name),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: PosUi.cardTitle(
@@ -90,7 +91,7 @@ class _QuickChip extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                MoneyFormatter.format(product.price, currencyCode: AppConfig.currencyCode),
+                tr(MoneyFormatter.format(product.price, currencyCode: AppConfig.currencyCode)),
                 style: PosUi.caption(color: AppColors.brandInk),
               ),
             ],

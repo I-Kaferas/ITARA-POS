@@ -10,6 +10,7 @@ import '../../../sync/offline_store.dart';
 import '../data/pos_api_service.dart';
 import '../domain/pos_models.dart';
 import 'widgets/pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosOverviewScreen extends StatefulWidget {
   const PosOverviewScreen({super.key});
@@ -23,6 +24,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
   bool _loading = true;
   String? _error;
   String _storeId = '';
+  int _generation = 0;
 
   String get _currency => TerminalConfigRepository.instance.config.currencyCode;
 
@@ -33,12 +35,14 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     super.initState();
     _storeId = TerminalConfigRepository.instance.config.storeId;
     TerminalConfigRepository.instance.addListener(_onConfigChanged);
+    OfflineStore.instance.salesRevision.addListener(_load);
     _load();
   }
 
   @override
   void dispose() {
     TerminalConfigRepository.instance.removeListener(_onConfigChanged);
+    OfflineStore.instance.salesRevision.removeListener(_load);
     super.dispose();
   }
 
@@ -52,6 +56,10 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
 
   Future<void> _load() async {
     final storeId = TerminalConfigRepository.instance.config.storeId;
+    final generation = ++_generation;
+    bool stale() =>
+        !mounted || generation != _generation || TerminalConfigRepository.instance.config.storeId != storeId;
+
     _storeId = storeId;
     if (_overview == null) {
       setState(() {
@@ -59,16 +67,17 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         _error = null;
       });
     }
+    PosOverview? local;
     try {
-      final local = PosOverview.fromJson(await OfflineStore.instance.localPosOverview());
-      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
+      local = PosOverview.fromJson(await OfflineStore.instance.localPosOverview());
+      if (stale()) return;
       setState(() {
         _overview = local;
         _loading = false;
         _error = null;
       });
     } catch (error) {
-      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
+      if (stale()) return;
       setState(() {
         _loading = false;
         if (_overview == null) {
@@ -79,7 +88,10 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
 
     try {
       final remote = await PosApiService().fetchOverview();
-      if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
+      if (stale()) return;
+      // The server only counts sales that have already synced; it must not
+      // hide sales still waiting in this terminal's outbox.
+      if (local != null && remote.orderCount < local.orderCount) return;
       setState(() {
         _overview = remote;
         _loading = false;
@@ -108,9 +120,9 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
             _GreetingHeader(name: name, place: place, now: now),
             const SizedBox(height: 18),
             if (_loading && _overview == null)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 64),
-                child: LoadingView(message: 'Loading overview…'),
+                child: LoadingView(message: tr('Loading overview…')),
               )
             else if (_error != null && _overview == null)
               ErrorView(message: _error!, onRetry: _load)
@@ -118,7 +130,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(_error!, style: PosUi.caption(color: AppColors.danger)),
+                  child: Text(tr(_error!), style: PosUi.caption(color: AppColors.danger)),
                 ),
               _OverviewBody(
                 overview: _overview,
@@ -233,7 +245,7 @@ class _GreetingHeader extends StatelessWidget {
           radius: 26,
           backgroundColor: AppColors.cashierBlue,
           child: Text(
-            _initials(name),
+            tr(_initials(name)),
             style: GoogleFonts.ibmPlexSans(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -293,7 +305,7 @@ class _TodaySalesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _DashCard(
-      title: "Today's Sales",
+      title: tr("Today's Sales"),
       icon: Icons.pie_chart_outline_rounded,
       child: Column(
         children: [
@@ -309,7 +321,7 @@ class _TodaySalesCard extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                  _initials(name),
+                  tr(_initials(name)),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
@@ -321,7 +333,7 @@ class _TodaySalesCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            name,
+            tr(name),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.ibmPlexSans(
@@ -334,7 +346,7 @@ class _TodaySalesCard extends StatelessWidget {
           AppValueFade(
             value: revenueLabel,
             child: Text(
-              revenueLabel,
+              tr(revenueLabel),
               style: GoogleFonts.ibmPlexSans(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
@@ -345,7 +357,7 @@ class _TodaySalesCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'No target set',
+            tr('No target set'),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -367,12 +379,12 @@ class _PaymentsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _DashCard(
-      title: 'Payment Methods',
+      title: tr('Payment Methods'),
       icon: Icons.credit_card_outlined,
       child: payments.isEmpty
-          ? const _EmptyMark(
+          ? _EmptyMark(
               icon: Icons.credit_card_outlined,
-              label: 'No payments today',
+              label: tr('No payments today'),
             )
           : Column(
               children: [
@@ -393,7 +405,7 @@ class _DailySummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _DashCard(
-      title: 'Daily Summary',
+      title: tr('Daily Summary'),
       icon: Icons.calendar_today_outlined,
       child: Column(
         children: [
@@ -421,10 +433,10 @@ class _SummaryHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
-          Expanded(flex: 3, child: Text('DATE', style: style)),
-          Expanded(flex: 3, child: Text('SALES', textAlign: TextAlign.right, style: style)),
-          Expanded(flex: 2, child: Text('ORDERS', textAlign: TextAlign.right, style: style)),
-          Expanded(flex: 3, child: Text('AVG', textAlign: TextAlign.right, style: style)),
+          Expanded(flex: 3, child: Text(tr('DATE'), style: style)),
+          Expanded(flex: 3, child: Text(tr('SALES'), textAlign: TextAlign.right, style: style)),
+          Expanded(flex: 2, child: Text(tr('ORDERS'), textAlign: TextAlign.right, style: style)),
+          Expanded(flex: 3, child: Text(tr('AVG'), textAlign: TextAlign.right, style: style)),
         ],
       ),
     );
@@ -470,7 +482,7 @@ class _SummaryRow extends StatelessWidget {
                 ],
                 Flexible(
                   child: Text(
-                    day.isToday ? 'Today' : _shortDate(day.date),
+                    tr(day.isToday ? 'Today' : _shortDate(day.date)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: style,
@@ -479,9 +491,9 @@ class _SummaryRow extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(flex: 3, child: Text(money(day.sales), textAlign: TextAlign.right, style: style)),
+          Expanded(flex: 3, child: Text(tr(money(day.sales)), textAlign: TextAlign.right, style: style)),
           Expanded(flex: 2, child: Text('${day.orders}', textAlign: TextAlign.right, style: style)),
-          Expanded(flex: 3, child: Text(money(day.average), textAlign: TextAlign.right, style: style)),
+          Expanded(flex: 3, child: Text(tr(money(day.average)), textAlign: TextAlign.right, style: style)),
         ],
       ),
     );
@@ -504,10 +516,10 @@ class _StatStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tiles = [
-      _StatTile(icon: Icons.shopping_bag_outlined, value: '$orders', label: 'Orders Today'),
-      _StatTile(icon: Icons.show_chart_rounded, value: average, label: 'Average Value'),
-      _StatTile(icon: Icons.local_mall_outlined, value: '$active', label: 'Active Orders'),
-      _StatTile(icon: Icons.flag_outlined, value: '0', label: 'Daily Target'),
+      _StatTile(icon: Icons.shopping_bag_outlined, value: '$orders', label: tr('Orders Today')),
+      _StatTile(icon: Icons.show_chart_rounded, value: average, label: tr('Average Value')),
+      _StatTile(icon: Icons.local_mall_outlined, value: '$active', label: tr('Active Orders')),
+      _StatTile(icon: Icons.flag_outlined, value: '0', label: tr('Daily Target')),
     ];
     if (!wide) {
       return GridView.count(
@@ -562,7 +574,7 @@ class _StatTile extends StatelessWidget {
                 AppValueFade(
                   value: value,
                   child: Text(
-                    value,
+                    tr(value),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.ibmPlexSans(
@@ -573,7 +585,7 @@ class _StatTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  label,
+                  tr(label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
@@ -596,13 +608,13 @@ class _HourlyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final window = hours.where((point) => point.hour >= 8 && point.hour <= 21).toList();
     return _DashCard(
-      title: 'Hourly Sales',
+      title: tr('Hourly Sales'),
       icon: Icons.bar_chart_rounded,
-      trailing: Text('Today', style: PosUi.caption()),
+      trailing: Text(tr('Today'), style: PosUi.caption()),
       child: SizedBox(
         height: 150,
         child: window.isEmpty
-            ? const _EmptyMark(icon: Icons.bar_chart_rounded, label: 'No sales today')
+            ? _EmptyMark(icon: Icons.bar_chart_rounded, label: tr('No sales today'))
             : _HourBars(hours: window),
       ),
     );
@@ -650,7 +662,7 @@ class _HourBars extends StatelessWidget {
             for (final label in const ['08', '12', '16', '20'])
               Expanded(
                 child: Text(
-                  label,
+                  tr(label),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.ibmPlexSans(fontSize: 10, color: AppColors.textMuted),
                 ),
@@ -671,10 +683,10 @@ class _BreakdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _DashCard(
-      title: 'Breakdown',
+      title: tr('Breakdown'),
       icon: Icons.donut_large_outlined,
       child: payments.isEmpty
-          ? const _EmptyMark(icon: Icons.credit_card_outlined, label: 'No payments today')
+          ? _EmptyMark(icon: Icons.credit_card_outlined, label: tr('No payments today'))
           : Column(
               children: [
                 for (final row in payments.take(6))
@@ -709,12 +721,12 @@ class _PaymentLine extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  label,
+                  tr(label),
                   style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
               ),
               Text(
-                money(amount),
+                tr(money(amount)),
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -768,7 +780,7 @@ class _DashCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  title,
+                  tr(title),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -801,7 +813,7 @@ class _EmptyMark extends StatelessWidget {
         children: [
           Icon(icon, size: 28, color: AppColors.textMuted),
           const SizedBox(height: 8),
-          Text(label, style: PosUi.caption()),
+          Text(tr(label), style: PosUi.caption()),
         ],
       ),
     );

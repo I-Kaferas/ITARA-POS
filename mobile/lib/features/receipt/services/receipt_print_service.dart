@@ -7,14 +7,19 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../sync/master_print_server.dart';
 import '../../../sync/sync_engine.dart';
 import '../../printers/domain/print_group.dart';
+import '../../printers/domain/printer.dart' as pos;
+import '../../printers/services/printer_manager.dart';
 import '../../printers/services/printer_router.dart';
+import '../../printers/services/raw_printer_output.dart';
 import '../domain/receipt_models.dart';
 import 'a4_invoice_builder.dart';
 import 'thermal_receipt_builder.dart';
 
 enum ReceiptPrintMode {
+  /// Printer chosen under « Cet appareil », or the OS print dialog.
   dialog,
   network,
+  bluetooth,
   pdf,
   /// Central Master print server (§43) — local spooler on Master, HTTP on Slave.
   masterQueue,
@@ -36,22 +41,36 @@ class ReceiptPrintService {
   MasterPrintServer get _masterPrintServer =>
       _masterPrintServerOverride ?? MasterPrintServer.instance;
 
+  /// Paper of a dedicated printer, otherwise the paper chosen in settings.
+  static ReceiptDocumentFormat formatFor(pos.Printer? printer) {
+    final dedicated = printer != null &&
+        printer.id != PrinterManager.defaultPrinterId &&
+        printer.format.trim().isNotEmpty;
+    return ReceiptDocumentFormat.fromString(
+      dedicated ? printer.format : TerminalConfigRepository.instance.config.printerFormat,
+    );
+  }
+
+  /// [keepFormat] keeps the format chosen by hand (preview sheet, PDF export).
   Future<void> print(
-    ReceiptPrintPayload payload, {
+    ReceiptPrintPayload document, {
     ReceiptPrintMode mode = ReceiptPrintMode.dialog,
     NetworkPrinterConfig? networkPrinter,
     String printGroup = 'cashier',
     bool resolvePreferred = true,
+    bool keepFormat = false,
   }) async {
     // §40 Document → Printer (receipt / invoice → cashier by default).
     var group = printGroup;
+    pos.Printer? routed;
     if (resolvePreferred) {
       try {
         final decision = await PrinterRouter.instance.resolveContext(
-          documentType: payload.documentType.isEmpty ? 'receipt' : payload.documentType,
+          documentType: document.documentType.isEmpty ? 'receipt' : document.documentType,
           fallbackGroup: PrintGroup.fromString(printGroup),
         );
         group = decision.group.name;
+        routed = decision.primary;
         if (networkPrinter == null && decision.primary != null) {
           final printer = decision.primary!;
           if (printer.host.isNotEmpty) {
@@ -64,6 +83,8 @@ class ReceiptPrintService {
         }
       } catch (_) {}
     }
+
+    final payload = keepFormat ? document : document.copyWith(format: formatFor(routed));
 
     final effectiveMode =
         mode == ReceiptPrintMode.dialog && resolvePreferred
@@ -80,10 +101,16 @@ class ReceiptPrintService {
 
     switch (effectiveMode) {
       case ReceiptPrintMode.dialog:
-        await Printing.layoutPdf(
-          onLayout: (_) async => bytes,
-          name: name,
-          format: _pageFormat(payload),
+        await _printToSystem(bytes, payload, name);
+      case ReceiptPrintMode.bluetooth:
+        final address = TerminalConfigRepository.instance.config.bluetoothPrinterAddress;
+        if (address.isEmpty) {
+          throw StateError('Imprimante Bluetooth non configurée');
+        }
+        await RawPrinterOutput.instance.printPdf(
+          bytes,
+          RawPrinterTarget.bluetooth(address),
+          paperWidthMm: payload.format.paperWidthMm.round(),
         );
       case ReceiptPrintMode.network:
         final config = TerminalConfigRepository.instance.config;
@@ -125,10 +152,12 @@ class ReceiptPrintService {
       // Failover: master queue → direct network → system dialog (never abort sale).
       try {
         final config = TerminalConfigRepository.instance.config;
-        if (config.printerEnabled && config.printerHost.isNotEmpty) {
+        if (config.printsOverNetwork || config.printsOverBluetooth) {
           await print(
             payload,
-            mode: ReceiptPrintMode.network,
+            mode: config.printsOverBluetooth
+                ? ReceiptPrintMode.bluetooth
+                : ReceiptPrintMode.network,
             resolvePreferred: false,
           );
           return true;
@@ -156,8 +185,8 @@ class ReceiptPrintService {
         SyncEngine.instance.masterReachable) {
       return ReceiptPrintMode.masterQueue;
     }
-    if (networkPrinter?.isConfigured == true ||
-        (config.printerEnabled && config.printerHost.isNotEmpty)) {
+    if (config.printsOverBluetooth) return ReceiptPrintMode.bluetooth;
+    if (networkPrinter?.isConfigured == true || config.printsOverNetwork) {
       return ReceiptPrintMode.network;
     }
     return ReceiptPrintMode.dialog;
@@ -180,16 +209,43 @@ class ReceiptPrintService {
     if (config == null || !config.isConfigured) {
       throw StateError('Imprimante réseau non configurée');
     }
-
-    final printer = Printer(
-      url: 'socket://${config.host}:${config.port}',
-      name: 'POS-${config.host}',
-      isAvailable: true,
+    await RawPrinterOutput.instance.printPdf(
+      bytes,
+      RawPrinterTarget.network(config.host, port: config.port),
+      paperWidthMm: payload.format.paperWidthMm.round(),
     );
+  }
 
-    await Printing.directPrintPdf(
-      printer: printer,
+  /// Uses the printer picked in settings; the OS dialog when none is picked
+  /// or when the platform cannot address printers by name (Android, iOS).
+  Future<void> _printToSystem(
+    Uint8List bytes,
+    ReceiptPrintPayload payload,
+    String name,
+  ) async {
+    final config = TerminalConfigRepository.instance.config;
+    final wanted = config.printerEnabled && config.printerMode == 'system'
+        ? config.printerName.trim()
+        : '';
+    if (wanted.isNotEmpty) {
+      final info = await Printing.info();
+      if (info.canListPrinters && info.directPrint) {
+        final printers = await Printing.listPrinters();
+        final match = printers.where((item) => item.name == wanted).firstOrNull;
+        if (match != null) {
+          final done = await Printing.directPrintPdf(
+            printer: match,
+            onLayout: (_) async => bytes,
+            name: name,
+            format: _pageFormat(payload),
+          );
+          if (done) return;
+        }
+      }
+    }
+    await Printing.layoutPdf(
       onLayout: (_) async => bytes,
+      name: name,
       format: _pageFormat(payload),
     );
   }
@@ -199,7 +255,7 @@ class ReceiptPrintService {
       return PdfPageFormat(
         58 * PdfPageFormat.mm,
         double.infinity,
-        marginAll: 3 * PdfPageFormat.mm,
+        marginAll: 2 * PdfPageFormat.mm,
       );
     }
     if (payload.format == ReceiptDocumentFormat.thermal80) {

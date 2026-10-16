@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_typography.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 enum AppButtonVariant { primary, secondary, ghost, danger, accent }
 
@@ -118,7 +119,7 @@ class AppButton extends StatelessWidget {
             ],
             Flexible(
               child: Text(
-                label,
+                tr(label),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.button(color: fg).copyWith(fontWeight: FontWeight.w500),

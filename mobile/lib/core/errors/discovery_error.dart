@@ -1,4 +1,5 @@
 import 'app_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// LAN Master / printer discovery failure.
 final class DiscoveryError extends AppError {
@@ -10,16 +11,16 @@ final class DiscoveryError extends AppError {
   }) : super(code: 'errors.discovery');
 
   factory DiscoveryError.timeout({Object? cause}) => DiscoveryError(
-        title: 'Recherche réseau terminée sans résultat.',
+        title: tr('Recherche réseau terminée sans résultat.'),
         detail:
-            'Vérifiez le Wi-Fi ou saisissez l’adresse du Master manuellement.',
+            tr('Vérifiez le Wi-Fi ou saisissez l’adresse du Master manuellement.'),
         cause: cause,
       );
 
   factory DiscoveryError.notSupported({Object? cause}) => DiscoveryError(
-        title: 'Découverte réseau indisponible.',
+        title: tr('Découverte réseau indisponible.'),
         detail:
-            'Cet appareil ne peut pas scanner le réseau. Utilisez le code QR ou l’adresse IP.',
+            tr('Cet appareil ne peut pas scanner le réseau. Utilisez le code QR ou l’adresse IP.'),
         cause: cause,
       );
 }

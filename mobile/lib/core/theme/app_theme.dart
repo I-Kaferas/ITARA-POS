@@ -81,7 +81,7 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          textStyle: AppTypography.plex(fontWeight: FontWeight.w600, fontSize: 13.5),
+          textStyle: AppTypography.button(),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -96,7 +96,7 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          textStyle: AppTypography.plex(fontWeight: FontWeight.w500, fontSize: 13.5, letterSpacing: -0.1),
+          textStyle: AppTypography.button(),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -109,19 +109,19 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          textStyle: AppTypography.plex(fontWeight: FontWeight.w500, fontSize: 13.5, letterSpacing: -0.1),
+          textStyle: AppTypography.button(),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.brandInk,
-          textStyle: AppTypography.plex(fontWeight: FontWeight.w600, fontSize: 13),
+          textStyle: AppTypography.button(),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.fieldFill,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: BorderSide(color: AppColors.border),
@@ -147,18 +147,55 @@ abstract final class AppTheme {
         elevation: 0,
         barrierColor: const Color(0x7514202B),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: AppRadius.borderXxl,
           side: BorderSide(color: AppColors.border),
         ),
-        titleTextStyle: AppTypography.plex(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        titleTextStyle: AppTypography.title(),
         contentTextStyle: AppTypography.body(color: AppColors.textSecondary),
+      ),
+      listTileTheme: ListTileThemeData(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        minVerticalPadding: 8,
+        iconColor: AppColors.textSecondary,
+        textColor: AppColors.textPrimary,
+        titleTextStyle: AppTypography.body(weight: FontWeight.w600),
+        subtitleTextStyle: AppTypography.caption(),
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingRowHeight: 44,
+        dataRowMinHeight: 48,
+        dataRowMaxHeight: 64,
+        horizontalMargin: 16,
+        columnSpacing: 16,
+        headingTextStyle: AppTypography.overline(),
+        dataTextStyle: AppTypography.body(),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          side: BorderSide(color: AppColors.border),
+        ),
+        textStyle: AppTypography.body(),
+      ),
+      tabBarTheme: TabBarThemeData(
+        dividerColor: AppColors.border,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelStyle: AppTypography.plex(fontSize: AppTextSize.md, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: AppTypography.plex(fontSize: AppTextSize.md, fontWeight: FontWeight.w500),
+        labelColor: AppColors.brandInk,
+        unselectedLabelColor: AppColors.textMuted,
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         modalBarrierColor: const Color(0x7514202B),
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -173,20 +210,20 @@ abstract final class AppTheme {
         unselectedItemColor: AppColors.textMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
-        selectedLabelStyle: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w500),
+        selectedLabelStyle: AppTypography.plex(fontSize: AppTextSize.xs, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: AppTypography.plex(fontSize: AppTextSize.xs, fontWeight: FontWeight.w500),
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: AppColors.sidebar,
         selectedIconTheme: const IconThemeData(color: Colors.white),
         unselectedIconTheme: const IconThemeData(color: AppColors.sidebarText),
         selectedLabelTextStyle: AppTypography.plex(
-          fontSize: 11,
+          fontSize: AppTextSize.xs,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
         unselectedLabelTextStyle: AppTypography.plex(
-          fontSize: 11,
+          fontSize: AppTextSize.xs,
           color: AppColors.sidebarText,
         ),
         indicatorColor: AppColors.sidebarActive,
@@ -201,7 +238,7 @@ abstract final class AppTheme {
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return AppTypography.plex(
-            fontSize: 11,
+            fontSize: AppTextSize.xs,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             color: selected ? AppColors.brandInk : AppColors.textMuted,
           );
@@ -210,7 +247,7 @@ abstract final class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.brand50,
         selectedColor: AppColors.brand100,
-        labelStyle: AppTypography.plex(fontSize: 12.5, fontWeight: FontWeight.w500),
+        labelStyle: AppTypography.plex(fontSize: AppTextSize.md, fontWeight: FontWeight.w500),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
         side: BorderSide.none,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -225,33 +262,21 @@ abstract final class AppTheme {
 
   static TextTheme _textTheme(TextTheme base) {
     return TextTheme(
-      displayLarge: AppTypography.plex(
-        fontSize: 28,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textPrimary,
-        letterSpacing: -0.5,
-      ),
+      displayLarge: AppTypography.display(),
       displayMedium: AppTypography.pageTitle(),
-      headlineMedium: AppTypography.sectionTitle(),
-      titleLarge: AppTypography.plex(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
-      ),
-      titleMedium: AppTypography.plex(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
-      ),
+      headlineMedium: AppTypography.title(),
+      headlineSmall: AppTypography.sectionTitle(),
+      titleLarge: AppTypography.sectionTitle(),
+      titleMedium: AppTypography.body(weight: FontWeight.w600),
       bodyLarge: AppTypography.body(),
       bodyMedium: AppTypography.subtitle(),
       bodySmall: AppTypography.caption(),
       labelLarge: AppTypography.plex(
-        fontSize: 13,
+        fontSize: AppTextSize.md,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       ),
-      labelSmall: AppTypography.money(size: 12),
+      labelSmall: AppTypography.money(size: AppTextSize.sm),
     );
   }
 }

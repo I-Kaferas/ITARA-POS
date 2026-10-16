@@ -2,6 +2,7 @@ import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/barcode_models.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class BarcodeLabelPreview extends StatelessWidget {
   const BarcodeLabelPreview({
@@ -24,7 +25,7 @@ class BarcodeLabelPreview extends StatelessWidget {
       children: [
         if (label != null && label!.isNotEmpty) ...[
           Text(
-            label!,
+            tr(label!),
             style: Theme.of(context).textTheme.titleMedium,
             textAlign: TextAlign.center,
           ),

@@ -1,4 +1,5 @@
 import 'app_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Local SQLite / persistence failure.
 final class DatabaseError extends AppError {
@@ -10,9 +11,9 @@ final class DatabaseError extends AppError {
   }) : super(code: 'errors.database');
 
   factory DatabaseError.corrupt({Object? cause}) => DatabaseError(
-        title: 'Base locale endommagée.',
+        title: tr('Base locale endommagée.'),
         detail:
-            'Les ventes déjà enregistrées sont protégées. Contactez le support ITARA.',
+            tr('Les ventes déjà enregistrées sont protégées. Contactez le support ITARA.'),
         cause: cause,
       );
 

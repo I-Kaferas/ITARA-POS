@@ -4,6 +4,7 @@ import 'package:printing/printing.dart' as printing;
 
 import '../domain/printer.dart';
 import '../domain/printer_connection_type.dart';
+import 'raw_printer_output.dart';
 
 class PrinterConnectionResult {
   const PrinterConnectionResult({
@@ -140,9 +141,20 @@ class PrinterConnection {
     if (!macOk && !address.startsWith('btspp://')) {
       return PrinterConnectionResult.failure('Adresse Bluetooth invalide: $address');
     }
-    return PrinterConnectionResult.success(
-      message: 'Bluetooth configuré ($normalized)',
-    );
+    final sw = Stopwatch()..start();
+    try {
+      await RawPrinterOutput.instance.probeBluetooth(
+        normalized.replaceFirst('BTSPP://', ''),
+      );
+      return PrinterConnectionResult.success(
+        message: 'Bluetooth connecté ($normalized)',
+        latencyMs: sw.elapsedMilliseconds,
+      );
+    } catch (error) {
+      return PrinterConnectionResult.failure(
+        error is StateError ? error.message : 'Bluetooth : $error',
+      );
+    }
   }
 
   Future<PrinterConnectionResult> _probeSystem(Printer printer) async {

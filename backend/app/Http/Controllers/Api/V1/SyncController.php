@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\CashierShift;
+use App\Models\CashRegister;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Device;
@@ -20,8 +22,10 @@ use App\Services\Catalog\PosCatalogSyncService;
 use App\Services\Payments\CompanyPaymentMethodService;
 use App\Services\Rbac\PermissionCatalog;
 use App\Services\Sales\SaleEngine;
+use App\Services\Shifts\CashierShiftService;
 use App\Services\Sync\ConflictResolutionEngine;
 use App\Services\Sync\OfflineSyncService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -35,6 +39,7 @@ class SyncController extends Controller
         private readonly AuthorizationService $authorization,
         private readonly OfflineSyncService $offlineSync,
         private readonly ConflictResolutionEngine $conflicts,
+        private readonly CashierShiftService $shifts,
     ) {}
 
     public function push(Request $request): JsonResponse
@@ -414,6 +419,7 @@ class SyncController extends Controller
             'sale' => $op === 'create'
                 ? $this->applySaleCreate($store, $operation, $request, $payload, $entityId)
                 : $this->unsupported($operation, $entityId),
+            'cashier_shift' => $this->applyCashierShift($store, $operation, $request, $payload, $entityId),
             'payment' => $this->applyPayment($store, $operation, $payload, $entityId),
             'stock' => $this->applyStock($store, $operation, $payload, $entityId),
             'order' => $this->applyOrder($store, $operation, $payload, $entityId),
@@ -448,6 +454,8 @@ class SyncController extends Controller
      */
     private function applySaleCreate(Store $store, array $operation, Request $request, array $payload, string $entityId): array
     {
+        $payload = $this->bindDeviceShift($store, $payload);
+
         try {
             $result = ! empty($payload['sale_id'])
                 ? $this->sales->completePending($store, $payload, $request->user())
@@ -733,6 +741,179 @@ class SyncController extends Controller
      * @param  array<string, mixed>  $operation
      * @return array<string, mixed>
      */
+    /**
+     * Shifts opened / closed on a POS device (local UUID kept as client_uuid).
+     *
+     * @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function applyCashierShift(Store $store, array $operation, Request $request, array $payload, string $entityId): array
+    {
+        $op = (string) ($operation['operation'] ?? '');
+        $result = fn (string $status, ?string $serverId = null, ?string $error = null): array => array_filter([
+            'id' => $operation['id'],
+            'entity_id' => $entityId,
+            'status' => $status,
+            'server_id' => $serverId,
+            'error' => $error,
+        ], fn ($value) => $value !== null);
+
+        $existing = CashierShift::query()
+            ->where('tenant_id', $store->tenant_id)
+            ->where('client_uuid', $entityId)
+            ->first();
+
+        try {
+            if ($op === 'open') {
+                if ($existing !== null) {
+                    $this->attachDeviceSales($existing, $payload['sale_ids'] ?? []);
+
+                    return $result('synced', $existing->id);
+                }
+
+                $register = $this->resolveDeviceRegister($store, $payload);
+                if ($register === null) {
+                    return $result('failed', error: 'Aucune caisse active sur le serveur pour ce magasin.');
+                }
+
+                $cashier = User::query()
+                    ->where('tenant_id', $store->tenant_id)
+                    ->whereKey((string) ($payload['user_id'] ?? ''))
+                    ->first() ?? $request->user();
+
+                $open = fn (?string $deviceId): CashierShift => $this->shifts->open(
+                    $register,
+                    $cashier,
+                    max(0, (int) ($payload['opening_balance'] ?? 0)),
+                    isset($payload['opening_notes']) && $payload['opening_notes'] !== '' ? (string) $payload['opening_notes'] : null,
+                    isset($payload['opened_at']) ? Carbon::parse((string) $payload['opened_at'])->setTimezone(config('app.timezone')) : null,
+                    $entityId,
+                    $deviceId,
+                    offlineReplay: true,
+                );
+
+                try {
+                    $shift = $open(isset($payload['device_id']) ? (string) $payload['device_id'] : null);
+                } catch (ValidationException $exception) {
+                    if (! array_key_exists('device_id', $exception->errors())) {
+                        throw $exception;
+                    }
+                    $shift = $open(null);
+                }
+                $this->attachDeviceSales($shift, $payload['sale_ids'] ?? []);
+
+                return $result('synced', $shift->id);
+            }
+
+            if ($op === 'close') {
+                if ($existing === null) {
+                    return $result('failed', error: 'Shift pas encore synchronisé.');
+                }
+                if (! $existing->isOpen()) {
+                    return $result('synced', $existing->id);
+                }
+
+                $shift = $this->shifts->closeFromDevice(
+                    $existing,
+                    max(0, (int) ($payload['actual_cash'] ?? 0)),
+                    isset($payload['closing_notes']) && $payload['closing_notes'] !== '' ? (string) $payload['closing_notes'] : null,
+                    isset($payload['closed_at']) ? Carbon::parse((string) $payload['closed_at'])->setTimezone(config('app.timezone')) : null,
+                );
+
+                return $result('synced', $shift->id);
+            }
+        } catch (ValidationException $exception) {
+            return $result('failed', error: (string) (collect($exception->errors())->flatten()->first() ?? $exception->getMessage()));
+        }
+
+        return $this->unsupported($operation, $entityId);
+    }
+
+    /**
+     * Device registers are created locally, so fall back to the store's own register.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveDeviceRegister(Store $store, array $payload): ?CashRegister
+    {
+        $storeId = (string) ($payload['store_id'] ?? '');
+        if ($storeId !== '' && $storeId !== $store->id) {
+            $store = Store::query()->where('tenant_id', $store->tenant_id)->whereKey($storeId)->first() ?? $store;
+        }
+
+        $register = CashRegister::findForStore($store, (string) ($payload['cash_register_id'] ?? ''));
+        if ($register !== null) {
+            return $register;
+        }
+
+        $active = CashRegister::query()
+            ->where('store_id', $store->id)
+            ->where('is_active', true)
+            ->orderBy('created_at')
+            ->get();
+
+        $code = trim((string) ($payload['register_code'] ?? ''));
+
+        return ($code !== '' ? $active->firstWhere('code', $code) : null) ?? $active->first();
+    }
+
+    /**
+     * Sales synced before their shift reached the server.
+     */
+    private function attachDeviceSales(CashierShift $shift, mixed $saleIds): void
+    {
+        $ids = collect(is_array($saleIds) ? $saleIds : [])
+            ->map(fn ($id) => (string) $id)
+            ->filter()
+            ->take(500)
+            ->values()
+            ->all();
+        if ($ids === []) {
+            return;
+        }
+
+        $linked = Sale::query()
+            ->whereIn('id', $ids)
+            ->where('store_id', $shift->cashRegister?->store_id)
+            ->whereNull('cashier_shift_id')
+            ->update([
+                'cashier_shift_id' => $shift->id,
+                'cash_register_id' => $shift->cash_register_id,
+            ]);
+
+        if ($linked > 0 && $shift->isOpen()) {
+            $this->shifts->refreshTotals($shift);
+        }
+    }
+
+    /**
+     * Link a device sale to the server shift created from its local shift.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function bindDeviceShift(Store $store, array $payload): array
+    {
+        $localShiftId = (string) ($payload['cash_session_id'] ?? '');
+        if ($localShiftId === '' || ! empty($payload['cashier_shift_id'])) {
+            return $payload;
+        }
+
+        $shift = CashierShift::query()
+            ->where('tenant_id', $store->tenant_id)
+            ->where('client_uuid', $localShiftId)
+            ->first();
+        if ($shift === null || $shift->cashRegister?->store_id !== $store->id) {
+            return $payload;
+        }
+
+        $payload['cashier_shift_id'] = $shift->id;
+        $payload['cash_register_id'] = $shift->cash_register_id;
+
+        return $payload;
+    }
+
     private function unsupported(array $operation, string $entityId): array
     {
         return [

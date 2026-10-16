@@ -13,6 +13,7 @@ import '../services/hid_scanner_controller.dart';
 import 'camera_scan_screen.dart';
 import 'widgets/barcode_label_preview.dart';
 import 'widgets/hid_scanner_field.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class BarcodeHubScreen extends StatefulWidget {
   const BarcodeHubScreen({super.key});
@@ -156,7 +157,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Code-barres assigné au produit.')),
+          SnackBar(content: Text(tr('Code-barres assigné au produit.'))),
         );
       }
     } catch (e) {
@@ -189,7 +190,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
     final cameraSupported = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
     if (!cameraSupported) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('La caméra n’est disponible que sur mobile. Utilisez le scanner USB / Bluetooth.')),
+        SnackBar(content: Text(tr('La caméra n’est disponible que sur mobile. Utilisez le scanner USB / Bluetooth.'))),
       );
       return;
     }
@@ -209,7 +210,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      appBar: AppBar(title: const Text('Codes-barres')),
+      appBar: AppBar(title: Text(tr('Codes-barres'))),
       body: Stack(
         children: [
           Align(
@@ -221,9 +222,9 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
             children: [
               _sectionTitle('Scan'),
               SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'hid', label: Text('USB / BT HID'), icon: Icon(Icons.usb)),
-                  ButtonSegment(value: 'camera', label: Text('Caméra'), icon: Icon(Icons.camera_alt)),
+                segments: [
+                  ButtonSegment(value: 'hid', label: Text(tr('USB / BT HID')), icon: Icon(Icons.usb)),
+                  ButtonSegment(value: 'camera', label: Text(tr('Caméra')), icon: Icon(Icons.camera_alt)),
                 ],
                 selected: {_scannerMode},
                 onSelectionChanged: (value) {
@@ -238,7 +239,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
               const SizedBox(height: 8),
               if (_scannerMode == 'hid')
                 Text(
-                  'Scanner USB ou Bluetooth (mode clavier) actif — scannez un code.',
+                  tr('Scanner USB ou Bluetooth (mode clavier) actif — scannez un code.'),
                   style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary, fontSize: 13),
                 ),
               const SizedBox(height: 10),
@@ -247,12 +248,12 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _openCameraScanner,
                   icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                  label: const Text('Ouvrir la caméra'),
+                  label: Text(tr('Ouvrir la caméra')),
                 ),
               ),
               if (_lastScan != null) ...[
                 const SizedBox(height: 8),
-                Text('Dernier scan : $_lastScan', style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(trf('Dernier scan : {0}', [_lastScan]), style: const TextStyle(fontWeight: FontWeight.w600)),
               ],
               const SizedBox(height: 16),
               _sectionTitle('Recherche'),
@@ -261,8 +262,8 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
                   Expanded(
                     child: TextField(
                       controller: _searchController,
-                      decoration: const InputDecoration(
-                        labelText: 'Rechercher un code',
+                      decoration: InputDecoration(
+                        labelText: tr('Rechercher un code'),
                         border: OutlineInputBorder(),
                       ),
                       onSubmitted: (_) => _search(),
@@ -275,7 +276,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
               if (_searchResults.isNotEmpty)
                 ..._searchResults.map(
                   (item) => ListTile(
-                    title: Text(item.barcode),
+                    title: Text(tr(item.barcode)),
                     subtitle: Text('${item.type.label}${item.productName != null ? ' · ${item.productName}' : ''}'),
                     onTap: () => _lookupCode(item.barcode),
                   ),
@@ -286,7 +287,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
                 initialValue: _generateType,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
                 items: PosBarcodeType.values
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
+                    .map((t) => DropdownMenuItem(value: t, child: Text(tr(t.label))))
                     .toList(),
                 onChanged: (value) {
                   if (value != null) setState(() => _generateType = value);
@@ -296,26 +297,26 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
               FilledButton.icon(
                 onPressed: _loading ? null : _generate,
                 icon: const Icon(Icons.qr_code_2),
-                label: const Text('Générer un code'),
+                label: Text(tr('Générer un code')),
               ),
               const SizedBox(height: 16),
               _sectionTitle('Assigner'),
               TextField(
                 controller: _assignProductIdController,
-                decoration: const InputDecoration(
-                  labelText: 'ID produit (UUID)',
+                decoration: InputDecoration(
+                  labelText: tr('ID produit (UUID)'),
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<PosBarcodeType>(
                 initialValue: _assignType,
-                decoration: const InputDecoration(
-                  labelText: 'Type (si scan manuel)',
+                decoration: InputDecoration(
+                  labelText: tr('Type (si scan manuel)'),
                   border: OutlineInputBorder(),
                 ),
                 items: PosBarcodeType.values
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
+                    .map((t) => DropdownMenuItem(value: t, child: Text(tr(t.label))))
                     .toList(),
                 onChanged: (value) {
                   if (value != null) setState(() => _assignType = value);
@@ -325,7 +326,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
               FilledButton.icon(
                 onPressed: _loading ? null : _assign,
                 icon: const Icon(Icons.link),
-                label: const Text('Assigner au produit'),
+                label: Text(tr('Assigner au produit')),
               ),
               const SizedBox(height: 16),
               _sectionTitle('Aperçu & impression'),
@@ -342,19 +343,19 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
                 ),
               if (_lookup != null && _lookup!.found) ...[
                 const SizedBox(height: 8),
-                Text('Produit : ${_lookup!.productName ?? '—'}'),
-                Text('SKU : ${_lookup!.productSku ?? '—'}'),
-                if (_lookup!.variantSku != null) Text('Variante : ${_lookup!.variantSku}'),
+                Text(trf('Produit : {0}', [_lookup!.productName ?? '—'])),
+                Text(trf('SKU : {0}', [_lookup!.productSku ?? '—'])),
+                if (_lookup!.variantSku != null) Text(trf('Variante : {0}', [_lookup!.variantSku])),
               ],
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: previewBarcode == null ? null : _printCurrent,
                 icon: const Icon(Icons.print),
-                label: const Text('Imprimer l\'étiquette'),
+                label: Text(tr('Imprimer l\'étiquette')),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 16),
-                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                Text(tr(_error!), style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ],
             ],
               ),
@@ -375,7 +376,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
-        title,
+        tr(title),
         style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.brandInk),
       ),
     );

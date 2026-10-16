@@ -7,6 +7,7 @@ import '../../../../sync/device_registry.dart';
 import '../../../../sync/local_master_server.dart';
 import '../../../../sync/local_realtime.dart';
 import '../../../../sync/master_config_store.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 part 'device_event.dart';
 part 'device_state.dart';
@@ -62,7 +63,7 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
   ) async {
     await _registry.revoke(event.deviceId);
     _master.clients.remove(event.deviceId);
-    await _refresh(emit, message: 'Appareil révoqué');
+    await _refresh(emit, message: tr('Appareil révoqué'));
   }
 
   Future<void> _onApprove(
@@ -70,7 +71,7 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     Emitter<DeviceState> emit,
   ) async {
     await _registry.setApproved(event.deviceId, approved: true);
-    await _refresh(emit, message: 'Appareil approuvé');
+    await _refresh(emit, message: tr('Appareil approuvé'));
   }
 
   Future<void> _onRename(
@@ -78,7 +79,7 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     Emitter<DeviceState> emit,
   ) async {
     await _registry.rename(event.deviceId, event.name);
-    await _refresh(emit, message: 'Appareil renommé');
+    await _refresh(emit, message: tr('Appareil renommé'));
   }
 
   Future<void> _onDisable(
@@ -94,7 +95,7 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
         payload: {'action': 'disable', 'device_id': event.deviceId},
       ),
     );
-    await _refresh(emit, message: 'Appareil désactivé');
+    await _refresh(emit, message: tr('Appareil désactivé'));
   }
 
   Future<void> _onEnable(
@@ -102,7 +103,7 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     Emitter<DeviceState> emit,
   ) async {
     await _registry.enable(event.deviceId);
-    await _refresh(emit, message: 'Appareil réactivé');
+    await _refresh(emit, message: tr('Appareil réactivé'));
   }
 
   Future<void> _onRemove(
@@ -116,7 +117,7 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
       originDeviceId: event.deviceId,
       payload: {'device_id': event.deviceId, 'reason': 'removed'},
     ));
-    await _refresh(emit, message: 'Appareil retiré');
+    await _refresh(emit, message: tr('Appareil retiré'));
   }
 
   Future<void> _onSync(

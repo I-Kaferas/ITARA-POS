@@ -12,6 +12,7 @@ import '../../pos/domain/pos_models.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../receipt/domain/receipt_models.dart';
 import '../../receipt/services/receipt_print_service.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class SaleDetailScreen extends StatefulWidget {
   const SaleDetailScreen({super.key, required this.saleId});
@@ -70,7 +71,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(message))));
   }
 
   Future<void> _issueDocument({
@@ -152,7 +153,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Créer un retour',
+                        tr('Créer un retour'),
                         style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 12),
@@ -171,19 +172,19 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                                 },
                               ),
                             const SizedBox(height: 8),
-                            Text('Motif', style: PosUi.caption()),
+                            Text(tr('Motif'), style: PosUi.caption()),
                             const SizedBox(height: 6),
                             DropdownButtonFormField<String>(
                               key: ValueKey('reason-$reason'),
                               initialValue: reason,
                               items: [
                                 if (reasons.isEmpty)
-                                  const DropdownMenuItem(
+                                  DropdownMenuItem(
                                     value: 'customer_changed_mind',
-                                    child: Text('Changement d’avis'),
+                                    child: Text(tr('Changement d’avis')),
                                   ),
                                 for (final item in reasons)
-                                  DropdownMenuItem(value: item.value, child: Text(item.label)),
+                                  DropdownMenuItem(value: item.value, child: Text(tr(item.label))),
                               ],
                               onChanged: (value) {
                                 if (value == null) return;
@@ -192,16 +193,16 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                               decoration: _fieldDecoration(),
                             ),
                             const SizedBox(height: 10),
-                            Text('Remboursement', style: PosUi.caption()),
+                            Text(tr('Remboursement'), style: PosUi.caption()),
                             const SizedBox(height: 6),
                             DropdownButtonFormField<String>(
                               key: ValueKey('refund-$refundMethod'),
                               initialValue: refundMethod,
-                              items: const [
-                                DropdownMenuItem(value: 'cash', child: Text('Espèces')),
-                                DropdownMenuItem(value: 'original', child: Text('Mode d’origine')),
-                                DropdownMenuItem(value: 'credit', child: Text('Avoir magasin')),
-                                DropdownMenuItem(value: 'store_credit', child: Text('Crédit magasin')),
+                              items: [
+                                DropdownMenuItem(value: 'cash', child: Text(tr('Espèces'))),
+                                DropdownMenuItem(value: 'original', child: Text(tr('Mode d’origine'))),
+                                DropdownMenuItem(value: 'credit', child: Text(tr('Avoir magasin'))),
+                                DropdownMenuItem(value: 'store_credit', child: Text(tr('Crédit magasin'))),
                               ],
                               onChanged: (value) {
                                 if (value == null) return;
@@ -213,7 +214,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                             TextField(
                               controller: notesCtrl,
                               maxLines: 2,
-                              decoration: _fieldDecoration(hint: 'Notes (optionnel)'),
+                              decoration: _fieldDecoration(hint: tr('Notes (optionnel)')),
                             ),
                           ],
                         ),
@@ -224,7 +225,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                           Expanded(
                             child: OutlinedButton(
                               onPressed: submitting ? null : () => Navigator.pop(context),
-                              child: const Text('Annuler'),
+                              child: Text(tr('Annuler')),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -269,7 +270,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                                       height: 18,
                                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                     )
-                                  : const Text('Valider'),
+                                  : Text(tr('Valider')),
                             ),
                           ),
                         ],
@@ -295,18 +296,18 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: Text(reference, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
+        title: Text(tr(reference), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
       body: _loading && sale == null
-          ? const LoadingView(message: 'Chargement de la vente…')
+          ? LoadingView(message: tr('Chargement de la vente…'))
           : _error != null && sale == null
               ? ErrorView(message: _error!, onRetry: _load)
               : sale == null
-                  ? const ErrorView(message: 'Vente introuvable')
+                  ? ErrorView(message: tr('Vente introuvable'))
                   : RefreshIndicator(
                       color: AppColors.brand500,
                       onRefresh: _load,
@@ -316,7 +317,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                           _HeaderCard(sale: sale, money: _money, dateFormat: _dateFormat),
                           const SizedBox(height: 12),
                           _SectionCard(
-                            title: 'Lignes',
+                            title: tr('Lignes'),
                             child: Column(
                               children: [
                                 for (final item in _list(sale['items']).map(_asMap)) ...[
@@ -324,13 +325,13 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                                   Divider(height: 16, color: AppColors.border),
                                 ],
                                 if (_list(sale['items']).isEmpty)
-                                  Text('Aucune ligne', style: PosUi.caption()),
+                                  Text(tr('Aucune ligne'), style: PosUi.caption()),
                               ],
                             ),
                           ),
                           const SizedBox(height: 12),
                           _SectionCard(
-                            title: 'Taxes',
+                            title: tr('Taxes'),
                             child: _KeyValueList(
                               rows: _list(sale['taxes']).map(_asMap).map((tax) {
                                 final label = _text(
@@ -346,7 +347,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                           _SectionCard(
-                            title: 'Remises',
+                            title: tr('Remises'),
                             child: _KeyValueList(
                               rows: _list(sale['discounts']).map(_asMap).map((discount) {
                                 final label = _text(
@@ -362,7 +363,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                           _SectionCard(
-                            title: 'Paiements',
+                            title: tr('Paiements'),
                             child: _KeyValueList(
                               rows: _list(sale['payments']).map(_asMap).map((payment) {
                                 final label = _text(
@@ -386,18 +387,18 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                               FilledButton.icon(
                                 onPressed: _busy ? null : _printReceipt,
                                 icon: const Icon(Icons.receipt_long),
-                                label: const Text('Reçu'),
+                                label: Text(tr('Reçu')),
                                 style: FilledButton.styleFrom(backgroundColor: AppColors.brand600),
                               ),
                               OutlinedButton.icon(
                                 onPressed: _busy ? null : _printInvoice,
                                 icon: const Icon(Icons.description_outlined),
-                                label: const Text('Facture'),
+                                label: Text(tr('Facture')),
                               ),
                               OutlinedButton.icon(
                                 onPressed: _busy ? null : _openReturnDialog,
                                 icon: const Icon(Icons.undo_outlined),
-                                label: const Text('Créer un retour'),
+                                label: Text(tr('Créer un retour')),
                               ),
                             ],
                           ),
@@ -443,7 +444,7 @@ class _HeaderCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  _text(sale, const ['reference'], fallback: '—'),
+                  tr(_text(sale, const ['reference'], fallback: '—')),
                   style: GoogleFonts.ibmPlexMono(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -451,14 +452,14 @@ class _HeaderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Text(customer, style: PosUi.body(weight: FontWeight.w600)),
+          Text(tr(customer), style: PosUi.body(weight: FontWeight.w600)),
           const SizedBox(height: 4),
           Text(
-            [
+            tr([
               if (paymentStatus.isNotEmpty) paymentStatus,
               if (created != null) dateFormat.format(created.toLocal()),
               money(_amount(sale, const ['total'])),
-            ].join(' · '),
+            ].join(' · ')),
             style: PosUi.caption(),
           ),
         ],
@@ -485,7 +486,7 @@ class _SectionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: PosUi.sectionLabel()),
+          Text(tr(title), style: PosUi.sectionLabel()),
           const SizedBox(height: 10),
           child,
         ],
@@ -513,12 +514,12 @@ class _LineRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_itemName(item), style: PosUi.body(weight: FontWeight.w600)),
-              Text('Qté $qty · PU ${money(unit)}', style: PosUi.caption()),
+              Text(tr(_itemName(item)), style: PosUi.body(weight: FontWeight.w600)),
+              Text(trf('Qté {0} · PU {1}', [qty, money(unit)]), style: PosUi.caption()),
             ],
           ),
         ),
-        Text(money(total), style: PosUi.money(size: 13)),
+        Text(tr(money(total)), style: PosUi.money(size: 13)),
       ],
     );
   }
@@ -532,7 +533,7 @@ class _KeyValueList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (rows.isEmpty) return Text(empty, style: PosUi.caption());
+    if (rows.isEmpty) return Text(tr(empty), style: PosUi.caption());
     return Column(
       children: [
         for (final row in rows)
@@ -540,8 +541,8 @@ class _KeyValueList extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               children: [
-                Expanded(child: Text(row.$1, style: PosUi.body())),
-                Text(row.$2, style: PosUi.money(size: 12)),
+                Expanded(child: Text(tr(row.$1), style: PosUi.body())),
+                Text(tr(row.$2), style: PosUi.money(size: 12)),
               ],
             ),
           ),
@@ -584,14 +585,14 @@ class _TotalsCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      row.$1,
+                      tr(row.$1),
                       style: row.$1 == 'Total'
                           ? PosUi.totalCaption()
                           : PosUi.body(color: AppColors.textSecondary),
                     ),
                   ),
                   Text(
-                    money(row.$2),
+                    tr(money(row.$2)),
                     style: row.$1 == 'Total' ? PosUi.totalAmount(size: 22) : PosUi.money(size: 13),
                   ),
                 ],
@@ -622,7 +623,7 @@ class _ReturnQtyTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: PosUi.body(weight: FontWeight.w600))),
+          Expanded(child: Text(tr(label), style: PosUi.body(weight: FontWeight.w600))),
           IconButton(
             onPressed: value <= 0 ? null : () => onChanged(value - 1),
             icon: const Icon(Icons.remove_circle_outline),

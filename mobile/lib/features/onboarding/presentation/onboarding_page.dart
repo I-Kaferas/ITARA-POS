@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class OnboardingPageData {
   const OnboardingPageData({
@@ -63,7 +64,7 @@ class _Copy extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          data.title,
+          tr(data.title),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 32,
             height: 1.15,
@@ -74,7 +75,7 @@ class _Copy extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          data.body,
+          tr(data.body),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 16,
             height: 1.45,
@@ -90,7 +91,7 @@ class _Copy extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  point,
+                  tr(point),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 14,
                     height: 1.35,
@@ -142,7 +143,7 @@ class _Illustration extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Illustration',
+              tr('Illustration'),
               style: GoogleFonts.ibmPlexSans(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

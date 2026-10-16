@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_typography.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 enum StatusBadgeVariant { success, warning, danger, neutral, info }
 
@@ -55,7 +56,7 @@ class StatusBadge extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            label,
+            tr(label),
             style: AppTypography.plex(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import 'onboarding_frame.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -22,12 +23,12 @@ class WelcomeScreen extends StatelessWidget {
         builder: (context, constraints) {
           final stacked = constraints.maxWidth < 520;
           final discover = OnboardingButton(
-            label: 'Découvrir le logiciel',
+            label: tr('Découvrir le logiciel'),
             onPressed: () =>
                 context.go(_withReplay(context, AppRoutes.onboarding)),
           );
           final start = OnboardingButton(
-            label: 'Commencer',
+            label: tr('Commencer'),
             primary: true,
             onPressed: () =>
                 context.go(_withReplay(context, AppRoutes.onboardingFinish)),
@@ -61,7 +62,7 @@ class WelcomeScreen extends StatelessWidget {
                   const OnboardingMark(),
                   const SizedBox(height: 28),
                   Text(
-                    'Gérez. Vendez. Développez.',
+                    tr('Gérez. Vendez. Développez.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.ibmPlexSans(
                       fontSize: 40,
@@ -75,7 +76,7 @@ class WelcomeScreen extends StatelessWidget {
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: Text(
-                      'Le point de vente, le stock, le restaurant et l’hôtel dans une même caisse, en ligne ou hors ligne.',
+                      tr('Le point de vente, le stock, le restaurant et l’hôtel dans une même caisse, en ligne ou hors ligne.'),
                       textAlign: TextAlign.center,
                       style: GoogleFonts.ibmPlexSans(
                         fontSize: 16,
@@ -116,14 +117,14 @@ class _CommerceArt extends StatelessWidget {
             ),
           ],
         ),
-        child: const Padding(
+        child: Padding(
           padding: EdgeInsets.all(18),
           child: Row(
             children: [
               Expanded(
                 child: _ArtStat(
                   icon: Icons.inventory_2_outlined,
-                  label: 'Stocks',
+                  label: tr('Stocks'),
                   value: 'Catalogue',
                 ),
               ),
@@ -131,7 +132,7 @@ class _CommerceArt extends StatelessWidget {
               Expanded(
                 child: _ArtStat(
                   icon: Icons.point_of_sale_outlined,
-                  label: 'Caisse',
+                  label: tr('Caisse'),
                   value: 'Vente',
                 ),
               ),
@@ -139,7 +140,7 @@ class _CommerceArt extends StatelessWidget {
               Expanded(
                 child: _ArtStat(
                   icon: Icons.insights_outlined,
-                  label: 'Pilotage',
+                  label: tr('Pilotage'),
                   value: 'Rapports',
                 ),
               ),
@@ -170,14 +171,14 @@ class _ArtStat extends StatelessWidget {
         Icon(icon, color: AppColors.brand600, size: 28),
         const SizedBox(height: 8),
         Text(
-          value,
+          tr(value),
           style: GoogleFonts.ibmPlexSans(
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),
         ),
         Text(
-          label,
+          tr(label),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 12,
             color: AppColors.textMuted,

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import 'pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosGateRegister {
   const PosGateRegister({
@@ -151,7 +152,7 @@ class _PosSessionGateState extends State<PosSessionGate> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Ouvrir la caisse',
+                          tr('Ouvrir la caisse'),
                           style: GoogleFonts.ibmPlexSans(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -160,7 +161,7 @@ class _PosSessionGateState extends State<PosSessionGate> {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Actualiser',
+                        tooltip: tr('Actualiser'),
                         onPressed: busy ? null : () => widget.onRefresh(),
                         icon: widget.loading
                             ? const SizedBox(
@@ -174,11 +175,11 @@ class _PosSessionGateState extends State<PosSessionGate> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Saisissez votre PIN et sélectionnez une caisse pour démarrer le service.',
+                    tr('Saisissez votre PIN et sélectionnez une caisse pour démarrer le service.'),
                     style: PosUi.caption(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: PosUi.spaceLg),
-                  Text('Caisse', style: PosUi.sectionLabel()),
+                  Text(tr('Caisse'), style: PosUi.sectionLabel()),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
                     key: ValueKey(_registerId ?? 'register'),
@@ -192,7 +193,7 @@ class _PosSessionGateState extends State<PosSessionGate> {
                         .map(
                           (register) => DropdownMenuItem(
                             value: register.id,
-                            child: Text(register.label, overflow: TextOverflow.ellipsis),
+                            child: Text(tr(register.label), overflow: TextOverflow.ellipsis),
                           ),
                         )
                         .toList(),
@@ -203,12 +204,12 @@ class _PosSessionGateState extends State<PosSessionGate> {
                   if (widget.registers.isEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      'Aucune caisse configurée',
+                      tr('Aucune caisse configurée'),
                       style: PosUi.caption(color: AppColors.danger),
                     ),
                   ],
                   const SizedBox(height: PosUi.spaceMd),
-                  Text('Code PIN', style: PosUi.sectionLabel()),
+                  Text(tr('Code PIN'), style: PosUi.sectionLabel()),
                   const SizedBox(height: 6),
                   TextField(
                     controller: _pinCtrl,
@@ -225,7 +226,7 @@ class _PosSessionGateState extends State<PosSessionGate> {
                     onSubmitted: (_) => busy ? null : _submit(),
                   ),
                   const SizedBox(height: PosUi.spaceMd),
-                  Text('Fonds d\'ouverture', style: PosUi.sectionLabel()),
+                  Text(tr('Fonds d\'ouverture'), style: PosUi.sectionLabel()),
                   const SizedBox(height: 6),
                   TextField(
                     controller: _floatCtrl,
@@ -239,7 +240,7 @@ class _PosSessionGateState extends State<PosSessionGate> {
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: PosUi.spaceSm),
-                    Text(_error!, style: PosUi.caption(color: AppColors.danger)),
+                    Text(tr(_error!), style: PosUi.caption(color: AppColors.danger)),
                   ],
                   const SizedBox(height: PosUi.spaceLg),
                   SizedBox(
@@ -253,7 +254,7 @@ class _PosSessionGateState extends State<PosSessionGate> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : Text(
-                              'Ouvrir la caisse',
+                              tr('Ouvrir la caisse'),
                               style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
                             ),
                     ),

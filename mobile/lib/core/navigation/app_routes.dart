@@ -17,6 +17,9 @@ abstract final class AppRoutes {
   static const stock = '/stock';
   static const menu = '/menu';
   static const configuration = '/configuration';
+  static const hub = '/hub';
+  static const masterConfiguration = '/hub/master';
+  static const cashierSettings = '/cashier-settings';
   static const hospitality = '/dashboard/hospitality';
   static const kitchen = '/dashboard/kitchen';
   static const services = '/dashboard/services';
@@ -28,6 +31,13 @@ abstract final class AppRoutes {
   static const expenses = '/dashboard/expenses';
   static const barcode = '/dashboard/barcode';
   static const sync = '/dashboard/sync';
+
+  /// Screens reserved to administrators; the shell hides its navigation on them.
+  static bool isConfiguration(String location) =>
+      location == configuration ||
+      location == hub ||
+      location == masterConfiguration ||
+      location == cashierSettings;
 
   static String saleDetail(String id) => '/orders/sale/$id';
   static String shiftDetail(String id) => '/shifts/$id';

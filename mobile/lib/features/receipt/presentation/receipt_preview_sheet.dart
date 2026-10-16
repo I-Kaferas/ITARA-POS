@@ -4,6 +4,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../domain/printer_models.dart';
 import '../domain/receipt_models.dart';
 import '../services/receipt_print_service.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class ReceiptPreviewSheet extends StatelessWidget {
   const ReceiptPreviewSheet({
@@ -28,14 +29,14 @@ class ReceiptPreviewSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            payload.isInvoice ? 'Facture' : 'Reçu',
+            tr(payload.isInvoice ? 'Facture' : 'Reçu'),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
-          Text('N° ${payload.documentNumber}'),
-          Text('Total: ${payload.total / 100} ${payload.currency}'),
+          Text(trf('N° {0}', [payload.documentNumber])),
+          Text(trf('Total: {0} {1}', [payload.total / 100, payload.currency])),
           const SizedBox(height: 16),
-          Text('Format', style: Theme.of(context).textTheme.titleSmall),
+          Text(tr('Format'), style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -53,13 +54,13 @@ class ReceiptPreviewSheet extends StatelessWidget {
                 onSelected: () => _print(context, ReceiptDocumentFormat.thermal80),
               ),
               _FormatChip(
-                label: 'A4',
+                label: tr('A4'),
                 format: ReceiptDocumentFormat.a4,
                 selected: payload.format == ReceiptDocumentFormat.a4,
                 onSelected: () => _print(context, ReceiptDocumentFormat.a4),
               ),
               _FormatChip(
-                label: 'PDF',
+                label: tr('PDF'),
                 format: ReceiptDocumentFormat.pdf,
                 selected: payload.format == ReceiptDocumentFormat.pdf,
                 onSelected: () => _exportPdf(context),
@@ -70,14 +71,14 @@ class ReceiptPreviewSheet extends StatelessWidget {
           FilledButton.icon(
             onPressed: () => _print(context, payload.format),
             icon: const Icon(Icons.print),
-            label: const Text('Imprimer'),
+            label: Text(tr('Imprimer')),
           ),
           if (networkPrinter?.isConfigured == true) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: () => _printNetwork(context),
               icon: const Icon(Icons.print_outlined),
-              label: Text('Impression réseau (${networkPrinter!.host})'),
+              label: Text(trf('Impression réseau ({0})', [networkPrinter!.host])),
             ),
           ],
         ],
@@ -95,13 +96,14 @@ class ReceiptPreviewSheet extends StatelessWidget {
         updated,
         mode: useNetwork ? ReceiptPrintMode.network : ReceiptPrintMode.dialog,
         networkPrinter: networkPrinter,
+        keepFormat: true,
       );
       onPrinted();
       if (context.mounted) Navigator.pop(context);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur impression: $e')),
+          SnackBar(content: Text(trf('Erreur impression: {0}', [e]))),
         );
       }
     }
@@ -113,13 +115,14 @@ class ReceiptPreviewSheet extends StatelessWidget {
         payload,
         mode: ReceiptPrintMode.network,
         networkPrinter: networkPrinter,
+        keepFormat: true,
       );
       onPrinted();
       if (context.mounted) Navigator.pop(context);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur impression réseau: $e')),
+          SnackBar(content: Text(trf('Erreur impression réseau: {0}', [e]))),
         );
       }
     }
@@ -128,13 +131,13 @@ class ReceiptPreviewSheet extends StatelessWidget {
   Future<void> _exportPdf(BuildContext context) async {
     final updated = _copyWithFormat(payload, ReceiptDocumentFormat.pdf);
     try {
-      await printService.print(updated, mode: ReceiptPrintMode.pdf);
+      await printService.print(updated, mode: ReceiptPrintMode.pdf, keepFormat: true);
       onPrinted();
       if (context.mounted) Navigator.pop(context);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur export PDF: $e')),
+          SnackBar(content: Text(trf('Erreur export PDF: {0}', [e]))),
         );
       }
     }
@@ -189,7 +192,7 @@ class _FormatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FilterChip(
-      label: Text(label),
+      label: Text(tr(label)),
       selected: selected,
       onSelected: (_) => onSelected(),
     );
@@ -204,7 +207,7 @@ Future<void> showReceiptPreviewSheet({
   VoidCallback? onPrinted,
 }) {
   final config = TerminalConfigRepository.instance.config;
-  final format = config.printerEnabled ? ReceiptDocumentFormat.fromString(config.printerFormat) : payload.format;
+  final format = ReceiptDocumentFormat.fromString(config.printerFormat);
   final resolvedPrinter = networkPrinter ??
       NetworkPrinterConfig(
         host: config.printerHost,

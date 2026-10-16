@@ -5,6 +5,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_favorites_store.dart';
 import 'pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosCategorySidebar extends StatelessWidget {
   const PosCategorySidebar({
@@ -33,13 +34,13 @@ class PosCategorySidebar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 12, 6),
         children: [
           _CategoryChip(
-            label: 'All',
+            label: tr('All'),
             count: totalCount,
             selected: selectedCategoryId == null,
             onTap: () => onCategorySelected(null),
           ),
           _CategoryChip(
-            label: 'Favorites',
+            label: tr('Favorites'),
             count: favoritesCount,
             selected: selectedCategoryId == PosFavoritesStore.favoritesCategoryId,
             onTap: () => onCategorySelected(PosFavoritesStore.favoritesCategoryId),

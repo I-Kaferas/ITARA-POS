@@ -22,19 +22,19 @@ import '../../auth/presentation/logout_profile_dialog.dart';
 import '../../backup/presentation/backup_screen.dart';
 import '../../printers/presentation/printer_routing_screen.dart';
 import '../../devices/presentation/bloc/master_discovery_bloc.dart';
-import '../../devices/presentation/bloc/master_pairing_bloc.dart';
 import '../../devices/presentation/widgets/devices_registry_panel.dart';
 import '../../devices/presentation/widgets/discovered_masters_panel.dart';
+import '../../devices/presentation/widgets/master_pairing_dialog.dart';
 import '../../devices/presentation/widgets/pairing_approval_panel.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../receipt/domain/printer_models.dart';
 import '../../settings/data/device_api_service.dart';
 import '../../../sync/local_master_discovery.dart';
 import '../../../sync/local_master_server.dart';
-import '../../../sync/pairing_models.dart';
-
 class ConfigurationScreen extends StatefulWidget {
-  const ConfigurationScreen({super.key});
+  const ConfigurationScreen({super.key, this.initialSection = 0});
+
+  final int initialSection;
 
   @override
   State<ConfigurationScreen> createState() => _ConfigurationScreenState();
@@ -47,84 +47,8 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   }
 
   Future<void> pairWithMaster(DiscoveredMaster master) async {
-    final codeCtrl = TextEditingController();
-    final code = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Secure Pairing — ${master.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'La découverte ne suffit pas. Saisissez le code à 6 chiffres '
-              'du Master, puis attendez ACCEPT.',
-              style: GoogleFonts.ibmPlexSans(fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: codeCtrl,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Code d\'appairage',
-                counterText: '',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, codeCtrl.text.trim()),
-            child: const Text('Demander l\'accés'),
-          ),
-        ],
-      ),
-    );
-    codeCtrl.dispose();
-    if (code == null || code.length != 6 || !mounted) return;
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                'Authorization… en attente ACCEPT sur le Master.',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    final pairing = context.read<MasterPairingBloc>();
-    final done = pairing.stream.firstWhere(
-      (s) =>
-          !s.busy &&
-          (s.phase == PairingPhase.registered ||
-              s.phase == PairingPhase.rejected),
-    );
-    pairing.add(MasterPairingSlaveRequested(master: master, code: code));
-    await done;
-    if (!mounted) return;
-    Navigator.of(context, rootNavigator: true).pop();
-
-    final err = pairing.state.errorMessage;
-    if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
-      return;
-    }
-    applyMasterHost('${master.host}:${master.port}');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Appareil enregistré — appairage réussi.')),
-    );
+    final ok = await pairWithDiscoveredMaster(context, master);
+    if (ok && mounted) applyMasterHost('${master.host}:${master.port}');
   }
 
   late final TerminalConfigRepository _repo;
@@ -150,7 +74,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   bool _saving = false;
   String? _message;
   bool _messageOk = false;
-  int _section = 0;
+  late int _section;
   String _boundAuthToken = '';
 
   List<_Section> get _sections => [
@@ -164,6 +88,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   @override
   void initState() {
     super.initState();
+    _section = widget.initialSection.clamp(0, 4);
     _repo = TerminalConfigRepository.instance;
     final config = _repo.config;
     _apiUrlCtrl = TextEditingController(text: config.apiBaseUrl);
@@ -187,11 +112,6 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     if (_role == PosRole.slave) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _searchMasters());
     }
-  }
-
-  void _selectRole(PosRole role) {
-    setState(() => _role = role);
-    if (role == PosRole.slave) _searchMasters();
   }
 
   void _searchMasters() {
@@ -293,6 +213,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         isConfigured: true,
       ));
       ThemeController.instance.applyFromConfig();
+      await LocalMasterServer.instance.startIfMaster();
 
       final device = await DeviceApiService().register(
         name: _nameCtrl.text.trim(),
@@ -444,7 +365,6 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   }
 
   Widget _terminalSection(TerminalConfig config) {
-    final wide = MediaQuery.sizeOf(context).width >= PosUi.tabletBreakpoint;
     final tiles = [
       _Fact(label: 'Caissier', value: config.cashierName.isEmpty ? 'Non connecté' : config.cashierName),
       _Fact(label: 'Identifiant', value: config.deviceIdentifier.isEmpty ? '—' : config.deviceIdentifier),
@@ -456,6 +376,55 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.fieldFill,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Icon(_role.icon, size: 20, color: AppColors.brandInk),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rôle : ${_role.label}',
+                      style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    ),
+                    Text(
+                      _role.description,
+                      style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () => context.go(AppRoutes.hub),
+                icon: const Icon(Icons.hub_outlined, size: 16),
+                label: const Text('Ouvrir le Hub'),
+              ),
+            ],
+          ),
+        ),
+        if (_role == PosRole.slave) ...[
+          const SizedBox(height: 18),
+          Text('Découverte automatique', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+            'Les Masters du réseau local apparaissent ici. Touchez-en un pour l’appairer.',
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          const _DiscoveredMasters(),
+        ],
+        const SizedBox(height: 22),
+        Text('Informations du terminal', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, constraints) {
             final columns = constraints.maxWidth >= PosUi.phoneBreakpoint ? 3 : 2;
@@ -470,70 +439,6 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
             );
           },
         ),
-        const SizedBox(height: 18),
-        Text('Mode du terminal', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        Text(
-          'Choisissez comment ce poste se comporte sur le réseau du magasin.',
-          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 12),
-        if (wide)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < PosRole.values.length; i++) ...[
-                if (i > 0) const SizedBox(width: 10),
-                Expanded(
-                  child: _RoleCard(
-                    role: PosRole.values[i],
-                    selected: _role == PosRole.values[i],
-                    onTap: () => _selectRole(PosRole.values[i]),
-                  ),
-                ),
-              ],
-            ],
-          )
-        else
-          ...PosRole.values.map(
-            (role) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _RoleCard(
-                role: role,
-                selected: _role == role,
-                onTap: () => _selectRole(role),
-              ),
-            ),
-          ),
-        if (_role == PosRole.slave) ...[
-          const SizedBox(height: 18),
-          Text('Découverte automatique', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(
-            'Les Masters du réseau local apparaissent ici. Touchez-en un pour l’appairer.',
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 8),
-          const _DiscoveredMasters(),
-        ],
-        if (_role == PosRole.master) ...[
-          const SizedBox(height: 18),
-          Text('Annonce sur le réseau', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(
-            'Ce poste se fait découvrir par les Esclaves. Enregistrez le mode Master pour lancer l’annonce.',
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 8),
-          const _LocalMasterStatus(),
-        ],
-        if (_role == PosRole.standalone) ...[
-          const SizedBox(height: 12),
-          Text(
-            'En mode Autonome, cette caisse ne cherche pas de Master. Passez en Esclave pour lancer la découverte.',
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
-          ),
-        ],
         const SizedBox(height: 16),
         Align(
           alignment: Alignment.centerLeft,
@@ -1240,63 +1145,6 @@ class _SectionHeading extends StatelessWidget {
           style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
         ),
       ],
-    );
-  }
-}
-
-class _RoleCard extends StatelessWidget {
-  const _RoleCard({
-    required this.role,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final PosRole role;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.brand50 : AppColors.fieldFill,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? AppColors.brand600 : AppColors.border,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(role.icon, size: 18, color: selected ? AppColors.brandInk : AppColors.textMuted),
-                  const Spacer(),
-                  Icon(
-                    selected ? Icons.check_circle : Icons.circle_outlined,
-                    size: 16,
-                    color: selected ? AppColors.brandInk : AppColors.textMuted,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(role.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary)),
-              const SizedBox(height: 4),
-              Text(
-                role.description,
-                style: GoogleFonts.ibmPlexSans(fontSize: 11, height: 1.35, color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

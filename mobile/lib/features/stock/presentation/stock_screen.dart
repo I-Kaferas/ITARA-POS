@@ -7,6 +7,7 @@ import '../../../core/utils/money_formatter.dart';
 import '../../../sync/sync_engine.dart';
 import '../../pos/domain/pos_models.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Stock local léger pour navigation smartphone §18.
 class StockScreen extends StatefulWidget {
@@ -80,7 +81,7 @@ class _StockScreenState extends State<StockScreen> {
                   child: TextField(
                     onChanged: (v) => setState(() => _query = v),
                     decoration: InputDecoration(
-                      hintText: 'Rechercher un produit…',
+                      hintText: tr('Rechercher un produit…'),
                       prefixIcon: const Icon(Icons.search, size: 20),
                       filled: true,
                       fillColor: AppColors.surface,
@@ -94,7 +95,7 @@ class _StockScreenState extends State<StockScreen> {
                 ),
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
-                  tooltip: 'Synchroniser',
+                  tooltip: tr('Synchroniser'),
                   onPressed: _loading ? null : _sync,
                   icon: const Icon(Icons.sync),
                 ),
@@ -108,13 +109,13 @@ class _StockScreenState extends State<StockScreen> {
                     ? Center(
                         child: TextButton(
                           onPressed: _load,
-                          child: Text('Erreur · Réessayer\n$_error'),
+                          child: Text(trf('Erreur · Réessayer\n{0}', [_error])),
                         ),
                       )
                     : items.isEmpty
                         ? Center(
                             child: Text(
-                              'Aucun stock local. Synchronisez le catalogue.',
+                              tr('Aucun stock local. Synchronisez le catalogue.'),
                               style: PosUi.body(color: AppColors.textSecondary),
                             ),
                           )
@@ -144,7 +145,7 @@ class _StockScreenState extends State<StockScreen> {
                                 child: ListTile(
                                   minVerticalPadding: 12,
                                   title: Text(
-                                    p.name,
+                                    tr(p.name),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.ibmPlexSans(
@@ -153,11 +154,11 @@ class _StockScreenState extends State<StockScreen> {
                                     ),
                                   ),
                                   subtitle: Text(
-                                    low
+                                    tr(low
                                         ? 'Stock bas · ${p.stockDisplay?.isNotEmpty == true ? p.stockDisplay! : (p.sku.isEmpty ? '—' : p.sku)}'
                                         : (p.stockDisplay?.isNotEmpty == true
                                             ? p.stockDisplay!
-                                            : (p.sku.isEmpty ? '—' : p.sku)),
+                                            : (p.sku.isEmpty ? '—' : p.sku))),
                                     style: PosUi.caption(color: low ? AppColors.danger : null),
                                   ),
                                   trailing: Column(
@@ -175,7 +176,7 @@ class _StockScreenState extends State<StockScreen> {
                                         ),
                                       ),
                                       Text(
-                                        MoneyFormatter.format(p.price),
+                                        tr(MoneyFormatter.format(p.price)),
                                         style: PosUi.caption(),
                                       ),
                                     ],

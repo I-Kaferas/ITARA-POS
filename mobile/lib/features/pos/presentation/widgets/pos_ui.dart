@@ -6,6 +6,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/theme_controller.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Spacing / radius tokens for the POS caisse surface.
 abstract final class PosUi {
@@ -176,7 +177,7 @@ class PosBadge extends StatelessWidget {
         border: Border.all(color: fg.withValues(alpha: 0.16)),
       ),
       child: Text(
-        label,
+        tr(label),
         style: AppTypography.plex(
           fontSize: compact ? 9.5 : 10.5,
           fontWeight: FontWeight.w600,

@@ -7,6 +7,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../sync/local_master_server.dart';
 import '../data/service_desk_store.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class ServicesScreen extends StatefulWidget {
   const ServicesScreen({super.key});
@@ -55,7 +56,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(tr(error.toString().replaceFirst('Exception: ', '')))),
       );
     }
   }
@@ -97,24 +98,24 @@ class _ServicesScreenState extends State<ServicesScreen> {
     final currency = TerminalConfigRepository.instance.config.currencyCode;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Services')),
+      appBar: AppBar(title: Text(tr('Services'))),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: offerings.isEmpty ? null : () => _book(offerings),
         icon: const Icon(Icons.add),
-        label: const Text('Rendez-vous'),
+        label: Text(tr('Rendez-vous')),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? Center(child: Text(tr(_error!)))
               : ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
-                    const Text('Service → rendez-vous → employé → réalisation → paiement'),
+                    Text(tr('Service → rendez-vous → employé → réalisation → paiement')),
                     const SizedBox(height: 8),
-                    Text(offerings.map((item) => '${item['name']} · ${_category(item['category']?.toString())}').join(' · ')),
+                    Text(tr(offerings.map((item) => '${item['name']} · ${_category(item['category']?.toString())}').join(' · '))),
                     const SizedBox(height: 12),
-                    if (jobs.isEmpty) const Text('Aucun rendez-vous.'),
+                    if (jobs.isEmpty) Text(tr('Aucun rendez-vous.')),
                     for (final job in jobs)
                       Card(
                         child: ListTile(
@@ -136,17 +137,17 @@ class _ServicesScreenState extends State<ServicesScreen> {
     return switch (job['status']) {
       'booked' => FilledButton(
           onPressed: () => _assign(job, employees),
-          child: const Text('Employé'),
+          child: Text(tr('Employé')),
         ),
       'assigned' => FilledButton(
           onPressed: () => _complete(job),
-          child: const Text('Terminer'),
+          child: Text(tr('Terminer')),
         ),
       'completed' => FilledButton(
           onPressed: () => _run({'action': 'pay', 'job_id': job['id']}),
-          child: const Text('Payer'),
+          child: Text(tr('Payer')),
         ),
-      _ => Text(job['reference']?.toString() ?? 'Payé'),
+      _ => Text(tr(job['reference']?.toString() ?? 'Payé')),
     };
   }
 
@@ -156,7 +157,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rendez-vous'),
+        title: Text(tr('Rendez-vous')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -168,12 +169,12 @@ class _ServicesScreenState extends State<ServicesScreen> {
               ],
               onChanged: (value) => serviceId = value ?? serviceId,
             ),
-            TextField(controller: name, decoration: const InputDecoration(labelText: 'Client')),
+            TextField(controller: name, decoration: InputDecoration(labelText: tr('Client'))),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Créer')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Créer'))),
         ],
       ),
     );
@@ -189,7 +190,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
     final picked = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Employé'),
+        title: Text(tr('Employé')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -198,15 +199,15 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 initialValue: employeeId,
                 items: [
                   for (final item in employees)
-                    DropdownMenuItem(value: item['id'].toString(), child: Text(item['name']?.toString() ?? 'Employé')),
+                    DropdownMenuItem(value: item['id'].toString(), child: Text(tr(item['name']?.toString() ?? 'Employé'))),
                 ],
                 onChanged: (value) => employeeId = value ?? employeeId,
               ),
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Nouvel employé')),
+            TextField(controller: nameCtrl, decoration: InputDecoration(labelText: tr('Nouvel employé'))),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Annuler'))),
           FilledButton(
             onPressed: () {
               final created = nameCtrl.text.trim();
@@ -225,7 +226,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
               if (current == null) return;
               Navigator.pop(context, current);
             },
-            child: const Text('Assigner'),
+            child: Text(tr('Assigner')),
           ),
         ],
       ),
@@ -244,15 +245,15 @@ class _ServicesScreenState extends State<ServicesScreen> {
   }
 
   Future<void> _complete(Map<String, dynamic> job) async {
-    final notes = TextEditingController(text: 'Terminé');
+    final notes = TextEditingController(text: tr('Terminé'));
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Réalisation'),
-        content: TextField(controller: notes, decoration: const InputDecoration(labelText: 'Note')),
+        title: Text(tr('Réalisation')),
+        content: TextField(controller: notes, decoration: InputDecoration(labelText: tr('Note'))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Terminer')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Terminer'))),
         ],
       ),
     );

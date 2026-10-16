@@ -19,6 +19,7 @@ import '../../printers/domain/print_group.dart';
 import '../../printers/domain/printer.dart';
 import '../../printers/domain/printer_connection_type.dart';
 import '../../printers/services/printer_service.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// CREATE MASTER flow (mobile.md §47).
 class MasterSetupWizard extends StatefulWidget {
@@ -50,10 +51,10 @@ class _MasterSetupWizardState extends State<MasterSetupWizard> {
   final _businessCtrl = TextEditingController();
   final _slugCtrl = TextEditingController(text: 'demo');
   final _currencyCtrl = TextEditingController(text: AppConfig.currencyCode);
-  final _branchCtrl = TextEditingController(text: 'Magasin principal');
+  final _branchCtrl = TextEditingController(text: tr('Magasin principal'));
   final _storeIdCtrl = TextEditingController();
-  final _masterNameCtrl = TextEditingController(text: 'ITARA POS Master');
-  final _printerNameCtrl = TextEditingController(text: 'Caisse');
+  final _masterNameCtrl = TextEditingController(text: tr('ITARA POS Master'));
+  final _printerNameCtrl = TextEditingController(text: tr('Caisse'));
   final _printerHostCtrl = TextEditingController();
   final _printerPortCtrl = TextEditingController(text: '9100');
 
@@ -125,6 +126,9 @@ class _MasterSetupWizardState extends State<MasterSetupWizard> {
       printerHost: _printerHostCtrl.text.trim(),
       printerPort: int.tryParse(_printerPortCtrl.text.trim()) ?? 9100,
       printerEnabled: _printerHostCtrl.text.trim().isNotEmpty,
+      printerConnection: _printerHostCtrl.text.trim().isNotEmpty
+          ? 'lan'
+          : current.printerConnection,
       isConfigured: false,
     ));
   }
@@ -383,7 +387,7 @@ class _WizardHeader extends StatelessWidget {
           Row(
             children: [
               Text(
-                'CREATE MASTER',
+                tr('CREATE MASTER'),
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -420,7 +424,7 @@ class _WizardHeader extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            title,
+            tr(title),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -428,7 +432,7 @@ class _WizardHeader extends StatelessWidget {
             ),
           ),
           Text(
-            caption,
+            tr(caption),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 13,
               color: AppColors.textSecondary,
@@ -477,7 +481,7 @@ class _WizardFooter extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                error!,
+                tr(error!),
                 style: GoogleFonts.ibmPlexSans(
                   color: AppColors.danger,
                   fontWeight: FontWeight.w600,
@@ -491,7 +495,7 @@ class _WizardFooter extends StatelessWidget {
               if (showBack)
                 OutlinedButton(
                   onPressed: onBack,
-                  child: const Text('Retour'),
+                  child: Text(tr('Retour')),
                 ),
               const Spacer(),
               FilledButton(
@@ -505,7 +509,7 @@ class _WizardFooter extends StatelessWidget {
                           color: Colors.white,
                         ),
                       )
-                    : Text(label),
+                    : Text(tr(label)),
               ),
             ],
           ),
@@ -562,9 +566,9 @@ class _BusinessStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _Field(controller: businessCtrl, label: 'Nom du commerce', hint: 'ITARA Restaurant'),
-        _Field(controller: slugCtrl, label: 'Slug tenant', hint: 'itara-gitega'),
-        _Field(controller: currencyCtrl, label: 'Devise', hint: 'BIF'),
+        _Field(controller: businessCtrl, label: tr('Nom du commerce'), hint: tr('ITARA Restaurant')),
+        _Field(controller: slugCtrl, label: tr('Slug tenant'), hint: 'itara-gitega'),
+        _Field(controller: currencyCtrl, label: tr('Devise'), hint: tr('BIF')),
       ],
     );
   }
@@ -583,11 +587,11 @@ class _BranchStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _Field(controller: branchCtrl, label: 'Branche', hint: 'Gitega'),
+        _Field(controller: branchCtrl, label: tr('Branche'), hint: tr('Gitega')),
         _Field(
           controller: storeIdCtrl,
-          label: 'Store / Branch ID',
-          hint: 'Laisser vide pour générer',
+          label: tr('Store / Branch ID'),
+          hint: tr('Laisser vide pour générer'),
           requiredField: false,
         ),
       ],
@@ -604,8 +608,8 @@ class _MasterNameStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Field(
       controller: nameCtrl,
-      label: 'Nom du Master',
-      hint: 'ITARA POS — Gitega',
+      label: tr('Nom du Master'),
+      hint: tr('ITARA POS — Gitega'),
     );
   }
 }
@@ -643,16 +647,16 @@ class _StatusCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  title,
+                  tr(title),
                   style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
                 ),
               ),
               if (onRefresh != null)
-                TextButton(onPressed: onRefresh, child: const Text('Relancer')),
+                TextButton(onPressed: onRefresh, child: Text(tr('Relancer'))),
             ],
           ),
           const SizedBox(height: 6),
-          Text(detail, style: GoogleFonts.ibmPlexMono(fontSize: 12)),
+          Text(tr(detail), style: GoogleFonts.ibmPlexMono(fontSize: 12)),
         ],
       ),
     );
@@ -724,27 +728,27 @@ class _PrintersStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Ajoutez l’imprimante caisse (optionnel — failover §41 si plusieurs).',
+          tr('Ajoutez l’imprimante caisse (optionnel — failover §41 si plusieurs).'),
           style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
-        _Field(controller: nameCtrl, label: 'Nom', requiredField: false),
+        _Field(controller: nameCtrl, label: tr('Nom'), requiredField: false),
         _Field(
           controller: hostCtrl,
-          label: 'IP réseau',
+          label: tr('IP réseau'),
           hint: '192.168.1.50',
           requiredField: false,
         ),
         _Field(
           controller: portCtrl,
-          label: 'Port',
+          label: tr('Port'),
           hint: '9100',
           requiredField: false,
           keyboardType: TextInputType.number,
         ),
         if (saved)
           Text(
-            'Imprimante enregistrée',
+            tr('Imprimante enregistrée'),
             style: GoogleFonts.ibmPlexSans(
               color: AppColors.success,
               fontWeight: FontWeight.w600,
@@ -771,7 +775,7 @@ class _PairDevicesStep extends StatelessWidget {
     return Column(
       children: [
         Text(
-          'Les Slaves utilisent ce code pour s’appairer au Master.',
+          tr('Les Slaves utilisent ce code pour s’appairer au Master.'),
           style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 16),
@@ -786,7 +790,7 @@ class _PairDevicesStep extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                code ?? '······',
+                tr(code ?? '······'),
                 style: GoogleFonts.ibmPlexMono(
                   fontSize: 36,
                   fontWeight: FontWeight.w700,
@@ -795,9 +799,9 @@ class _PairDevicesStep extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                lanAddress == null
+                tr(lanAddress == null
                     ? 'Master LAN'
-                    : '$lanAddress:${LocalMasterServer.port}',
+                    : '$lanAddress:${LocalMasterServer.port}'),
                 style: GoogleFonts.ibmPlexSans(color: AppColors.textMuted),
               ),
               const SizedBox(height: 12),
@@ -811,12 +815,12 @@ class _PairDevicesStep extends StatelessWidget {
                             await Clipboard.setData(ClipboardData(text: code!));
                           },
                     icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('Copier'),
+                    label: Text(tr('Copier')),
                   ),
                   const SizedBox(width: 8),
                   TextButton(
                     onPressed: onRefreshCode,
-                    child: const Text('Nouveau code'),
+                    child: Text(tr('Nouveau code')),
                   ),
                 ],
               ),
@@ -849,7 +853,7 @@ class _CompleteStep extends StatelessWidget {
         Icon(Icons.verified, size: 40, color: AppColors.success),
         const SizedBox(height: 12),
         Text(
-          'Master prêt',
+          tr('Master prêt'),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 22,
             fontWeight: FontWeight.w700,
@@ -857,7 +861,7 @@ class _CompleteStep extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text('$business · $branch'),
-        Text(masterName),
+        Text(tr(masterName)),
         if (lanAddress != null)
           Text(
             '$lanAddress:${LocalMasterServer.port}',
@@ -865,7 +869,7 @@ class _CompleteStep extends StatelessWidget {
           ),
         const SizedBox(height: 12),
         Text(
-          'Les terminaux Slave peuvent maintenant se connecter.',
+          tr('Les terminaux Slave peuvent maintenant se connecter.'),
           style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary),
         ),
       ],

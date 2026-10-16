@@ -1,4 +1,5 @@
 import 'app_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Catalog / outbox / cloud synchronization failure.
 final class SyncError extends AppError {
@@ -10,15 +11,15 @@ final class SyncError extends AppError {
   }) : super(code: 'errors.sync');
 
   factory SyncError.conflict({Object? cause}) => SyncError(
-        title: 'Conflit de synchronisation.',
+        title: tr('Conflit de synchronisation.'),
         detail:
-            'Une donnée a changé ailleurs. Actualisez ou choisissez la version à conserver.',
+            tr('Une donnée a changé ailleurs. Actualisez ou choisissez la version à conserver.'),
         cause: cause,
       );
 
   factory SyncError.queueFull({Object? cause}) => SyncError(
-        title: 'File hors-ligne saturée.',
-        detail: 'Reconnectez-vous au réseau pour synchroniser avant de continuer.',
+        title: tr('File hors-ligne saturée.'),
+        detail: tr('Reconnectez-vous au réseau pour synchroniser avant de continuer.'),
         cause: cause,
       );
 }

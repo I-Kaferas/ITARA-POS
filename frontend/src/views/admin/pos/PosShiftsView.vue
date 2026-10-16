@@ -277,7 +277,7 @@ function toggleMenu(id: string) {
           </article>
           <article class="shifts-stat">
             <span class="shifts-stat__icon shifts-stat__icon--total" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#b9a6ff" stroke-width="2">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="4" y="4" width="6" height="6" rx="1" />
                 <rect x="14" y="4" width="6" height="6" rx="1" />
                 <rect x="4" y="14" width="6" height="6" rx="1" />
@@ -452,8 +452,28 @@ function toggleMenu(id: string) {
 
 <style>
 .app-content:has(.shifts-root) {
+  --sh-bg: var(--color-canvas);
+  --sh-card: var(--color-surface);
+  --sh-line: var(--color-border);
+  --sh-title: var(--color-text-primary);
+  --sh-text: var(--color-text);
+  --sh-muted: var(--color-text-muted);
+  --sh-primary: var(--color-brand-600);
+  --sh-live: var(--color-success);
+  --sh-live-bg: var(--color-success-bg);
+  --sh-closed-bg: var(--color-brand-100);
+  --sh-total-bg: var(--color-accent-soft);
+  --sh-store: #9a6412;
+  --sh-duration: var(--color-warning);
+  --sh-menu: var(--color-surface);
+  --sh-menu-hover: var(--color-table-row-hover);
+  --sh-menu-shadow: 0 12px 30px rgba(20, 32, 43, 0.14);
+  --sh-error-bg: var(--color-danger-bg);
+  --sh-error: var(--color-danger);
+  --sh-note-bg: var(--color-warning-bg);
+  --sh-note: var(--color-warning);
   padding: 0;
-  background: #070b16;
+  background: var(--sh-bg);
 }
 
 .app-content .shifts-root {
@@ -463,8 +483,31 @@ function toggleMenu(id: string) {
   margin-inline: 0;
   min-height: 100%;
   padding: 22px 24px 36px;
-  background: #070b16;
-  color: #e8eefc;
+  background: var(--sh-bg);
+  color: var(--sh-text);
+}
+
+[data-theme='dark'] .app-content:has(.shifts-root) {
+  --sh-bg: #070b16;
+  --sh-card: #151c2c;
+  --sh-line: #2a3448;
+  --sh-title: #f4f7ff;
+  --sh-text: #e8eefc;
+  --sh-muted: #9aa6bf;
+  --sh-primary: #7c5cff;
+  --sh-live: #3ddc97;
+  --sh-live-bg: #143528;
+  --sh-closed-bg: #243044;
+  --sh-total-bg: #2a2158;
+  --sh-store: #b9a6ff;
+  --sh-duration: #f5a524;
+  --sh-menu: #101828;
+  --sh-menu-hover: #1c2740;
+  --sh-menu-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  --sh-error-bg: #2a1830;
+  --sh-error: #ffb4b4;
+  --sh-note-bg: #241c12;
+  --sh-note: #f3d7a1;
 }
 
 @media (min-width: 1024px) {
@@ -482,7 +525,7 @@ function toggleMenu(id: string) {
 
 .app-content .shifts-root h1 {
   margin: 0;
-  color: #f4f7ff;
+  color: var(--sh-title);
   font-size: 1.45rem;
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -491,7 +534,7 @@ function toggleMenu(id: string) {
 
 .app-content .shifts-root p {
   margin: 0;
-  color: #9aa6bf;
+  color: var(--sh-muted);
 }
 
 .app-content .shifts-head {
@@ -519,7 +562,7 @@ function toggleMenu(id: string) {
   height: 46px;
   flex: 0 0 auto;
   border-radius: 14px;
-  background: #7c5cff;
+  background: var(--sh-primary);
   color: #fff;
 }
 
@@ -548,9 +591,9 @@ function toggleMenu(id: string) {
 }
 
 .app-content .shifts-btn--ghost {
-  background: #151c2c;
-  color: #e8eefc;
-  border-color: #2a3448;
+  background: var(--sh-card);
+  color: var(--sh-text);
+  border-color: var(--sh-line);
 }
 
 .app-content .shifts-btn--danger {
@@ -559,7 +602,7 @@ function toggleMenu(id: string) {
 }
 
 .app-content .shifts-btn--primary {
-  background: #7c5cff;
+  background: var(--sh-primary);
   color: #fff;
 }
 
@@ -583,19 +626,19 @@ function toggleMenu(id: string) {
   gap: 12px;
   padding: 16px;
   border-radius: 16px;
-  background: #151c2c;
-  border: 1px solid #2a3448;
+  background: var(--sh-card);
+  border: 1px solid var(--sh-line);
 }
 
 .app-content .shifts-stat strong {
   display: block;
-  color: #f4f7ff;
+  color: var(--sh-title);
   font-size: 1.35rem;
   line-height: 1.1;
 }
 
 .app-content .shifts-stat span {
-  color: #9aa6bf;
+  color: var(--sh-muted);
   font-size: 12px;
 }
 
@@ -608,9 +651,9 @@ function toggleMenu(id: string) {
   flex: 0 0 auto;
 }
 
-.app-content .shifts-stat__icon--live { background: #143528; }
-.app-content .shifts-stat__icon--closed { background: #243044; }
-.app-content .shifts-stat__icon--total { background: #2a2158; }
+.app-content .shifts-stat__icon--live { background: var(--sh-live-bg); }
+.app-content .shifts-stat__icon--closed { background: var(--sh-closed-bg); }
+.app-content .shifts-stat__icon--total { background: var(--sh-total-bg); color: var(--sh-store); }
 
 .app-content .shifts-toolbar {
   display: flex;
@@ -630,17 +673,17 @@ function toggleMenu(id: string) {
   height: 38px;
   padding: 0 16px;
   border-radius: 10px;
-  border: 1px solid #2a3448;
-  background: #151c2c;
-  color: #9aa6bf;
+  border: 1px solid var(--sh-line);
+  background: var(--sh-card);
+  color: var(--sh-muted);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .app-content .shifts-filters button.is-on {
-  background: #7c5cff;
-  border-color: #7c5cff;
+  background: var(--sh-primary);
+  border-color: var(--sh-primary);
   color: #fff;
 }
 
@@ -652,9 +695,9 @@ function toggleMenu(id: string) {
   height: 42px;
   padding: 0 12px;
   border-radius: 12px;
-  border: 1px solid #2a3448;
-  background: #151c2c;
-  color: #9aa6bf;
+  border: 1px solid var(--sh-line);
+  background: var(--sh-card);
+  color: var(--sh-muted);
 }
 
 .app-content .shifts-search input {
@@ -666,7 +709,7 @@ function toggleMenu(id: string) {
   outline: none;
   box-shadow: none !important;
   background: transparent !important;
-  color: #f4f7ff !important;
+  color: var(--sh-title) !important;
   font-size: 14px;
 }
 
@@ -675,13 +718,13 @@ function toggleMenu(id: string) {
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: #2a1830;
-  color: #ffb4b4;
+  background: var(--sh-error-bg);
+  color: var(--sh-error);
 }
 
 .app-content .shifts-note {
-  background: #241c12;
-  color: #f3d7a1;
+  background: var(--sh-note-bg);
+  color: var(--sh-note);
 }
 
 .app-content .shifts-grid {
@@ -694,8 +737,8 @@ function toggleMenu(id: string) {
 .app-content .shift-card {
   padding: 14px 14px 14px 16px;
   border-radius: 18px;
-  background: #151c2c;
-  border: 1px solid #2a3448;
+  background: var(--sh-card);
+  border: 1px solid var(--sh-line);
 }
 
 .app-content .shift-card--open {
@@ -723,7 +766,7 @@ function toggleMenu(id: string) {
 }
 
 .app-content .shift-card__title strong {
-  color: #f4f7ff;
+  color: var(--sh-title);
   font-size: 16px;
   font-weight: 800;
 }
@@ -737,13 +780,13 @@ function toggleMenu(id: string) {
 }
 
 .app-content .shift-card__title em.is-live {
-  background: #143528;
-  color: #3ddc97;
+  background: var(--sh-live-bg);
+  color: var(--sh-live);
 }
 
 .app-content .shift-card__title em.is-closed {
-  background: #243044;
-  color: #9aa6bf;
+  background: var(--sh-closed-bg);
+  color: var(--sh-muted);
 }
 
 .app-content .shift-dot {
@@ -765,7 +808,7 @@ function toggleMenu(id: string) {
 .app-content .shift-menu__btn {
   border: 0;
   background: transparent;
-  color: #9aa6bf;
+  color: var(--sh-muted);
   font-size: 18px;
   letter-spacing: 1px;
   cursor: pointer;
@@ -779,9 +822,9 @@ function toggleMenu(id: string) {
   min-width: 160px;
   padding: 6px;
   border-radius: 12px;
-  background: #101828;
-  border: 1px solid #2a3448;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  background: var(--sh-menu);
+  border: 1px solid var(--sh-line);
+  box-shadow: var(--sh-menu-shadow);
 }
 
 .app-content .shift-menu__panel button {
@@ -791,20 +834,20 @@ function toggleMenu(id: string) {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #e8eefc;
+  color: var(--sh-text);
   text-align: left;
   cursor: pointer;
 }
 
 .app-content .shift-menu__panel button:hover {
-  background: #1c2740;
+  background: var(--sh-menu-hover);
 }
 
 .app-content .shift-card__meta {
   display: flex;
   gap: 14px;
   margin: 6px 0 0 18px !important;
-  color: #9aa6bf;
+  color: var(--sh-muted);
   font-size: 12px;
 }
 
@@ -816,28 +859,28 @@ function toggleMenu(id: string) {
 }
 
 .app-content .shift-metrics dt {
-  color: #f4f7ff;
+  color: var(--sh-title);
   font-size: 15px;
   font-weight: 800;
 }
 
 .app-content .shift-metrics dt.is-sales {
-  color: #3ddc97;
+  color: var(--sh-live);
 }
 
 .app-content .shift-metrics dt.is-duration {
-  color: #f5a524;
+  color: var(--sh-duration);
 }
 
 .app-content .shift-metrics dd {
   margin: 2px 0 0;
-  color: #9aa6bf;
+  color: var(--sh-muted);
   font-size: 11px;
 }
 
 .app-content .shift-card__store {
   margin: 12px 0 0 18px !important;
-  color: #b9a6ff !important;
+  color: var(--sh-store) !important;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;

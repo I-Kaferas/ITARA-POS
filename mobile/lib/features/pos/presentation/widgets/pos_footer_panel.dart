@@ -10,8 +10,10 @@ import '../../../receipt/services/kitchen_ticket_service.dart';
 import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_cart_engine.dart';
+import 'customer_picker_dialog.dart';
 import 'pos_payment_dialog.dart';
 import 'pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosFooterPanel extends StatelessWidget {
   const PosFooterPanel({
@@ -211,20 +213,20 @@ class PosFooterPanel extends StatelessWidget {
             final summary = Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _SummaryRow(label: 'Sous-total', value: _money(cart.subtotal)),
+                _SummaryRow(label: tr('Sous-total'), value: _money(cart.subtotal)),
                 if (cart.lineDiscountsTotal > 0)
                   _SummaryRow(
-                    label: 'Remises ligne',
+                    label: tr('Remises ligne'),
                     value: '- ${_money(cart.lineDiscountsTotal)}',
                   ),
                 if (cart.globalDiscountTotal > 0)
                   _SummaryRow(
-                    label: 'Remise globale',
+                    label: tr('Remise globale'),
                     value: '- ${_money(cart.globalDiscountTotal)}',
                   ),
                 if (cart.feesTotal > 0)
-                  _SummaryRow(label: 'Frais', value: _money(cart.feesTotal)),
-                _SummaryRow(label: 'Taxes', value: _money(cart.taxTotal)),
+                  _SummaryRow(label: tr('Frais'), value: _money(cart.feesTotal)),
+                _SummaryRow(label: tr('Taxes'), value: _money(cart.taxTotal)),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -236,12 +238,12 @@ class PosFooterPanel extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('TOTAL', style: PosUi.totalCaption()),
+                      Text(tr('TOTAL'), style: PosUi.totalCaption()),
                       const SizedBox(height: 4),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
-                          _money(cart.total),
+                          tr(_money(cart.total)),
                           style: PosUi.totalAmount(size: wide ? 30 : 28),
                         ),
                       ),
@@ -268,7 +270,7 @@ class PosFooterPanel extends StatelessWidget {
                           letterSpacing: 0.4,
                         ),
                       ),
-                      label: const Text('Enregistrer (Attente)'),
+                      label: Text(tr('Enregistrer (Attente)')),
                     ),
                   ),
                 ] else ...[
@@ -277,14 +279,14 @@ class PosFooterPanel extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: cart.isEmpty ? null : onHold,
-                          child: Text(showShortcutLabels ? 'Attente · F5' : 'Attente'),
+                          child: Text(tr(showShortcutLabels ? 'Attente · F5' : 'Attente')),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: OutlinedButton(
                           onPressed: onNewSale,
-                          child: Text(showShortcutLabels ? 'Nouvelle · F2' : 'Nouvelle'),
+                          child: Text(tr(showShortcutLabels ? 'Nouvelle · F2' : 'Nouvelle')),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -294,9 +296,9 @@ class PosFooterPanel extends StatelessWidget {
                               ? null
                               : () => _showHeldSalesSheet(context),
                           child: Text(
-                            showShortcutLabels
+                            tr(showShortcutLabels
                                 ? 'Récup. (${cart.heldSales.length}) · F6'
-                                : 'Récup. (${cart.heldSales.length})',
+                                : 'Récup. (${cart.heldSales.length})'),
                           ),
                         ),
                       ),
@@ -308,7 +310,7 @@ class PosFooterPanel extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: cart.canSplit ? () => _showSplitDialog(context) : null,
-                          child: const Text('Séparer'),
+                          child: Text(tr('Séparer')),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -320,7 +322,7 @@ class PosFooterPanel extends StatelessWidget {
                             side: BorderSide(color: AppColors.danger.withValues(alpha: 0.35)),
                             backgroundColor: AppColors.dangerBg,
                           ),
-                          child: Text(showShortcutLabels ? 'Annuler · ESC' : 'Annuler'),
+                          child: Text(tr(showShortcutLabels ? 'Annuler · ESC' : 'Annuler')),
                         ),
                       ),
                     ],
@@ -330,7 +332,7 @@ class PosFooterPanel extends StatelessWidget {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: cart.isEmpty || cart.customer == null ? null : () => _chargeStay(context),
-                      child: const Text('Facturer au séjour'),
+                      child: Text(tr('Facturer au séjour')),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -347,7 +349,7 @@ class PosFooterPanel extends StatelessWidget {
                           letterSpacing: 0.8,
                         ),
                       ),
-                      child: Text(showShortcutLabels ? 'PAYER · F4' : 'PAYER'),
+                      child: Text(tr(showShortcutLabels ? 'PAYER · F4' : 'PAYER')),
                     ),
                   ),
                 ],
@@ -383,185 +385,8 @@ class PosFooterPanel extends StatelessWidget {
     );
   }
 
-  Future<void> _showCustomerSheet(BuildContext context) async {
-    final searchController = TextEditingController();
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final emailController = TextEditingController();
-    List<PosCustomer> results = [];
-    var searching = false;
-    var creating = false;
-    var showCreate = false;
-    var loaded = false;
-    String? formError;
-
-    Future<void> search(void Function(void Function()) setModalState, [String? query]) async {
-      setModalState(() => searching = true);
-      try {
-        results = await api.searchCustomers(query ?? searchController.text);
-      } catch (_) {
-        results = [];
-      }
-      setModalState(() => searching = false);
-    }
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            if (!loaded) {
-              loaded = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) => search(setModalState));
-            }
-
-            Future<void> create() async {
-              final name = nameController.text.trim();
-              if (name.isEmpty) {
-                setModalState(() => formError = 'Le nom est requis');
-                return;
-              }
-              setModalState(() {
-                creating = true;
-                formError = null;
-              });
-              try {
-                final customer = await api.createCustomer(
-                  name: name,
-                  phone: phoneController.text.trim(),
-                  email: emailController.text.trim(),
-                );
-                cart.setCustomer(customer);
-                if (ctx.mounted) Navigator.pop(ctx);
-              } catch (error) {
-                setModalState(() {
-                  creating = false;
-                  formError = error.toString().replaceFirst('Exception: ', '');
-                });
-              }
-            }
-
-            return Dialog(
-              insetPadding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(ctx).viewInsets.bottom),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480, maxHeight: 640),
-                child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Text('Client', style: Theme.of(context).textTheme.titleLarge),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: () => setModalState(() => showCreate = !showCreate),
-                        icon: Icon(showCreate ? Icons.search : Icons.person_add_alt_1, size: 18),
-                        label: Text(showCreate ? 'Rechercher' : 'Nouveau client'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (showCreate) ...[
-                    TextField(
-                      controller: nameController,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(labelText: 'Nom'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(labelText: 'Téléphone'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                      onSubmitted: (_) => create(),
-                    ),
-                    if (formError != null) ...[
-                      const SizedBox(height: 8),
-                      Text(formError!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
-                    ],
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: creating ? null : create,
-                      child: Text(creating ? 'Enregistrement…' : 'Créer et sélectionner'),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Le client est enregistré sur ce terminal, puis envoyé lors de la synchronisation.',
-                      style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
-                    ),
-                  ] else ...[
-                    TextField(
-                      controller: searchController,
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                        hintText: 'Nom, téléphone ou code',
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.search),
-                          onPressed: () => search(setModalState, searchController.text),
-                        ),
-                      ),
-                      onChanged: (value) => search(setModalState, value),
-                      onSubmitted: (value) => search(setModalState, value),
-                    ),
-                    if (cart.customer != null) ...[
-                      const SizedBox(height: 8),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.person),
-                        title: Text(cart.customer!.displayLabel),
-                        subtitle: Text(cart.customer!.pending ? 'En attente de synchro' : 'Client sélectionné'),
-                        trailing: TextButton(
-                          onPressed: () {
-                            cart.setCustomer(null);
-                            Navigator.pop(ctx);
-                          },
-                          child: const Text('Retirer'),
-                        ),
-                      ),
-                    ],
-                    if (searching) const LinearProgressIndicator(),
-                    const SizedBox(height: 8),
-                    Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: results.length,
-                        itemBuilder: (context, index) {
-                          final customer = results[index];
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(customer.name),
-                            subtitle: Text(customer.subtitle.isEmpty ? 'Client' : customer.subtitle),
-                            onTap: () {
-                              cart.setCustomer(customer);
-                              Navigator.pop(ctx);
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-              ),
-            );
-          },
-        );
-      },
-    );
-    searchController.dispose();
-    nameController.dispose();
-    phoneController.dispose();
-    emailController.dispose();
+  Future<void> _showCustomerSheet(BuildContext context) {
+    return showCustomerPickerDialog(context, cart: cart, api: api);
   }
 
   Future<void> _showDiscountDialog(BuildContext context) async {
@@ -571,15 +396,15 @@ class PosFooterPanel extends StatelessWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Remise'),
+        title: Text(tr('Remise')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: amountController,
-              decoration: const InputDecoration(
-                labelText: 'Montant fixe (centimes)',
-                hintText: 'ex: 500 = 5.00',
+              decoration: InputDecoration(
+                labelText: tr('Montant fixe (centimes)'),
+                hintText: tr('ex: 500 = 5.00'),
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -587,9 +412,9 @@ class PosFooterPanel extends StatelessWidget {
             const SizedBox(height: 12),
             TextField(
               controller: percentController,
-              decoration: const InputDecoration(
-                labelText: 'Pourcentage (%)',
-                hintText: 'ex: 10',
+              decoration: InputDecoration(
+                labelText: tr('Pourcentage (%)'),
+                hintText: tr('ex: 10'),
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
@@ -601,12 +426,12 @@ class PosFooterPanel extends StatelessWidget {
               cart.clearDiscount();
               Navigator.pop(ctx, 'cleared');
             },
-            child: const Text('Effacer'),
+            child: Text(tr('Effacer')),
           ),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Annuler'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, 'apply'),
-            child: const Text('Appliquer'),
+            child: Text(tr('Appliquer')),
           ),
         ],
       ),
@@ -630,7 +455,7 @@ class PosFooterPanel extends StatelessWidget {
     final customer = cart.customer;
     if (customer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sélectionnez un client pour utiliser la fidélité')),
+        SnackBar(content: Text(tr('Sélectionnez un client pour utiliser la fidélité'))),
       );
       return;
     }
@@ -641,7 +466,7 @@ class PosFooterPanel extends StatelessWidget {
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(tr(error.toString().replaceFirst('Exception: ', '')))),
       );
       return;
     }
@@ -653,18 +478,18 @@ class PosFooterPanel extends StatelessWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Fidélité'),
+        title: Text(tr('Fidélité')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${summary!.points} points · ${summary.tier ?? 'Standard'}'),
+            Text(trf('{0} points · {1}', [summary!.points, summary.tier ?? 'Standard'])),
             if (summary.rewardPerPoint > 0)
-              Text('1 pt = ${_money(summary.rewardPerPoint)}', style: PosUi.caption()),
+              Text(trf('1 pt = {0}', [_money(summary.rewardPerPoint)]), style: PosUi.caption()),
             const SizedBox(height: 12),
             TextField(
               controller: pointsCtrl,
-              decoration: const InputDecoration(labelText: 'Points à utiliser'),
+              decoration: InputDecoration(labelText: tr('Points à utiliser')),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             ),
@@ -676,10 +501,10 @@ class PosFooterPanel extends StatelessWidget {
               cart.clearLoyalty();
               Navigator.pop(ctx, 'cleared');
             },
-            child: const Text('Effacer'),
+            child: Text(tr('Effacer')),
           ),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, 'apply'), child: const Text('Appliquer')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Annuler'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'apply'), child: Text(tr('Appliquer'))),
         ],
       ),
     );
@@ -698,17 +523,17 @@ class PosFooterPanel extends StatelessWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Note de vente'),
+        title: Text(tr('Note de vente')),
         content: TextField(
           controller: controller,
           maxLines: 3,
-          decoration: const InputDecoration(hintText: 'Note interne...'),
+          decoration: InputDecoration(hintText: tr('Note interne...')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Annuler'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Enregistrer'),
+            child: Text(tr('Enregistrer')),
           ),
         ],
       ),
@@ -753,6 +578,8 @@ class PosFooterPanel extends StatelessWidget {
           lines: lines,
           heldAt: sale.heldAt,
           note: remote?['notes']?.toString(),
+          tableId: sale.tableId,
+          tableLabel: sale.tableLabel,
         );
       }
     }
@@ -762,8 +589,8 @@ class PosFooterPanel extends StatelessWidget {
       // §41 — kitchen print failure must not cancel the sale / hold.
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Impression cuisine échouée — la commande reste ouverte'),
+          SnackBar(
+            content: Text(tr('Impression cuisine échouée — la commande reste ouverte')),
           ),
         );
       }
@@ -783,16 +610,16 @@ class PosFooterPanel extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Commandes en attente', style: Theme.of(context).textTheme.titleLarge),
+                Text(tr('Commandes en attente'), style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
                 Text(
-                  'Détail, modification, séparation et paiement tant que la commande n’est pas encaissée.',
+                  tr('Détail, modification, séparation et paiement tant que la commande n’est pas encaissée.'),
                   style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 Flexible(
                   child: cart.heldSales.isEmpty
-                      ? const Text('Aucune commande en attente.')
+                      ? Text(tr('Aucune commande en attente.'))
                       : ListView(
                           shrinkWrap: true,
                           children: cart.heldSales.map((sale) {
@@ -809,12 +636,12 @@ class PosFooterPanel extends StatelessWidget {
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            sale.label,
+                                            tr(sale.label),
                                             style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14),
                                           ),
                                         ),
                                         Text(
-                                          _formatTime(sale.heldAt),
+                                          tr(_formatTime(sale.heldAt)),
                                           style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
                                         ),
                                       ],
@@ -822,21 +649,21 @@ class PosFooterPanel extends StatelessWidget {
                                     if (sale.customer != null) ...[
                                       const SizedBox(height: 2),
                                       Text(
-                                        sale.customer!.displayLabel,
+                                        tr(sale.customer!.displayLabel),
                                         style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                                       ),
                                     ],
                                     if (sale.note != null && sale.note!.isNotEmpty) ...[
                                       const SizedBox(height: 2),
                                       Text(
-                                        sale.note!,
+                                        tr(sale.note!),
                                         style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
                                       ),
                                     ],
                                     const SizedBox(height: 10),
                                     if (sale.lines.isEmpty)
                                       Text(
-                                        'Aucun article (commande distante sans détail local).',
+                                        tr('Aucun article (commande distante sans détail local).'),
                                         style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
                                       )
                                     else
@@ -851,7 +678,7 @@ class PosFooterPanel extends StatelessWidget {
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      line.displayName,
+                                                      tr(line.displayName),
                                                       style: GoogleFonts.ibmPlexSans(
                                                         fontSize: 13,
                                                         fontWeight: FontWeight.w600,
@@ -860,7 +687,7 @@ class PosFooterPanel extends StatelessWidget {
                                                     ),
                                                     const SizedBox(height: 2),
                                                     Text(
-                                                      '${line.quantity} × ${_money(line.unitPrice)}',
+                                                      trf('{0} × {1}', [line.quantity, _money(line.unitPrice)]),
                                                       style: GoogleFonts.ibmPlexSans(
                                                         fontSize: 11,
                                                         color: AppColors.textMuted,
@@ -870,7 +697,7 @@ class PosFooterPanel extends StatelessWidget {
                                                 ),
                                               ),
                                               Text(
-                                                _money(line.lineSubtotal),
+                                                tr(_money(line.lineSubtotal)),
                                                 style: GoogleFonts.ibmPlexMono(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
@@ -893,16 +720,16 @@ class PosFooterPanel extends StatelessWidget {
                                       child: Row(
                                         children: [
                                           Text(
-                                            '${sale.itemCount} art.',
+                                            trf('{0} art.', [sale.itemCount]),
                                             style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                                           ),
                                           const Spacer(),
                                           Text(
-                                            'Total ',
+                                            tr('Total '),
                                             style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                                           ),
                                           Text(
-                                            _money(sale.total),
+                                            tr(_money(sale.total)),
                                             style: GoogleFonts.ibmPlexMono(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w700,
@@ -922,7 +749,7 @@ class PosFooterPanel extends StatelessWidget {
                                             Navigator.pop(ctx);
                                             await _retrieveHeld(context, sale.id);
                                           },
-                                          child: const Text('Modifier'),
+                                          child: Text(tr('Modifier')),
                                         ),
                                         OutlinedButton(
                                           onPressed: !canSplit
@@ -933,7 +760,7 @@ class PosFooterPanel extends StatelessWidget {
                                                   if (!context.mounted) return;
                                                   await _showSplitDialog(context);
                                                 },
-                                          child: const Text('Séparer'),
+                                          child: Text(tr('Séparer')),
                                         ),
                                         FilledButton(
                                           onPressed: () async {
@@ -942,15 +769,15 @@ class PosFooterPanel extends StatelessWidget {
                                             if (!context.mounted) return;
                                             await _showPaymentDialog(context);
                                           },
-                                          child: const Text('Payer'),
+                                          child: Text(tr('Payer')),
                                         ),
                                         OutlinedButton.icon(
                                           onPressed: () => _printKitchen(ctx, sale),
                                           icon: const Icon(Icons.restaurant, size: 16),
-                                          label: const Text('Bon de cuisine'),
+                                          label: Text(tr('Bon de cuisine')),
                                         ),
                                         IconButton(
-                                          tooltip: 'Supprimer',
+                                          tooltip: tr('Supprimer'),
                                           onPressed: () async {
                                             final serverId = sale.serverId;
                                             if (serverId != null && serverId.isNotEmpty) {
@@ -1010,7 +837,7 @@ class PosFooterPanel extends StatelessWidget {
       final cardIndex = list.indexWhere((method) => method.value == 'card');
       list.insert(
         cardIndex >= 0 ? cardIndex : list.length,
-        const PosPaymentMethod(value: 'mobile_money', label: 'Mobile Money', labelFr: 'Mobile Money'),
+        PosPaymentMethod(value: 'mobile_money', label: tr('Mobile Money'), labelFr: 'Mobile Money'),
       );
     }
     return list.where((method) => method.value != 'room').toList();
@@ -1028,7 +855,7 @@ class PosFooterPanel extends StatelessWidget {
           success: false,
           total: cart.total,
           method: methodLabel,
-          message: 'Indiquez une adresse de livraison.',
+          message: tr('Indiquez une adresse de livraison.'),
         ));
         return;
       }
@@ -1042,6 +869,8 @@ class PosFooterPanel extends StatelessWidget {
         loyaltyPoints: cart.loyaltyPoints > 0 ? cart.loyaltyPoints : null,
         serviceMode: atTable ? null : cart.serviceMode,
         deliveryAddress: !atTable && cart.serviceMode == 'delivery' ? cart.deliveryAddress.trim() : null,
+        tableId: atTable ? cart.tableId : null,
+        tableLabel: atTable ? cart.tableDisplay : null,
       );
       cart.consumeActiveHold();
       cart.cancel();
@@ -1056,6 +885,7 @@ class PosFooterPanel extends StatelessWidget {
         saleReference: saleResult.reference,
         receipt: saleResult.receipt,
         loyaltyEarned: saleResult.loyaltyEarned,
+        stockUpdates: saleResult.stockUpdates,
         message: saleResult.pendingSync
             ? 'Vente ${saleResult.reference} enregistrée sur cet appareil. Paiement, stock et sync en file — internet non requis.'
             : 'Vente ${saleResult.reference} acceptée',
@@ -1083,7 +913,7 @@ class PosFooterPanel extends StatelessWidget {
           success: false,
           total: cart.total,
           method: 'room',
-          message: 'Aucun séjour ouvert.',
+          message: tr('Aucun séjour ouvert.'),
         ));
         return;
       }
@@ -1093,7 +923,7 @@ class PosFooterPanel extends StatelessWidget {
           child: ListView(
             shrinkWrap: true,
             children: [
-              const ListTile(title: Text('Facturer au séjour')),
+              ListTile(title: Text(tr('Facturer au séjour'))),
               for (final stay in stays)
                 ListTile(
                   title: Text('${stay['room_number'] ?? ''} · ${stay['guest_name'] ?? ''}'),
@@ -1210,7 +1040,7 @@ class _ActionChip extends StatelessWidget {
       child: OutlinedButton.icon(
         onPressed: onTap,
         icon: Icon(icon, size: 16, color: AppColors.brandInk),
-        label: Text(label, overflow: TextOverflow.ellipsis),
+        label: Text(tr(label), overflow: TextOverflow.ellipsis),
         style: OutlinedButton.styleFrom(
           alignment: Alignment.centerLeft,
           foregroundColor: AppColors.textPrimary,
@@ -1238,12 +1068,12 @@ class _SummaryRow extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            label,
+            tr(label),
             style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
           ),
           const Spacer(),
           Text(
-            value,
+            tr(value),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -1275,7 +1105,7 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
             return sum + (line.quantity - move);
           });
           return AlertDialog(
-            title: const Text('Séparer la commande'),
+            title: Text(tr('Séparer la commande')),
             content: SizedBox(
               width: 420,
               child: Column(
@@ -1283,7 +1113,7 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Choisissez les articles (et quantités) à déplacer vers une nouvelle commande en attente.',
+                    tr('Choisissez les articles (et quantités) à déplacer vers une nouvelle commande en attente.'),
                     style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 12),
@@ -1306,14 +1136,14 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                line.displayName,
+                                tr(line.displayName),
                                 style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13),
                               ),
                               const SizedBox(height: 6),
                               Row(
                                 children: [
                                   Text(
-                                    'Qty ${line.quantity}',
+                                    trf('Qty {0}', [line.quantity]),
                                     style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
                                   ),
                                   const Spacer(),
@@ -1342,17 +1172,17 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'À séparer: $moveCount · Restent: $remainCount',
+                    trf('À séparer: {0} · Restent: {1}', [moveCount, remainCount]),
                     style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Annuler'))),
               FilledButton(
                 onPressed: moveCount > 0 && remainCount > 0 ? () => Navigator.pop(ctx, true) : null,
-                child: const Text('Séparer'),
+                child: Text(tr('Séparer')),
               ),
             ],
           );

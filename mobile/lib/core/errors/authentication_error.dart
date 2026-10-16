@@ -1,4 +1,5 @@
 import 'app_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Session expired or credentials rejected.
 final class AuthenticationError extends AppError {
@@ -10,15 +11,15 @@ final class AuthenticationError extends AppError {
 
   factory AuthenticationError.invalidCredentials({Object? cause}) =>
       AuthenticationError(
-        title: 'Identifiants incorrects.',
-        detail: 'Vérifiez votre e-mail, mot de passe ou code PIN puis réessayez.',
+        title: tr('Identifiants incorrects.'),
+        detail: tr('Vérifiez votre e-mail, mot de passe ou code PIN puis réessayez.'),
         cause: cause,
       );
 
   factory AuthenticationError.pinRequired({Object? cause}) =>
       AuthenticationError(
-        title: 'Code PIN requis.',
-        detail: 'Saisissez votre code PIN pour déverrouiller la caisse.',
+        title: tr('Code PIN requis.'),
+        detail: tr('Saisissez votre code PIN pour déverrouiller la caisse.'),
         cause: cause,
       );
 }

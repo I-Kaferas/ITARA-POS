@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../settings/domain/cashier_preferences.dart';
 import '../data/notification_watch.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class NotificationBadge extends StatefulWidget {
   const NotificationBadge({required this.child, super.key});
@@ -20,6 +22,7 @@ class _NotificationBadgeState extends State<NotificationBadge> {
   @override
   void initState() {
     super.initState();
+    CashierPreferences.instance.addListener(_refresh);
     _refresh();
     _timer = Timer.periodic(const Duration(seconds: 60), (_) => _refresh());
   }
@@ -27,10 +30,16 @@ class _NotificationBadgeState extends State<NotificationBadge> {
   @override
   void dispose() {
     _timer?.cancel();
+    CashierPreferences.instance.removeListener(_refresh);
     super.dispose();
   }
 
   Future<void> _refresh() async {
+    if (!CashierPreferences.instance.notificationsEnabled) {
+      if (!mounted) return;
+      setState(() => _count = 0);
+      return;
+    }
     try {
       final items = await NotificationWatch.instance.snapshot();
       if (!mounted) return;
@@ -42,7 +51,7 @@ class _NotificationBadgeState extends State<NotificationBadge> {
   Widget build(BuildContext context) {
     return Badge(
       isLabelVisible: _count > 0,
-      label: Text(_count > 9 ? '9+' : '$_count'),
+      label: Text(tr(_count > 9 ? '9+' : '$_count')),
       child: widget.child,
     );
   }

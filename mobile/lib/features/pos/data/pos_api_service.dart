@@ -14,6 +14,7 @@ import '../../customers/data/customer_account_store.dart';
 import '../../barcode/data/barcode_api_service.dart';
 import '../../barcode/domain/barcode_models.dart';
 import '../domain/pos_models.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosApiService {
   PosApiService({
@@ -339,10 +340,10 @@ class PosApiService {
             .where((reason) => reason.value.isNotEmpty)
             .toList();
     if (reasons.isNotEmpty) return reasons;
-    return const [
-      SaleReturnReason(value: 'customer_changed_mind', label: 'Changement d’avis'),
-      SaleReturnReason(value: 'defective', label: 'Article défectueux'),
-      SaleReturnReason(value: 'wrong_item', label: 'Mauvais article'),
+    return [
+      SaleReturnReason(value: 'customer_changed_mind', label: tr('Changement d’avis')),
+      SaleReturnReason(value: 'defective', label: tr('Article défectueux')),
+      SaleReturnReason(value: 'wrong_item', label: tr('Mauvais article')),
     ];
   }
 
@@ -497,6 +498,8 @@ class PosApiService {
     int? loyaltyPoints,
     String? serviceMode,
     String? deliveryAddress,
+    String? tableId,
+    String? tableLabel,
   }) async {
     if (_storeId.isEmpty) {
       throw Exception('STORE_ID is required for sale creation');
@@ -528,6 +531,8 @@ class PosApiService {
       saleId: saleId,
       serviceMode: serviceMode,
       deliveryAddress: deliveryAddress,
+      tableId: tableId,
+      tableLabel: tableLabel,
     );
 
     if (customerId != null && customerId.isNotEmpty) {
@@ -603,6 +608,7 @@ class PosApiService {
       'UPDATE sales SET total = total + ?, outstanding_amount = outstanding_amount + ? WHERE id = ?',
       [addedTotal, addedDue, saleId],
     );
+    OfflineStore.instance.notifySalesChanged();
   }
 
   Future<Map<String, dynamic>?> _requestOrNull({
@@ -658,7 +664,7 @@ class PosApiService {
     final total = _money(sale['total']);
     final payload = {
       'document_type': documentType,
-      'format': 'thermal_80',
+      'format': config.printerFormat,
       'company': {
         'name': config.brandName.trim().isEmpty ? 'ITARA' : config.brandName.trim(),
         'currency_code': config.currencyCode,

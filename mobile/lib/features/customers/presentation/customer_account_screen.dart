@@ -9,6 +9,7 @@ import '../../../sync/local_master_server.dart';
 import '../../../sync/offline_store.dart';
 import '../../pos/domain/pos_models.dart';
 import '../data/customer_account_store.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class CustomerAccountScreen extends StatefulWidget {
   const CustomerAccountScreen({super.key});
@@ -126,48 +127,48 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
     final lines = (account?['lines'] as List<dynamic>? ?? []).whereType<Map>().map(Map<String, dynamic>.from).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Client')),
+      appBar: AppBar(title: Text(tr('Client'))),
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          const Text('Achat → points → récompense. Crédit : vente +, paiement −.'),
+          Text(tr('Achat → points → récompense. Crédit : vente +, paiement −.')),
           const SizedBox(height: 8),
           TextField(
             controller: _search,
-            decoration: const InputDecoration(labelText: 'Client'),
+            decoration: InputDecoration(labelText: tr('Client')),
             onSubmitted: (_) => _find(),
           ),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(onPressed: _find, child: const Text('Chercher')),
+            child: TextButton(onPressed: _find, child: Text(tr('Chercher'))),
           ),
           for (final customer in _customers)
             ListTile(
-              title: Text(customer.displayLabel),
+              title: Text(tr(customer.displayLabel)),
               onTap: () => _open(customer),
             ),
-          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
+          if (_error != null) Text(tr(_error!), style: const TextStyle(color: Colors.red)),
           if (account != null) ...[
             const Divider(),
-            Text(account['customer_name']?.toString() ?? '', style: Theme.of(context).textTheme.titleMedium),
-            Text('Solde initial 0 · solde ${money((account['balance'] as num?)?.toInt() ?? 0)}'),
-            Text('Points ${account['points'] ?? 0} · ${account['rule']}'),
-            Text(account['reward']?.toString() ?? ''),
+            Text(tr(account['customer_name']?.toString() ?? ''), style: Theme.of(context).textTheme.titleMedium),
+            Text(trf('Solde initial 0 · solde {0}', [money((account['balance'] as num?)?.toInt() ?? 0)])),
+            Text(trf('Points {0} · {1}', [account['points'] ?? 0, account['rule']])),
+            Text(tr(account['reward']?.toString() ?? '')),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               children: [
-                FilledButton(onPressed: _pay, child: const Text('Paiement')),
-                FilledButton(onPressed: _redeem, child: const Text('Récompense')),
+                FilledButton(onPressed: _pay, child: Text(tr('Paiement'))),
+                FilledButton(onPressed: _redeem, child: Text(tr('Récompense'))),
               ],
             ),
-            if (lines.isEmpty) const Text('Aucun mouvement. Le solde reste 0.'),
+            if (lines.isEmpty) Text(tr('Aucun mouvement. Le solde reste 0.')),
             for (final line in lines)
               ListTile(
                 dense: true,
-                title: Text(line['memo']?.toString() ?? ''),
-                subtitle: Text('Solde ${money((line['balance'] as num?)?.toInt() ?? 0)}'),
-                trailing: Text(_signed(line, money)),
+                title: Text(tr(line['memo']?.toString() ?? '')),
+                subtitle: Text(trf('Solde {0}', [money((line['balance'] as num?)?.toInt() ?? 0)])),
+                trailing: Text(tr(_signed(line, money))),
               ),
           ],
         ],
@@ -187,15 +188,15 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
+        title: Text(tr(title)),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Montant'),
+          decoration: InputDecoration(labelText: tr('Montant')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Valider')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Valider'))),
         ],
       ),
     );
@@ -210,15 +211,15 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Récompense'),
+        title: Text(tr('Récompense')),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Points'),
+          decoration: InputDecoration(labelText: tr('Points')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Utiliser')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Utiliser'))),
         ],
       ),
     );

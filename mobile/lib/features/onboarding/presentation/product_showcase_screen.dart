@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import 'onboarding_frame.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Visual tour only. Figures are invented and are never written to sales.
 class ProductShowcaseScreen extends StatelessWidget {
@@ -23,7 +24,7 @@ class ProductShowcaseScreen extends StatelessWidget {
           TextButton(
             onPressed: () => context.go(finish),
             child: Text(
-              'Ignorer',
+              tr('Ignorer'),
               style: GoogleFonts.ibmPlexSans(
                 fontWeight: FontWeight.w700,
                 color: AppColors.textSecondary,
@@ -34,7 +35,7 @@ class ProductShowcaseScreen extends StatelessWidget {
           SizedBox(
             width: 180,
             child: OnboardingButton(
-              label: 'Continuer',
+              label: tr('Continuer'),
               primary: true,
               onPressed: () => context.go(finish),
             ),
@@ -47,7 +48,7 @@ class ProductShowcaseScreen extends StatelessWidget {
           const OnboardingMark(compact: true),
           const SizedBox(height: 16),
           Text(
-            'Aperçu du logiciel',
+            tr('Aperçu du logiciel'),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 28,
               fontWeight: FontWeight.w700,
@@ -56,7 +57,7 @@ class ProductShowcaseScreen extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Démonstration. Ces chiffres sont fictifs et ne sont pas enregistrés dans les ventes.',
+            tr('Démonstration. Ces chiffres sont fictifs et ne sont pas enregistrés dans les ventes.'),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 14,
               color: AppColors.textSecondary,
@@ -69,9 +70,9 @@ class ProductShowcaseScreen extends StatelessWidget {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               childAspectRatio: 1.7,
-              children: const [
+              children: [
                 _DemoCard(
-                  title: 'Tableau de bord',
+                  title: tr('Tableau de bord'),
                   lines: [
                     'Ventes du jour · 128 000',
                     'Tickets · 24',
@@ -79,7 +80,7 @@ class ProductShowcaseScreen extends StatelessWidget {
                   ],
                 ),
                 _DemoCard(
-                  title: 'Caisse',
+                  title: tr('Caisse'),
                   lines: [
                     'Table 4 · 2 couverts',
                     'Espèces · 18 500',
@@ -87,15 +88,15 @@ class ProductShowcaseScreen extends StatelessWidget {
                   ],
                 ),
                 _DemoCard(
-                  title: 'Produits',
+                  title: tr('Produits'),
                   lines: ['Farine · 4 200', 'Café · 8 000', 'Jus · 3 500'],
                 ),
                 _DemoCard(
-                  title: 'Stocks',
+                  title: tr('Stocks'),
                   lines: ['Farine · 20', 'Café · 14', 'Seuil bas · 2'],
                 ),
                 _DemoCard(
-                  title: 'Rapport',
+                  title: tr('Rapport'),
                   lines: [
                     'Encaissé · 96 000',
                     'Crédit · 32 000',
@@ -138,7 +139,7 @@ class _DemoCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
+              tr(title),
               style: GoogleFonts.ibmPlexSans(
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
@@ -146,7 +147,7 @@ class _DemoCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Illustration',
+              tr('Illustration'),
               style: GoogleFonts.ibmPlexSans(
                 fontSize: 11,
                 color: AppColors.textMuted,
@@ -157,7 +158,7 @@ class _DemoCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  line,
+                  tr(line),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 13,
                     color: AppColors.textSecondary,

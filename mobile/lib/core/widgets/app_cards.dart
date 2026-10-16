@@ -6,6 +6,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 enum AppCardElevation { flat, raised, float }
 
@@ -48,7 +49,7 @@ class AppCard extends StatelessWidget {
       width: width,
       height: height,
       margin: margin,
-      padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
+      padding: padding ?? const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
         color: color ?? AppColors.surface,
         borderRadius: AppRadius.borderLg,
@@ -89,10 +90,10 @@ class AppCardHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: AppTypography.sectionTitle()),
+              Text(tr(title), style: AppTypography.sectionTitle()),
               if (subtitle != null) ...[
                 const SizedBox(height: AppSpacing.xs),
-                Text(subtitle!, style: AppTypography.subtitle()),
+                Text(tr(subtitle!), style: AppTypography.subtitle()),
               ],
             ],
           ),

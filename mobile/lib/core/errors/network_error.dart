@@ -1,4 +1,5 @@
 import 'app_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// No usable Internet / cloud connection.
 final class NetworkError extends AppError {
@@ -11,8 +12,8 @@ final class NetworkError extends AppError {
 
   /// Generic unreachable server (cloud or Master).
   factory NetworkError.unreachable({Object? cause}) => NetworkError(
-        title: 'Serveur injoignable.',
-        detail: 'Vérifiez le réseau puis réessayez. Les données locales sont conservées.',
+        title: tr('Serveur injoignable.'),
+        detail: tr('Vérifiez le réseau puis réessayez. Les données locales sont conservées.'),
         cause: cause,
       );
 

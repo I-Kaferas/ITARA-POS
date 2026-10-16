@@ -7,6 +7,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../sync/local_master_server.dart';
 import '../data/expense_desk_store.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -58,7 +59,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setLocal) => AlertDialog(
-          title: const Text('Dépense'),
+          title: Text(tr('Dépense')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -67,27 +68,27 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 isExpanded: true,
                 items: [
                   for (final item in categories)
-                    DropdownMenuItem(value: item['code'].toString(), child: Text(item['name'].toString())),
+                    DropdownMenuItem(value: item['code'].toString(), child: Text(tr(item['name'].toString()))),
                 ],
                 onChanged: (value) => setLocal(() => category = value ?? category),
               ),
-              TextField(controller: description, decoration: const InputDecoration(labelText: 'Libellé')),
+              TextField(controller: description, decoration: InputDecoration(labelText: tr('Libellé'))),
               TextField(
                 controller: amount,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Montant'),
+                decoration: InputDecoration(labelText: tr('Montant')),
               ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Lier à la caisse ouverte'),
+                title: Text(tr('Lier à la caisse ouverte')),
                 value: linkSession,
                 onChanged: (value) => setLocal(() => linkSession = value ?? true),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Enregistrer')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Enregistrer'))),
           ],
         ),
       ),
@@ -152,33 +153,33 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final expenses = (_snap['expenses'] as List<dynamic>? ?? []).whereType<Map>().map(Map<String, dynamic>.from).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dépenses')),
+      appBar: AppBar(title: Text(tr('Dépenses'))),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _loading ? null : _add,
         icon: const Icon(Icons.add),
-        label: const Text('Dépense'),
+        label: Text(tr('Dépense')),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                const Text('Transport, électricité, loyer, salaire, achat urgent, entretien.'),
-                Text('Succursale ${contextInfo['branch'] ?? '—'} · ${contextInfo['user'] ?? '—'}'),
+                Text(tr('Transport, électricité, loyer, salaire, achat urgent, entretien.')),
+                Text(trf('Succursale {0} · {1}', [contextInfo['branch'] ?? '—', contextInfo['user'] ?? '—'])),
                 Text(
-                  (contextInfo['cash_session_id']?.toString().isNotEmpty == true)
+                  tr((contextInfo['cash_session_id']?.toString().isNotEmpty == true)
                       ? 'Caisse ouverte'
-                      : 'Aucune session de caisse',
+                      : 'Aucune session de caisse'),
                 ),
-                if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
+                if (_error != null) Text(tr(_error!), style: const TextStyle(color: Colors.red)),
                 const SizedBox(height: 8),
-                if (expenses.isEmpty) const Text('Aucune dépense.'),
+                if (expenses.isEmpty) Text(tr('Aucune dépense.')),
                 for (final row in expenses)
                   Card(
                     child: ListTile(
                       title: Text('${row['category_name']} · ${row['description']}'),
                       subtitle: Text('${row['branch']} · ${row['user_name']} · ${row['cash_session_id']?.toString().isNotEmpty == true ? 'Caisse' : 'Hors caisse'}'),
-                      trailing: Text(money((row['amount'] as num?)?.toInt() ?? 0)),
+                      trailing: Text(tr(money((row['amount'] as num?)?.toInt() ?? 0))),
                     ),
                   ),
               ],

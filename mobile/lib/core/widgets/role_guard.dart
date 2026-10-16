@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../config/terminal_config_repository.dart';
 import '../theme/app_colors.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class SlaveModeBanner extends StatelessWidget {
   const SlaveModeBanner({super.key, this.message});
@@ -32,19 +33,19 @@ class SlaveModeBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mode Esclave',
+                  tr('Mode Esclave'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppColors.violet500,
                       ),
                 ),
                 Text(
-                  message ??
-                      'Accès limité — les opérations sont relayées au terminal Master.',
+                  tr(message ??
+                      'Accès limité — les opérations sont relayées au terminal Master.'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
                 ),
                 if (config.masterHost.isNotEmpty)
                   Text(
-                    'Master: ${config.masterHost}',
+                    trf('Master: {0}', [config.masterHost]),
                     style: GoogleFonts.ibmPlexMono(fontSize: 12, color: AppColors.textSecondary),
                   ),
               ],
@@ -85,14 +86,14 @@ class RoleGuard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Non disponible en mode ${TerminalConfigRepository.instance.config.posRole.label}',
+              trf('Non disponible en mode {0}', [TerminalConfigRepository.instance.config.posRole.label]),
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              fallbackMessage ??
-                  'Cette fonctionnalité est réservée au terminal Master ou Autonome.',
+              tr(fallbackMessage ??
+                  'Cette fonctionnalité est réservée au terminal Master ou Autonome.'),
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),

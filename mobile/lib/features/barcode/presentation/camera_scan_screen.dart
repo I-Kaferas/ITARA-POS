@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 typedef CameraScanCallback = void Function(String barcode, BarcodeFormat format);
 
@@ -49,7 +50,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scanner caméra'),
+        title: Text(tr('Scanner caméra')),
         actions: [
           IconButton(
             onPressed: () => _controller.toggleTorch(),
@@ -82,8 +83,8 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
               color: Colors.black54,
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-              child: const Text(
-                'EAN-13 · EAN-8 · UPC · Code 128 · QR',
+              child: Text(
+                tr('EAN-13 · EAN-8 · UPC · Code 128 · QR'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white),
               ),

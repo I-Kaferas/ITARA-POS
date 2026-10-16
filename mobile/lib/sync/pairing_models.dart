@@ -124,7 +124,7 @@ class PairingQrPayload {
       if (body['type']?.toString() != type) return null;
       final ip = body['ip']?.toString().trim() ?? '';
       if (ip.isEmpty) return null;
-      final port = int.tryParse(body['port']?.toString() ?? '') ?? 8001;
+      final port = int.tryParse(body['port']?.toString() ?? '') ?? 18801;
       return PairingQrPayload(
         masterId: body['master_id']?.toString() ?? '',
         ip: ip,

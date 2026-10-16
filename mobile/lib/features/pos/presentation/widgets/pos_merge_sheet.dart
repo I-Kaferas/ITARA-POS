@@ -8,6 +8,7 @@ import '../../../../core/utils/money_formatter.dart';
 import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 Future<bool?> showPosMergeSheet(
   BuildContext context, {
@@ -120,7 +121,7 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
       if (!mounted) return;
       Navigator.pop(context, true);
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Commandes fusionnées')),
+        SnackBar(content: Text(tr('Commandes fusionnées'))),
       );
     } catch (error) {
       if (!mounted) return;
@@ -159,7 +160,7 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
             children: [
               Expanded(
                 child: Text(
-                  'Fusionner les commandes',
+                  tr('Fusionner les commandes'),
                   style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -179,9 +180,9 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Commande actuelle', style: PosUi.caption()),
+                Text(tr('Commande actuelle'), style: PosUi.caption()),
                 const SizedBox(height: 2),
-                Text(reference, style: PosUi.body(weight: FontWeight.w700)),
+                Text(tr(reference), style: PosUi.body(weight: FontWeight.w700)),
               ],
             ),
           ),
@@ -189,7 +190,7 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text(_error!, style: PosUi.caption(color: AppColors.danger)),
+              child: Text(tr(_error!), style: PosUi.caption(color: AppColors.danger)),
             ),
           if (_loading)
             const Padding(
@@ -198,14 +199,14 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
             )
           else if (!_showPreview) ...[
             Text(
-              'Sélectionnez une ou plusieurs commandes à fusionner.',
+              tr('Sélectionnez une ou plusieurs commandes à fusionner.'),
               style: PosUi.caption(),
             ),
             const SizedBox(height: 10),
             if (_candidates.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Text('Aucune commande compatible', style: PosUi.caption()),
+                child: Text(tr('Aucune commande compatible'), style: PosUi.caption()),
               )
             else
               Flexible(
@@ -232,18 +233,18 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
                         },
                         controlAffinity: ListTileControlAffinity.leading,
                         title: Text(
-                          candidate.reference,
+                          tr(candidate.reference),
                           style: GoogleFonts.ibmPlexMono(fontWeight: FontWeight.w700, fontSize: 13),
                         ),
                         subtitle: Text(
-                          [
+                          tr([
                             if ((candidate.table?['name']?.toString() ?? '').isNotEmpty)
                               candidate.table!['name'].toString(),
                             if ((candidate.customer?['name']?.toString() ?? '').isNotEmpty)
                               candidate.customer!['name'].toString(),
                             MoneyFormatter.format(candidate.total, currencyCode: _currency),
                             if ((candidate.itemCount ?? 0) > 0) '${candidate.itemCount} art.',
-                          ].join(' · '),
+                          ].join(' · ')),
                           style: PosUi.caption(),
                         ),
                         shape: RoundedRectangleBorder(
@@ -263,7 +264,7 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Annuler'),
+                    child: Text(tr('Annuler')),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -277,20 +278,20 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Aperçu'),
+                        : Text(tr('Aperçu')),
                   ),
                 ),
               ],
             ),
           ] else ...[
-            Text('Aperçu de la fusion', style: PosUi.cardTitle()),
+            Text(tr('Aperçu de la fusion'), style: PosUi.cardTitle()),
             const SizedBox(height: 10),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
                 children: [
                   Text(
-                    '${_selected.length} commande(s) sélectionnée(s)',
+                    trf('{0} commande(s) sélectionnée(s)', [_selected.length]),
                     style: PosUi.caption(),
                   ),
                   const SizedBox(height: 8),
@@ -299,14 +300,14 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Row(
                         children: [
-                          Expanded(child: Text(line.$1, style: PosUi.body())),
-                          Text('×${line.$2}', style: PosUi.money(size: 12)),
+                          Expanded(child: Text(tr(line.$1), style: PosUi.body())),
+                          Text(trf('×{0}', [line.$2]), style: PosUi.money(size: 12)),
                         ],
                       ),
                     ),
                   const SizedBox(height: 8),
                   Text(
-                    'Total : ${MoneyFormatter.format(_previewTotal(_preview), currencyCode: _currency)}',
+                    trf('Total : {0}', [MoneyFormatter.format(_previewTotal(_preview), currencyCode: _currency)]),
                     style: PosUi.money(size: 16),
                   ),
                 ],
@@ -323,7 +324,7 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
                               _showPreview = false;
                               _preview = null;
                             }),
-                    child: const Text('Retour'),
+                    child: Text(tr('Retour')),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -337,7 +338,7 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Confirmer'),
+                        : Text(tr('Confirmer')),
                   ),
                 ),
               ],

@@ -9,6 +9,10 @@ import 'package:window_manager/window_manager.dart';
 
 import 'customer_display_view.dart';
 import '../services/customer_display_bus.dart';
+import 'package:pos_mobile/core/i18n/app_locale.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_colors.dart';
+import 'package:pos_mobile/core/theme/theme_controller.dart';
 
 const customerDisplayChannelName = 'itara.customer_display';
 
@@ -54,7 +58,7 @@ class CustomerDisplayLauncher {
     final frame = await _targetFrame();
     final payload = jsonEncode({
       'kind': 'customer_display',
-      'cart': CustomerDisplayBus.instance.snapshot.toJson(),
+      'cart': _cart(),
       'frame': frame,
     });
     await WindowController.create(
@@ -68,12 +72,22 @@ class CustomerDisplayLauncher {
     await _pushUntilReady();
   }
 
+  static Map<String, dynamic> _cart() => {
+        ...CustomerDisplayBus.instance.snapshot.toJson(),
+        'locale': LocaleController.instance.code,
+        'dark': ThemeController.instance.isDark,
+      };
+
   static void _ensureListening() {
     if (_listening) return;
     _listening = true;
-    CustomerDisplayBus.instance.addListener(() {
+    void push() {
       if (_windowOpen) _push();
-    });
+    }
+
+    CustomerDisplayBus.instance.addListener(push);
+    LocaleController.instance.addListener(push);
+    ThemeController.instance.addListener(push);
   }
 
   static bool _linked = false;
@@ -81,7 +95,7 @@ class CustomerDisplayLauncher {
   static Future<void> _pushUntilReady() async {
     for (var attempt = 0; attempt < 12; attempt++) {
       try {
-        await _channel.invokeMethod<void>('cart', CustomerDisplayBus.instance.snapshot.toJson());
+        await _channel.invokeMethod<void>('cart', _cart());
         _linked = true;
         return;
       } catch (_) {
@@ -98,7 +112,7 @@ class CustomerDisplayLauncher {
     }
     _pushing = true;
     try {
-      await _channel.invokeMethod<void>('cart', CustomerDisplayBus.instance.snapshot.toJson());
+      await _channel.invokeMethod<void>('cart', _cart());
       _linked = true;
     } catch (_) {
       if (!_linked) return;
@@ -193,10 +207,16 @@ class _CustomerDisplayAppState extends State<CustomerDisplayApp> {
     if (frame is Map) {
       _frame = frame.map((key, value) => MapEntry(key.toString(), value));
     }
+    _applyLocale();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _placeWindow();
       _listen();
     });
+  }
+
+  void _applyLocale() {
+    if (_snapshot.locale.isNotEmpty) LocaleController.instance.bind(_snapshot.locale);
+    AppColors.bind(_snapshot.dark ? AppPalette.dark : AppPalette.light);
   }
 
   Map<String, dynamic> _decode(String raw) {
@@ -213,7 +233,10 @@ class _CustomerDisplayAppState extends State<CustomerDisplayApp> {
     try {
       await _channel.setMethodCallHandler((call) async {
         if (call.method == 'cart' && mounted) {
-          setState(() => _snapshot = CustomerDisplaySnapshot.fromMessage(call.arguments));
+          setState(() {
+            _snapshot = CustomerDisplaySnapshot.fromMessage(call.arguments);
+            _applyLocale();
+          });
         }
         return null;
       });
@@ -265,7 +288,7 @@ class _CustomerDisplayAppState extends State<CustomerDisplayApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: '${_snapshot.brandName} — Customer Display',
+      title: trf('{0} — Customer Display', [_snapshot.brandName]),
       home: CustomerDisplayView(snapshot: _snapshot),
     );
   }

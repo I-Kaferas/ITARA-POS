@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../pos/presentation/widgets/pos_ui.dart';
 import '../../domain/kitchen_ticket.dart';
 import '../../domain/kitchen_ticket_status.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Tablet-first Kitchen Display board (§24).
 class KitchenBoard extends StatelessWidget {
@@ -111,7 +112,7 @@ class KitchenColumn extends StatelessWidget {
     final body = tickets.isEmpty
         ? Padding(
             padding: const EdgeInsets.all(12),
-            child: Text('Aucun bon', style: PosUi.caption(color: AppColors.textMuted)),
+            child: Text(tr('Aucun bon'), style: PosUi.caption(color: AppColors.textMuted)),
           )
         : Column(
             children: [
@@ -160,7 +161,7 @@ class KitchenColumn extends StatelessWidget {
                   if (tickets.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(12),
-                      child: Text('Aucun bon', style: PosUi.caption(color: AppColors.textMuted)),
+                      child: Text(tr('Aucun bon'), style: PosUi.caption(color: AppColors.textMuted)),
                     )
                   else
                     for (final ticket in tickets)
@@ -215,7 +216,7 @@ class KitchenTicketCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    ticket.headline,
+                    tr(ticket.headline),
                     style: GoogleFonts.ibmPlexSans(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
@@ -223,17 +224,17 @@ class KitchenTicketCard extends StatelessWidget {
                   ),
                 ),
                 if (age.isNotEmpty)
-                  Text(age, style: PosUi.caption(color: AppColors.textMuted)),
+                  Text(tr(age), style: PosUi.caption(color: AppColors.textMuted)),
               ],
             ),
             if (ticket.serverName.isNotEmpty) ...[
               const SizedBox(height: 2),
-              Text(ticket.serverName, style: PosUi.caption()),
+              Text(tr(ticket.serverName), style: PosUi.caption()),
             ],
             const SizedBox(height: 8),
             for (final line in ticket.lines) ...[
               Text(
-                '${line.quantity} × ${line.name}',
+                trf('{0} × {1}', [line.quantity, line.name]),
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
               if (line.modifiers.isNotEmpty)
@@ -256,13 +257,13 @@ class KitchenTicketCard extends StatelessWidget {
                         minimumSize: const Size.fromHeight(PosUi.ctaHeight),
                       ),
                       onPressed: () => onAdvance(ticket),
-                      child: Text(ticket.status.advanceLabel),
+                      child: Text(tr(ticket.status.advanceLabel)),
                     ),
                   ),
                 if (next != null && onCancel != null) const SizedBox(width: 8),
                 if (onCancel != null)
                   IconButton.outlined(
-                    tooltip: 'Annuler',
+                    tooltip: tr('Annuler'),
                     onPressed: () => onCancel!(ticket),
                     icon: const Icon(Icons.close),
                   ),

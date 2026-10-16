@@ -28,7 +28,8 @@ class LocalMasterServer extends ChangeNotifier {
 
   static final LocalMasterServer instance = LocalMasterServer._();
 
-  static const port = 8001;
+  /// Must differ from the Laravel API port (8001) when both run on one machine.
+  static const port = 18801;
 
   HttpServer? _server;
   Timer? _addressRefresh;
@@ -36,6 +37,7 @@ class LocalMasterServer extends ChangeNotifier {
   String? lanAddress;
   String? lastError;
   bool listening = false;
+  DateTime? startedAt;
   final clients = <String, LocalMasterClient>{};
 
   String? get advertiseUrl {
@@ -78,6 +80,7 @@ class LocalMasterServer extends ChangeNotifier {
       _server = server;
       lanAddress = await _lanAddress();
       listening = true;
+      startedAt = DateTime.now();
       lastError = null;
       _addressRefresh?.cancel();
       _addressRefresh = Timer.periodic(const Duration(seconds: 15), (_) => _refreshLanAddress());
@@ -97,7 +100,11 @@ class LocalMasterServer extends ChangeNotifier {
       });
     } catch (error) {
       listening = false;
-      lastError = 'API locale indisponible sur le port $port';
+      final code = error is SocketException ? error.osError?.errorCode : null;
+      final inUse = code == 10048 || code == 98 || code == 48;
+      lastError = inUse
+          ? 'Port $port déjà utilisé par un autre programme — API locale indisponible.'
+          : 'API locale indisponible sur le port $port : $error';
       notifyListeners();
     }
   }
@@ -106,6 +113,7 @@ class LocalMasterServer extends ChangeNotifier {
     final server = _server;
     _server = null;
     listening = false;
+    startedAt = null;
     lanAddress = null;
     clients.clear();
     _addressRefresh?.cancel();

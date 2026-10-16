@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:printing/printing.dart' as printing;
@@ -18,6 +17,7 @@ import 'printer_connection.dart';
 import 'printer_failover.dart';
 import 'printer_manager.dart';
 import 'printer_router.dart';
+import 'raw_printer_output.dart';
 
 /// Facade for printer management + queued printing (mobile.md §37 / §41 / §74).
 ///
@@ -192,7 +192,8 @@ class PrinterService extends ChangeNotifier {
       return;
     }
 
-    final payload = ReceiptPrintPayload.fromJson(job.payload);
+    final payload = ReceiptPrintPayload.fromJson(job.payload)
+        .copyWith(format: ReceiptPrintService.formatFor(printer));
 
     switch (printer.connection) {
       case PrinterConnectionType.lan:
@@ -206,6 +207,8 @@ class PrinterService extends ChangeNotifier {
             port: printer.port,
             enabled: true,
           ),
+          resolvePreferred: false,
+          keepFormat: true,
         );
       case PrinterConnectionType.system:
       case PrinterConnectionType.usb:
@@ -225,19 +228,19 @@ class PrinterService extends ChangeNotifier {
       case PrinterConnectionType.lan:
       case PrinterConnectionType.ethernet:
       case PrinterConnectionType.wifi:
-        final target = printing.Printer(
-          url: 'socket://${printer.host}:${printer.port}',
-          name: printer.name,
-          isAvailable: true,
+        await RawPrinterOutput.instance.printPdf(
+          data,
+          RawPrinterTarget.network(printer.host, port: printer.port),
+          paperWidthMm: printer.paperWidthMm,
         );
-        await printing.Printing.directPrintPdf(
-          printer: target,
-          onLayout: (_) async => data,
-          name: name,
+      case PrinterConnectionType.bluetooth:
+        await RawPrinterOutput.instance.printPdf(
+          data,
+          RawPrinterTarget.bluetooth(printer.bluetoothAddress),
+          paperWidthMm: printer.paperWidthMm,
         );
       case PrinterConnectionType.system:
       case PrinterConnectionType.usb:
-      case PrinterConnectionType.bluetooth:
         final systemName =
             printer.systemName.isNotEmpty ? printer.systemName : printer.name;
         final printers = await printing.Printing.listPrinters();
@@ -261,9 +264,14 @@ class PrinterService extends ChangeNotifier {
 
   Future<void> _printViaSystem(ReceiptPrintPayload payload, Printer printer) async {
     final bytes = await _receiptPrinter.buildPdf(payload);
-    final name = printer.systemName.isNotEmpty ? printer.systemName : printer.name;
+    final name = printer.systemName.trim();
     if (name.isEmpty) {
-      await _receiptPrinter.print(payload, mode: ReceiptPrintMode.dialog);
+      await _receiptPrinter.print(
+        payload,
+        mode: ReceiptPrintMode.dialog,
+        resolvePreferred: false,
+        keepFormat: true,
+      );
       return;
     }
     final printers = await printing.Printing.listPrinters();
@@ -281,30 +289,15 @@ class PrinterService extends ChangeNotifier {
     ReceiptPrintPayload payload,
     Printer printer,
   ) async {
-    final bytes = await _receiptPrinter.buildPdf(payload);
-    final printers = await printing.Printing.listPrinters();
-    final byName = printers.where(
-      (item) =>
-          item.name == printer.name ||
-          item.name == printer.systemName ||
-          item.url.contains(printer.bluetoothAddress),
-    );
-    if (byName.isNotEmpty) {
-      await printing.Printing.directPrintPdf(
-        printer: byName.first,
-        onLayout: (_) async => bytes,
-      );
-      return;
-    }
-
     final address = printer.bluetoothAddress.trim();
     if (address.isEmpty) {
       throw StateError('Adresse Bluetooth manquante');
     }
-    final url = address.startsWith('btspp://') ? address : 'btspp://$address';
-    await printing.Printing.directPrintPdf(
-      printer: printing.Printer(url: url, name: printer.name, isAvailable: true),
-      onLayout: (_) async => bytes,
+    final bytes = await _receiptPrinter.buildPdf(payload);
+    await RawPrinterOutput.instance.printPdf(
+      bytes,
+      RawPrinterTarget.bluetooth(address.replaceFirst('btspp://', '')),
+      paperWidthMm: payload.format.paperWidthMm.round(),
     );
   }
 
@@ -320,51 +313,69 @@ class PrinterService extends ChangeNotifier {
     required Duration timeout,
     String? baseHost,
   }) async {
-    final baseIp = baseHost?.split(':').first ?? await _guessLanIp();
-    if (baseIp == null || baseIp.isEmpty) return const [];
+    final selfIps = baseHost != null
+        ? [baseHost.split(':').first]
+        : await _localLanIps();
+    final hosts = <String>{};
+    for (final ip in selfIps) {
+      final parts = ip.split('.');
+      if (parts.length != 4) continue;
+      final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+      for (var octet = 1; octet <= 254; octet += 1) {
+        final host = '$prefix.$octet';
+        if (!selfIps.contains(host)) hosts.add(host);
+      }
+    }
 
-    final parts = baseIp.split('.');
-    if (parts.length != 4) return const [];
-    final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
     final found = <Map<String, dynamic>>[];
-    final selfOctet = int.tryParse(parts[3]) ?? 1;
+    final pending = hosts.toList();
+    // Batches keep the sweep from exhausting sockets on small devices.
+    for (var start = 0; start < pending.length; start += 64) {
+      final batch = pending.skip(start).take(64);
+      await Future.wait(batch.map((host) async {
+        try {
+          final socket = await Socket.connect(host, 9100, timeout: timeout);
+          socket.destroy();
+          found.add({
+            'host': host,
+            'port': 9100,
+            'name': 'Imprimante $host',
+            'connection': PrinterConnectionType.lan.name,
+          });
+        } catch (_) {}
+      }));
+    }
 
-    final candidates = <int>{
-      for (var i = 1; i <= 254; i += 1)
-        if ((i - selfOctet).abs() <= 20 || i % 10 == 0) i,
-    };
-
-    await Future.wait(candidates.map((octet) async {
-      final host = '$prefix.$octet';
-      if (host == baseIp) return;
-      try {
-        final socket = await Socket.connect(host, 9100, timeout: timeout);
-        await socket.close();
-        found.add({
-          'host': host,
-          'port': 9100,
-          'name': 'Printer $host',
-          'connection': PrinterConnectionType.lan.name,
-        });
-      } catch (_) {}
-    }));
-
-    found.sort((a, b) => (a['host'] as String).compareTo(b['host'] as String));
+    int order(String host) =>
+        host.split('.').fold(0, (sum, part) => sum * 256 + (int.tryParse(part) ?? 0));
+    found.sort((a, b) => order(a['host'] as String).compareTo(order(b['host'] as String)));
     return found;
   }
 
-  Future<String?> _guessLanIp() async {
+  /// Private IPv4 addresses of this device (Wi-Fi, Ethernet…).
+  Future<List<String>> _localLanIps() async {
+    final ips = <String>[];
     try {
       final interfaces = await NetworkInterface.list(
         type: InternetAddressType.IPv4,
         includeLinkLocal: false,
       );
       for (final iface in interfaces) {
+        final name = iface.name.toLowerCase();
+        final virtual = name.contains('vethernet') ||
+            name.contains('virtualbox') ||
+            name.contains('vmware') ||
+            name.contains('docker') ||
+            name.contains('wsl');
         for (final addr in iface.addresses) {
-          if (!addr.isLoopback) return addr.address;
+          final ip = addr.address;
+          final private = ip.startsWith('192.168.') ||
+              ip.startsWith('10.') ||
+              RegExp(r'^172\.(1[6-9]|2\d|3[01])\.').hasMatch(ip);
+          if (!addr.isLoopback && private && !virtual) ips.add(ip);
         }
       }
     } catch (_) {}
-    return null;
+    return ips;
   }
 }

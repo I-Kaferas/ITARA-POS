@@ -17,16 +17,49 @@ import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/app_buttons.dart';
-import '../widgets/app_dialogs.dart';
 import '../../features/auth/data/pin_auth_service.dart';
 import '../../features/auth/presentation/logout_profile_dialog.dart';
 import '../../features/pos/presentation/widgets/pos_ui.dart';
+import '../../features/settings/domain/cashier_preferences.dart';
 import '../widgets/app_calculator.dart';
 import '../../features/sync/presentation/sync_status_bar.dart';
 import '../../sync/local_master_server.dart';
 import '../../sync/sync_engine.dart';
 import '../../sync/sync_models.dart';
 import 'app_routes.dart';
+import 'config_top_bar.dart';
+import 'store_switcher_dialog.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
+
+void _onOverflowSelected(BuildContext context, String value) {
+  switch (value) {
+    case 'barcode':
+      context.go(AppRoutes.barcode);
+    case 'sync':
+      _syncStock(context);
+    case 'menu':
+      context.go(AppRoutes.menu);
+    case 'settings':
+      context.go(AppRoutes.cashierSettings);
+    case 'store':
+      openStoreSwitcher(context);
+    case 'logout':
+      _confirmLogout(context);
+  }
+}
+
+List<PopupMenuEntry<String>> _overflowItems() {
+  final admin = TerminalConfigRepository.instance.config.isAdmin;
+  return [
+    if (admin) PopupMenuItem(value: 'settings', child: Text(tr('Réglages'))),
+    PopupMenuItem(value: 'store', child: Text(tr('Changer de magasin'))),
+    PopupMenuItem(value: 'menu', child: Text(tr('Plus'))),
+    PopupMenuItem(value: 'barcode', child: Text(tr('Codes-barres'))),
+    PopupMenuItem(value: 'sync', child: Text(tr('Synchroniser le stock'))),
+    PopupMenuDivider(),
+    PopupMenuItem(value: 'logout', child: Text(tr('Se déconnecter'))),
+  ];
+}
 
 Future<void> _syncStock(BuildContext context) async {
   await SyncEngine.instance.refreshCounts();
@@ -137,7 +170,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                               borderRadius: AppRadius.borderPill,
                             ),
                             child: Text(
-                              live.label,
+                              tr(live.label),
                               style: GoogleFonts.ibmPlexSans(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -163,11 +196,11 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                               ),
                               child: Column(
                                 children: [
-                                  _SyncInfoRow(icon: Icons.cloud_queue, label: 'Connexion', value: live.label),
+                                  _SyncInfoRow(icon: Icons.cloud_queue, label: tr('Connexion'), value: live.label),
                                   const SizedBox(height: 10),
-                                  _SyncInfoRow(icon: Icons.hourglass_bottom, label: 'En attente', value: '$waiting'),
+                                  _SyncInfoRow(icon: Icons.hourglass_bottom, label: tr('En attente'), value: '$waiting'),
                                   const SizedBox(height: 10),
-                                  _SyncInfoRow(icon: Icons.schedule, label: 'Dernière', value: last),
+                                  _SyncInfoRow(icon: Icons.schedule, label: tr('Dernière'), value: last),
                                 ],
                               ),
                             ),
@@ -270,7 +303,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      report.message.isNotEmpty ? report.message : (report.ok ? AppCopy.get('syncDone') : AppCopy.get('syncFailed')),
+                      tr(report.message.isNotEmpty ? report.message : (report.ok ? AppCopy.get('syncDone') : AppCopy.get('syncFailed'))),
                       style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: color),
                     ),
                   ),
@@ -286,7 +319,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                         Icon(Icons.check_circle, size: 16, color: AppColors.success),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(line.label, style: GoogleFonts.ibmPlexSans(fontSize: 14, color: AppColors.textPrimary)),
+                          child: Text(tr(line.label), style: GoogleFonts.ibmPlexSans(fontSize: 14, color: AppColors.textPrimary)),
                         ),
                         Text(
                           '${line.count}',
@@ -305,7 +338,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
           children: [
             Expanded(
               child: AppButton.secondary(
-                label: 'Autre action',
+                label: tr('Autre action'),
                 expanded: true,
                 onPressed: () => setState(() => _report = null),
               ),
@@ -313,7 +346,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: AppButton.primary(
-                label: 'Fermer',
+                label: tr('Fermer'),
                 expanded: true,
                 onPressed: () => Navigator.pop(context),
               ),
@@ -342,9 +375,9 @@ class _SyncInfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
+              Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
               Text(
-                value,
+                tr(value),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
@@ -365,149 +398,185 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: TerminalConfigRepository.instance,
+      listenable: Listenable.merge([
+        TerminalConfigRepository.instance,
+        CashierPreferences.instance,
+      ]),
       builder: (context, _) => _scaffold(context),
     );
   }
 
-  /// Menus serveur : Overview · Point of Sale · Orders · Shifts.
-  static const _phoneTabs = [
+  /// Menus de navigation, filtrés par « Visibilité du menu » (Réglages).
+  static final _phoneTabs = [
     _NavItem(
       route: AppRoutes.dashboard,
       icon: Icons.space_dashboard_outlined,
       selectedIcon: Icons.space_dashboard,
-      label: 'Overview',
-      hint: 'Today at a glance',
+      label: tr('Overview'),
+      hint: tr('Today at a glance'),
       branchIndex: 0,
+      menuKey: 'overview',
     ),
     _NavItem(
       route: AppRoutes.pos,
       icon: Icons.point_of_sale_outlined,
       selectedIcon: Icons.point_of_sale,
-      label: 'Point of Sale',
-      hint: 'Register',
+      label: tr('Point of Sale'),
+      hint: tr('Register'),
       branchIndex: 1,
+      menuKey: 'pos',
     ),
     _NavItem(
       route: AppRoutes.orders,
       icon: Icons.receipt_long_outlined,
       selectedIcon: Icons.receipt_long,
-      label: 'Orders',
-      hint: 'Sales and orders',
+      label: tr('Orders'),
+      hint: tr('Sales and orders'),
       branchIndex: 2,
+      menuKey: 'orders',
+    ),
+    _NavItem(
+      route: AppRoutes.kitchen,
+      icon: Icons.soup_kitchen_outlined,
+      selectedIcon: Icons.soup_kitchen,
+      label: tr('Kitchen'),
+      hint: tr('Kitchen display'),
+      menuKey: 'kitchen',
+    ),
+    _NavItem(
+      route: AppRoutes.reservations,
+      icon: Icons.table_restaurant_outlined,
+      selectedIcon: Icons.table_restaurant,
+      label: tr('Tables'),
+      hint: tr('Salle et réservations'),
+      menuKey: 'tables',
     ),
     _NavItem(
       route: AppRoutes.shifts,
       icon: Icons.schedule_outlined,
       selectedIcon: Icons.schedule,
-      label: 'Shifts',
-      hint: 'Open and close',
+      label: tr('Shifts'),
+      hint: tr('Open and close'),
       branchIndex: 3,
+      menuKey: 'shifts',
     ),
   ];
 
-  static const _barcodeItem = _NavItem(
+  static List<_NavItem> _visibleTabs() {
+    final prefs = CashierPreferences.instance;
+    final tabs = _phoneTabs.where((t) => prefs.menuVisible(t.menuKey!)).toList();
+    if (tabs.length >= CashierPreferences.minVisibleMenus) return tabs;
+    return _phoneTabs
+        .where((t) => tabs.contains(t) || t.menuKey == 'overview' || t.menuKey == 'pos')
+        .toList();
+  }
+
+  static bool _tabMatches(_NavItem item, String location) {
+    switch (item.route) {
+      case AppRoutes.dashboard:
+        return location == AppRoutes.dashboard ||
+            (location.startsWith('${AppRoutes.dashboard}/') && !location.startsWith(AppRoutes.kitchen));
+      case AppRoutes.shifts:
+        return location == AppRoutes.shifts || location.startsWith('${AppRoutes.shifts}/');
+      default:
+        return location.startsWith(item.route);
+    }
+  }
+
+  static final _barcodeItem = _NavItem(
     route: AppRoutes.barcode,
     icon: Icons.qr_code_scanner_outlined,
     selectedIcon: Icons.qr_code_scanner,
-    label: 'Codes-barres',
-    hint: 'Scanner, générer et imprimer',
+    label: tr('Codes-barres'),
+    hint: tr('Scanner, générer et imprimer'),
     branchIndex: 0,
   );
 
-  static const _syncItem = _NavItem(
+  static final _syncItem = _NavItem(
     route: AppRoutes.sync,
     icon: Icons.sync_outlined,
     selectedIcon: Icons.sync,
-    label: 'Synchronisation',
-    hint: 'File d’attente et envois',
+    label: tr('Synchronisation'),
+    hint: tr('File d’attente et envois'),
     branchIndex: 0,
   );
 
-  static const _settingsItem = _NavItem(
+  static final _settingsItem = _NavItem(
     route: AppRoutes.configuration,
     icon: Icons.settings_outlined,
     selectedIcon: Icons.settings,
-    label: 'Réglages',
-    hint: 'Terminal et connexion',
+    label: tr('Configuration'),
+    hint: tr('Terminal et connexion'),
     branchIndex: 0,
   );
 
-  static const _returnsItem = _NavItem(
+  static final _prefsItem = _NavItem(
+    route: AppRoutes.cashierSettings,
+    icon: Icons.tune_outlined,
+    selectedIcon: Icons.tune,
+    label: tr('Réglages'),
+    hint: tr('Mode configuration'),
+    branchIndex: 0,
+  );
+
+  static final _returnsItem = _NavItem(
     route: AppRoutes.returns,
     icon: Icons.undo_outlined,
     selectedIcon: Icons.undo,
-    label: 'Retours',
-    hint: 'Retours et remboursements',
+    label: tr('Retours'),
+    hint: tr('Retours et remboursements'),
     branchIndex: 0,
   );
 
-  static const _tablesItem = _NavItem(
+  static final _tablesItem = _NavItem(
     route: AppRoutes.reservations,
     icon: Icons.table_restaurant_outlined,
     selectedIcon: Icons.table_restaurant,
-    label: 'Tables',
-    hint: 'Salle et réservations',
+    label: tr('Tables'),
+    hint: tr('Salle et réservations'),
   );
 
-  static const _stockItem = _NavItem(
+  static final _stockItem = _NavItem(
     route: AppRoutes.stock,
     icon: Icons.inventory_2_outlined,
     selectedIcon: Icons.inventory_2,
-    label: 'Stock',
-    hint: 'Stock local',
+    label: tr('Stock'),
+    hint: tr('Stock local'),
   );
 
-  static const _menuItem = _NavItem(
+  static final _menuItem = _NavItem(
     route: AppRoutes.menu,
     icon: Icons.menu,
     selectedIcon: Icons.menu_open,
-    label: 'Plus',
-    hint: 'Autres modules',
+    label: tr('Plus'),
+    hint: tr('Autres modules'),
   );
-
-  int? _primaryIndex(String location) {
-    if (location == AppRoutes.dashboard || location.startsWith('${AppRoutes.dashboard}/')) return 0;
-    if (location.startsWith(AppRoutes.pos)) return 1;
-    if (location.startsWith(AppRoutes.orders)) return 2;
-    if (location == AppRoutes.shifts || location.startsWith('${AppRoutes.shifts}/')) return 3;
-    return null;
-  }
-
-  int _phoneTabIndex(String location) => _primaryIndex(location) ?? 0;
-
-  void _goPhoneTab(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go(AppRoutes.dashboard);
-      case 1:
-        context.go(AppRoutes.pos);
-      case 2:
-        context.go(AppRoutes.orders);
-      case 3:
-        context.go(AppRoutes.shifts);
-    }
-  }
 
   _NavItem _currentPage(String location) {
     if (location == AppRoutes.barcode) return _barcodeItem;
     if (location == AppRoutes.sync) return _syncItem;
+    if (location == AppRoutes.cashierSettings ||
+        location == AppRoutes.hub ||
+        location == AppRoutes.masterConfiguration) {
+      return _prefsItem;
+    }
     if (location == AppRoutes.configuration) return _settingsItem;
     if (location == AppRoutes.returns) return _returnsItem;
     if (location.startsWith(AppRoutes.reservations)) return _tablesItem;
     if (location.startsWith(AppRoutes.stock)) return _stockItem;
     if (location == AppRoutes.menu) return _menuItem;
     if (location == AppRoutes.cashRegister) {
-      return const _NavItem(
+      return _NavItem(
         route: AppRoutes.cashRegister,
         icon: Icons.point_of_sale_outlined,
         selectedIcon: Icons.point_of_sale,
-        label: 'Caisse',
-        hint: 'Open, close, cash in and out',
+        label: tr('Caisse'),
+        hint: tr('Open, close, cash in and out'),
       );
     }
-    final primary = _primaryIndex(location);
-    if (primary != null) return _phoneTabs[primary];
+    for (final item in _phoneTabs) {
+      if (_tabMatches(item, location)) return item;
+    }
     return _phoneTabs[0];
   }
 
@@ -516,25 +585,41 @@ class AppShell extends StatelessWidget {
     final config = TerminalConfigRepository.instance.config;
     final location = GoRouterState.of(context).uri.path;
     final page = _currentPage(location);
-    final phoneTab = _phoneTabIndex(location);
+    final tabs = _visibleTabs();
+    final phoneTab = tabs.indexWhere((t) => _tabMatches(t, location));
+    final configuring = AppRoutes.isConfiguration(location);
+    void exitConfiguration() => context.go(AppRoutes.pos);
 
     if (form.isDesk) {
       return Scaffold(
         body: Row(
           children: [
-            _Sidebar(
-              activeRoute: location,
-              config: config,
-              onPhoneTab: (i) => _goPhoneTab(context, i),
-            ),
+            if (!configuring)
+              _Sidebar(
+                activeRoute: location,
+                config: config,
+                tabs: tabs,
+                onTab: (item) => context.go(item.route),
+              ),
             Expanded(
               child: Column(
                 children: [
-                  _TopBar(
-                    title: page.label,
-                    subtitle: page.hint,
-                    config: config,
-                  ),
+                  if (configuring)
+                    ConfigTopBar(
+                      onHome: exitConfiguration,
+                      onFeatures: () => context.go(
+                        TerminalConfigRepository.instance.isConfigured
+                            ? AppRoutes.menu
+                            : '${AppRoutes.configuration}?section=0',
+                      ),
+                      onLogout: () => _confirmLogout(context),
+                    )
+                  else
+                    _TopBar(
+                      title: page.label,
+                      subtitle: page.hint,
+                      config: config,
+                    ),
                   Expanded(
                     child: KeyedSubtree(
                       key: ValueKey(config.storeId),
@@ -551,11 +636,19 @@ class AppShell extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: configuring
+            ? IconButton(
+                tooltip: tr('Retour à la caisse'),
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: exitConfiguration,
+              )
+            : null,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              page.label,
+              tr(page.label),
               style: GoogleFonts.ibmPlexSans(
                 fontWeight: FontWeight.w700,
                 fontSize: 16,
@@ -570,32 +663,9 @@ class AppShell extends StatelessWidget {
           const ThemeModeButton(),
           const CalculatorButton(),
           PopupMenuButton<String>(
-            tooltip: 'Plus',
-            onSelected: (value) {
-              switch (value) {
-                case 'barcode':
-                  context.go(AppRoutes.barcode);
-                case 'sync':
-                  _syncStock(context);
-                case 'menu':
-                  context.go(AppRoutes.menu);
-                case 'settings':
-                  context.go(AppRoutes.configuration);
-                case 'logout':
-                  _confirmLogout(context);
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'menu', child: Text('Plus')),
-              const PopupMenuItem(value: 'settings', child: Text('Réglages')),
-              const PopupMenuItem(value: 'barcode', child: Text('Codes-barres')),
-              const PopupMenuItem(
-                value: 'sync',
-                child: Text('Synchroniser le stock'),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(value: 'logout', child: Text('Se déconnecter')),
-            ],
+            tooltip: tr('Plus'),
+            onSelected: (value) => _onOverflowSelected(context, value),
+            itemBuilder: (context) => _overflowItems(),
           ),
         ],
       ),
@@ -603,7 +673,9 @@ class AppShell extends StatelessWidget {
         key: ValueKey(config.storeId),
         child: navigationShell,
       ),
-      bottomNavigationBar: NavigationBarTheme(
+      bottomNavigationBar: configuring
+          ? null
+          : NavigationBarTheme(
         data: NavigationBarThemeData(
           indicatorColor: AppColors.cashierBlue,
           iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -623,9 +695,9 @@ class AppShell extends StatelessWidget {
         animationDuration: AppMotion.resolve(context, AppMotion.micro),
         height: AndroidLayout.preferLite(context) ? 64 : 70,
         backgroundColor: AppColors.surface,
-        selectedIndex: phoneTab,
-        onDestinationSelected: (i) => _goPhoneTab(context, i),
-        destinations: _phoneTabs
+        selectedIndex: phoneTab < 0 ? 0 : phoneTab,
+        onDestinationSelected: (i) => context.go(tabs[i].route),
+        destinations: tabs
             .map(
               (item) => NavigationDestination(
                 icon: Icon(item.icon),
@@ -644,22 +716,14 @@ class _Sidebar extends StatelessWidget {
   const _Sidebar({
     required this.activeRoute,
     required this.config,
-    required this.onPhoneTab,
+    required this.tabs,
+    required this.onTab,
   });
 
   final String activeRoute;
   final TerminalConfig config;
-  final ValueChanged<int> onPhoneTab;
-
-  bool _menuSelected(int index) {
-    return switch (index) {
-      0 => activeRoute == AppRoutes.dashboard || activeRoute.startsWith('${AppRoutes.dashboard}/'),
-      1 => activeRoute.startsWith(AppRoutes.pos),
-      2 => activeRoute.startsWith(AppRoutes.orders),
-      3 => activeRoute == AppRoutes.shifts || activeRoute.startsWith('${AppRoutes.shifts}/'),
-      _ => false,
-    };
-  }
+  final List<_NavItem> tabs;
+  final ValueChanged<_NavItem> onTab;
 
   @override
   Widget build(BuildContext context) {
@@ -673,7 +737,7 @@ class _Sidebar extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
             child: Row(
               children: [
                 Container(
@@ -686,13 +750,13 @@ class _Sidebar extends StatelessWidget {
                   alignment: Alignment.center,
                   child: const Icon(Icons.storefront_rounded, color: AppColors.brand900, size: 18),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        brand,
+                        tr(brand),
                         style: GoogleFonts.ibmPlexSans(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -703,7 +767,7 @@ class _Sidebar extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        'Point of Sale',
+                        tr('Point of Sale'),
                         style: GoogleFonts.ibmPlexSans(
                           color: AppColors.sidebarText,
                           fontSize: 11,
@@ -713,10 +777,12 @@ class _Sidebar extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Plus',
-                  onPressed: () => context.go(AppRoutes.menu),
+                PopupMenuButton<String>(
+                  tooltip: tr('Réglages'),
+                  padding: EdgeInsets.zero,
                   icon: const Icon(Icons.more_horiz, color: AppColors.sidebarText, size: 20),
+                  onSelected: (value) => _onOverflowSelected(context, value),
+                  itemBuilder: (context) => _overflowItems(),
                 ),
               ],
             ),
@@ -756,13 +822,13 @@ class _Sidebar extends StatelessWidget {
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               children: [
-                for (var i = 0; i < AppShell._phoneTabs.length; i++)
+                for (final item in tabs)
                   _SidebarItem(
-                    item: AppShell._phoneTabs[i],
-                    selected: _menuSelected(i),
-                    onTap: () => onPhoneTab(i),
+                    item: item,
+                    selected: AppShell._tabMatches(item, activeRoute),
+                    onTap: () => onTab(item),
                   ),
               ],
             ),
@@ -777,21 +843,32 @@ class _Sidebar extends StatelessWidget {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: syncing ? null : () => _syncStock(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.sidebarText,
-                      backgroundColor: Colors.transparent,
-                      disabledForegroundColor: AppColors.sidebarText,
-                      side: const BorderSide(color: AppColors.sidebarBorder),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    style: ButtonStyle(
+                      foregroundColor: const WidgetStatePropertyAll(AppColors.sidebarText),
+                      iconColor: const WidgetStatePropertyAll(AppColors.sidebarText),
+                      backgroundColor: WidgetStateProperty.resolveWith(
+                        (states) => states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)
+                            ? AppColors.sidebarHover
+                            : AppColors.sidebarPanel,
+                      ),
+                      overlayColor: WidgetStatePropertyAll(AppColors.sidebarText.withValues(alpha: 0.08)),
+                      side: const WidgetStatePropertyAll(BorderSide(color: AppColors.sidebarBorder)),
+                      textStyle: WidgetStatePropertyAll(
+                        GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.sidebarText),
+                      ),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
                     ),
                     icon: syncing
                         ? const SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.sidebarText),
                           )
-                        : const Icon(Icons.sync, size: 16),
-                    label: const Text('Synchroniser'),
+                        : const Icon(Icons.sync, size: 16, color: AppColors.sidebarText),
+                    label: Text(
+                      tr(syncing ? 'Synchronisation…' : 'Synchroniser'),
+                      style: GoogleFonts.ibmPlexSans(color: AppColors.sidebarText, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 );
               },
@@ -800,11 +877,11 @@ class _Sidebar extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
             child: _SidebarItem(
-              item: const _NavItem(
+              item: _NavItem(
                 route: 'logout',
                 icon: Icons.logout_rounded,
                 selectedIcon: Icons.logout_rounded,
-                label: 'Logout',
+                label: tr('Logout'),
                 hint: '',
               ),
               selected: false,
@@ -824,7 +901,7 @@ class _Sidebar extends StatelessWidget {
                   radius: 16,
                   backgroundColor: AppColors.accent,
                   child: Text(
-                    (config.cashierName.trim().isEmpty ? 'C' : config.cashierName.trim()[0]).toUpperCase(),
+                    tr((config.cashierName.trim().isEmpty ? 'C' : config.cashierName.trim()[0]).toUpperCase()),
                     style: GoogleFonts.ibmPlexSans(color: AppColors.brand900, fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),
@@ -834,7 +911,7 @@ class _Sidebar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        config.cashierName.isNotEmpty ? config.cashierName : 'Caissier',
+                        tr(config.cashierName.isNotEmpty ? config.cashierName : 'Caissier'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.ibmPlexSans(
@@ -844,7 +921,7 @@ class _Sidebar extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        config.posRole.label,
+                        tr(config.posRole.label),
                         style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.sidebarText),
                       ),
                     ],
@@ -901,31 +978,8 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
 
   Future<void> _open() async {
     if (_stores.isEmpty) await _load();
-    if (!mounted || _stores.isEmpty) return;
-
-    final current = TerminalConfigRepository.instance.config.storeId;
-    final picked = await AppDialogs.show<TerminalStoreOption>(
-      context: context,
-      title: 'Magasins',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final store in _stores)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                store.id == current ? Icons.check_circle : Icons.storefront_outlined,
-                color: store.id == current ? AppColors.brand700 : AppColors.textSecondary,
-              ),
-              title: Text(store.name, style: AppTypography.plex(fontWeight: FontWeight.w600)),
-              subtitle: store.code.trim().isEmpty ? null : Text(store.code),
-              onTap: () => Navigator.of(context).pop(store),
-            ),
-        ],
-      ),
-    );
-    if (picked == null) return;
-    await selectTerminalStore(picked);
+    if (!mounted) return;
+    await openStoreSwitcher(context, stores: _stores);
   }
 
   @override
@@ -936,15 +990,24 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
     if (widget.style == _StoreSwitcherStyle.subtitle) {
       return GestureDetector(
         onTap: _open,
-        child: Text(
-          several ? '$label · ${_stores.length} magasins' : label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.ibmPlexSans(
-            fontSize: 11,
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                several ? trf('{0} · {1} magasins', [label, _stores.length]) : label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.swap_horiz_rounded, size: 14, color: AppColors.textSecondary),
+          ],
         ),
       );
     }
@@ -969,7 +1032,7 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    label,
+                    tr(label),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.ibmPlexSans(
@@ -979,7 +1042,10 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
                     ),
                   ),
                 ),
-                if (several) const Icon(Icons.unfold_more, size: 16, color: AppColors.sidebarText),
+                Tooltip(
+                  message: tr('Changer de magasin'),
+                  child: const Icon(Icons.swap_horiz_rounded, size: 17, color: AppColors.sidebarText),
+                ),
               ],
             ),
           ),
@@ -989,7 +1055,9 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
 
     return _ContextChip(
       icon: Icons.storefront_outlined,
-      label: several ? '$label · ${_stores.length}' : label,
+      label: label,
+      trailing: Icons.swap_horiz_rounded,
+      tooltip: tr('Changer de magasin'),
       onTap: _open,
     );
   }
@@ -1019,7 +1087,7 @@ class _ConnectionPill extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              label,
+              tr(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.ibmPlexSans(
@@ -1061,7 +1129,7 @@ class _RoleChip extends StatelessWidget {
           Icon(role.icon, size: 14, color: bg),
           const SizedBox(width: 4),
           Text(
-            role.label,
+            tr(role.label),
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -1088,7 +1156,7 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Material(
         color: selected ? AppColors.sidebarActive : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
@@ -1097,7 +1165,7 @@ class _SidebarItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           hoverColor: AppColors.sidebarHover,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             child: Row(
               children: [
                 Icon(
@@ -1105,10 +1173,10 @@ class _SidebarItem extends StatelessWidget {
                   color: selected ? AppColors.accent : AppColors.sidebarText,
                   size: 18,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    item.label,
+                    tr(item.label),
                     style: GoogleFonts.ibmPlexSans(
                       color: selected ? Colors.white : AppColors.sidebarText,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
@@ -1159,7 +1227,7 @@ class _TopBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  tr(title),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
@@ -1169,7 +1237,7 @@ class _TopBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  subtitle,
+                  tr(subtitle),
                   overflow: TextOverflow.ellipsis,
                   style: PosUi.caption(),
                 ),
@@ -1198,7 +1266,7 @@ class _TopBar extends StatelessWidget {
                     const SizedBox(width: 8),
                     _ContextChip(
                       icon: Icons.schedule_outlined,
-                      label: 'Shifts',
+                      label: tr('Shifts'),
                       tone: AppColors.brandInk,
                       onTap: () => context.go(AppRoutes.shifts),
                     ),
@@ -1225,18 +1293,22 @@ class _ContextChip extends StatelessWidget {
     required this.label,
     this.tone,
     this.onTap,
+    this.trailing,
+    this.tooltip,
   });
 
   final IconData icon;
   final String label;
   final Color? tone;
   final VoidCallback? onTap;
+  final IconData? trailing;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final color = tone ?? AppColors.brandInk;
     final child = Container(
-      constraints: const BoxConstraints(maxWidth: 160),
+      constraints: BoxConstraints(maxWidth: trailing == null ? 160 : 200),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: AppColors.fieldFill,
@@ -1250,18 +1322,22 @@ class _ContextChip extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              label,
+              tr(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 6),
+            Icon(trailing, size: 15, color: color),
+          ],
         ],
       ),
     );
 
     if (onTap == null) return child;
-    return Material(
+    final button = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
@@ -1269,6 +1345,7 @@ class _ContextChip extends StatelessWidget {
         child: child,
       ),
     );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
 }
 
@@ -1280,6 +1357,7 @@ class _NavItem {
     required this.label,
     required this.hint,
     this.branchIndex = 0,
+    this.menuKey,
   });
 
   final String route;
@@ -1288,4 +1366,7 @@ class _NavItem {
   final String label;
   final String hint;
   final int branchIndex;
+
+  /// Key in [CashierPreferences.menuKeys] for menus the user can hide.
+  final String? menuKey;
 }

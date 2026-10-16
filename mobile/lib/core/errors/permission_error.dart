@@ -1,4 +1,5 @@
 import 'app_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Missing RBAC permission or OS permission.
 final class PermissionError extends AppError {
@@ -13,18 +14,18 @@ final class PermissionError extends AppError {
 
   factory PermissionError.denied(String permission, {Object? cause}) =>
       PermissionError(
-        title: 'Permission insuffisante.',
+        title: tr('Permission insuffisante.'),
         detail:
-            'Il vous manque le droit « $permission ». Demandez à un administrateur.',
+            trf('Il vous manque le droit « {0} ». Demandez à un administrateur.', [permission]),
         permission: permission,
         cause: cause,
       );
 
   factory PermissionError.osDenied(String feature, {Object? cause}) =>
       PermissionError(
-        title: 'Accès système refusé.',
+        title: tr('Accès système refusé.'),
         detail:
-            'Autorisez « $feature » dans les réglages de l’appareil puis réessayez.',
+            trf('Autorisez « {0} » dans les réglages de l’appareil puis réessayez.', [feature]),
         permission: feature,
         cause: cause,
       );

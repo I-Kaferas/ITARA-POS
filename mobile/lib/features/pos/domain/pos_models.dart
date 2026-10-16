@@ -1,4 +1,5 @@
 import '../services/cart_calculator.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosCategory {
   const PosCategory({
@@ -436,12 +437,12 @@ class PosPaymentMethod {
         'sort_order': sortOrder,
       };
 
-  static const defaults = <PosPaymentMethod>[
-    PosPaymentMethod(value: 'cash', label: 'Cash', labelFr: 'Espèces', supportsChange: true),
-    PosPaymentMethod(value: 'mobile_money', label: 'Mobile Money', labelFr: 'Mobile Money'),
-    PosPaymentMethod(value: 'card', label: 'Card', labelFr: 'Carte'),
-    PosPaymentMethod(value: 'bank_transfer', label: 'Bank', labelFr: 'Banque'),
-    PosPaymentMethod(value: 'credit', label: 'Credit', labelFr: 'Crédit client', requiresCustomer: true),
+  static final defaults = <PosPaymentMethod>[
+    PosPaymentMethod(value: 'cash', label: tr('Cash'), labelFr: 'Espèces', supportsChange: true),
+    PosPaymentMethod(value: 'mobile_money', label: tr('Mobile Money'), labelFr: 'Mobile Money'),
+    PosPaymentMethod(value: 'card', label: tr('Card'), labelFr: 'Carte'),
+    PosPaymentMethod(value: 'bank_transfer', label: tr('Bank'), labelFr: 'Banque'),
+    PosPaymentMethod(value: 'credit', label: tr('Credit'), labelFr: 'Crédit client', requiresCustomer: true),
   ];
 }
 
@@ -637,6 +638,7 @@ class PosHeldSale {
     this.discountPercent = 0,
     this.fees = const [],
     this.tableId,
+    this.tableLabel,
   });
 
   final String id;
@@ -650,6 +652,7 @@ class PosHeldSale {
   final double discountPercent;
   final List<int> fees;
   final String? tableId;
+  final String? tableLabel;
 
   int get itemCount => lines.fold(0, (sum, line) => sum + line.quantity);
 
@@ -663,6 +666,7 @@ class PosHeldSale {
         'discount_percent': discountPercent,
         'fees': fees,
         if (tableId != null && tableId!.isNotEmpty) 'table_id': tableId,
+        if (tableLabel != null && tableLabel!.isNotEmpty) 'table_label': tableLabel,
         'customer': customer?.toJson(),
         'customer_id': customer?.saleCustomerId,
         'notes': note,
@@ -689,6 +693,7 @@ class PosHeldSale {
           .map((item) => PosProduct._amount(item))
           .toList(),
       tableId: json['table_id']?.toString(),
+      tableLabel: json['table_label']?.toString(),
     );
   }
 
@@ -733,6 +738,7 @@ class PosPaymentResult {
     this.message,
     this.receipt,
     this.loyaltyEarned,
+    this.stockUpdates = const [],
   });
 
   final bool success;
@@ -746,6 +752,7 @@ class PosPaymentResult {
   final String? message;
   final Map<String, dynamic>? receipt;
   final int? loyaltyEarned;
+  final List<Map<String, dynamic>> stockUpdates;
 }
 
 class PosCustomerBalance {
@@ -784,6 +791,7 @@ class PosSaleResult {
     this.pendingSync = false,
     this.receipt,
     this.loyaltyEarned,
+    this.stockUpdates = const [],
   });
 
   final String saleId;
@@ -797,6 +805,8 @@ class PosSaleResult {
   final bool pendingSync;
   final Map<String, dynamic>? receipt;
   final int? loyaltyEarned;
+  /// Fresh local stock rows after the sale (`product_id`, `quantity_on_hand`, …).
+  final List<Map<String, dynamic>> stockUpdates;
 
   factory PosSaleResult.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;

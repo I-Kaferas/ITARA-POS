@@ -33,6 +33,8 @@ class LocalMasterDiscovery extends ChangeNotifier {
   bool searching = false;
   final masters = <String, DiscoveredMaster>{};
 
+  bool get isRunning => _started;
+
   String get statusMessage {
     if (searching && visible.isEmpty) {
       return 'Recherche d’un Master sur le réseau…';

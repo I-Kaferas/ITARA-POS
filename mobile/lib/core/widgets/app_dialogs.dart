@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_typography.dart';
 import 'app_buttons.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 Future<T?> showAppSheet<T>(
   BuildContext context, {
@@ -204,7 +205,7 @@ class AppDialogFrame extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        title,
+                        tr(title),
                         style: AppTypography.plex(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -228,7 +229,7 @@ class AppDialogFrame extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (message != null)
-                        Text(message!, style: AppTypography.body(color: AppColors.textSecondary)),
+                        Text(tr(message!), style: AppTypography.body(color: AppColors.textSecondary)),
                       if (content != null) ...[
                         if (message != null) const SizedBox(height: AppSpacing.md),
                         content!,

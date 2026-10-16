@@ -9,6 +9,7 @@ import '../config/terminal_config_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_typography.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class AppCalculator {
   AppCalculator._();
@@ -39,7 +40,7 @@ class CalculatorButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Calculatrice',
+      message: tr('Calculatrice'),
       child: Material(
         color: AppColors.surface,
         borderRadius: AppRadius.borderMd,
@@ -230,7 +231,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
                     ),
                     child: Row(
                       children: [
-                        Text('Calculatrice', style: AppTypography.plex(fontSize: 14, fontWeight: FontWeight.w700)),
+                        Text(tr('Calculatrice'), style: AppTypography.plex(fontSize: 14, fontWeight: FontWeight.w700)),
                         const Spacer(),
                         Material(
                           color: AppColors.dangerBg,
@@ -309,13 +310,13 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                _expression.isEmpty ? '0' : _expression,
+                tr(_expression.isEmpty ? '0' : _expression),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.ibmPlexSans(fontSize: 11, color: const Color(0x8CFFFFFF)),
               ),
               Text(
-                _display,
+                tr(_display),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
@@ -350,7 +351,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
         const SizedBox(height: 6),
         Row(
           children: [
-            Text('M ${formatCalcNumber(_memory)}', style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
+            Text(trf('M {0}', [formatCalcNumber(_memory)]), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
             const Spacer(),
             _mini('MC', () => setState(() => _memory = 0)),
             _mini('MR', () => setState(() => _append(formatCalcNumber(_memory)))),
@@ -424,7 +425,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
                     border: Border.all(color: current == value ? AppColors.brand600 : AppColors.border),
                   ),
                   child: Text(
-                    labels[value] ?? value,
+                    tr(labels[value] ?? value),
                     textAlign: TextAlign.center,
                     style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w600, color: current == value ? AppColors.brandInk : AppColors.textSecondary),
                   ),
@@ -463,9 +464,9 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(
                 children: [
-                  Text(row.$1, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(tr(row.$1), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
                   const Spacer(),
-                  Text(row.$2, style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  Text(tr(row.$2), style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                 ],
               ),
             ),
@@ -484,7 +485,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
           border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600)),
+        child: Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -501,7 +502,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
             border: Border.all(color: AppColors.border),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Text(label, style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
+          child: Text(tr(label), style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
         ),
       ),
     );
@@ -547,7 +548,7 @@ class _KeyButton extends StatelessWidget {
         customBorder: RoundedRectangleBorder(borderRadius: AppRadius.borderMd),
         child: SizedBox(
           height: 42,
-          child: Center(child: Text(label, style: AppTypography.plex(fontSize: 15, fontWeight: FontWeight.w600, color: foreground))),
+          child: Center(child: Text(tr(label), style: AppTypography.plex(fontSize: 15, fontWeight: FontWeight.w600, color: foreground))),
         ),
       ),
     );

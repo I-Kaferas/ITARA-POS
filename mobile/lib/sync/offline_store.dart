@@ -29,6 +29,12 @@ class OfflineStore {
 
   static final OfflineStore instance = OfflineStore._();
 
+  /// Bumped whenever a local sale is recorded or its totals change, so
+  /// screens showing sales figures can recompute.
+  final ValueNotifier<int> salesRevision = ValueNotifier<int>(0);
+
+  void notifySalesChanged() => salesRevision.value++;
+
   Future<void> _stockChain = Future<void>.value();
 
   Future<Database> get _db => LocalDatabase.instance.database;
@@ -609,6 +615,8 @@ class OfflineStore {
     String? saleId,
     String? serviceMode,
     String? deliveryAddress,
+    String? tableId,
+    String? tableLabel,
     required int total,
     required int paidAmount,
     required int outstandingAmount,
@@ -656,11 +664,14 @@ class OfflineStore {
       if (serviceMode == 'takeaway' || serviceMode == 'delivery') 'service_mode': serviceMode,
       if (serviceMode == 'delivery' && deliveryAddress != null && deliveryAddress.trim().isNotEmpty)
         'delivery_address': deliveryAddress.trim(),
+      if (tableId != null && tableId.isNotEmpty) 'table_id': tableId,
+      if (tableLabel != null && tableLabel.isNotEmpty) 'table_label': tableLabel,
       if (dueDate != null) 'due_date': dueDate,
       if (installments != null) 'installments': installments,
       'sold_at': now,
     };
 
+    final stockUpdates = <Map<String, dynamic>>[];
     await exclusiveStock(() => db.transaction((txn) async {
       await _bindLane(txn, payload);
       final paymentRows = <Map<String, dynamic>>[];
@@ -706,6 +717,7 @@ class OfflineStore {
         'cash_register_id': payload['cash_register_id'],
         'cash_session_id': payload['cash_session_id'],
         'user_id': payload['user_id'],
+        'stock': <Map<String, dynamic>>[],
       };
       payload['local_sync_event_id'] = eventId;
       payload['local_sequence'] = sequence;
@@ -734,6 +746,7 @@ class OfflineStore {
       await _insertSaleItems(txn, saleId: id, items: items);
 
       final movementIds = <String>[];
+      final stock = <Map<String, dynamic>>[];
       for (final item in items) {
         final productId = item['product_id']?.toString() ?? '';
         final quantity = _asInt(item['quantity']);
@@ -748,9 +761,21 @@ class OfflineStore {
           'type': 'SALE',
           'created_at': now,
         });
-        await _applyStockDelta(txn, productId, quantity, authoritative: config.isMaster || !config.isSlave);
+        // Deduct on every terminal so the POS grid refreshes immediately.
+        // Master still enforces the hard stock floor; slaves accept the sale.
+        final line = await _applyStockDelta(
+          txn,
+          productId,
+          quantity,
+          authoritative: config.isMaster || !config.isSlave,
+        );
+        if (line.isNotEmpty) {
+          stock.add(line);
+          stockUpdates.add(line);
+        }
       }
       eventPayload['movement_ids'] = movementIds;
+      eventPayload['stock'] = stock;
 
       await txn.insert('sync_events', {
         'id': eventId,
@@ -783,6 +808,7 @@ class OfflineStore {
         cashSessionId: sessionId,
       ));
     }
+    notifySalesChanged();
 
     return PosSaleResult(
       saleId: id,
@@ -794,6 +820,7 @@ class OfflineStore {
       dueDate: dueDate,
       storedLocally: true,
       pendingSync: true,
+      stockUpdates: List<Map<String, dynamic>>.unmodifiable(stockUpdates),
     );
   }
 
@@ -1041,6 +1068,7 @@ class OfflineStore {
         'error': error.message,
       };
     }
+    notifySalesChanged();
 
     return {
       'id': queueId,
@@ -1358,7 +1386,7 @@ class OfflineStore {
 
     final rows = await db.query(
       'sales',
-      where: storeId.isEmpty ? null : 'store_id = ?',
+      where: storeId.isEmpty ? "sync_status != 'merged'" : "store_id = ? AND sync_status != 'merged'",
       whereArgs: storeId.isEmpty ? null : [storeId],
       orderBy: 'created_at DESC',
       limit: 500,
@@ -1526,6 +1554,44 @@ class OfflineStore {
       'stock_movements': await count('stock_movements'),
       'sync_events': await count('sync_events'),
     };
+  }
+
+  Future<int> unsyncedSalesCount() async {
+    final db = await _db;
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM sales WHERE sync_status != ?',
+      [SyncQueueStatus.synced.name],
+    );
+    return syncAsInt(rows.first['c']);
+  }
+
+  /// Deletes local rows the server has already acknowledged.
+  /// Sales and payments stay (receipts, daily references), and the highest
+  /// sync event stays because the next sequence number is derived from it.
+  Future<Map<String, int>> purgeSyncedMovements() async {
+    final db = await _db;
+    return db.transaction((txn) async {
+      final outbox = await txn.delete(
+        SyncOutbox.table,
+        where: 'status = ?',
+        whereArgs: [OutboxStatus.synced.wire],
+      );
+      final movements = await txn.rawDelete(
+        'DELETE FROM stock_movements WHERE sale_id IN '
+        '(SELECT id FROM sales WHERE sync_status = ?)',
+        [SyncQueueStatus.synced.name],
+      );
+      final events = await txn.rawDelete(
+        'DELETE FROM sync_events WHERE sync_status = ? '
+        'AND sequence < (SELECT MAX(sequence) FROM sync_events)',
+        [SyncQueueStatus.synced.name],
+      );
+      return {
+        'sync_outbox': outbox,
+        'stock_movements': movements,
+        'sync_events': events,
+      };
+    });
   }
 
   Future<Map<String, dynamic>?> latestSaleChain() async {
@@ -1800,7 +1866,9 @@ class OfflineStore {
       throw StockConflict('Stock insuffisant pour $name');
     }
     final next = current - quantity;
-    final version = _asInt(json['stock_version']) + (authoritative ? 1 : 0);
+    // Always bump the version so a later catalog pull cannot overwrite a
+    // fresher local sale with a stale cloud / master quantity.
+    final version = _asInt(json['stock_version']) + 1;
     json['quantity_on_hand'] = next;
     json['stock_version'] = version;
     await txn.update(

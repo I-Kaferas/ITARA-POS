@@ -8,6 +8,7 @@ import '../../../core/widgets/loading_error_view.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import 'bloc/kitchen_bloc.dart';
 import 'widgets/kitchen_board.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Dedicated Android/Tablet Kitchen Display (§24) with realtime refresh.
 class KitchenDisplayScreen extends StatelessWidget {
@@ -38,11 +39,11 @@ class _KitchenDisplayBody extends StatelessWidget {
       listener: (context, state) {
         final message = state.error;
         if (message == null) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(message))));
       },
       builder: (context, state) {
         if (state.isLoading && state.tickets.isEmpty) {
-          return const LoadingView(message: 'Chargement cuisine…');
+          return LoadingView(message: tr('Chargement cuisine…'));
         }
         if (state.error != null && state.tickets.isEmpty) {
           return ErrorView(
@@ -62,15 +63,15 @@ class _KitchenDisplayBody extends StatelessWidget {
                     Expanded(
                       child: embedded
                           ? Text(
-                              '${state.openTickets.length} bons · temps réel',
+                              trf('{0} bons · temps réel', [state.openTickets.length]),
                               style: PosUi.caption(),
                             )
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('CUISINE', style: PosUi.sectionLabel()),
+                                Text(tr('CUISINE'), style: PosUi.sectionLabel()),
                                 Text(
-                                  'Kitchen Display',
+                                  tr('Kitchen Display'),
                                   style: GoogleFonts.ibmPlexSans(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w700,
@@ -81,11 +82,11 @@ class _KitchenDisplayBody extends StatelessWidget {
                     ),
                     if (!embedded)
                       Text(
-                        '${state.openTickets.length} bons',
+                        trf('{0} bons', [state.openTickets.length]),
                         style: PosUi.caption(),
                       ),
                     IconButton(
-                      tooltip: 'Actualiser',
+                      tooltip: tr('Actualiser'),
                       onPressed: () =>
                           context.read<KitchenBloc>().add(const KitchenRefreshed()),
                       icon: const Icon(Icons.refresh),

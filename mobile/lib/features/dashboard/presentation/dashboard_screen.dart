@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../sync/sync_engine.dart';
 import '../../../sync/sync_models.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
@@ -53,7 +54,7 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(height: 18),
                     _OpenRegister(wide: wide, onTap: () => onNavigate(1)),
                     const SizedBox(height: 22),
-                    Text('ACCÈS RAPIDE', style: PosUi.sectionLabel()),
+                    Text(tr('ACCÈS RAPIDE'), style: PosUi.sectionLabel()),
                     const SizedBox(height: 12),
                     LayoutBuilder(
                       builder: (context, constraints) {
@@ -68,39 +69,39 @@ class DashboardScreen extends StatelessWidget {
                           children: [
                             _Shortcut(
                               icon: Icons.receipt_long_outlined,
-                              title: 'Commandes',
-                              subtitle: 'Ventes & attente',
+                              title: tr('Commandes'),
+                              subtitle: tr('Ventes & attente'),
                               onTap: () => onNavigate(2),
                             ),
                             _Shortcut(
                               icon: Icons.schedule_outlined,
-                              title: 'Shifts',
-                              subtitle: 'Ouvrir ou fermer',
+                              title: tr('Shifts'),
+                              subtitle: tr('Ouvrir ou fermer'),
                               onTap: () => onNavigate(3),
                             ),
                             _Shortcut(
                               icon: Icons.sync,
-                              title: 'Synchroniser',
+                              title: tr('Synchroniser'),
                               subtitle: sync.pending == 0 ? 'À jour' : '${sync.pending} en attente',
                               onTap: () => context.go(AppRoutes.sync),
                               accent: sync.pending > 0 || sync.failed > 0,
                             ),
                             _Shortcut(
                               icon: Icons.qr_code_scanner,
-                              title: 'Codes-barres',
-                              subtitle: 'Scanner et imprimer',
+                              title: tr('Codes-barres'),
+                              subtitle: tr('Scanner et imprimer'),
                               onTap: onBarcodeTap ?? () => context.go(AppRoutes.barcode),
                             ),
                             _Shortcut(
                               icon: Icons.point_of_sale_outlined,
-                              title: 'Caisse',
-                              subtitle: 'Vente rapide',
+                              title: tr('Caisse'),
+                              subtitle: tr('Vente rapide'),
                               onTap: () => onNavigate(1),
                             ),
                             _Shortcut(
                               icon: Icons.settings_outlined,
-                              title: 'Réglages',
-                              subtitle: 'Terminal et connexion',
+                              title: tr('Réglages'),
+                              subtitle: tr('Terminal et connexion'),
                               onTap: onConfigurationTap ?? () => onNavigate(4),
                             ),
                           ],
@@ -109,7 +110,7 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'POS · v${AppConfig.appVersion}',
+                      trf('POS · v{0}', [AppConfig.appVersion]),
                       style: PosUi.caption(),
                     ),
                   ],
@@ -166,10 +167,10 @@ class _Welcome extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(greeting.toUpperCase(), style: PosUi.sectionLabel()),
+        Text(tr(greeting.toUpperCase()), style: PosUi.sectionLabel()),
         const SizedBox(height: 6),
         Text(
-          cashier,
+          tr(cashier),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 28,
             fontWeight: FontWeight.w700,
@@ -218,7 +219,7 @@ class _Pill extends StatelessWidget {
           Icon(icon, size: 14, color: color ?? AppColors.brandInk),
           const SizedBox(width: 6),
           Text(
-            label,
+            tr(label),
             style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
           ),
         ],
@@ -261,12 +262,12 @@ class _OpenRegister extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ouvrir la caisse',
+                      tr('Ouvrir la caisse'),
                       style: GoogleFonts.ibmPlexSans(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Encaisser rapidement, client et paiement.',
+                      tr('Encaisser rapidement, client et paiement.'),
                       style: GoogleFonts.ibmPlexSans(color: Colors.white.withValues(alpha: 0.72), fontSize: 13),
                     ),
                   ],
@@ -334,10 +335,10 @@ class _Shortcut extends StatelessWidget {
                 child: Icon(icon, size: 18, color: accent ? AppColors.accent : AppColors.brandInk),
               ),
               const Spacer(),
-              Text(title, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 14)),
+              Text(tr(title), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 14)),
               const SizedBox(height: 2),
               Text(
-                subtitle,
+                tr(subtitle),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: PosUi.caption(),

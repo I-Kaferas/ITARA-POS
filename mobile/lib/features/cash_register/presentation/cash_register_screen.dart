@@ -11,6 +11,7 @@ import '../../../core/widgets/loading_error_view.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../domain/cash_register_models.dart';
 import 'bloc/cash_register_bloc.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class CashRegisterScreen extends StatelessWidget {
   const CashRegisterScreen({super.key});
@@ -36,7 +37,7 @@ class _CashRegisterView extends StatelessWidget {
       listener: (context, state) {
         final text = state.errorMessage ?? state.message;
         if (text == null || text.isEmpty) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(text))));
         if (state.message != null) {
           context.read<CashRegisterBloc>().add(const CashRegisterRefreshed());
         }
@@ -55,7 +56,7 @@ class _CashRegisterView extends StatelessWidget {
               child: ColoredBox(
                 color: AppColors.canvas,
                 child: state.isLoading && state.registers.isEmpty
-                    ? const LoadingView(message: 'Chargement des caisses...')
+                    ? LoadingView(message: tr('Chargement des caisses...'))
                     : state.status == CashRegisterStatus.failure && state.registers.isEmpty
                         ? ErrorView(
                             message: state.errorMessage ?? 'Erreur',
@@ -64,10 +65,10 @@ class _CashRegisterView extends StatelessWidget {
                                 .add(const CashRegisterStarted()),
                           )
                         : state.registers.isEmpty
-                            ? const EmptyState(
+                            ? EmptyState(
                                 icon: Icons.point_of_sale_outlined,
-                                title: 'Aucune caisse',
-                                subtitle: 'Créez une caisse depuis l’ERP ou le module Shifts.',
+                                title: tr('Aucune caisse'),
+                                subtitle: tr('Créez une caisse depuis l’ERP ou le module Shifts.'),
                               )
                             : ListView(
                                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
@@ -143,7 +144,7 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Caisse',
+                  tr('Caisse'),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -164,7 +165,7 @@ class _Header extends StatelessWidget {
           IconButton(
             onPressed: onRefresh,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Actualiser',
+            tooltip: tr('Actualiser'),
           ),
         ],
       ),
@@ -196,7 +197,7 @@ class _RegisterPicker extends StatelessWidget {
         child: DropdownButton<String>(
           value: selectedId,
           isExpanded: true,
-          hint: const Text('Choisir une caisse'),
+          hint: Text(tr('Choisir une caisse')),
           items: registers
               .map(
                 (r) => DropdownMenuItem(
@@ -257,7 +258,7 @@ class _ReconciliationCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  register.name,
+                  tr(register.name),
                   style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -269,22 +270,22 @@ class _ReconciliationCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(register.code, style: PosUi.caption()),
+          Text(tr(register.code), style: PosUi.caption()),
           const SizedBox(height: 16),
-          Text('RÉCONCILIATION', style: PosUi.totalCaption()),
+          Text(tr('RÉCONCILIATION'), style: PosUi.totalCaption()),
           const SizedBox(height: 12),
           Row(
             children: [
               _Metric(
-                label: 'Expected Cash',
+                label: tr('Expected Cash'),
                 value: MoneyFormatter.format(expected),
               ),
               _Metric(
-                label: 'Actual Cash',
+                label: tr('Actual Cash'),
                 value: actual != null ? MoneyFormatter.format(actual) : '—',
               ),
               _Metric(
-                label: 'Difference',
+                label: tr('Difference'),
                 value: difference != null ? MoneyFormatter.format(difference) : '—',
                 valueColor: differenceColor,
               ),
@@ -298,10 +299,10 @@ class _ReconciliationCard extends StatelessWidget {
               spacing: 10,
               runSpacing: 8,
               children: [
-                _Chip(label: 'Ouverture', value: MoneyFormatter.format(summary!.openingBalance)),
-                _Chip(label: 'Ventes', value: MoneyFormatter.format(summary!.salesTotal)),
-                _Chip(label: 'Cash In', value: MoneyFormatter.format(summary!.cashInTotal)),
-                _Chip(label: 'Cash Out', value: MoneyFormatter.format(summary!.cashOutTotal)),
+                _Chip(label: tr('Ouverture'), value: MoneyFormatter.format(summary!.openingBalance)),
+                _Chip(label: tr('Ventes'), value: MoneyFormatter.format(summary!.salesTotal)),
+                _Chip(label: tr('Cash In'), value: MoneyFormatter.format(summary!.cashInTotal)),
+                _Chip(label: tr('Cash Out'), value: MoneyFormatter.format(summary!.cashOutTotal)),
               ],
             ),
           ],
@@ -336,10 +337,10 @@ class _Metric extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: PosUi.caption()),
+            Text(tr(label), style: PosUi.caption()),
             const SizedBox(height: 6),
             Text(
-              value,
+              tr(value),
               style: PosUi.money(size: 13, color: valueColor),
             ),
           ],
@@ -388,7 +389,7 @@ class _ActionsGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Fonctions',
+          tr('Fonctions'),
           style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
@@ -397,25 +398,25 @@ class _ActionsGrid extends StatelessWidget {
           runSpacing: 8,
           children: [
             _ActionButton(
-              label: 'Open Register',
+              label: tr('Open Register'),
               icon: Icons.lock_open_rounded,
               enabled: !open && !busy,
               onTap: () => _open(context),
             ),
             _ActionButton(
-              label: 'Close Register',
+              label: tr('Close Register'),
               icon: Icons.lock_rounded,
               enabled: open && !busy,
               danger: true,
               onTap: () => _close(context),
             ),
             _ActionButton(
-              label: 'Cash In',
+              label: tr('Cash In'),
               icon: Icons.add_circle_outline,
               enabled: open && !busy,
               onTap: () => _amountAction(
                 context,
-                title: 'Cash In',
+                title: tr('Cash In'),
                 onSubmit: (amount, note) {
                   context.read<CashRegisterBloc>().add(CashRegisterCashIn(
                         registerId: register.id,
@@ -426,12 +427,12 @@ class _ActionsGrid extends StatelessWidget {
               ),
             ),
             _ActionButton(
-              label: 'Cash Out',
+              label: tr('Cash Out'),
               icon: Icons.remove_circle_outline,
               enabled: open && !busy,
               onTap: () => _amountAction(
                 context,
-                title: 'Cash Out',
+                title: tr('Cash Out'),
                 onSubmit: (amount, note) {
                   context.read<CashRegisterBloc>().add(CashRegisterCashOut(
                         registerId: register.id,
@@ -442,19 +443,19 @@ class _ActionsGrid extends StatelessWidget {
               ),
             ),
             _ActionButton(
-              label: 'Cash Adjustment',
+              label: tr('Cash Adjustment'),
               icon: Icons.tune,
               enabled: open && !busy,
               onTap: () => _adjust(context),
             ),
             _ActionButton(
-              label: 'Cash Count',
+              label: tr('Cash Count'),
               icon: Icons.calculate_outlined,
               enabled: open && !busy,
               onTap: () => _count(context),
             ),
             _ActionButton(
-              label: 'Reconciliation',
+              label: tr('Reconciliation'),
               icon: Icons.balance_outlined,
               enabled: open && !busy,
               onTap: () {
@@ -475,11 +476,11 @@ class _ActionsGrid extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => _AmountDialog(
-        title: 'Open Register',
+        title: tr('Open Register'),
         amountLabel: 'Fonds initial (${AppConfig.currencyCode})',
         amountController: balanceCtrl,
         notesController: notesCtrl,
-        confirmLabel: 'Ouvrir',
+        confirmLabel: tr('Ouvrir'),
       ),
     );
     if (ok != true || !context.mounted) return;
@@ -497,16 +498,16 @@ class _ActionsGrid extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Close Register'),
+        title: Text(tr('Close Register')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Expected: ${MoneyFormatter.format(expectedCash)}'),
+            Text(trf('Expected: {0}', [MoneyFormatter.format(expectedCash)])),
             const SizedBox(height: 12),
             TextField(
               controller: actualCtrl,
               decoration: InputDecoration(
-                labelText: 'Actual Cash (${AppConfig.currencyCode})',
+                labelText: trf('Actual Cash ({0})', [AppConfig.currencyCode]),
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
@@ -514,18 +515,18 @@ class _ActionsGrid extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: reasonCtrl,
-              decoration: const InputDecoration(labelText: 'Motif d’écart'),
+              decoration: InputDecoration(labelText: tr('Motif d’écart')),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: notesCtrl,
-              decoration: const InputDecoration(labelText: 'Notes'),
+              decoration: InputDecoration(labelText: tr('Notes')),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Fermer')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Annuler'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Fermer'))),
         ],
       ),
     );
@@ -544,12 +545,12 @@ class _ActionsGrid extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => _AmountDialog(
-        title: 'Cash Count',
+        title: tr('Cash Count'),
         amountLabel: 'Actual Cash (${AppConfig.currencyCode})',
         amountController: actualCtrl,
         notesController: notesCtrl,
-        confirmLabel: 'Comptabiliser',
-        header: Text('Expected: ${MoneyFormatter.format(expectedCash)}'),
+        confirmLabel: tr('Comptabiliser'),
+        header: Text(trf('Expected: {0}', [MoneyFormatter.format(expectedCash)])),
       ),
     );
     if (ok != true || !context.mounted) return;
@@ -568,14 +569,14 @@ class _ActionsGrid extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('Cash Adjustment'),
+          title: Text(tr('Cash Adjustment')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'in', label: Text('+ In')),
-                  ButtonSegment(value: 'out', label: Text('− Out')),
+                segments: [
+                  ButtonSegment(value: 'in', label: Text(tr('+ In'))),
+                  ButtonSegment(value: 'out', label: Text(tr('− Out'))),
                 ],
                 selected: {direction},
                 onSelectionChanged: (v) => setLocal(() => direction = v.first),
@@ -583,19 +584,19 @@ class _ActionsGrid extends StatelessWidget {
               const SizedBox(height: 12),
               TextField(
                 controller: amountCtrl,
-                decoration: InputDecoration(labelText: 'Montant (${AppConfig.currencyCode})'),
+                decoration: InputDecoration(labelText: trf('Montant ({0})', [AppConfig.currencyCode])),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
               ),
               TextField(
                 controller: notesCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: InputDecoration(labelText: tr('Description')),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Enregistrer')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Annuler'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Enregistrer'))),
           ],
         ),
       ),
@@ -625,7 +626,7 @@ class _ActionsGrid extends StatelessWidget {
         amountLabel: 'Montant (${AppConfig.currencyCode})',
         amountController: amountCtrl,
         notesController: notesCtrl,
-        confirmLabel: 'Enregistrer',
+        confirmLabel: tr('Enregistrer'),
       ),
     );
     if (ok != true || !context.mounted) return;
@@ -666,12 +667,12 @@ class _ActionButton extends StatelessWidget {
               onPressed: enabled ? onTap : null,
               style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
               icon: Icon(icon, size: 18),
-              label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              label: Text(tr(label), maxLines: 1, overflow: TextOverflow.ellipsis),
             )
           : OutlinedButton.icon(
               onPressed: enabled ? onTap : null,
               icon: Icon(icon, size: 18),
-              label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              label: Text(tr(label), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
     );
   }
@@ -697,7 +698,7 @@ class _AmountDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(title),
+      title: Text(tr(title)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -714,13 +715,13 @@ class _AmountDialog extends StatelessWidget {
           const SizedBox(height: 8),
           TextField(
             controller: notesController,
-            decoration: const InputDecoration(labelText: 'Notes (optionnel)'),
+            decoration: InputDecoration(labelText: tr('Notes (optionnel)')),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(confirmLabel)),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler'))),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr(confirmLabel))),
       ],
     );
   }

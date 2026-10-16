@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_typography.dart';
 import 'pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class PosSearchBar extends StatelessWidget {
   const PosSearchBar({
@@ -42,7 +43,7 @@ class PosSearchBar extends StatelessWidget {
                   controller: controller,
                   focusNode: focusNode,
                   decoration: InputDecoration(
-                    hintText: 'Search products...',
+                    hintText: tr('Search products...'),
                     hintStyle: AppTypography.subtitle(color: PosUi.deskMuted),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -59,7 +60,7 @@ class PosSearchBar extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Scanner (HID / Enter)',
+                tooltip: tr('Scanner (HID / Enter)'),
                 onPressed: onScanTap,
                 icon: const Icon(Icons.qr_code_scanner_rounded, color: PosUi.deskAccent, size: 20),
               ),

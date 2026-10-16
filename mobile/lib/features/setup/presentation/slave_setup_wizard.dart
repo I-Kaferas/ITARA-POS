@@ -9,6 +9,7 @@ import '../../../core/config/terminal_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../sync/discovery/master_beacon.dart';
 import '../../../sync/master_config_store.dart';
 import '../../../sync/pairing_models.dart';
@@ -17,6 +18,7 @@ import '../../barcode/presentation/camera_scan_screen.dart';
 import '../../devices/presentation/bloc/master_discovery_bloc.dart';
 import '../../devices/presentation/bloc/master_pairing_bloc.dart';
 import '../domain/slave_station_role.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Slave Setup Wizard (mobile.md §48).
 ///
@@ -34,7 +36,7 @@ class _SlaveSetupWizardState extends State<SlaveSetupWizard> {
   int _step = 0;
   DiscoveredMaster? _selected;
   final _codeCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController(text: 'POS-04');
+  final _nameCtrl = TextEditingController(text: tr('POS-04'));
   SlaveStationRole _stationRole = SlaveStationRole.cashier;
   bool _busy = false;
   String? _error;
@@ -274,7 +276,7 @@ class _SlaveSetupWizardState extends State<SlaveSetupWizard> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     child: Text(
-                      _error!,
+                      tr(_error!),
                       textAlign: TextAlign.center,
                       style: GoogleFonts.ibmPlexSans(
                         fontSize: 13,
@@ -317,7 +319,7 @@ class _WizardHeader extends StatelessWidget {
               ),
               Expanded(
                 child: Text(
-                  'Slave Setup',
+                  tr('Slave Setup'),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -375,17 +377,12 @@ class _WelcomeDiscoverStep extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         Text(
-          'Welcome',
-          style: GoogleFonts.fraunces(
-            fontSize: 32,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-            height: 1.15,
-          ),
+          tr('Welcome'),
+          style: AppTypography.display().copyWith(height: 1.15),
         ),
         const SizedBox(height: 8),
         Text(
-          'Ce terminal rejoindra un Master sur le réseau local.',
+          tr('Ce terminal rejoindra un Master sur le réseau local.'),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 14,
             color: AppColors.textSecondary,
@@ -411,11 +408,11 @@ class _WelcomeDiscoverStep extends StatelessWidget {
                       Icon(Icons.radar, size: 18, color: AppColors.brandInk),
                     const SizedBox(width: 6),
                     Text(
-                      state.searching
+                      tr(state.searching
                           ? 'Searching for Master...'
                           : (state.masters.isEmpty
                               ? 'Aucun Master trouvé'
-                              : 'Masters found'),
+                              : 'Masters found')),
                       style: GoogleFonts.ibmPlexSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -428,7 +425,7 @@ class _WelcomeDiscoverStep extends StatelessWidget {
                             .read<MasterDiscoveryBloc>()
                             .add(const MasterDiscoverySearchRequested());
                       },
-                      child: const Text('Relancer'),
+                      child: Text(tr('Relancer')),
                     ),
                   ],
                 ),
@@ -443,9 +440,9 @@ class _WelcomeDiscoverStep extends StatelessWidget {
                       border: Border.all(color: AppColors.border),
                     ),
                     child: Text(
-                      state.statusMessage.isEmpty
+                      tr(state.statusMessage.isEmpty
                           ? 'Assurez-vous qu’un Master est allumé sur le même Wi‑Fi / LAN.'
-                          : state.statusMessage,
+                          : state.statusMessage),
                       style: GoogleFonts.ibmPlexSans(
                         fontSize: 13,
                         color: AppColors.textSecondary,
@@ -516,7 +513,7 @@ class _DiscoverMasterCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  master.name.isEmpty ? 'ITARA POS' : master.name,
+                  tr(master.name.isEmpty ? 'ITARA POS' : master.name),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -524,7 +521,7 @@ class _DiscoverMasterCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  master.displayHost,
+                  tr(master.displayHost),
                   style: GoogleFonts.ibmPlexMono(
                     fontSize: 13,
                     color: AppColors.textSecondary,
@@ -535,7 +532,7 @@ class _DiscoverMasterCard extends StatelessWidget {
           ),
           FilledButton(
             onPressed: onConnect,
-            child: const Text('CONNECT'),
+            child: Text(tr('CONNECT')),
           ),
         ],
       ),
@@ -565,18 +562,14 @@ class _PairingStep extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         Text(
-          'Secure Pairing',
-          style: GoogleFonts.fraunces(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
+          tr('Secure Pairing'),
+          style: AppTypography.display(),
         ),
         const SizedBox(height: 8),
         Text(
-          master == null
+          tr(master == null
               ? 'Scannez le QR du Master ou saisissez le code à 6 chiffres.'
-              : 'Connecté à ${master!.name} (${master!.displayHost}).\nScan QR ou code d’appairage.',
+              : 'Connecté à ${master!.name} (${master!.displayHost}).\nScan QR ou code d’appairage.'),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 14,
             color: AppColors.textSecondary,
@@ -586,15 +579,15 @@ class _PairingStep extends StatelessWidget {
         const SizedBox(height: 28),
         _PairOptionCard(
           icon: Icons.qr_code_scanner_rounded,
-          title: 'Scan QR',
-          subtitle: 'Ouvrez la caméra et visez le QR affiché sur le Master',
-          actionLabel: 'Scanner',
+          title: tr('Scan QR'),
+          subtitle: tr('Ouvrez la caméra et visez le QR affiché sur le Master'),
+          actionLabel: tr('Scanner'),
           onTap: busy ? null : onScanQr,
         ),
         const SizedBox(height: 12),
         Center(
           child: Text(
-            'ou',
+            tr('ou'),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 13,
               color: AppColors.textMuted,
@@ -614,7 +607,7 @@ class _PairingStep extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Pairing Code',
+                tr('Pairing Code'),
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -622,7 +615,7 @@ class _PairingStep extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Saisissez le code à 6 chiffres affiché sur le Master, puis attendez ACCEPT.',
+                tr('Saisissez le code à 6 chiffres affiché sur le Master, puis attendez ACCEPT.'),
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 12,
                   color: AppColors.textSecondary,
@@ -659,7 +652,7 @@ class _PairingStep extends StatelessWidget {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Demander l’accès'),
+                    : Text(tr('Demander l’accès')),
               ),
             ],
           ),
@@ -676,7 +669,7 @@ class _PairingStep extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Authorization… en attente ACCEPT sur le Master.',
+                  tr('Authorization… en attente ACCEPT sur le Master.'),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 13,
                     color: AppColors.textSecondary,
@@ -738,7 +731,7 @@ class _PairOptionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      tr(title),
                       style: GoogleFonts.ibmPlexSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -746,7 +739,7 @@ class _PairOptionCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      subtitle,
+                      tr(subtitle),
                       style: GoogleFonts.ibmPlexSans(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -756,7 +749,7 @@ class _PairOptionCard extends StatelessWidget {
                 ),
               ),
               Text(
-                actionLabel,
+                tr(actionLabel),
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -793,16 +786,12 @@ class _IdentityStep extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         Text(
-          'Identity',
-          style: GoogleFonts.fraunces(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
+          tr('Identity'),
+          style: AppTypography.display(),
         ),
         const SizedBox(height: 8),
         Text(
-          'Nommez ce terminal et choisissez son rôle au sein du magasin.',
+          tr('Nommez ce terminal et choisissez son rôle au sein du magasin.'),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 14,
             color: AppColors.textSecondary,
@@ -810,7 +799,7 @@ class _IdentityStep extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          'Device Name',
+          tr('Device Name'),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -821,14 +810,14 @@ class _IdentityStep extends StatelessWidget {
           controller: nameCtrl,
           enabled: !busy,
           textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            hintText: 'POS-04',
+          decoration: InputDecoration(
+            hintText: tr('POS-04'),
             prefixIcon: Icon(Icons.tablet_mac_outlined),
           ),
         ),
         const SizedBox(height: 22),
         Text(
-          'Role',
+          tr('Role'),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -842,7 +831,7 @@ class _IdentityStep extends StatelessWidget {
             final selected = item == role;
             return ChoiceChip(
               avatar: Icon(item.icon, size: 16),
-              label: Text(item.label),
+              label: Text(tr(item.label)),
               selected: selected,
               onSelected: busy ? null : (_) => onRoleChanged(item),
             );
@@ -863,7 +852,7 @@ class _IdentityStep extends StatelessWidget {
                     color: Colors.white,
                   ),
                 )
-              : const Text('COMPLETE'),
+              : Text(tr('COMPLETE')),
         ),
       ],
     );

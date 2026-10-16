@@ -1,4 +1,4 @@
-﻿import 'package:barcode_widget/barcode_widget.dart';
+import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../sync/pairing_models.dart';
 import '../bloc/master_pairing_bloc.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Panneau Master §8 — code + QR + demandes ACCEPT / REJECT.
 class PairingApprovalPanel extends StatelessWidget {
@@ -28,9 +29,9 @@ class PairingApprovalPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        code == null
+                        tr(code == null
                             ? 'Code d\'appairage : —'
-                            : 'Code: $code',
+                            : 'Code: $code'),
                         style: GoogleFonts.ibmPlexSans(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -39,7 +40,7 @@ class PairingApprovalPanel extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Discovery → Handshake → Auth → Pairing → Authorization',
+                        tr('Discovery → Handshake → Auth → Pairing → Authorization'),
                         style: GoogleFonts.ibmPlexSans(
                           fontSize: 11,
                           color: AppColors.textMuted,
@@ -51,7 +52,7 @@ class PairingApprovalPanel extends StatelessWidget {
                             .read<MasterPairingBloc>()
                             .add(const MasterPairingCodeRefreshRequested()),
                         icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('Nouveau code'),
+                        label: Text(tr('Nouveau code')),
                       ),
                     ],
                   ),
@@ -79,7 +80,7 @@ class PairingApprovalPanel extends StatelessWidget {
             if (state.pendingRequests.isNotEmpty) ...[
               const SizedBox(height: 14),
               Text(
-                'Demandes d\'appairage',
+                tr('Demandes d\'appairage'),
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -95,7 +96,7 @@ class PairingApprovalPanel extends StatelessWidget {
             ] else ...[
               const SizedBox(height: 8),
               Text(
-                'En attente d\'un Slave. Affichez le code ou le QR.',
+                tr('En attente d\'un Slave. Affichez le code ou le QR.'),
                 style: GoogleFonts.ibmPlexSans(
                   fontSize: 12,
                   color: AppColors.textSecondary,
@@ -128,7 +129,7 @@ class _PendingPairCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            request.wantsToConnectLabel,
+            tr(request.wantsToConnectLabel),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -136,9 +137,7 @@ class _PendingPairCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Code: ${request.code}'
-            '${request.os.isEmpty ? '' : ' · ${request.os}'}'
-            '${request.ip.isEmpty ? '' : ' · ${request.ip}'}',
+            trf('Code: {0}''{1}''{2}', [request.code, request.os.isEmpty ? '' : ' · ${request.os}', request.ip.isEmpty ? '' : ' · ${request.ip}']),
             style: GoogleFonts.ibmPlexMono(
               fontSize: 12,
               color: AppColors.textSecondary,
@@ -151,14 +150,14 @@ class _PendingPairCard extends StatelessWidget {
                 onPressed: () => context.read<MasterPairingBloc>().add(
                       MasterPairingAcceptRequested(request.id),
                     ),
-                child: const Text('ACCEPT'),
+                child: Text(tr('ACCEPT')),
               ),
               const SizedBox(width: 8),
               OutlinedButton(
                 onPressed: () => context.read<MasterPairingBloc>().add(
                       MasterPairingRejectRequested(request.id),
                     ),
-                child: const Text('REJECT'),
+                child: Text(tr('REJECT')),
               ),
             ],
           ),

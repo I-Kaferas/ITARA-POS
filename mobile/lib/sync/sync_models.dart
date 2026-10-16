@@ -1,4 +1,5 @@
 import '../core/network/operating_mode.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 enum ConnectivityState {
   offline,
@@ -103,17 +104,17 @@ class SyncReport {
       sent > 0;
 
   List<({String label, int count})> get lines => [
-        (label: 'Produits', count: products),
-        (label: 'Catégories', count: categories),
-        (label: 'Clients', count: customers),
-        (label: 'Moyens de paiement', count: paymentMethods),
-        (label: 'Unités', count: units),
-        (label: 'Utilisateurs', count: users),
-        (label: 'Rôles', count: roles),
-        (label: 'Permissions', count: permissions),
-        (label: 'Devises', count: currencies),
-        (label: 'Taxes', count: taxes),
-        if (sent > 0) (label: 'Événements envoyés', count: sent),
+        (label: tr('Produits'), count: products),
+        (label: tr('Catégories'), count: categories),
+        (label: tr('Clients'), count: customers),
+        (label: tr('Moyens de paiement'), count: paymentMethods),
+        (label: tr('Unités'), count: units),
+        (label: tr('Utilisateurs'), count: users),
+        (label: tr('Rôles'), count: roles),
+        (label: tr('Permissions'), count: permissions),
+        (label: tr('Devises'), count: currencies),
+        (label: tr('Taxes'), count: taxes),
+        if (sent > 0) (label: tr('Événements envoyés'), count: sent),
       ];
 
   String get summary {
@@ -131,9 +132,9 @@ class SyncReport {
       if (taxes > 0) '$taxes taxe${taxes > 1 ? 's' : ''}',
       if (sent > 0) '$sent envoyé${sent > 1 ? 's' : ''}',
     ];
-    if (parts.isEmpty) return message.isNotEmpty ? message : 'Rien à synchroniser';
+    if (parts.isEmpty) return message.isNotEmpty ? message : tr('Rien à synchroniser');
     final detail = parts.join(' · ');
-    return message.isEmpty ? detail : '$message\n$detail';
+    return message.isEmpty ? detail : trf('{0}\n{1}', [message, detail]);
   }
 
   SyncReport copyWith({

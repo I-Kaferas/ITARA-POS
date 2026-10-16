@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../sync/device_registry.dart';
 import '../bloc/device_bloc.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Master device list + §45 management actions (View / Rename / Disable / …).
 class DevicesRegistryPanel extends StatelessWidget {
@@ -19,14 +20,14 @@ class DevicesRegistryPanel extends StatelessWidget {
         final message = state.message;
         if (message == null || message.isEmpty) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+          SnackBar(content: Text(tr(message)), duration: const Duration(seconds: 2)),
         );
       },
       builder: (context, deviceState) {
         final devices = deviceState.devices;
         if (devices.isEmpty) {
           return Text(
-            'Aucun appareil appairé. Affichez le code ci-dessus sur les esclaves.',
+            tr('Aucun appareil appairé. Affichez le code ci-dessus sur les esclaves.'),
             style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600),
           );
         }
@@ -34,11 +35,11 @@ class DevicesRegistryPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Devices (${devices.length})',
+              trf('Devices ({0})', [devices.length]),
               style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            ...devices.map((d) => _DeviceRow(device: d)),
+            ...devices.map((d) => DeviceRegistryRow(device: d)),
           ],
         );
       },
@@ -57,8 +58,8 @@ enum _DeviceAction {
   sendConfiguration,
 }
 
-class _DeviceRow extends StatelessWidget {
-  const _DeviceRow({required this.device});
+class DeviceRegistryRow extends StatelessWidget {
+  const DeviceRegistryRow({super.key, required this.device});
 
   final LanDevice device;
 
@@ -105,7 +106,7 @@ class _DeviceRow extends StatelessWidget {
       case _DeviceAction.disable:
         final ok = await _confirm(
           context,
-          title: 'Désactiver ${device.name} ?',
+          title: trf('Désactiver {0} ?', [device.name]),
           body: 'L’appareil restera enregistré mais ne pourra plus synchroniser.',
         );
         if (ok) bloc.add(DeviceDisableRequested(device.id));
@@ -114,7 +115,7 @@ class _DeviceRow extends StatelessWidget {
       case _DeviceAction.remove:
         final ok = await _confirm(
           context,
-          title: 'Retirer ${device.name} ?',
+          title: trf('Retirer {0} ?', [device.name]),
           body: 'L’appareil sera supprimé du registre Master.',
           destructive: true,
         );
@@ -132,7 +133,7 @@ class _DeviceRow extends StatelessWidget {
     return showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(device.name.isEmpty ? device.id : device.name),
+        title: Text(tr(device.name.isEmpty ? device.id : device.name)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,7 +152,7 @@ class _DeviceRow extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Fermer'))),
         ],
       ),
     );
@@ -166,13 +167,13 @@ class _DeviceRow extends StatelessWidget {
           SizedBox(
             width: 110,
             child: Text(
-              label,
+              tr(label),
               style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
             ),
           ),
           Expanded(
             child: Text(
-              value,
+              tr(value),
               style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
@@ -186,21 +187,21 @@ class _DeviceRow extends StatelessWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Renommer'),
+        title: Text(tr('Renommer')),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Nom de l’appareil',
-            hintText: 'POS-01',
+          decoration: InputDecoration(
+            labelText: tr('Nom de l’appareil'),
+            hintText: tr('POS-01'),
           ),
           onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Annuler'))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Enregistrer'),
+            child: Text(tr('Enregistrer')),
           ),
         ],
       ),
@@ -218,16 +219,16 @@ class _DeviceRow extends StatelessWidget {
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
+        title: Text(tr(title)),
+        content: Text(tr(body)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Annuler'))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: destructive
                 ? TextButton.styleFrom(foregroundColor: AppColors.danger)
                 : null,
-            child: Text(destructive ? 'Retirer' : 'Confirmer'),
+            child: Text(tr(destructive ? 'Retirer' : 'Confirmer')),
           ),
         ],
       ),
@@ -272,7 +273,7 @@ class _DeviceRow extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              device.name.isEmpty ? device.id : device.name,
+                              tr(device.name.isEmpty ? device.id : device.name),
                               style: GoogleFonts.ibmPlexSans(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -284,7 +285,7 @@ class _DeviceRow extends StatelessWidget {
                           SizedBox(
                             width: 72,
                             child: Text(
-                              _osLabel,
+                              tr(_osLabel),
                               style: GoogleFonts.ibmPlexSans(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -296,7 +297,7 @@ class _DeviceRow extends StatelessWidget {
                       ),
                       if (subtitle.isNotEmpty)
                         Text(
-                          subtitle,
+                          tr(subtitle),
                           style: GoogleFonts.ibmPlexSans(
                             fontSize: 11,
                             color: AppColors.textMuted,
@@ -307,43 +308,43 @@ class _DeviceRow extends StatelessWidget {
                   ),
                 ),
                 PopupMenuButton<_DeviceAction>(
-                  tooltip: 'Actions',
+                  tooltip: tr('Actions'),
                   onSelected: (action) => _onAction(context, action),
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: _DeviceAction.view,
-                      child: Text('View'),
+                      child: Text(tr('View')),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: _DeviceAction.rename,
-                      child: Text('Rename'),
+                      child: Text(tr('Rename')),
                     ),
                     if (disabled)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: _DeviceAction.enable,
-                        child: Text('Enable'),
+                        child: Text(tr('Enable')),
                       )
                     else
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: _DeviceAction.disable,
-                        child: Text('Disable'),
+                        child: Text(tr('Disable')),
                       ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: _DeviceAction.remove,
-                      child: Text('Remove'),
+                      child: Text(tr('Remove')),
                     ),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: _DeviceAction.sync,
-                      child: Text('Sync'),
+                      child: Text(tr('Sync')),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: _DeviceAction.reconnect,
-                      child: Text('Reconnect'),
+                      child: Text(tr('Reconnect')),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: _DeviceAction.sendConfiguration,
-                      child: Text('Send Configuration'),
+                      child: Text(tr('Send Configuration')),
                     ),
                   ],
                   icon: const Icon(Icons.more_vert, size: 20),

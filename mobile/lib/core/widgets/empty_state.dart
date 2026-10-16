@@ -6,6 +6,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'app_buttons.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class EmptyState extends StatelessWidget {
   const EmptyState({
@@ -48,14 +49,14 @@ class EmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  title,
+                  tr(title),
                   textAlign: TextAlign.center,
                   style: AppTypography.sectionTitle(),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    subtitle!,
+                    tr(subtitle!),
                     textAlign: TextAlign.center,
                     style: AppTypography.subtitle(),
                   ),

@@ -1,4 +1,5 @@
 import 'app_error.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// User input failed business or form rules.
 final class ValidationError extends AppError {
@@ -19,7 +20,7 @@ final class ValidationError extends AppError {
   }) =>
       ValidationError(
         title: message,
-        detail: 'Corrigez « $field » puis réessayez.',
+        detail: trf('Corrigez « {0} » puis réessayez.', [field]),
         fields: {field: message},
         cause: cause,
       );

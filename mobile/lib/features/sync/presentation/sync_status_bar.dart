@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../sync/sync_engine.dart';
 import '../../../sync/sync_models.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class _SyncMark extends StatefulWidget {
   const _SyncMark({required this.color, required this.busy});
@@ -112,11 +113,11 @@ class SyncStatusBar extends StatelessWidget {
                       _SyncMark(color: color, busy: busy),
                       const SizedBox(width: 6),
                       Text(
-                        busy
+                        tr(busy
                             ? 'Sync · Mode ${mode.code}'
                             : waiting == 0
                                 ? 'Mode ${mode.code} · ${mode.shortLabel}'
-                                : 'Mode ${mode.code} · $waiting en attente',
+                                : 'Mode ${mode.code} · $waiting en attente'),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

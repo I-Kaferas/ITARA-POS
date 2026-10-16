@@ -89,8 +89,8 @@
   /* Component rhythm. A few values (6, 10, 14) follow the component spec. */
   --nav-pad-y: var(--space-3);
   --nav-pad-x: var(--space-4);
-  --nav-item-pad-y: 10px;
-  --nav-item-pad-x: 14px;
+  --nav-item-pad-y: 12px;
+  --nav-item-pad-x: var(--space-4);
   --nav-item-gap: var(--space-1);
   --nav-icon-gap: var(--space-2);
   --nav-sub-indent: 32px;
@@ -113,11 +113,11 @@
   --btn-gap: var(--space-2);
 
   --field-pad-y: 10px;
-  --field-pad-x: var(--space-3);
+  --field-pad-x: var(--space-4);
   --field-gap: var(--space-4);
-  --label-gap: 6px;
+  --label-gap: var(--space-2);
 
-  --card-pad: var(--space-5);
+  --card-pad: var(--space-6);
   --card-gap: var(--space-4);
 
   --cell-pad-y: var(--space-3);
@@ -126,8 +126,8 @@
   --overlay-pad: var(--space-3);
   --overlay-item-pad-y: var(--space-2);
   --overlay-item-pad-x: var(--space-3);
-  --modal-pad-y: var(--space-3);
-  --modal-pad-x: var(--space-4);
+  --modal-pad-y: var(--space-5);
+  --modal-pad-x: var(--space-6);
 
   --badge-pad-y: var(--space-1);
   --badge-pad-x: 10px;
@@ -1107,6 +1107,12 @@ body * {
 
 .app-content:has(.pos-root) {
   padding: 0;
+}
+
+@media (min-width: 1024px) {
+  .app-content:not(:has(.pos-root)):not(:has(.co-fill)) {
+    padding: var(--space-7);
+  }
 }
 
 .app-content:has(.co-fill) {
@@ -3947,7 +3953,7 @@ body.nav-drawer-open {
 }
 
 .app-content table tbody td {
-  height: 44px;
+  height: 48px;
   font-size: var(--text-sm);
   font-weight: 400;
   line-height: var(--line-sm);

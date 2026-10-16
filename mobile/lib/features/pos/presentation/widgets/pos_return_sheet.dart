@@ -8,6 +8,7 @@ import '../../../../core/utils/money_formatter.dart';
 import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 Future<bool?> showPosReturnSheet(
   BuildContext context, {
@@ -206,9 +207,9 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
       messenger?.showSnackBar(
         SnackBar(
           content: Text(
-            number.isEmpty
+            tr(number.isEmpty
                 ? 'Retour créé'
-                : 'Retour $number · ${MoneyFormatter.format(estimate, currencyCode: _currency)}',
+                : 'Retour $number · ${MoneyFormatter.format(estimate, currencyCode: _currency)}'),
           ),
         ),
       );
@@ -246,7 +247,7 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
             children: [
               Expanded(
                 child: Text(
-                  'Retour / remboursement',
+                  tr('Retour / remboursement'),
                   style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -257,7 +258,7 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
             ],
           ),
           Text(
-            'Recherchez une vente par référence, puis choisissez les quantités.',
+            tr('Recherchez une vente par référence, puis choisissez les quantités.'),
             style: PosUi.caption(),
           ),
           const SizedBox(height: 12),
@@ -269,7 +270,7 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _search(),
                   decoration: InputDecoration(
-                    hintText: 'Référence vente',
+                    hintText: tr('Référence vente'),
                     filled: true,
                     fillColor: AppColors.fieldFill,
                     prefixIcon: const Icon(Icons.search),
@@ -298,13 +299,13 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('Chercher'),
+                    : Text(tr('Chercher')),
               ),
             ],
           ),
           if (_saleReference != null) ...[
             const SizedBox(height: 10),
-            Text('Vente $_saleReference', style: PosUi.body(weight: FontWeight.w700)),
+            Text(trf('Vente {0}', [_saleReference]), style: PosUi.body(weight: FontWeight.w700)),
           ],
           if (_lines.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -318,7 +319,7 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
                       child: Row(
                         children: [
                           Expanded(
-                            child: Text(line.name, style: PosUi.body(weight: FontWeight.w600)),
+                            child: Text(tr(line.name), style: PosUi.body(weight: FontWeight.w600)),
                           ),
                           IconButton(
                             onPressed: line.returning <= 0
@@ -337,23 +338,23 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
                       ),
                     ),
                   Text(
-                    'Estimation : ${MoneyFormatter.format(_refundEstimate, currencyCode: _currency)}',
+                    trf('Estimation : {0}', [MoneyFormatter.format(_refundEstimate, currencyCode: _currency)]),
                     style: PosUi.caption(),
                   ),
                   const SizedBox(height: 10),
-                  Text('Motif', style: PosUi.caption()),
+                  Text(tr('Motif'), style: PosUi.caption()),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
                     key: ValueKey('reason-$_reason'),
                     initialValue: _reason,
                     items: [
                       if (_reasons.isEmpty)
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: 'customer_changed_mind',
-                          child: Text('Changement d’avis'),
+                          child: Text(tr('Changement d’avis')),
                         ),
                       for (final reason in _reasons)
-                        DropdownMenuItem(value: reason.value, child: Text(reason.label)),
+                        DropdownMenuItem(value: reason.value, child: Text(tr(reason.label))),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
@@ -362,16 +363,16 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
                     decoration: _dropdownDecoration(),
                   ),
                   const SizedBox(height: 10),
-                  Text('Mode de remboursement', style: PosUi.caption()),
+                  Text(tr('Mode de remboursement'), style: PosUi.caption()),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
                     key: ValueKey('refund-$_refundMethod'),
                     initialValue: _refundMethod,
-                    items: const [
-                      DropdownMenuItem(value: 'original', child: Text('Mode d’origine')),
-                      DropdownMenuItem(value: 'cash', child: Text('Espèces')),
-                      DropdownMenuItem(value: 'store_credit', child: Text('Crédit magasin')),
-                      DropdownMenuItem(value: 'credit', child: Text('Avoir magasin')),
+                    items: [
+                      DropdownMenuItem(value: 'original', child: Text(tr('Mode d’origine'))),
+                      DropdownMenuItem(value: 'cash', child: Text(tr('Espèces'))),
+                      DropdownMenuItem(value: 'store_credit', child: Text(tr('Crédit magasin'))),
+                      DropdownMenuItem(value: 'credit', child: Text(tr('Avoir magasin'))),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
@@ -392,7 +393,7 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Valider le retour'),
+                        : Text(tr('Valider le retour')),
                   ),
                 ],
               ),
@@ -400,7 +401,7 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
           ],
           if (_error != null) ...[
             const SizedBox(height: 10),
-            Text(_error!, style: PosUi.caption(color: AppColors.danger)),
+            Text(tr(_error!), style: PosUi.caption(color: AppColors.danger)),
           ],
         ],
       ),

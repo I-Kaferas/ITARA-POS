@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class OnboardingFrame extends StatelessWidget {
   const OnboardingFrame({super.key, required this.child, this.footer});
@@ -98,7 +99,7 @@ class OnboardingMark extends StatelessWidget {
         ),
         SizedBox(width: compact ? 10 : 14),
         Text(
-          AppConstants.appName,
+          tr(AppConstants.appName),
           style: GoogleFonts.ibmPlexSans(
             fontSize: compact ? 18 : 28,
             fontWeight: FontWeight.w700,
@@ -142,7 +143,7 @@ class OnboardingButton extends StatelessWidget {
           shape: shape,
           textStyle: style,
         ),
-        child: Text(label),
+        child: Text(tr(label)),
       );
     }
     return OutlinedButton(
@@ -155,7 +156,7 @@ class OnboardingButton extends StatelessWidget {
         shape: shape,
         textStyle: style,
       ),
-      child: Text(label),
+      child: Text(tr(label)),
     );
   }
 }

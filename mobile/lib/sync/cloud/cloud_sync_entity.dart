@@ -48,3 +48,22 @@ enum CloudSyncEntity {
 }
 
 enum CloudSyncDirection { push, pull, bidirectional }
+
+/// Modules the Master can sync one at a time from its configuration screen.
+enum CloudSyncModule {
+  company(CloudSyncDirection.pull),
+  usersRoles(CloudSyncDirection.pull),
+  categories(CloudSyncDirection.pull),
+  products(CloudSyncDirection.pull),
+  stock(CloudSyncDirection.pull),
+  customers(CloudSyncDirection.pull),
+  paymentMethods(CloudSyncDirection.pull),
+  shifts(CloudSyncDirection.push),
+  sales(CloudSyncDirection.push);
+
+  const CloudSyncModule(this.direction);
+
+  final CloudSyncDirection direction;
+
+  bool get uploads => direction == CloudSyncDirection.push;
+}

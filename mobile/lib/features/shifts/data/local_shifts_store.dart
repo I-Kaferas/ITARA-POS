@@ -9,6 +9,7 @@ import '../../../data/local/document_dao.dart';
 import '../../../data/local/local_database.dart';
 import '../../../sync/sync_numbers.dart';
 import '../domain/shift_models.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Caisses, shifts et mouvements lus et écrits uniquement en local.
 class LocalShiftsStore {
@@ -16,10 +17,10 @@ class LocalShiftsStore {
 
   static final LocalShiftsStore instance = LocalShiftsStore._();
 
-  static const movementTypes = [
-    MovementType(value: 'cash_in', label: 'Cash in', labelFr: 'Entrée', direction: 'in'),
-    MovementType(value: 'cash_out', label: 'Cash out', labelFr: 'Sortie', direction: 'out'),
-    MovementType(value: 'expense', label: 'Expense', labelFr: 'Dépense', direction: 'out'),
+  static final movementTypes = [
+    MovementType(value: 'cash_in', label: tr('Cash in'), labelFr: 'Entrée', direction: 'in'),
+    MovementType(value: 'cash_out', label: tr('Cash out'), labelFr: 'Sortie', direction: 'out'),
+    MovementType(value: 'expense', label: tr('Expense'), labelFr: 'Dépense', direction: 'out'),
   ];
 
   /// The open shift for this till, preferring the register already selected.

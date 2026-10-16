@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../../sync/local_master_server.dart';
 import '../../../sync/offline_store.dart';
 import '../data/production_store.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class ProductionScreen extends StatefulWidget {
   const ProductionScreen({super.key});
@@ -58,12 +59,12 @@ class _ProductionScreenState extends State<ProductionScreen> {
       if (!mounted) return;
       setState(() => _snap = snap);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$batches × ${recipe['name']} produit · matières premières − · produit fini +')),
+        SnackBar(content: Text(trf('{0} × {1} produit · matières premières − · produit fini +', [batches, recipe['name']]))),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', '').replaceFirst('StockConflict: ', ''))),
+        SnackBar(content: Text(tr(error.toString().replaceFirst('Exception: ', '').replaceFirst('StockConflict: ', '')))),
       );
     }
   }
@@ -105,26 +106,26 @@ class _ProductionScreenState extends State<ProductionScreen> {
     final runs = (_snap['runs'] as List<dynamic>? ?? []).whereType<Map>().map(Map<String, dynamic>.from).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Production')),
+      appBar: AppBar(title: Text(tr('Production'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? Center(child: Text(tr(_error!)))
               : ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
-                    const Text('Recette → matières premières − → produit fini +'),
+                    Text(tr('Recette → matières premières − → produit fini +')),
                     const SizedBox(height: 12),
-                    if (recipes.isEmpty) const Text('Aucune recette.'),
+                    if (recipes.isEmpty) Text(tr('Aucune recette.')),
                     for (final recipe in recipes) _recipeCard(recipe),
                     if (runs.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      const Text('Dernières productions'),
+                      Text(tr('Dernières productions')),
                       for (final run in runs)
                         ListTile(
                           dense: true,
-                          title: Text('${run['batches']} × ${run['recipe_name']}'),
-                          subtitle: Text(_runSummary(run)),
+                          title: Text(trf('{0} × {1}', [run['batches'], run['recipe_name']])),
+                          subtitle: Text(tr(_runSummary(run))),
                         ),
                     ],
                   ],
@@ -141,14 +142,14 @@ class _ProductionScreenState extends State<ProductionScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('${recipe['name']}', style: Theme.of(context).textTheme.titleMedium),
-            Text('Produit fini : ${recipe['finished_name']} · stock ${recipe['finished_on_hand'] ?? '—'}'),
+            Text(trf('Produit fini : {0} · stock {1}', [recipe['finished_name'], recipe['finished_on_hand'] ?? '—'])),
             const SizedBox(height: 8),
             for (final line in lines)
-              Text('${line['name']}  −${line['quantity']}  (stock ${line['quantity_on_hand'] ?? '—'})'),
+              Text(trf('{0}  −{1}  (stock {2})', [line['name'], line['quantity'], line['quantity_on_hand'] ?? '—'])),
             const SizedBox(height: 8),
             FilledButton(
               onPressed: () => _produce(recipe),
-              child: const Text('Produire'),
+              child: Text(tr('Produire')),
             ),
           ],
         ),
@@ -170,17 +171,17 @@ class _ProductionScreenState extends State<ProductionScreen> {
     final value = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Produire $name'),
+        title: Text(trf('Produire {0}', [name])),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Quantité'),
+          decoration: InputDecoration(labelText: tr('Quantité')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Annuler'))),
           FilledButton(
             onPressed: () => Navigator.pop(context, int.tryParse(controller.text.trim())),
-            child: const Text('Produire'),
+            child: Text(tr('Produire')),
           ),
         ],
       ),

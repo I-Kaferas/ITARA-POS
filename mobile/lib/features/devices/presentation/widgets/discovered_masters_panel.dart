@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../sync/discovery/master_beacon.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Panneau Slave §7 — liste des Masters découverts + CONNECT.
 class DiscoveredMastersPanel extends StatelessWidget {
@@ -36,7 +37,7 @@ class DiscoveredMastersPanel extends StatelessWidget {
           ],
           Expanded(
             child: Text(
-              statusMessage,
+              tr(statusMessage),
               style: GoogleFonts.ibmPlexSans(
                 fontSize: 12,
                 color: AppColors.textMuted,
@@ -46,7 +47,7 @@ class DiscoveredMastersPanel extends StatelessWidget {
           if (onRefresh != null)
             TextButton(
               onPressed: onRefresh,
-              child: const Text('Rechercher'),
+              child: Text(tr('Rechercher')),
             ),
         ],
       );
@@ -56,7 +57,7 @@ class DiscoveredMastersPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Masters trouvés',
+          tr('Masters trouvés'),
           style: GoogleFonts.ibmPlexSans(
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -105,7 +106,7 @@ class _MasterCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  master.name,
+                  tr(master.name),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -113,7 +114,7 @@ class _MasterCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  master.displayHost,
+                  tr(master.displayHost),
                   style: GoogleFonts.ibmPlexMono(
                     fontSize: 13,
                     color: AppColors.textSecondary,
@@ -132,7 +133,7 @@ class _MasterCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      online ? 'En ligne' : 'Hors ligne',
+                      tr(online ? 'En ligne' : 'Hors ligne'),
                       style: GoogleFonts.ibmPlexSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -142,7 +143,7 @@ class _MasterCard extends StatelessWidget {
                     if (master.version.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Text(
-                        'v${master.version}',
+                        trf('v{0}', [master.version]),
                         style: GoogleFonts.ibmPlexSans(
                           fontSize: 11,
                           color: AppColors.textMuted,
@@ -157,7 +158,7 @@ class _MasterCard extends StatelessWidget {
           const SizedBox(width: 10),
           FilledButton(
             onPressed: online ? onConnect : null,
-            child: const Text('Connecter'),
+            child: Text(tr('Connecter')),
           ),
         ],
       ),

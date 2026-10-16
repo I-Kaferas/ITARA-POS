@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/backup_service.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
@@ -60,13 +61,13 @@ class _BackupScreenState extends State<BackupScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Restaurer'),
-        content: const Text(
-          'La base SQLite, les événements de sync et la configuration de ce terminal seront remplacés. Une copie de secours est gardée.',
+        title: Text(tr('Restaurer')),
+        content: Text(
+          tr('La base SQLite, les événements de sync et la configuration de ce terminal seront remplacés. Une copie de secours est gardée.'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Restaurer')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Restaurer'))),
         ],
       ),
     );
@@ -86,32 +87,32 @@ class _BackupScreenState extends State<BackupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sauvegardes')),
+      appBar: AppBar(title: Text(tr('Sauvegardes'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                const Text(
-                  'Android et Windows : base SQLite, fichiers, journaux, événements de sync et configuration. Le cloud reçoit une copie si le terminal est connecté.',
+                Text(
+                  tr('Android et Windows : base SQLite, fichiers, journaux, événements de sync et configuration. Le cloud reçoit une copie si le terminal est connecté.'),
                 ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: _busy ? null : _create,
                   icon: const Icon(Icons.backup_outlined),
-                  label: Text(_busy ? 'En cours…' : 'Créer une sauvegarde'),
+                  label: Text(tr(_busy ? 'En cours…' : 'Créer une sauvegarde')),
                 ),
                 if (_message != null) ...[
                   const SizedBox(height: 12),
-                  Text(_message!),
+                  Text(tr(_message!)),
                 ],
                 const SizedBox(height: 20),
-                Text('Sur cet appareil', style: Theme.of(context).textTheme.titleMedium),
-                if (_local.isEmpty) const Text('Aucune sauvegarde locale.'),
+                Text(tr('Sur cet appareil'), style: Theme.of(context).textTheme.titleMedium),
+                if (_local.isEmpty) Text(tr('Aucune sauvegarde locale.')),
                 for (final row in _local) _tile(row, onRestore: () => _restore(() => BackupService.instance.restoreLocal(row['id'].toString()))),
                 const SizedBox(height: 16),
-                Text('Cloud', style: Theme.of(context).textTheme.titleMedium),
-                if (_cloud.isEmpty) const Text('Aucune copie cloud.'),
+                Text(tr('Cloud'), style: Theme.of(context).textTheme.titleMedium),
+                if (_cloud.isEmpty) Text(tr('Aucune copie cloud.')),
                 for (final row in _cloud)
                   _tile(row, onRestore: () => _restore(() => BackupService.instance.restoreCloud(row['id'].toString()))),
               ],
@@ -124,9 +125,9 @@ class _BackupScreenState extends State<BackupScreen> {
     final events = row['sync_events']?.toString() ?? '0';
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text(row['created_at']?.toString() ?? row['id']?.toString() ?? ''),
-      subtitle: Text('$platform · $events événements de sync'),
-      trailing: TextButton(onPressed: _busy ? null : onRestore, child: const Text('Restaurer')),
+      title: Text(tr(row['created_at']?.toString() ?? row['id']?.toString() ?? '')),
+      subtitle: Text(trf('{0} · {1} événements de sync', [platform, events])),
+      trailing: TextButton(onPressed: _busy ? null : onRestore, child: Text(tr('Restaurer'))),
     );
   }
 }

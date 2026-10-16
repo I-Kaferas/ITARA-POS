@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../sync/offline_store.dart';
 import '../../../sync/sync_engine.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class SyncScreen extends StatefulWidget {
   const SyncScreen({super.key});
@@ -78,47 +79,47 @@ class _SyncScreenState extends State<SyncScreen> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _Stat(label: 'En attente', value: '${snapshot.pending}', color: AppColors.accent),
-              _Stat(label: 'Synchronisées', value: '${snapshot.synced}', color: AppColors.success),
-              _Stat(label: 'Échecs', value: '${snapshot.failed}', color: AppColors.danger),
-              _Stat(label: 'Conflits', value: '${snapshot.conflicts}', color: AppColors.brandInk),
+              _Stat(label: tr('En attente'), value: '${snapshot.pending}', color: AppColors.accent),
+              _Stat(label: tr('Synchronisées'), value: '${snapshot.synced}', color: AppColors.success),
+              _Stat(label: tr('Échecs'), value: '${snapshot.failed}', color: AppColors.danger),
+              _Stat(label: tr('Conflits'), value: '${snapshot.conflicts}', color: AppColors.brandInk),
             ],
           ),
           const SizedBox(height: 16),
           _ChainCard(ledger: _ledger, latest: _latestChain),
           const SizedBox(height: 16),
           Text(
-            snapshot.modeLabel,
+            tr(snapshot.modeLabel),
             style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
-            'Chemin: ${snapshot.mode.syncPath}',
+            trf('Chemin: {0}', [snapshot.mode.syncPath]),
             style: TextStyle(color: AppColors.textSecondary),
           ),
           Text(
-            'Cible: ${snapshot.target ?? 'file locale (SQLite)'}',
+            trf('Cible: {0}', [snapshot.target ?? 'file locale (SQLite)']),
             style: TextStyle(color: AppColors.textSecondary),
           ),
           Text(
-            'Dernière sync: ${snapshot.lastSyncAt == null ? '—' : DateFormat('dd/MM HH:mm').format(snapshot.lastSyncAt!)}',
+            trf('Dernière sync: {0}', [snapshot.lastSyncAt == null ? '—' : DateFormat('dd/MM HH:mm').format(snapshot.lastSyncAt!)]),
             style: TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           Text(
-            snapshot.mode == OperatingMode.isolatedOffline
+            tr(snapshot.mode == OperatingMode.isolatedOffline
                 ? 'Slave → Sync Queue → Master → Cloud (au retour)'
-                : 'File → API → serveur → ACK → marqué synchronisé',
+                : 'File → API → serveur → ACK → marqué synchronisé'),
             style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600),
           ),
           Text(
-            engine.lastSent == 0 && engine.lastAcknowledged == 0
+            tr(engine.lastSent == 0 && engine.lastAcknowledged == 0
                 ? (snapshot.mode == OperatingMode.isolatedOffline
                     ? "Mode C — opérations en file locale. Rien n'est perdu."
                     : snapshot.mode == OperatingMode.localOffline
                         ? 'Mode B — commerce local. Sync cloud en attente du réseau.'
                         : "En attente du retour réseau. Rien n'est supprimé avant l'ACK.")
-                : 'Dernier passage : ${engine.lastSent} envoyés · ${engine.lastAcknowledged} ACK · ${engine.lastKept} conservés · 0 perdu',
+                : 'Dernier passage : ${engine.lastSent} envoyés · ${engine.lastAcknowledged} ACK · ${engine.lastKept} conservés · 0 perdu'),
             style: TextStyle(color: AppColors.textSecondary),
           ),
           if (engine.lastReport.message.isNotEmpty || engine.lastReport.hasDetails) ...[
@@ -135,12 +136,12 @@ class _SyncScreenState extends State<SyncScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Dernière synchronisation',
+                    tr('Dernière synchronisation'),
                     style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
                   ),
                   if (engine.lastReport.message.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(engine.lastReport.message, style: TextStyle(color: AppColors.textSecondary)),
+                    Text(tr(engine.lastReport.message), style: TextStyle(color: AppColors.textSecondary)),
                   ],
                   const SizedBox(height: 8),
                   ...engine.lastReport.lines.map(
@@ -148,7 +149,7 @@ class _SyncScreenState extends State<SyncScreen> {
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
                         children: [
-                          Expanded(child: Text(line.label)),
+                          Expanded(child: Text(tr(line.label))),
                           Text('${line.count}', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
                         ],
                       ),
@@ -160,7 +161,7 @@ class _SyncScreenState extends State<SyncScreen> {
           ],
           if (snapshot.lastError != null) ...[
             const SizedBox(height: 8),
-            Text(snapshot.lastError!, style: const TextStyle(color: AppColors.danger)),
+            Text(tr(snapshot.lastError!), style: const TextStyle(color: AppColors.danger)),
           ],
           const SizedBox(height: 16),
           Row(
@@ -168,7 +169,7 @@ class _SyncScreenState extends State<SyncScreen> {
               FilledButton.icon(
                 onPressed: _busy ? null : _syncNow,
                 icon: const Icon(Icons.sync),
-                label: Text(_busy ? 'Synchronisation…' : 'Synchroniser maintenant'),
+                label: Text(tr(_busy ? 'Synchronisation…' : 'Synchroniser maintenant')),
               ),
               const SizedBox(width: 8),
               OutlinedButton(
@@ -177,15 +178,15 @@ class _SyncScreenState extends State<SyncScreen> {
                   await SyncEngine.instance.syncNow();
                   await _reload();
                 },
-                child: const Text('Relancer les échecs'),
+                child: Text(tr('Relancer les échecs')),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          Text("File d'attente", style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
+          Text(tr("File d'attente"), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           if (_items.isEmpty)
-            Text('Aucune transaction locale.', style: TextStyle(color: AppColors.textMuted))
+            Text(tr('Aucune transaction locale.'), style: TextStyle(color: AppColors.textMuted))
           else
             ..._items.map((item) {
               final status = item['status'] as String? ?? '';
@@ -193,13 +194,12 @@ class _SyncScreenState extends State<SyncScreen> {
                 child: ListTile(
                   title: Text('${item['entity_type']} · ${item['entity_id']}'),
                   subtitle: Text(
-                    'Statut: $status · essais: ${item['attempts'] ?? 0}'
-                    '${item['error_message'] == null ? '' : '\n${item['error_message']}'}',
+                    trf('Statut: {0} · essais: {1}''{2}', [status, item['attempts'] ?? 0, item['error_message'] == null ? '' : '\n${item['error_message']}']),
                   ),
                   trailing: status == 'synced'
                       ? null
                       : IconButton(
-                          tooltip: 'Relancer',
+                          tooltip: tr('Relancer'),
                           onPressed: () async {
                             await OfflineStore.instance.retryNow(item['id'] as String);
                             await SyncEngine.instance.syncNow();
@@ -253,7 +253,7 @@ class _OperatingModeCard extends StatelessWidget {
               AppValueFade(
                 value: mode,
                 child: Text(
-                  mode.label,
+                  tr(mode.label),
                   style: GoogleFonts.ibmPlexSans(
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
@@ -265,12 +265,12 @@ class _OperatingModeCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            mode.description,
+            tr(mode.description),
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 8),
           Text(
-            state.status.wire,
+            tr(state.status.wire),
             style: GoogleFonts.ibmPlexMono(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -279,12 +279,12 @@ class _OperatingModeCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Rôle ${state.role.label} · Master ${state.masterReachable ? 'OK' : '—'} · Cloud ${state.internetReachable ? 'OK' : '—'}',
+            trf('Rôle {0} · Master {1} · Cloud {2}', [state.role.label, state.masterReachable ? 'OK' : '—', state.internetReachable ? 'OK' : '—']),
             style: GoogleFonts.ibmPlexMono(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 4),
           Text(
-            'Chemin: ${mode.syncPath}',
+            trf('Chemin: {0}', [mode.syncPath]),
             style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
@@ -355,12 +355,12 @@ class _ChainCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Chaîne locale — fonctionne sans internet',
+            tr('Chaîne locale — fonctionne sans internet'),
             style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
-            'Vente → paiement → mouvement de stock → événement de sync. Enregistré dans SQLite sur Android et Windows.',
+            tr('Vente → paiement → mouvement de stock → événement de sync. Enregistré dans SQLite sur Android et Windows.'),
             style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
           ),
           const SizedBox(height: 10),
@@ -377,8 +377,7 @@ class _ChainCard extends StatelessWidget {
           if (chain != null) ...[
             const SizedBox(height: 10),
             Text(
-              '${chain['reference']} · paiement ${chain['payments']} · stock ${chain['movements']} · sync ${chain['events']}'
-              '${status == null || status.isEmpty ? '' : ' · $status'}',
+              trf('{0} · paiement {1} · stock {2} · sync {3}''{4}', [chain['reference'], chain['payments'], chain['movements'], chain['events'], status == null || status.isEmpty ? '' : ' · $status']),
               style: GoogleFonts.ibmPlexMono(fontSize: 12),
             ),
           ],
@@ -427,9 +426,9 @@ class _Stat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          Text(tr(label), style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           const SizedBox(height: 4),
-          Text(value, style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
+          Text(tr(value), style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
         ],
       ),
     );

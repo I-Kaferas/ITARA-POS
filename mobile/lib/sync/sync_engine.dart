@@ -10,6 +10,7 @@ import '../core/config/terminal_config_repository.dart';
 import '../core/network/operating_mode.dart';
 import '../core/network/operation_router.dart';
 import '../features/auth/data/pin_auth_service.dart';
+import '../features/backup/data/backup_service.dart';
 import '../features/pos/data/pos_api_service.dart';
 import '../features/pos/domain/pos_models.dart';
 import 'cloud/cloud_sync_engine.dart';
@@ -17,8 +18,10 @@ import 'local_master_server.dart';
 import 'local_realtime.dart';
 import 'master_config_store.dart';
 import 'offline_store.dart';
+import 'shift_sync.dart';
 import 'sync_models.dart';
 import 'sync_numbers.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 String _syncFailure(Object error) {
   final text = error.toString();
@@ -36,6 +39,8 @@ class _BatchResult {
   final int kept;
   final bool stopped;
 }
+
+enum ClosePeriodStep { upload, verify, backup, clean }
 
 class SyncEngine extends ChangeNotifier {
   SyncEngine._();
@@ -126,6 +131,11 @@ class SyncEngine extends ChangeNotifier {
   Future<void> _onRealtimeEvent(RealtimeEvent event) async {
     switch (event.type) {
       case RealtimeEventType.stockUpdated:
+        final selfId = TerminalConfigRepository.instance.config.deviceId;
+        if (selfId.isNotEmpty && event.originDeviceId == selfId) {
+          // Already applied locally before the hub broadcast.
+          return;
+        }
         final stock = event.payload['stock'];
         if (stock is List && stock.isNotEmpty) {
           await OfflineStore.instance.applyAuthoritativeStock(stock);
@@ -250,9 +260,45 @@ class SyncEngine extends ChangeNotifier {
     return lastReport;
   }
 
+  /// Upload, verify nothing is left unsent, back up, then purge acknowledged
+  /// local movements. Nothing is deleted unless every operation is synced.
+  Future<SyncReport> closePeriod({void Function(ClosePeriodStep step)? onStep}) async {
+    onStep?.call(ClosePeriodStep.upload);
+    final upload = await sendStock();
+    if (!upload.ok) return upload;
+
+    onStep?.call(ClosePeriodStep.verify);
+    await refreshCounts();
+    final unsyncedSales = await OfflineStore.instance.unsyncedSalesCount();
+    final left = pending + failed + conflicts + unsyncedSales;
+    if (left > 0) {
+      lastReport = SyncReport(
+        ok: false,
+        message: trf('Période non clôturée : {0} opération(s) pas encore synchronisée(s).', [left]),
+        sent: upload.sent,
+      );
+      notifyListeners();
+      return lastReport;
+    }
+
+    onStep?.call(ClosePeriodStep.backup);
+    await BackupService.instance.create(upload: false);
+    onStep?.call(ClosePeriodStep.clean);
+    final purged = await OfflineStore.instance.purgeSyncedMovements();
+    final removed = purged.values.fold<int>(0, (sum, value) => sum + value);
+    await OfflineStore.instance.log('info', 'Period closed · $purged');
+    await refreshCounts(forceNotify: true);
+    lastReport = SyncReport(
+      message: trf('Période clôturée · {0} ligne(s) locale(s) nettoyée(s)', [removed]),
+      sent: upload.sent,
+    );
+    notifyListeners();
+    return lastReport;
+  }
+
   Future<SyncReport> downloadStock() async {
     if (_running) {
-      return lastReport = const SyncReport(ok: false, message: 'Synchronisation déjà en cours');
+      return lastReport = SyncReport(ok: false, message: tr('Synchronisation déjà en cours'));
     }
     _running = true;
     connectivity = ConnectivityState.syncing;
@@ -272,7 +318,7 @@ class SyncEngine extends ChangeNotifier {
       lastError = null;
       connectivity = _connectivityForIdle();
       return lastReport = SyncReport(
-        message: 'Téléchargement terminé',
+        message: tr('Téléchargement terminé'),
         products: catalog.products,
         categories: catalog.categories,
         customers: refs.customers,
@@ -296,7 +342,7 @@ class SyncEngine extends ChangeNotifier {
 
   Future<SyncReport> syncStock() async {
     if (_running) {
-      return lastReport = const SyncReport(ok: false, message: 'Synchronisation déjà en cours');
+      return lastReport = SyncReport(ok: false, message: tr('Synchronisation déjà en cours'));
     }
     _running = true;
     connectivity = ConnectivityState.syncing;
@@ -343,7 +389,7 @@ class SyncEngine extends ChangeNotifier {
 
   Future<SyncReport> sendStock() async {
     if (_running) {
-      return lastReport = const SyncReport(ok: false, message: 'Synchronisation déjà en cours');
+      return lastReport = SyncReport(ok: false, message: tr('Synchronisation déjà en cours'));
     }
     _running = true;
     connectivity = ConnectivityState.syncing;
@@ -488,7 +534,7 @@ class SyncEngine extends ChangeNotifier {
       if (catalogChanged) catalogRevision++;
       connectivity = _connectivityForIdle();
       lastReport = SyncReport(
-        message: 'Synchronisation terminée',
+        message: tr('Synchronisation terminée'),
         products: products,
         categories: categories,
         customers: customers,
@@ -853,7 +899,32 @@ class SyncEngine extends ChangeNotifier {
     await OfflineStore.instance.saveLocalHolds(updated);
   }
 
+  Future<void> _pushShifts() async {
+    final target = activeTarget;
+    if (target == null || target != _cloudBase) return;
+    try {
+      await ShiftSync.instance.push(
+        (body) => _authorized(
+          () => _client
+              .post(Uri.parse('$target/sync/push'), headers: _headers, body: body)
+              .timeout(const Duration(seconds: 30)),
+        ),
+      );
+    } catch (error) {
+      await OfflineStore.instance.log('error', 'Shifts : ${_syncFailure(error)}');
+    }
+  }
+
   Future<int> _drainQueue() async {
+    await _pushShifts();
+    try {
+      return await _drainSales();
+    } finally {
+      await _pushShifts();
+    }
+  }
+
+  Future<int> _drainSales() async {
     await OfflineStore.instance.releaseStuck();
     var sent = 0;
     var acknowledged = 0;
@@ -1213,5 +1284,20 @@ class SyncEngine extends ChangeNotifier {
 
   Future<void> refreshCatalogNow() async {
     await _refreshCatalogCounts();
+  }
+
+  /// Local stock / catalog rows changed — POS reloads from the SQLite cache.
+  void markCatalogChanged({List<Map<String, dynamic>> stock = const []}) {
+    catalogRevision++;
+    notifyListeners();
+    final config = TerminalConfigRepository.instance.config;
+    if (!config.isMaster) return;
+    LocalRealtimeHub.instance.publish(RealtimeEvent(
+      type: RealtimeEventType.stockUpdated,
+      originDeviceId: config.deviceId,
+      payload: {
+        'stock': stock.isEmpty ? null : stock,
+      }..removeWhere((_, value) => value == null),
+    ));
   }
 }

@@ -7,6 +7,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../sync/local_master_server.dart';
 import '../data/reports_store.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -91,12 +92,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Rapports'),
-          bottom: const TabBar(
+          title: Text(tr('Rapports')),
+          bottom: TabBar(
             tabs: [
-              Tab(text: 'Ventes'),
-              Tab(text: 'Stock'),
-              Tab(text: 'Finance'),
+              Tab(text: tr('Ventes')),
+              Tab(text: tr('Stock')),
+              Tab(text: tr('Finance')),
             ],
           ),
         ),
@@ -109,7 +110,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 children: [
                   for (final period in _periods)
                     ChoiceChip(
-                      label: Text(period.$2),
+                      label: Text(tr(period.$2)),
                       selected: _period == period.$1,
                       onSelected: (_) {
                         setState(() => _period = period.$1);
@@ -123,7 +124,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                      ? Center(child: Text(_error!))
+                      ? Center(child: Text(tr(_error!)))
                       : TabBarView(
                           children: [
                             _sales(money),
@@ -143,7 +144,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        Text('${sales['count'] ?? 0} ventes · ${money((sales['total'] as num?)?.toInt() ?? 0)}'),
+        Text(trf('{0} ventes · {1}', [sales['count'] ?? 0, money((sales['total'] as num?)?.toInt() ?? 0)])),
         _section('Produit', sales['by_product'], money),
         _section('Catégorie', sales['by_category'], money),
         _section('Caissier', sales['by_cashier'], money),
@@ -157,11 +158,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        Text('Valorisation ${money((stock['valuation'] as num?)?.toInt() ?? 0)}'),
+        Text(trf('Valorisation {0}', [money((stock['valuation'] as num?)?.toInt() ?? 0)])),
         _section('Stock actuel', stock['current'], money, showQty: true),
         _section('Stock faible', stock['low'], money),
         _section('Mouvements', stock['movements'], money, showQty: true),
-        Text('Pertes ${money((stock['losses_value'] as num?)?.toInt() ?? 0)}'),
+        Text(trf('Pertes {0}', [money((stock['losses_value'] as num?)?.toInt() ?? 0)])),
         _section('Pertes', stock['losses'], money, showQty: true),
         _section('Expiration', stock['expiration'], money),
       ],
@@ -183,8 +184,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       children: [
         for (final row in rows)
           ListTile(
-            title: Text(row.$1),
-            trailing: Text(money((row.$2 as num?)?.toInt() ?? 0)),
+            title: Text(tr(row.$1)),
+            trailing: Text(tr(money((row.$2 as num?)?.toInt() ?? 0))),
           ),
       ],
     );
@@ -196,16 +197,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        if (lines.isEmpty) const Text('Aucune donnée.'),
+        Text(tr(title), style: Theme.of(context).textTheme.titleMedium),
+        if (lines.isEmpty) Text(tr('Aucune donnée.')),
         for (final line in lines)
           ListTile(
             dense: true,
-            title: Text(line['label']?.toString() ?? ''),
+            title: Text(tr(line['label']?.toString() ?? '')),
             subtitle: line['detail'] != null
-                ? Text(line['detail'].toString())
-                : (showQty ? Text('Qté ${line['quantity'] ?? 0}') : null),
-            trailing: line['amount'] == null ? null : Text(money((line['amount'] as num?)?.toInt() ?? 0)),
+                ? Text(tr(line['detail'].toString()))
+                : (showQty ? Text(trf('Qté {0}', [line['quantity'] ?? 0])) : null),
+            trailing: line['amount'] == null ? null : Text(tr(money((line['amount'] as num?)?.toInt() ?? 0))),
           ),
       ],
     );

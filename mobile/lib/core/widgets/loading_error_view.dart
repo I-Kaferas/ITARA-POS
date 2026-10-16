@@ -9,6 +9,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'app_buttons.dart';
 import 'app_skeleton.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class LoadingView extends StatelessWidget {
   const LoadingView({
@@ -41,7 +42,7 @@ class LoadingView extends StatelessWidget {
                   ),
           ),
           const SizedBox(height: AppSpacing.md),
-          Text(message, style: AppTypography.subtitle()),
+          Text(tr(message), style: AppTypography.subtitle()),
         ],
       ),
     );
@@ -123,13 +124,13 @@ class ErrorView extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    title,
+                    tr(title),
                     textAlign: TextAlign.center,
                     style: AppTypography.sectionTitle(),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    message,
+                    tr(message),
                     textAlign: TextAlign.center,
                     style: AppTypography.body(color: AppColors.textSecondary),
                   ),
@@ -200,7 +201,7 @@ class AppErrorBanner extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              message,
+              tr(message),
               style: AppTypography.body(color: AppColors.danger, weight: FontWeight.w500),
             ),
           ),

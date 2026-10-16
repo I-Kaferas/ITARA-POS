@@ -7,6 +7,7 @@ import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../onboarding_gate.dart';
 import 'onboarding_frame.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class OnboardingFinishScreen extends StatelessWidget {
   const OnboardingFinishScreen({
@@ -65,7 +66,7 @@ class OnboardingFinishScreen extends StatelessWidget {
           const Center(child: OnboardingMark(compact: true)),
           const SizedBox(height: 24),
           Text(
-            'Prêt à ouvrir la caisse',
+            tr('Prêt à ouvrir la caisse'),
             textAlign: TextAlign.center,
             style: GoogleFonts.ibmPlexSans(
               fontSize: 32,
@@ -75,7 +76,7 @@ class OnboardingFinishScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'La connexion et les droits restent ceux déjà en place. Aucun compte n’est créé ici.',
+            tr('La connexion et les droits restent ceux déjà en place. Aucun compte n’est créé ici.'),
             textAlign: TextAlign.center,
             style: GoogleFonts.ibmPlexSans(
               fontSize: 15,
@@ -85,14 +86,14 @@ class OnboardingFinishScreen extends StatelessWidget {
           ),
           const SizedBox(height: 28),
           OnboardingButton(
-            label: 'Se connecter',
+            label: tr('Se connecter'),
             primary: true,
             onPressed: () => _leave(context, onSignIn, signInRoute),
           ),
           if (_canConfigure) ...[
             const SizedBox(height: 10),
             OnboardingButton(
-              label: 'Configurer mon entreprise',
+              label: tr('Configurer mon entreprise'),
               onPressed: () =>
                   _leave(context, onConfigure, AppRoutes.configuration),
             ),
@@ -100,7 +101,7 @@ class OnboardingFinishScreen extends StatelessWidget {
           if (_canOffline) ...[
             const SizedBox(height: 10),
             OnboardingButton(
-              label: 'Continuer hors ligne',
+              label: tr('Continuer hors ligne'),
               onPressed: () => _leave(context, onOffline, AppRoutes.pin),
             ),
           ],

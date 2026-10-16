@@ -7,6 +7,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../sync/local_master_server.dart';
 import '../data/ledger_store.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class AccountingScreen extends StatefulWidget {
   const AccountingScreen({super.key});
@@ -55,7 +56,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
       setState(() => _snap = snap);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_message(error))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(_message(error)))));
     }
   }
 
@@ -98,20 +99,20 @@ class _AccountingScreenState extends State<AccountingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Comptabilité'),
+        title: Text(tr('Comptabilité')),
         actions: [
-          IconButton(tooltip: 'Dépense', onPressed: () => _expense(), icon: const Icon(Icons.remove_circle_outline)),
-          IconButton(tooltip: 'Payer une dette', onPressed: () => _pay(), icon: const Icon(Icons.payments_outlined)),
+          IconButton(tooltip: tr('Dépense'), onPressed: () => _expense(), icon: const Icon(Icons.remove_circle_outline)),
+          IconButton(tooltip: tr('Payer une dette'), onPressed: () => _pay(), icon: const Icon(Icons.payments_outlined)),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? Center(child: Text(tr(_error!)))
               : ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
-                    const Text('Recettes, dépenses, créances, dettes, caisse, stock, profit.'),
+                    Text(tr('Recettes, dépenses, créances, dettes, caisse, stock, profit.')),
                     const SizedBox(height: 12),
                     for (final book in books)
                       Card(
@@ -120,16 +121,16 @@ class _AccountingScreenState extends State<AccountingScreen> {
                           onExpansionChanged: (open) {
                             if (open) setState(() => _open = book['code'].toString());
                           },
-                          title: Text(book['label']?.toString() ?? ''),
-                          trailing: Text(money((book['balance'] as num?)?.toInt() ?? 0)),
+                          title: Text(tr(book['label']?.toString() ?? '')),
+                          trailing: Text(tr(money((book['balance'] as num?)?.toInt() ?? 0))),
                           children: [
                             if ((book['lines'] as List?)?.isEmpty ?? true)
-                              const ListTile(title: Text('Aucune écriture.')),
+                              ListTile(title: Text(tr('Aucune écriture.'))),
                             for (final line in (book['lines'] as List<dynamic>? ?? []).whereType<Map>())
                               ListTile(
                                 dense: true,
-                                title: Text(line['memo']?.toString() ?? ''),
-                                trailing: Text(money((line['amount'] as num?)?.toInt() ?? 0)),
+                                title: Text(tr(line['memo']?.toString() ?? '')),
+                                trailing: Text(tr(money((line['amount'] as num?)?.toInt() ?? 0))),
                               ),
                           ],
                         ),
@@ -147,31 +148,31 @@ class _AccountingScreenState extends State<AccountingScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setLocal) => AlertDialog(
-          title: const Text('Dépense'),
+          title: Text(tr('Dépense')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: memo, decoration: const InputDecoration(labelText: 'Libellé')),
+              TextField(controller: memo, decoration: InputDecoration(labelText: tr('Libellé'))),
               TextField(
                 controller: amount,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Montant'),
+                decoration: InputDecoration(labelText: tr('Montant')),
               ),
               const SizedBox(height: 8),
               DropdownButton<String>(
                 value: settlement,
                 isExpanded: true,
-                items: const [
-                  DropdownMenuItem(value: 'cash', child: Text('Payée en caisse')),
-                  DropdownMenuItem(value: 'payable', child: Text('À payer (dette)')),
+                items: [
+                  DropdownMenuItem(value: 'cash', child: Text(tr('Payée en caisse'))),
+                  DropdownMenuItem(value: 'payable', child: Text(tr('À payer (dette)'))),
                 ],
                 onChanged: (value) => setLocal(() => settlement = value ?? 'cash'),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Enregistrer')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Enregistrer'))),
           ],
         ),
       ),
@@ -189,15 +190,15 @@ class _AccountingScreenState extends State<AccountingScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Payer une dette'),
+        title: Text(tr('Payer une dette')),
         content: TextField(
           controller: amount,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Montant'),
+          decoration: InputDecoration(labelText: tr('Montant')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Payer')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Payer'))),
         ],
       ),
     );

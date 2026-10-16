@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../settings/domain/cashier_preferences.dart';
 import '../../pos/domain/pos_models.dart';
 import '../../printers/domain/print_group.dart';
 import '../../printers/services/printer_router.dart';
@@ -143,53 +144,59 @@ class KitchenTicketService {
             pw.Text(
               title,
               textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(fontSize: CashierPreferences.text(14), fontWeight: pw.FontWeight.bold),
             ),
-            pw.SizedBox(height: 4),
-            pw.Text(sale.label, textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 10)),
-            pw.Text(date, textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 9)),
+            pw.SizedBox(height: CashierPreferences.space(4)),
+            if (sale.tableId != null && sale.tableId!.isNotEmpty)
+              pw.Text(
+                'Table ${sale.tableLabel ?? sale.tableId}',
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(fontSize: CashierPreferences.text(13), fontWeight: pw.FontWeight.bold),
+              ),
+            pw.Text(sale.label, textAlign: pw.TextAlign.center, style: pw.TextStyle(fontSize: CashierPreferences.text(10))),
+            pw.Text(date, textAlign: pw.TextAlign.center, style: pw.TextStyle(fontSize: CashierPreferences.text(9))),
             pw.Text(
               'Station: ${group.label}',
               textAlign: pw.TextAlign.center,
-              style: const pw.TextStyle(fontSize: 9),
+              style: pw.TextStyle(fontSize: CashierPreferences.text(9)),
             ),
             if (sale.customer != null) ...[
-              pw.SizedBox(height: 4),
-              pw.Text('Client: ${sale.customer!.name}', style: const pw.TextStyle(fontSize: 9)),
+              pw.SizedBox(height: CashierPreferences.space(4)),
+              pw.Text('Client: ${sale.customer!.name}', style: pw.TextStyle(fontSize: CashierPreferences.text(9))),
             ],
-            pw.SizedBox(height: 6),
+            pw.SizedBox(height: CashierPreferences.space(6)),
             pw.Divider(thickness: 0.6),
             ...lines.map(
               (line) => pw.Padding(
-                padding: const pw.EdgeInsets.symmetric(vertical: 3),
+                padding: pw.EdgeInsets.symmetric(vertical: CashierPreferences.space(3)),
                 child: pw.Row(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.SizedBox(
-                      width: 28,
+                      width: CashierPreferences.text(28),
                       child: pw.Text(
                         '${line.quantity}x',
-                        style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+                        style: pw.TextStyle(fontSize: CashierPreferences.text(11), fontWeight: pw.FontWeight.bold),
                       ),
                     ),
                     pw.Expanded(
-                      child: pw.Text(line.displayName, style: const pw.TextStyle(fontSize: 11)),
+                      child: pw.Text(line.displayName, style: pw.TextStyle(fontSize: CashierPreferences.text(11))),
                     ),
                   ],
                 ),
               ),
             ),
             if (sale.note != null && sale.note!.trim().isNotEmpty) ...[
-              pw.SizedBox(height: 6),
+              pw.SizedBox(height: CashierPreferences.space(6)),
               pw.Divider(thickness: 0.6),
-              pw.Text('Note', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-              pw.Text(sale.note!, style: const pw.TextStyle(fontSize: 10)),
+              pw.Text('Note', style: pw.TextStyle(fontSize: CashierPreferences.text(9), fontWeight: pw.FontWeight.bold)),
+              pw.Text(sale.note!, style: pw.TextStyle(fontSize: CashierPreferences.text(10))),
             ],
-            pw.SizedBox(height: 8),
+            pw.SizedBox(height: CashierPreferences.space(8)),
             pw.Text(
-              'Non payé — à préparer',
+              'Non payé - à préparer',
               textAlign: pw.TextAlign.center,
-              style: const pw.TextStyle(fontSize: 8),
+              style: pw.TextStyle(fontSize: CashierPreferences.text(8)),
             ),
           ],
         ),

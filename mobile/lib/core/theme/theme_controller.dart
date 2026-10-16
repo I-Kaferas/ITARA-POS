@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -5,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_colors.dart';
 import 'theme_cubit.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class ThemeController extends ChangeNotifier with WidgetsBindingObserver {
   ThemeController._() {
@@ -103,7 +105,7 @@ class ThemeModeButton extends StatelessWidget {
         final label = dark ? 'Sombre' : 'Clair';
 
         return Tooltip(
-          message: 'Thème : $label (toucher pour changer)',
+          message: trf('Thème : {0} (toucher pour changer)', [label]),
           child: Material(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(11),
@@ -128,7 +130,7 @@ class ThemeModeButton extends StatelessWidget {
                     if (!compact) ...[
                       const SizedBox(width: 6),
                       Text(
-                        label,
+                        tr(label),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -147,32 +149,51 @@ class ThemeModeButton extends StatelessWidget {
   }
 }
 
-/// Screens read [AppColors] directly and stay mounted, so a theme change
-/// has to ask every visible element to build again.
+/// Screens read [AppColors], the active language and the settings singletons
+/// directly and stay mounted, so a change has to ask every element to build again.
 class ThemeRefresh extends StatefulWidget {
-  const ThemeRefresh({required this.child, super.key});
+  const ThemeRefresh({required this.child, this.sources = const [], super.key});
 
   final Widget child;
+
+  /// Extra settings that must repaint the whole app when they change.
+  final List<Listenable> sources;
 
   @override
   State<ThemeRefresh> createState() => _ThemeRefreshState();
 }
 
 class _ThemeRefreshState extends State<ThemeRefresh> {
+  late Listenable _listenable;
+  bool _scheduled = false;
+
   @override
   void initState() {
     super.initState();
-    ThemeController.instance.addListener(_rebuildTree);
+    _listenable = Listenable.merge([ThemeController.instance, ...widget.sources]);
+    _listenable.addListener(_rebuildTree);
+  }
+
+  @override
+  void didUpdateWidget(covariant ThemeRefresh oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (listEquals(oldWidget.sources, widget.sources)) return;
+    _listenable.removeListener(_rebuildTree);
+    _listenable = Listenable.merge([ThemeController.instance, ...widget.sources]);
+    _listenable.addListener(_rebuildTree);
   }
 
   @override
   void dispose() {
-    ThemeController.instance.removeListener(_rebuildTree);
+    _listenable.removeListener(_rebuildTree);
     super.dispose();
   }
 
   void _rebuildTree() {
+    if (_scheduled) return;
+    _scheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
       if (!mounted) return;
       void visit(Element element) {
         element.markNeedsBuild();
@@ -181,6 +202,7 @@ class _ThemeRefreshState extends State<ThemeRefresh> {
 
       context.visitChildElements(visit);
     });
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   @override

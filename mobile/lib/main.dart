@@ -14,6 +14,7 @@ import 'core/navigation/app_router.dart';
 import 'core/network/network_bloc.dart';
 import 'core/i18n/app_locale.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_typography.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/theme/theme_cubit.dart';
 import 'data/local/data_model_bootstrap.dart';
@@ -30,13 +31,17 @@ import 'features/sync/presentation/bloc/cloud_sync_bloc.dart';
 import 'features/sync/presentation/bloc/conflict_resolution_bloc.dart';
 import 'features/sync/presentation/bloc/local_sync_bloc.dart';
 import 'features/pos/presentation/customer_display_launcher.dart';
+import 'features/settings/domain/cashier_preferences.dart';
+import 'features/settings/presentation/auto_lock_guard.dart';
 import 'sync/local_master_discovery.dart';
 import 'sync/local_master_server.dart';
 import 'sync/local_realtime.dart';
 import 'sync/sync_engine.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppTypography.useBundledFonts();
   if (args.isNotEmpty && args.first == 'multi_window') {
     final payload = args.length > 2 ? args[2] : '';
     runApp(CustomerDisplayApp(initialJson: payload));
@@ -55,6 +60,7 @@ Future<void> main(List<String> args) async {
       terminal.add(const TerminalLoadRequested());
       await loaded;
       await sl<ThemeCubit>().load();
+      await CashierPreferences.instance.load();
       await OnboardingGate.instance.load();
       LocaleController.instance.bind(
         sl<TerminalConfigRepository>().config.locale,
@@ -140,7 +146,7 @@ class PosApp extends StatelessWidget {
             listenable: LocaleController.instance,
             builder: (context, _) {
               return MaterialApp.router(
-                title: 'ITARA POS',
+                title: tr('ITARA POS'),
                 debugShowCheckedModeBanner: false,
                 locale: LocaleController.instance.locale,
                 theme: AppTheme.light,
@@ -159,7 +165,14 @@ class PosApp extends StatelessWidget {
                 ],
                 routerConfig: AppRouter.create(),
                 builder: (context, child) => AppViewportScale(
-                  child: ThemeRefresh(child: child ?? const SizedBox.shrink()),
+                  child: ThemeRefresh(
+                    sources: [
+                      LocaleController.instance,
+                      CashierPreferences.instance,
+                      sl<TerminalConfigRepository>(),
+                    ],
+                    child: AutoLockGuard(child: child ?? const SizedBox.shrink()),
+                  ),
                 ),
               );
             },

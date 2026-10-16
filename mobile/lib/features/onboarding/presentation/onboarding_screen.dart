@@ -10,13 +10,14 @@ import '../../../core/theme/app_motion.dart';
 import 'onboarding_cubit.dart';
 import 'onboarding_frame.dart';
 import 'onboarding_page.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
 
-  static const pages = [
+  static final pages = [
     OnboardingPageData(
-      title: 'Gestion commerciale',
+      title: tr('Gestion commerciale'),
       body:
           'Tenez le catalogue, les prix et les stocks au même endroit que les ventes.',
       points: [
@@ -28,7 +29,7 @@ class OnboardingScreen extends StatelessWidget {
       tint: Color(0xFF2F6F9A),
     ),
     OnboardingPageData(
-      title: 'Point de vente',
+      title: tr('Point de vente'),
       body:
           'Encaissez vite, même sans réseau, puis synchronisez quand la liaison revient.',
       points: [
@@ -40,7 +41,7 @@ class OnboardingScreen extends StatelessWidget {
       tint: Color(0xFF0F7A4D),
     ),
     OnboardingPageData(
-      title: 'Restaurant et hôtel',
+      title: tr('Restaurant et hôtel'),
       body:
           'Les tables, la cuisine et les séjours utilisent les mêmes commandes que la caisse.',
       points: [
@@ -52,7 +53,7 @@ class OnboardingScreen extends StatelessWidget {
       tint: Color(0xFFB86E09),
     ),
     OnboardingPageData(
-      title: 'Contrôle',
+      title: tr('Contrôle'),
       body:
           'Suivez l’activité, les dépenses et les accès sans quitter le terminal.',
       points: [
@@ -182,7 +183,7 @@ class _Footer extends StatelessWidget {
     return Column(
       children: [
         Semantics(
-          label: 'Étape ${index + 1} sur $length',
+          label: trf('Étape {0} sur {1}', [index + 1, length]),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -207,7 +208,7 @@ class _Footer extends StatelessWidget {
             TextButton(
               onPressed: onSkip,
               child: Text(
-                'Ignorer',
+                tr('Ignorer'),
                 style: GoogleFonts.ibmPlexSans(
                   fontWeight: FontWeight.w700,
                   color: AppColors.textSecondary,
@@ -218,7 +219,7 @@ class _Footer extends StatelessWidget {
             SizedBox(
               width: 140,
               child: OnboardingButton(
-                label: 'Précédent',
+                label: tr('Précédent'),
                 onPressed: onPrevious,
               ),
             ),

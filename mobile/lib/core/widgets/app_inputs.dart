@@ -6,6 +6,7 @@ import '../theme/app_motion.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import 'package:pos_mobile/core/i18n/tr.dart';
 
 /// Design-system text field — filled, clear focus ring, tactile height.
 class AppTextField extends StatelessWidget {
@@ -105,7 +106,7 @@ class AppTextField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (label != null) ...[
-          Text(label!, style: AppTypography.label()),
+          Text(tr(label!), style: AppTypography.label()),
           const SizedBox(height: AppSpacing.sm),
         ],
         AnimatedSize(
@@ -182,7 +183,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
       suffixIcon: _controller.text.isEmpty
           ? null
           : IconButton(
-              tooltip: 'Effacer',
+              tooltip: tr('Effacer'),
               onPressed: () {
                 _controller.clear();
                 widget.onClear?.call();
