@@ -12,6 +12,8 @@ import {
   resolveCtaUrl,
   type TenantBranding,
 } from './branding'
+import SupportBot from './components/SupportBot.vue'
+import ModuleIcon from './components/ModuleIcon.vue'
 import { useI18n, type Locale } from './i18n'
 import { initReveal } from './reveal'
 import { useTheme } from './theme'
@@ -21,6 +23,7 @@ const branding = ref<TenantBranding | null>(null)
 const error = ref<string | null>(null)
 const loading = ref(true)
 const menuOpen = ref(false)
+const botOpen = ref(false)
 const activeSection = ref('branding')
 const { locale, setLocale, t, locales } = useI18n()
 const { isDark, toggleTheme } = useTheme()
@@ -63,6 +66,21 @@ const productName = computed(() => branding.value?.brand_name ?? PRODUCT_NAME)
 const logoSrc = computed(() => PRODUCT_LOGO_URL)
 const logoFailed = ref(false)
 const year = new Date().getFullYear()
+
+const botContext = computed(() => ({
+  product: productName.value,
+  email: branding.value?.support_email,
+  phone: branding.value?.support_phone,
+}))
+
+function openSupportBot() {
+  botOpen.value = true
+}
+
+function onBotHandoff() {
+  botOpen.value = false
+  requestAnimationFrame(() => scrollToHash('#contact'))
+}
 
 watch(logoSrc, () => { logoFailed.value = false })
 const localeLabels: Record<Locale, string> = { fr: 'FR', en: 'EN', sw: 'SW' }
@@ -112,9 +130,13 @@ watch(slug, () => { void load() }, { immediate: true })
 
 provide('branding', branding)
 provide('homePath', homePath)
+provide('openSupportBot', openSupportBot)
 
 function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape') menuOpen.value = false
+  if (e.key === 'Escape') {
+    menuOpen.value = false
+    botOpen.value = false
+  }
 }
 
 onMounted(() => {
@@ -275,5 +297,23 @@ onBeforeUnmount(() => {
       </div>
       <div class="footer__copy">© {{ year }} {{ productName }}. {{ t('footer', 'rights') }}</div>
     </footer>
+
+    <button
+      v-if="branding && !loading && !error"
+      type="button"
+      class="bot-fab"
+      :aria-label="t('bot.open')"
+      :title="t('bot.open')"
+      @click="openSupportBot"
+    >
+      <ModuleIcon name="SUP" />
+      <span>{{ t('contact.response') }}</span>
+    </button>
+
+    <SupportBot
+      v-model:open="botOpen"
+      :context="botContext"
+      @handoff="onBotHandoff"
+    />
   </div>
 </template>

@@ -7,6 +7,7 @@ import { PRODUCT_NAME, resolveCtaUrl, type TenantBranding } from '../branding'
 import { useI18n } from '../i18n'
 
 const branding = inject<Ref<TenantBranding | null>>('branding')!
+const openSupportBot = inject<() => void>('openSupportBot', () => {})
 const { t, dict } = useI18n()
 const ctaHref = computed(() => (branding.value ? resolveCtaUrl(branding.value) : '#'))
 
@@ -37,6 +38,46 @@ const modules = computed(() => dict.value.modules.items)
 const reasons = computed(() => dict.value.why.items)
 const plans = computed(() => dict.value.pricing.plans)
 const stats = computed(() => dict.value.stats)
+
+/** Twinkling stars across the full navy hero block. */
+const heroStars = [
+  { x: 4, y: 8, s: 1.2, d: 0.1, c: 'amber' },
+  { x: 12, y: 22, s: 1, d: 1.2, c: 'white' },
+  { x: 18, y: 48, s: 1.5, d: 0.5, c: 'amber' },
+  { x: 7, y: 68, s: 1.1, d: 2.0, c: 'white' },
+  { x: 15, y: 86, s: 1.4, d: 1.6, c: 'amber' },
+  { x: 28, y: 12, s: 1.3, d: 0.8, c: 'white' },
+  { x: 34, y: 34, s: 1, d: 2.4, c: 'amber' },
+  { x: 26, y: 58, s: 1.6, d: 0.3, c: 'white' },
+  { x: 38, y: 78, s: 1.1, d: 1.9, c: 'amber' },
+  { x: 46, y: 18, s: 1.4, d: 1.1, c: 'white' },
+  { x: 52, y: 42, s: 1.2, d: 0.6, c: 'amber' },
+  { x: 48, y: 64, s: 1, d: 2.7, c: 'white' },
+  { x: 56, y: 88, s: 1.7, d: 1.4, c: 'amber' },
+  { x: 64, y: 10, s: 1.1, d: 0.9, c: 'white' },
+  { x: 70, y: 28, s: 1.5, d: 2.1, c: 'amber' },
+  { x: 62, y: 52, s: 1, d: 0.4, c: 'white' },
+  { x: 74, y: 70, s: 1.3, d: 1.7, c: 'amber' },
+  { x: 68, y: 92, s: 1.2, d: 2.5, c: 'white' },
+  { x: 82, y: 16, s: 1.6, d: 0.2, c: 'amber' },
+  { x: 90, y: 36, s: 1.1, d: 1.5, c: 'white' },
+  { x: 84, y: 54, s: 1.4, d: 2.2, c: 'amber' },
+  { x: 94, y: 72, s: 1, d: 0.7, c: 'white' },
+  { x: 88, y: 90, s: 1.5, d: 1.8, c: 'amber' },
+  { x: 22, y: 40, s: 0.9, d: 2.8, c: 'white' },
+  { x: 42, y: 50, s: 1.3, d: 1.0, c: 'amber' },
+  { x: 78, y: 44, s: 1.1, d: 2.3, c: 'white' },
+  { x: 10, y: 36, s: 1.8, d: 0.55, c: 'amber' },
+  { x: 96, y: 12, s: 1.2, d: 1.3, c: 'white' },
+  { x: 58, y: 6, s: 1, d: 2.6, c: 'amber' },
+  { x: 32, y: 94, s: 1.4, d: 0.15, c: 'white' },
+  { x: 50, y: 30, s: 1.1, d: 1.55, c: 'amber' },
+  { x: 86, y: 62, s: 1.6, d: 0.95, c: 'white' },
+  { x: 6, y: 54, s: 1.2, d: 2.15, c: 'amber' },
+  { x: 76, y: 82, s: 1, d: 0.65, c: 'white' },
+  { x: 40, y: 6, s: 1.3, d: 1.85, c: 'amber' },
+  { x: 20, y: 74, s: 1.5, d: 2.35, c: 'white' },
+]
 
 const form = reactive({
   name: '',
@@ -80,6 +121,22 @@ function submitContact() {
   <template v-if="branding">
     <!-- Branding / Hero -->
     <section id="branding" class="hero">
+      <div class="hero__stars" aria-hidden="true">
+        <span
+          v-for="(star, i) in heroStars"
+          :key="i"
+          class="hero__star"
+          :class="`hero__star--${star.c}`"
+          :style="{
+            left: `${star.x}%`,
+            top: `${star.y}%`,
+            width: `${star.s * 3}px`,
+            height: `${star.s * 3}px`,
+            animationDelay: `${star.d}s`,
+            animationDuration: `${2.4 + (star.s % 1) * 2.2}s`,
+          }"
+        />
+      </div>
       <div class="hero__layout">
         <div class="hero__copy">
           <p class="hero__badge hero-animate">
@@ -206,7 +263,7 @@ function submitContact() {
           <h2>{{ t('pricing.title') }}</h2>
           <p>{{ t('pricing.lede') }}</p>
         </div>
-        <div class="grid-3">
+        <div class="grid-pricing">
           <article
             v-for="(plan, i) in plans"
             :key="plan.name"
@@ -283,13 +340,15 @@ function submitContact() {
               <p class="contact__kicker">{{ t('contact.details') }}</p>
               <h3>{{ productName }}</h3>
               <p>{{ withProduct(t('contact.support')) }}</p>
-              <div class="contact__badge">
-                <span class="contact__badge-dot" aria-hidden="true" />
+              <button type="button" class="contact__badge" @click="openSupportBot">
+                <span class="contact__badge-bot" aria-hidden="true">
+                  <ModuleIcon name="SUP" />
+                </span>
                 <div>
                   <strong>{{ t('contact.response') }}</strong>
-                  <span>{{ t('contact.responseHint') }}</span>
+                  <span>{{ t('contact.responseHint') }} · {{ t('contact.responseCta') }}</span>
                 </div>
-              </div>
+              </button>
             </div>
 
             <div class="contact__channels">

@@ -425,14 +425,13 @@ defineExpose({ show })
   width: min(42rem, 100%);
   height: min(40rem, calc(100% - var(--space-8)));
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, #fff 42%, var(--cmdk-line));
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--cmdk-bg) 90%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 68%, transparent),
-    var(--shadow-overlay);
+  border: 1px solid var(--cmdk-line);
+  border-radius: var(--radius-overlay, var(--radius-xl, 12px));
+  background-color: var(--cmdk-bg);
+  background-image: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--shadow-overlay);
   color: var(--cmdk-ink);
 }
 
@@ -458,11 +457,12 @@ defineExpose({ show })
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: var(--control-md);
+  height: var(--control-md);
   flex-shrink: 0;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--cmdk-accent) 10%, #ffffff);
+  border-radius: var(--radius-md);
+  background-color: color-mix(in srgb, var(--cmdk-accent) 12%, var(--cmdk-raised));
+  background-image: none;
   color: var(--cmdk-accent);
 }
 
@@ -491,7 +491,7 @@ defineExpose({ show })
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--cmdk-muted);
   font-size: var(--text-xl);

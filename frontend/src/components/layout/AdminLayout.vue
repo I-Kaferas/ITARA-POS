@@ -1261,11 +1261,12 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
   overflow: hidden;
   padding: var(--overlay-pad);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  border-radius: var(--radius-overlay, var(--radius-xl, 12px));
+  background-color: var(--color-surface);
+  background-image: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-overlay);
 }
 
 :global(html[data-theme="dark"]) .user-menu__panel {

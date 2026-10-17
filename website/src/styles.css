@@ -555,6 +555,9 @@ html[data-theme="dark"] .nav a.is-active {
 
 /* ─── Hero / Branding ──────────────────────────────────────────── */
 .hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -571,6 +574,55 @@ html[data-theme="dark"] .nav a.is-active {
   scroll-margin-top: 4rem;
 }
 
+.hero__stars {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hero__star {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation-name: hero-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.hero__star--amber {
+  background: var(--brand-accent);
+  color: var(--brand-accent);
+}
+
+.hero__star--white {
+  background: #fff;
+  color: #fff;
+}
+
+@keyframes hero-twinkle {
+  0%, 100% {
+    opacity: 0.16;
+    transform: translate(-50%, -50%) scale(0.65);
+  }
+  40% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  70% {
+    opacity: 0.35;
+    transform: translate(-50%, -50%) scale(0.85);
+  }
+}
+
+.hero__layout,
+.hero__stats {
+  position: relative;
+  z-index: 1;
+}
+
 .hero__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
@@ -585,7 +637,15 @@ html[data-theme="dark"] .nav a.is-active {
 }
 
 .hero__visual {
+  position: relative;
   min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__star {
+    animation: none;
+    opacity: 0.45;
+  }
 }
 
 .hero__badge {
@@ -724,6 +784,19 @@ html[data-theme="dark"] .nav a.is-active {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
+}
+
+.grid-pricing {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+@media (max-width: 1100px) {
+  .grid-pricing {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .tile {
@@ -1179,20 +1252,40 @@ html[data-theme="dark"] .tile__icon {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  width: 100%;
   margin-top: 0.55rem;
-  padding: 0.75rem 0.9rem;
+  padding: 0.8rem 0.95rem;
   border-radius: 0.85rem;
   background: color-mix(in srgb, #fff 8%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 14%, transparent);
+  border: 1px solid color-mix(in srgb, #4ade80 45%, rgba(255, 255, 255, 0.14));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
-.contact__badge-dot {
-  width: 0.55rem;
-  height: 0.55rem;
+.contact__badge:hover {
+  background: color-mix(in srgb, #4ade80 14%, transparent);
+  border-color: color-mix(in srgb, #4ade80 60%, transparent);
+  transform: translateY(-1px);
+}
+
+.contact__badge-bot {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
   flex-shrink: 0;
-  border-radius: 999px;
-  background: #4ade80;
-  box-shadow: 0 0 0 4px color-mix(in srgb, #4ade80 28%, transparent);
+  border-radius: 0.7rem;
+  color: #4ade80;
+  background: color-mix(in srgb, #4ade80 18%, transparent);
+  border: 1px solid color-mix(in srgb, #4ade80 40%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #4ade80 18%, transparent);
+}
+
+.contact__badge-bot svg {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .contact__badge strong,
@@ -1207,6 +1300,50 @@ html[data-theme="dark"] .tile__icon {
   margin-top: 0.1rem;
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.58);
+}
+
+.bot-fab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 3rem;
+  padding: 0.65rem 1rem 0.65rem 0.75rem;
+  border: 1px solid color-mix(in srgb, #fff 18%, transparent);
+  border-radius: 999px;
+  background: var(--brand-primary);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow:
+    0 12px 28px rgba(15, 31, 52, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.bot-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(15, 31, 52, 0.34);
+}
+
+.bot-fab svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--brand-accent);
+}
+
+@media (max-width: 520px) {
+  .bot-fab span { display: none; }
+  .bot-fab {
+    width: 3.15rem;
+    height: 3.15rem;
+    padding: 0;
+    justify-content: center;
+  }
 }
 
 .contact__channels {
@@ -1673,6 +1810,7 @@ a.contact__channel:hover {
 
   .grid-2,
   .grid-3,
+  .grid-pricing,
   .suite,
   .contact,
   .footer__grid,
