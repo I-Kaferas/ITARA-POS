@@ -68,7 +68,10 @@ export const useRealtimeStore = defineStore('realtime', () => {
       const shouldResync = wasConnected
       status.value = 'connected'
       wasConnected = true
-      if (shouldResync) void catchUp()
+      if (!lastSyncAt.value) lastSyncAt.value = new Date().toISOString()
+      if (shouldResync) {
+        void catchUp().finally(() => emit({ type: 'resync' }))
+      }
     })
     connection.bind('unavailable', () => {
       status.value = 'reconnecting'

@@ -60,23 +60,56 @@ function concernsCurrentStore(payload: SyncPayload): boolean {
   return storeId === current
 }
 
+/** Fast events coalesce tighter so stock/POS stay snappy without hammering the API. */
+function debounceMs(types: string[]): number {
+  if (types.some((t) => t.startsWith('stock.') || t.startsWith('product.') || t.startsWith('sale.item_'))) {
+    return 80
+  }
+  if (types.some((t) => t.startsWith('table.') || t.startsWith('kitchen.') || t.startsWith('order.'))) {
+    return 100
+  }
+  return 150
+}
+
 export function useRealtimeSync(
   types: string[],
   refresh: (payload?: SyncPayload) => void | Promise<void>,
 ) {
   const realtime = useRealtimeStore()
+  const wanted = new Set(types)
+  const wait = debounceMs(types)
   let timer: ReturnType<typeof setTimeout> | undefined
   let pending: SyncPayload | undefined
+  let inFlight = false
+  let queued = false
   let unsubscribe: (() => void) | undefined
+
+  async function flush() {
+    if (inFlight) {
+      queued = true
+      return
+    }
+    const next = pending
+    pending = undefined
+    if (!next) return
+    inFlight = true
+    try {
+      await refresh(next)
+    } finally {
+      inFlight = false
+      if (queued) {
+        queued = false
+        void flush()
+      }
+    }
+  }
 
   function run(payload: SyncPayload) {
     pending = payload
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
-      const next = pending
-      pending = undefined
-      void refresh(next)
-    }, 250)
+      void flush()
+    }, wait)
   }
 
   onMounted(() => {
@@ -85,7 +118,7 @@ export function useRealtimeSync(
         run(payload)
         return
       }
-      if (!types.includes(payload.type) || !concernsCurrentStore(payload)) return
+      if (!wanted.has(payload.type) || !concernsCurrentStore(payload)) return
       run(payload)
     })
   })

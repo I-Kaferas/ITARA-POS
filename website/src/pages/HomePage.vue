@@ -202,11 +202,12 @@ function submitContact() {
           <h2>{{ t('modules.title') }}</h2>
           <p>{{ t('modules.lede') }}</p>
         </div>
-        <div class="grid-3">
+        <div class="grid-3 modules-grid">
           <article
             v-for="(mod, i) in modules"
             :key="mod.title"
-            class="tile glass-card"
+            class="tile glass-card lifted-card"
+            :class="`tile--${mod.icon.toLowerCase()}`"
             data-reveal
             :style="{ '--reveal-delay': `${i * 60}ms` }"
           >
@@ -234,11 +235,12 @@ function submitContact() {
         <h2>{{ t('why.title') }}</h2>
         <p>{{ t('why.lede') }}</p>
       </div>
-      <div class="grid-3">
+      <div class="grid-3 modules-grid">
         <article
           v-for="(item, i) in reasons"
           :key="item.title"
-          class="tile glass-card"
+          class="tile glass-card lifted-card"
+          :class="`tile--${item.icon.toLowerCase()}`"
           data-reveal
           :style="{ '--reveal-delay': `${i * 60}ms` }"
         >

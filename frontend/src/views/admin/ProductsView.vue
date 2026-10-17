@@ -9,6 +9,7 @@ import AppIcon from '../../components/ui/AppIcon.vue'
 import Badge from '../../components/ui/Badge.vue'
 import DataTableShell from '../../components/ui/DataTableShell.vue'
 import { extractApiErrorMessage } from '../../api/client'
+import { realtimeTopics, useRealtimeSync } from '../../composables/useRealtimeSync'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useContextStore } from '../../stores/context'
 import type { Catalog, Company, Product } from '../../types'
@@ -77,6 +78,10 @@ async function onSearch() {
 }
 
 watchLiveSearch(search, onSearch)
+
+useRealtimeSync(realtimeTopics.catalog, () => {
+  if (selectedCatalog.value) void loadPage(page.value)
+})
 
 async function removeProduct(id: string) {
   if (!(await confirmDialog(t('products.confirmDelete')))) return

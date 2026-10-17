@@ -86,6 +86,13 @@ class RealtimePublisher
             return;
         }
 
+        // Local/sync queues: fire after the HTTP response without a Redis hop.
+        if ((string) config('queue.default') === 'sync') {
+            dispatch($send)->afterResponse();
+
+            return;
+        }
+
         dispatch($send)
             ->afterResponse()
             ->onQueue((string) config('realtime.queue', 'default'));

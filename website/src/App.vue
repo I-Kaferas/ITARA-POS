@@ -84,6 +84,11 @@ function onBotHandoff() {
 
 watch(logoSrc, () => { logoFailed.value = false })
 const localeLabels: Record<Locale, string> = { fr: 'FR', en: 'EN', sw: 'SW' }
+const localeNames: Record<Locale, string> = {
+  fr: 'Français',
+  en: 'English',
+  sw: 'Kiswahili',
+}
 let stopReveal: (() => void) | undefined
 
 async function load() {
@@ -186,15 +191,32 @@ onBeforeUnmount(() => {
 
       <div class="topbar__actions">
         <div class="chrome-tools">
-          <label class="lang-switch" :title="String(t('actions', 'language'))">
-            <span class="sr-only">{{ t('actions', 'language') }}</span>
-            <select
-              :value="locale"
-              @change="setLocale(($event.target as HTMLSelectElement).value as Locale)"
+          <div
+            class="lang-switch"
+            role="group"
+            :aria-label="String(t('actions', 'language'))"
+          >
+            <span class="lang-switch__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18" />
+                <path d="M12 3a14 14 0 0 1 0 18" />
+                <path d="M12 3a14 14 0 0 0 0 18" />
+              </svg>
+            </span>
+            <button
+              v-for="code in locales"
+              :key="code"
+              type="button"
+              class="lang-switch__btn"
+              :class="{ 'is-active': locale === code }"
+              :aria-pressed="locale === code"
+              :title="localeNames[code]"
+              @click="setLocale(code)"
             >
-              <option v-for="code in locales" :key="code" :value="code">{{ localeLabels[code] }}</option>
-            </select>
-          </label>
+              {{ localeLabels[code] }}
+            </button>
+          </div>
           <button
             type="button"
             class="theme-toggle"
@@ -232,14 +254,33 @@ onBeforeUnmount(() => {
         {{ item.label }}
       </a>
       <div class="mobile-nav__tools">
-        <label class="lang-switch">
-          <select
-            :value="locale"
-            @change="setLocale(($event.target as HTMLSelectElement).value as Locale)"
+        <div
+          class="lang-switch lang-switch--mobile"
+          role="group"
+          :aria-label="String(t('actions', 'language'))"
+        >
+          <span class="lang-switch__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18" />
+              <path d="M12 3a14 14 0 0 1 0 18" />
+              <path d="M12 3a14 14 0 0 0 0 18" />
+            </svg>
+          </span>
+          <button
+            v-for="code in locales"
+            :key="code"
+            type="button"
+            class="lang-switch__btn"
+            :class="{ 'is-active': locale === code }"
+            :aria-pressed="locale === code"
+            :title="localeNames[code]"
+            @click="setLocale(code)"
           >
-            <option v-for="code in locales" :key="code" :value="code">{{ localeLabels[code] }}</option>
-          </select>
-        </label>
+            <strong>{{ localeLabels[code] }}</strong>
+            <span>{{ localeNames[code] }}</span>
+          </button>
+        </div>
         <button type="button" class="theme-toggle" @click="toggleTheme">
           {{ isDark ? t('actions', 'themeLight') : t('actions', 'themeDark') }}
         </button>

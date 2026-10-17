@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import SalesLayout from '../../../components/sales/SalesLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import { formatDate, formatMoney } from '../../../utils/format'
@@ -45,6 +46,10 @@ async function load() {
 
 onMounted(load)
 watch(storeId, load)
+useRealtimeSync(
+  [...realtimeTopics.sales, ...realtimeTopics.payments],
+  () => { void load() },
+)
 
 function paymentStatusLabel(status: string): string {
   const map: Record<string, string> = {
