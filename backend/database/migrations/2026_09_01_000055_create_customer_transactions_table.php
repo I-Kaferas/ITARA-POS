@@ -22,7 +22,7 @@ return new class extends Migration
             $table->unsignedInteger('loyalty_points_delta')->default(0);
             $table->text('description')->nullable();
             $table->foreignUuid('recorded_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('occurred_at');
+            $table->dateTime('occurred_at');
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['tenant_id', 'customer_id', 'occurred_at']);

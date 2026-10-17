@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('entity_type', 40);
             $table->uuid('entity_id');
             $table->json('payload');
-            $table->timestamp('occurred_at');
+            $table->dateTime('occurred_at');
             $table->timestamp('created_at')->nullable();
 
             $table->unique(['tenant_id', 'sequence']);

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('status', 30)->default('issued');
             $table->string('format', 20)->default('a4');
             $table->foreignUuid('issued_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('issued_at');
+            $table->dateTime('issued_at');
             $table->foreignUuid('cancelled_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('cancelled_at')->nullable();
             $table->string('storage_path', 500)->nullable();

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('format', 20)->default('thermal_80');
             $table->foreignUuid('printed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignUuid('device_id')->nullable()->constrained('devices')->nullOnDelete();
-            $table->timestamp('printed_at');
+            $table->dateTime('printed_at');
             $table->unsignedInteger('reprint_count')->default(0);
             $table->timestamps();
 

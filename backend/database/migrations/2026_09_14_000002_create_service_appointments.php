@@ -29,7 +29,7 @@ return new class extends Migration
                 $table->foreignUuid('service_offering_id')->constrained('service_offerings')->restrictOnDelete();
                 $table->string('customer_name');
                 $table->foreignUuid('employee_id')->nullable()->constrained('users')->nullOnDelete();
-                $table->timestamp('scheduled_at');
+                $table->dateTime('scheduled_at');
                 $table->string('status', 20)->default('booked');
                 $table->timestamp('completed_at')->nullable();
                 $table->foreignUuid('completed_by')->nullable()->constrained('users')->nullOnDelete();

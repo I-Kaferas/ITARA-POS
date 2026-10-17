@@ -59,53 +59,81 @@ class OnboardingFinishScreen extends StatelessWidget {
     final configured = _canOffline;
     final signInRoute = configured ? AppRoutes.pin : AppRoutes.adminLogin;
     return OnboardingFrame(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Center(child: OnboardingMark(compact: true)),
-          const SizedBox(height: 24),
-          Text(
-            tr('Prêt à ouvrir la caisse'),
-            textAlign: TextAlign.center,
-            style: GoogleFonts.ibmPlexSans(
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: OnboardingPanel(
+            padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Center(child: OnboardingMark(compact: true)),
+                const SizedBox(height: 22),
+                Center(
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: AppColors.successBg,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.success.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.check_rounded,
+                      color: AppColors.success,
+                      size: 30,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  tr('Prêt à ouvrir la caisse'),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  tr('La connexion et les droits restent ceux déjà en place. Aucun compte n’est créé ici.'),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 15,
+                    height: 1.45,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                OnboardingButton(
+                  label: tr('Se connecter'),
+                  primary: true,
+                  onPressed: () => _leave(context, onSignIn, signInRoute),
+                ),
+                if (_canConfigure) ...[
+                  const SizedBox(height: 10),
+                  OnboardingButton(
+                    label: tr('Configurer mon entreprise'),
+                    onPressed: () =>
+                        _leave(context, onConfigure, AppRoutes.configuration),
+                  ),
+                ],
+                if (_canOffline) ...[
+                  const SizedBox(height: 10),
+                  OnboardingButton(
+                    label: tr('Continuer hors ligne'),
+                    onPressed: () => _leave(context, onOffline, AppRoutes.pin),
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            tr('La connexion et les droits restent ceux déjà en place. Aucun compte n’est créé ici.'),
-            textAlign: TextAlign.center,
-            style: GoogleFonts.ibmPlexSans(
-              fontSize: 15,
-              height: 1.4,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 28),
-          OnboardingButton(
-            label: tr('Se connecter'),
-            primary: true,
-            onPressed: () => _leave(context, onSignIn, signInRoute),
-          ),
-          if (_canConfigure) ...[
-            const SizedBox(height: 10),
-            OnboardingButton(
-              label: tr('Configurer mon entreprise'),
-              onPressed: () =>
-                  _leave(context, onConfigure, AppRoutes.configuration),
-            ),
-          ],
-          if (_canOffline) ...[
-            const SizedBox(height: 10),
-            OnboardingButton(
-              label: tr('Continuer hors ligne'),
-              onPressed: () => _leave(context, onOffline, AppRoutes.pin),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

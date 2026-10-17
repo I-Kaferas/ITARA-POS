@@ -21,7 +21,7 @@ return new class extends Migration
             $table->date('due_date')->nullable();
             $table->text('description')->nullable();
             $table->foreignUuid('recorded_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('occurred_at');
+            $table->dateTime('occurred_at');
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['tenant_id', 'supplier_id', 'occurred_at']);

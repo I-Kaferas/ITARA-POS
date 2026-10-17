@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('reference', 100)->nullable();
             $table->text('notes')->nullable();
             $table->string('status', 20)->default('completed');
-            $table->timestamp('paid_at');
+            $table->dateTime('paid_at');
             $table->foreignUuid('recorded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->jsonb('allocations')->nullable();
             $table->timestamps();

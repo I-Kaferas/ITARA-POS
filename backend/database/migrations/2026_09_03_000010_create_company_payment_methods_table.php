@@ -21,9 +21,9 @@ return new class extends Migration
             $table->json('config')->nullable();
             $table->timestamps();
 
-            $table->unique(['company_id', 'code']);
-            $table->index(['tenant_id', 'company_id', 'is_enabled']);
-            $table->index(['company_id', 'available_on_pos', 'sort_order']);
+            $table->unique(['company_id', 'code'], 'cpm_company_code_uq');
+            $table->index(['tenant_id', 'company_id', 'is_enabled'], 'cpm_tenant_company_enabled_idx');
+            $table->index(['company_id', 'available_on_pos', 'sort_order'], 'cpm_company_pos_sort_idx');
         });
     }
 

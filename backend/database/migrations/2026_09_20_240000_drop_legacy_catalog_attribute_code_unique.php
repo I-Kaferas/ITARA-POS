@@ -52,14 +52,20 @@ return new class extends Migration
             return;
         }
 
+        foreach ($columns as $column) {
+            if (! Schema::hasColumn($table, $column)) {
+                return;
+            }
+        }
+
         foreach (Schema::getIndexes($table) as $index) {
             if (($index['name'] ?? '') === $name) {
                 return;
             }
         }
 
-        Schema::table($table, function (Blueprint $blueprint) use ($columns) {
-            $blueprint->unique($columns);
+        Schema::table($table, function (Blueprint $blueprint) use ($columns, $name) {
+            $blueprint->unique($columns, $name);
         });
     }
 };

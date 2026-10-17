@@ -17,14 +17,14 @@ return new class extends Migration
                 $table->decimal('rate', 18, 8);
                 $table->decimal('previous_rate', 18, 8)->nullable();
                 $table->char('base_currency_code', 3);
-                $table->timestamp('effective_at');
+                $table->dateTime('effective_at');
                 $table->foreignUuid('changed_by')->nullable()->constrained('users')->nullOnDelete();
                 $table->string('source', 40)->default('manual');
                 $table->string('note')->nullable();
                 $table->timestamps();
 
-                $table->index(['tenant_id', 'currency_code', 'effective_at']);
-                $table->index(['tenant_id', 'currency_id', 'effective_at']);
+                $table->index(['tenant_id', 'currency_code', 'effective_at'], 'cer_tenant_code_effective_idx');
+                $table->index(['tenant_id', 'currency_id', 'effective_at'], 'cer_tenant_currency_effective_idx');
             });
         }
 

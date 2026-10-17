@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('entity_type', 40);
             $table->string('entity_id', 80);
             $table->string('error', 500);
-            $table->timestamp('occurred_at');
+            $table->dateTime('occurred_at');
             $table->timestamp('resolved_at')->nullable();
             $table->timestamps();
 

@@ -59,7 +59,7 @@ return new class extends Migration
                 $table->timestamp('closed_at')->nullable();
                 $table->timestamps();
 
-                $table->index(['tenant_id', 'cash_register_id', 'status']);
+                $table->index(['tenant_id', 'cash_register_id', 'status'], 'crs_tenant_register_status_idx');
             });
         }
 
@@ -80,7 +80,7 @@ return new class extends Migration
                 $table->timestamp('occurred_at')->nullable();
                 $table->timestamps();
 
-                $table->index(['tenant_id', 'cash_register_id', 'occurred_at']);
+                $table->index(['tenant_id', 'cash_register_id', 'occurred_at'], 'cm_tenant_register_occurred_idx');
             });
         }
 
@@ -98,7 +98,7 @@ return new class extends Migration
                 $table->timestamp('opened_at')->nullable();
                 $table->timestamps();
 
-                $table->index(['tenant_id', 'cash_register_id', 'status']);
+                $table->index(['tenant_id', 'cash_register_id', 'status'], 'cs_tenant_register_status_idx');
             });
         }
 

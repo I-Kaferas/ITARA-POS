@@ -22,7 +22,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->index(['warehouse_id', 'is_active', 'next_run_at']);
+            $table->index(['warehouse_id', 'is_active', 'next_run_at'], 'inv_verify_plans_wh_active_next_idx');
         });
 
         Schema::create('inventory_verification_runs', function (Blueprint $table) {

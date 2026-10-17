@@ -21,7 +21,8 @@ return new class extends Migration
             $table->string('status', 20)->default('completed');
             $table->foreignUuid('payment_transaction_id')->nullable()->constrained('payment_transactions')->nullOnDelete();
             $table->foreignUuid('customer_transaction_id')->nullable()->constrained('customer_transactions')->nullOnDelete();
-            $table->foreignUuid('cash_register_id')->nullable()->constrained('cash_registers')->nullOnDelete();
+            // cash_registers is created later (branch establishments); FK added then if needed
+            $table->uuid('cash_register_id')->nullable()->index();
             $table->foreignUuid('original_payment_transaction_id')->nullable()->constrained('payment_transactions')->nullOnDelete();
             $table->foreignUuid('processed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->jsonb('metadata')->nullable();

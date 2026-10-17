@@ -23,9 +23,9 @@ return new class extends Migration
                 $table->timestamp('occurred_at')->nullable();
                 $table->timestamp('created_at')->nullable();
 
-                $table->index(['tenant_id', 'account_code']);
-                $table->index(['tenant_id', 'reference_type', 'reference_id']);
-                $table->index(['tenant_id', 'occurred_at']);
+                $table->index(['tenant_id', 'account_code'], 'acct_entries_tenant_account_idx');
+                $table->index(['tenant_id', 'reference_type', 'reference_id'], 'acct_entries_tenant_ref_idx');
+                $table->index(['tenant_id', 'occurred_at'], 'acct_entries_tenant_occurred_idx');
             });
         }
     }

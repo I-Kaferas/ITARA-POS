@@ -18,7 +18,7 @@ return new class extends Migration
             $table->uuid('entity_id')->nullable();
             $table->string('status', 40)->nullable();
             $table->json('payload');
-            $table->timestamp('occurred_at');
+            $table->dateTime('occurred_at');
             $table->timestamp('broadcast_at')->nullable();
             $table->timestamps();
 

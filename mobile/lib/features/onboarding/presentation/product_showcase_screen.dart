@@ -18,6 +18,7 @@ class ProductShowcaseScreen extends StatelessWidget {
     final finish = replay
         ? '${AppRoutes.onboardingFinish}?replay=1'
         : AppRoutes.onboardingFinish;
+    final wide = MediaQuery.sizeOf(context).width >= 800;
     return OnboardingFrame(
       footer: Row(
         children: [
@@ -26,7 +27,7 @@ class ProductShowcaseScreen extends StatelessWidget {
             child: Text(
               tr('Ignorer'),
               style: GoogleFonts.ibmPlexSans(
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -45,13 +46,40 @@ class ProductShowcaseScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const OnboardingMark(compact: true),
-          const SizedBox(height: 16),
+          Row(
+            children: [
+              const OnboardingMark(compact: true),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.accentSoft,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Text(
+                  tr('Démo'),
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.violet600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
           Text(
             tr('Aperçu du logiciel'),
             style: GoogleFonts.ibmPlexSans(
-              fontSize: 28,
+              fontSize: 30,
               fontWeight: FontWeight.w700,
+              letterSpacing: -0.6,
               color: AppColors.textPrimary,
             ),
           ),
@@ -60,19 +88,22 @@ class ProductShowcaseScreen extends StatelessWidget {
             tr('Démonstration. Ces chiffres sont fictifs et ne sont pas enregistrés dans les ventes.'),
             style: GoogleFonts.ibmPlexSans(
               fontSize: 14,
+              height: 1.4,
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Expanded(
             child: GridView.count(
-              crossAxisCount: MediaQuery.sizeOf(context).width >= 800 ? 3 : 1,
+              crossAxisCount: wide ? 3 : 1,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              childAspectRatio: 1.7,
+              childAspectRatio: wide ? 1.55 : 2.1,
               children: [
                 _DemoCard(
                   title: tr('Tableau de bord'),
+                  icon: Icons.dashboard_outlined,
+                  tint: AppColors.info,
                   lines: [
                     'Ventes du jour · 128 000',
                     'Tickets · 24',
@@ -81,6 +112,8 @@ class ProductShowcaseScreen extends StatelessWidget {
                 ),
                 _DemoCard(
                   title: tr('Caisse'),
+                  icon: Icons.point_of_sale_outlined,
+                  tint: AppColors.success,
                   lines: [
                     'Table 4 · 2 couverts',
                     'Espèces · 18 500',
@@ -89,14 +122,20 @@ class ProductShowcaseScreen extends StatelessWidget {
                 ),
                 _DemoCard(
                   title: tr('Produits'),
+                  icon: Icons.inventory_2_outlined,
+                  tint: AppColors.brand600,
                   lines: ['Farine · 4 200', 'Café · 8 000', 'Jus · 3 500'],
                 ),
                 _DemoCard(
                   title: tr('Stocks'),
+                  icon: Icons.warehouse_outlined,
+                  tint: AppColors.warning,
                   lines: ['Farine · 20', 'Café · 14', 'Seuil bas · 2'],
                 ),
                 _DemoCard(
                   title: tr('Rapport'),
+                  icon: Icons.insights_outlined,
+                  tint: AppColors.violet600,
                   lines: [
                     'Encaissé · 96 000',
                     'Crédit · 32 000',
@@ -113,60 +152,78 @@ class ProductShowcaseScreen extends StatelessWidget {
 }
 
 class _DemoCard extends StatelessWidget {
-  const _DemoCard({required this.title, required this.lines});
+  const _DemoCard({
+    required this.title,
+    required this.lines,
+    required this.icon,
+    required this.tint,
+  });
 
   final String title;
   final List<String> lines;
+  final IconData icon;
+  final Color tint;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              tr(title),
-              style: GoogleFonts.ibmPlexSans(
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+    return OnboardingPanel(
+      tint: tint,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: tint),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              tr('Illustration'),
-              style: GoogleFonts.ibmPlexSans(
-                fontSize: 11,
-                color: AppColors.textMuted,
-              ),
-            ),
-            const Spacer(),
-            for (final line in lines)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
+              const SizedBox(width: 10),
+              Expanded(
                 child: Text(
-                  tr(line),
+                  tr(title),
                   style: GoogleFonts.ibmPlexSans(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (final line in lines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: tint.withValues(alpha: 0.7),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      tr(line),
+                      style: GoogleFonts.ibmPlexSans(
+                        fontSize: 13,
+                        height: 1.3,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -26,7 +26,9 @@ class OnboardingScreen extends StatelessWidget {
         'Vue des performances depuis le tableau de bord.',
       ],
       icon: Icons.storefront_outlined,
-      tint: Color(0xFF2F6F9A),
+      tint: const Color(0xFF2F6F9A),
+      visual: OnboardingVisual.commerce,
+      eyebrow: '01 · Catalogue',
     ),
     OnboardingPageData(
       title: tr('Point de vente'),
@@ -38,7 +40,9 @@ class OnboardingScreen extends StatelessWidget {
         'Vente hors ligne déjà prévue sur ce terminal.',
       ],
       icon: Icons.point_of_sale_outlined,
-      tint: Color(0xFF0F7A4D),
+      tint: const Color(0xFF0F7A4D),
+      visual: OnboardingVisual.pos,
+      eyebrow: '02 · Caisse',
     ),
     OnboardingPageData(
       title: tr('Restaurant et hôtel'),
@@ -50,7 +54,9 @@ class OnboardingScreen extends StatelessWidget {
         'Report sur le folio du client, déjà géré par l’hôtellerie.',
       ],
       icon: Icons.restaurant_outlined,
-      tint: Color(0xFFB86E09),
+      tint: const Color(0xFFB86E09),
+      visual: OnboardingVisual.hospitality,
+      eyebrow: '03 · Service',
     ),
     OnboardingPageData(
       title: tr('Contrôle'),
@@ -62,7 +68,9 @@ class OnboardingScreen extends StatelessWidget {
         'Caissiers, rôles du terminal et permissions déjà en place.',
       ],
       icon: Icons.insights_outlined,
-      tint: Color(0xFF12243C),
+      tint: const Color(0xFF12243C),
+      visual: OnboardingVisual.control,
+      eyebrow: '04 · Pilotage',
     ),
   ];
 
@@ -185,24 +193,25 @@ class _Footer extends StatelessWidget {
         Semantics(
           label: trf('Étape {0} sur {1}', [index + 1, length]),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               for (var i = 0; i < length; i++)
-                Container(
-                  width: i == index ? 22 : 8,
-                  height: 8,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    color: i == index
-                        ? AppColors.brand600
-                        : AppColors.borderStrong,
-                    borderRadius: BorderRadius.circular(99),
+                Expanded(
+                  child: AnimatedContainer(
+                    duration: AppMotion.fast,
+                    height: 4,
+                    margin: EdgeInsets.only(right: i == length - 1 ? 0 : 6),
+                    decoration: BoxDecoration(
+                      color: i <= index
+                          ? AppColors.brand600
+                          : AppColors.borderStrong,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
                   ),
                 ),
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         Row(
           children: [
             TextButton(
@@ -210,7 +219,7 @@ class _Footer extends StatelessWidget {
               child: Text(
                 tr('Ignorer'),
                 style: GoogleFonts.ibmPlexSans(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textSecondary,
                 ),
               ),
@@ -225,7 +234,7 @@ class _Footer extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             SizedBox(
-              width: 140,
+              width: 148,
               child: OnboardingButton(
                 label: index == length - 1 ? 'Continuer' : 'Suivant',
                 primary: true,

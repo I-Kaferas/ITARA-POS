@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
             $table->string('phone', 50);
             $table->string('code_hash', 64);
-            $table->timestamp('expires_at');
+            $table->dateTime('expires_at');
             $table->timestamp('verified_at')->nullable();
             $table->timestamps();
 

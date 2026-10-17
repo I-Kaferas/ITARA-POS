@@ -30,20 +30,50 @@ return new class extends Migration
             Catalog::query()->whereNotNull('store_id')->update(['store_id' => null]);
         }
 
+        if (! Schema::hasColumn('catalogs', 'store_id')) {
+            return;
+        }
+
+        $hasStoreUnique = collect(Schema::getIndexes('catalogs'))
+            ->contains(fn (array $index): bool => ($index['name'] ?? '') === 'catalogs_store_id_unique');
+
+        if (! $hasStoreUnique) {
+            return;
+        }
+
+        // MySQL cannot drop a unique index still used by a foreign key.
         Schema::table('catalogs', function (Blueprint $table) {
-            foreach (Schema::getIndexes('catalogs') as $index) {
-                if (($index['name'] ?? '') === 'catalogs_store_id_unique') {
-                    $table->dropUnique(['store_id']);
-                    break;
-                }
-            }
+            $table->dropForeign(['store_id']);
+        });
+
+        Schema::table('catalogs', function (Blueprint $table) {
+            $table->dropUnique(['store_id']);
+        });
+
+        Schema::table('catalogs', function (Blueprint $table) {
+            $table->foreign('store_id')
+                ->references('id')
+                ->on('stores')
+                ->nullOnDelete();
         });
     }
 
     public function down(): void
     {
+        if (! Schema::hasColumn('catalogs', 'store_id')) {
+            return;
+        }
+
+        Schema::table('catalogs', function (Blueprint $table) {
+            $table->dropForeign(['store_id']);
+        });
+
         Schema::table('catalogs', function (Blueprint $table) {
             $table->unique('store_id');
+            $table->foreign('store_id')
+                ->references('id')
+                ->on('stores')
+                ->nullOnDelete();
         });
     }
 };

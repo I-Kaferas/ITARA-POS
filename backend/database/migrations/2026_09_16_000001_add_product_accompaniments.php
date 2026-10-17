@@ -30,8 +30,8 @@ return new class extends Migration
                 $table->timestamps();
 
                 $table->unique(['product_id', 'accompaniment_product_id'], 'product_accompaniment_unique');
-                $table->index(['tenant_id', 'product_id']);
-                $table->index(['tenant_id', 'accompaniment_product_id']);
+                $table->index(['tenant_id', 'product_id'], 'pal_tenant_product_idx');
+                $table->index(['tenant_id', 'accompaniment_product_id'], 'pal_tenant_accompaniment_idx');
             });
         }
     }

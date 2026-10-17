@@ -25,7 +25,7 @@ return new class extends Migration
             $table->foreignUuid('destination_warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete();
             $table->foreignUuid('performed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('notes')->nullable();
-            $table->timestamp('occurred_at');
+            $table->dateTime('occurred_at');
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['tenant_id', 'warehouse_id', 'product_id']);
