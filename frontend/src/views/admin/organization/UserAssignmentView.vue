@@ -769,7 +769,7 @@ function openAssign(user: TenantUser) {
   height: 3rem;
   font-size: 0.95rem;
   background: var(--color-sidebar);
-  color: var(--color-sidebar-mark, #ffc400);
+  color: var(--color-sidebar-mark);
 }
 .users__name { display: flex; align-items: center; gap: 0.4rem; margin: 0; font-weight: 600; }
 .users__you {
@@ -807,13 +807,8 @@ function openAssign(user: TenantUser) {
   display: block;
   height: 3.2rem;
   border-radius: var(--radius-md);
-  background: linear-gradient(90deg, var(--color-canvas), var(--color-surface), var(--color-canvas));
-  background-size: 200% 100%;
-  animation: users-shimmer 1.2s ease-in-out infinite;
-}
-@keyframes users-shimmer {
-  from { background-position: 100% 0; }
-  to { background-position: -100% 0; }
+  border: 1px solid var(--color-border);
+  background: var(--color-canvas);
 }
 .users__detail {
   position: sticky;

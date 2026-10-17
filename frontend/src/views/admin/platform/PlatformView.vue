@@ -18,6 +18,7 @@ import { MODULE_CODES } from '../../../modules/registry'
 import PlatformBackupsPanel from './PlatformBackupsPanel.vue'
 import PlatformPlansPanel from './PlatformPlansPanel.vue'
 import { formatDateTime, formatMoney } from '../../../utils/format'
+import { goToMarketing } from '../../../utils/marketing'
 
 type Company = {
   id: string
@@ -487,7 +488,7 @@ async function switchAccount() {
   await auth.logout()
   brandingStore.clear()
   context.reset()
-  await router.push({ name: 'login' })
+  goToMarketing()
 }
 
 watch(() => route.name, applyRouteSection)

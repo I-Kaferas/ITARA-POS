@@ -7,8 +7,7 @@ import { useRouter } from 'vue-router'
 import CatalogLayout from '../../components/catalog/CatalogLayout.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import Badge from '../../components/ui/Badge.vue'
-import EmptyState from '../../components/ui/EmptyState.vue'
-import LoadingBlock from '../../components/ui/LoadingBlock.vue'
+import DataTableShell from '../../components/ui/DataTableShell.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useContextStore } from '../../stores/context'
@@ -215,21 +214,32 @@ async function exportPdf() {
     <p v-if="importNotice" class="products-note" role="status">{{ importNotice }}</p>
     <p v-if="importError" class="products-note products-note--error" role="alert">{{ importError }}</p>
 
-    <LoadingBlock v-if="loadingProducts" variant="table" :label="t('common.loading')" />
-
-    <div v-else class="ui-table-wrap">
-      <div v-if="productCount" class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-        <p class="m-0 text-xs font-medium text-slate-500">
-          {{ pageFrom }}–{{ pageTo }} / {{ total }}
-        </p>
-        <div v-if="lastPage > 1" class="flex items-center gap-2">
-          <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" :disabled="page <= 1" @click="loadPage(page - 1)">‹</button>
-          <span class="text-xs text-slate-500">{{ page }} / {{ lastPage }}</span>
-          <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" :disabled="page >= lastPage" @click="loadPage(page + 1)">›</button>
-        </div>
-      </div>
-
-      <table v-if="productCount" class="ui-table">
+    <DataTableShell
+      :title="t('nav.products')"
+      :meta="productCount ? `${pageFrom}–${pageTo} / ${total}` : undefined"
+      :loading="loadingProducts"
+      :loading-label="t('common.loading')"
+      :empty="!loadingProducts && !productCount"
+      empty-icon="products"
+      :empty-title="t('products.empty')"
+      :empty-description="t('products.emptyHint')"
+    >
+      <template v-if="lastPage > 1" #toolbar>
+        <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" :disabled="page <= 1" @click="loadPage(page - 1)">‹</button>
+        <span class="text-xs text-slate-500">{{ page }} / {{ lastPage }}</span>
+        <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" :disabled="page >= lastPage" @click="loadPage(page + 1)">›</button>
+      </template>
+      <template #emptyActions>
+        <button
+          class="ui-btn ui-btn--primary mt-4"
+          :disabled="!selectedCatalog"
+          @click="router.push({ name: 'product-create', query: { catalogId: selectedCatalog?.id } })"
+        >
+          <AppIcon name="plus" :size="16" />
+          {{ t('products.newAction') }}
+        </button>
+      </template>
+      <table class="ui-table">
         <thead>
           <tr>
             <th>{{ t('products.image') }}</th>
@@ -260,7 +270,7 @@ async function exportPdf() {
               </div>
             </td>
             <td>
-              <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{{ product.sku }}</code>
+              <code class="font-mono rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{{ product.sku }}</code>
               <span v-if="product.barcode" class="mt-1 block text-xs text-slate-400">{{ product.barcode }}</span>
             </td>
             <td class="!font-semibold !text-slate-800">
@@ -280,14 +290,14 @@ async function exportPdf() {
             <td class="num">{{ formatMoney(product.base_price) }}</td>
             <td class="num">{{ formatMoney(product.cost_price ?? 0) }}</td>
             <td class="text-slate-600">{{ product.tax ? `${product.tax.code ?? product.tax.name}` : '—' }}</td>
-            <td>{{ isStockableProduct(product) ? (product.stock ?? 0) : '' }}</td>
+            <td class="num">{{ isStockableProduct(product) ? (product.stock ?? 0) : '' }}</td>
             <td>
               <Badge :variant="product.is_active ? 'success' : 'neutral'">
                 {{ product.is_active ? t('products.active') : t('products.inactive') }}
               </Badge>
             </td>
             <td class="text-right">
-              <div class="flex items-center justify-end gap-1">
+              <div class="ui-table__actions">
                 <button class="ui-btn ui-btn--ghost ui-btn--sm" @click="router.push({ name: 'product-edit', params: { id: product.id } })">
                   <AppIcon name="edit" :size="16" />
                   {{ t('common.edit') }}
@@ -301,23 +311,7 @@ async function exportPdf() {
           </tr>
         </tbody>
       </table>
-
-      <EmptyState
-        v-else
-        icon="products"
-        :title="t('products.empty')"
-        :description="t('products.emptyHint')"
-      >
-        <button
-          class="ui-btn ui-btn--primary mt-4"
-          :disabled="!selectedCatalog"
-          @click="router.push({ name: 'product-create', query: { catalogId: selectedCatalog?.id } })"
-        >
-          <AppIcon name="plus" :size="16" />
-          {{ t('products.newAction') }}
-        </button>
-      </EmptyState>
-    </div>
+    </DataTableShell>
   </CatalogLayout>
 </template>
 

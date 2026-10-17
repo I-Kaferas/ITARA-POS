@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
+import KpiCard from '../../components/ui/KpiCard.vue'
+import LoadingBlock from '../../components/ui/LoadingBlock.vue'
 import { api, type ApiItemResponse } from '../../api/client'
 import { moduleEnabled, type ModuleWidget } from '../../modules/registry'
 import { useAuthStore } from '../../stores/auth'
@@ -80,6 +82,8 @@ const stats = computed(() => [
     value: formatMoney(overview.value?.kpis.revenue ?? 0),
     icon: 'receipt',
     tone: 'green',
+    accent: 'var(--color-success)',
+    iconBg: 'var(--color-success-bg)',
     delta: t('dashboard.avgTicket', { amount: formatMoney(overview.value?.kpis.average_ticket ?? 0) }),
     deltaTone: 'up' as const,
   },
@@ -89,6 +93,8 @@ const stats = computed(() => [
     value: overview.value?.kpis.sales_count ?? 0,
     icon: 'sales',
     tone: 'amber',
+    accent: 'var(--color-warning)',
+    iconBg: 'var(--color-warning-bg)',
     delta: peak.value ? t('dashboard.peakHour', { hour: peak.value.label }) : t('dashboard.quiet'),
     deltaTone: peak.value ? 'up' as const : 'flat' as const,
   },
@@ -98,6 +104,8 @@ const stats = computed(() => [
     value: openShifts.value,
     icon: 'shift',
     tone: 'violet',
+    accent: 'var(--color-brand-600)',
+    iconBg: 'var(--color-brand-50)',
     delta: openShifts.value > 0 ? t('dashboard.shiftsLive') : t('dashboard.shiftsIdle'),
     deltaTone: openShifts.value > 0 ? 'up' as const : 'flat' as const,
   }] : []),
@@ -107,6 +115,8 @@ const stats = computed(() => [
     value: alertCount.value,
     icon: 'bell',
     tone: 'blue',
+    accent: 'var(--color-info)',
+    iconBg: 'var(--color-info-bg)',
     delta: alertCount.value > 0 ? t('dashboard.alertsOpen') : t('dashboard.alertsClear'),
     deltaTone: alertCount.value > 0 ? 'down' as const : 'up' as const,
   }] : []),
@@ -192,7 +202,6 @@ watch(storeId, () => loadDashboard())
     <template #subtitle>{{ t('dashboard.subtitle') }}</template>
 
     <div class="dash">
-      <p v-if="loading" class="sr-only">{{ t('common.loading') }}</p>
       <header class="greet">
         <h2 class="greet__title">{{ greeting }}</h2>
         <p class="greet__prompt">{{ t('dashboard.prompt') }}</p>
@@ -205,17 +214,25 @@ watch(storeId, () => loadDashboard())
         </RouterLink>
       </section>
 
-      <section v-if="stats.length" class="stats" :aria-label="t('dashboard.todayActivity')">
-        <article v-for="card in stats" :key="card.key" class="stat" :class="`tone-${card.tone}`">
-          <span class="stat__icon">
-            <AppIcon :name="card.icon" :size="20" />
-          </span>
-          <div class="min-w-0">
-            <p class="stat__label">{{ card.label }}</p>
-            <p class="stat__value">{{ card.value }}</p>
-            <p class="stat__delta" :class="`stat__delta--${card.deltaTone}`">{{ card.delta }}</p>
-          </div>
-        </article>
+      <section
+        v-if="loading || stats.length"
+        class="dash-kpis hub-strip"
+        :aria-label="t('dashboard.todayActivity')"
+      >
+        <LoadingBlock v-if="loading" variant="cards" :rows="4" :label="t('common.loading')" />
+        <template v-else>
+          <KpiCard
+            v-for="card in stats"
+            :key="card.key"
+            :label="card.label"
+            :value="card.value"
+            :icon="card.icon"
+            :accent="card.accent"
+            :icon-bg="card.iconBg"
+            :delta="card.delta"
+            :delta-tone="card.deltaTone"
+          />
+        </template>
       </section>
 
       <div class="stage">
@@ -428,31 +445,14 @@ watch(storeId, () => loadDashboard())
   color: var(--color-text-muted);
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-4);
+.dash-kpis.hub-strip {
+  margin-bottom: 0;
 }
 
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
-  padding: 16px 18px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-xs);
-  transition: transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
+.dash-kpis :deep(.ui-skeleton-block) {
+  grid-column: 1 / -1;
 }
 
-.stat:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.stat__icon,
 .area__icon {
   display: grid;
   place-items: center;
@@ -462,14 +462,6 @@ watch(storeId, () => loadDashboard())
   color: var(--tone);
 }
 
-.stat__icon {
-  width: 46px;
-  height: 46px;
-}
-
-.stat__label,
-.stat__value,
-.stat__delta,
 .area__label,
 .area__count,
 .pick__name,
@@ -479,32 +471,6 @@ watch(storeId, () => loadDashboard())
 .watch__sku {
   margin: 0;
 }
-
-.stat__label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.stat__value {
-  margin-top: 2px;
-  font-size: 1.45rem;
-  font-weight: 650;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-}
-
-.stat__delta {
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.stat__delta--up { color: var(--color-success); }
-.stat__delta--down { color: var(--color-danger); }
-.stat__delta--flat { color: var(--color-text-muted); }
 
 .stage {
   display: grid;
@@ -945,20 +911,20 @@ watch(storeId, () => loadDashboard())
 }
 
 .tone-green {
-  --tone: #1f8a5b;
-  --tone-bg: color-mix(in srgb, #1f8a5b 16%, var(--color-surface));
+  --tone: var(--color-success);
+  --tone-bg: var(--color-success-bg);
 }
 .tone-amber {
-  --tone: #c4841d;
-  --tone-bg: color-mix(in srgb, #e39b2b 20%, var(--color-surface));
+  --tone: var(--color-warning);
+  --tone-bg: var(--color-warning-bg);
 }
 .tone-violet {
-  --tone: #6b5bd0;
-  --tone-bg: color-mix(in srgb, #6b5bd0 16%, var(--color-surface));
+  --tone: var(--color-brand-600);
+  --tone-bg: var(--color-brand-50);
 }
 .tone-blue {
-  --tone: #2f6f9a;
-  --tone-bg: color-mix(in srgb, #2f6f9a 16%, var(--color-surface));
+  --tone: var(--color-info);
+  --tone-bg: var(--color-info-bg);
 }
 
 @keyframes bar-rise {
@@ -967,7 +933,6 @@ watch(storeId, () => loadDashboard())
 }
 
 @media (max-width: 1180px) {
-  .stats,
   .picks {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1020,7 +985,6 @@ watch(storeId, () => loadDashboard())
 }
 
 @media (max-width: 640px) {
-  .stats,
   .picks {
     grid-template-columns: 1fr;
   }

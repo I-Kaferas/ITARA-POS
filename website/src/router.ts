@@ -1,20 +1,20 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from './pages/HomePage.vue'
-import ProductPage from './pages/ProductPage.vue'
-import FeaturesPage from './pages/FeaturesPage.vue'
-import ContactPage from './pages/ContactPage.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'home', component: HomePage, meta: { nav: 'home' } },
-    { path: '/product', name: 'product', component: ProductPage, meta: { nav: 'product' } },
-    { path: '/features', name: 'features', component: FeaturesPage, meta: { nav: 'features' } },
-    { path: '/contact', name: 'contact', component: ContactPage, meta: { nav: 'contact' } },
-    { path: '/:slug', name: 'tenant-home', component: HomePage, meta: { nav: 'home' } },
-    { path: '/:slug/product', name: 'tenant-product', component: ProductPage, meta: { nav: 'product' } },
-    { path: '/:slug/features', name: 'tenant-features', component: FeaturesPage, meta: { nav: 'features' } },
-    { path: '/:slug/contact', name: 'tenant-contact', component: ContactPage, meta: { nav: 'contact' } },
+    { path: '/', name: 'home', component: HomePage },
+    { path: '/:slug', name: 'tenant-home', component: HomePage },
+    { path: '/product', redirect: '/#suite' },
+    { path: '/features', redirect: '/#modules' },
+    { path: '/contact', redirect: '/#contact' },
+    { path: '/:slug/product', redirect: (to) => `/${to.params.slug}#suite` },
+    { path: '/:slug/features', redirect: (to) => `/${to.params.slug}#modules` },
+    { path: '/:slug/contact', redirect: (to) => `/${to.params.slug}#contact` },
   ],
-  scrollBehavior: () => ({ top: 0 }),
+  scrollBehavior(to) {
+    if (to.hash) return { el: to.hash, behavior: 'smooth', top: 72 }
+    return { top: 0 }
+  },
 })

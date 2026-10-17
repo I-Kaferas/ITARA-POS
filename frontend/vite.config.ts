@@ -3,6 +3,9 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  // Vite 8 oxc: solution-style root tsconfig.json (files:[]) + project refs
+  // fails discovery for src/* on Windows; pin the app config explicitly.
+  tsconfig: './tsconfig.app.json',
   plugins: [vue(), tailwindcss()],
   build: {
     target: 'es2020',

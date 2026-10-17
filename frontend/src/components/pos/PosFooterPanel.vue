@@ -1162,7 +1162,7 @@ const discountLabel = () => {
   min-height: 3rem;
   border-color: color-mix(in srgb, #fff 24%, var(--color-brand-700, #0f1f34));
   background-color: var(--color-brand-700, #0f1f34);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 18%, transparent), transparent 46%);
+  background-image: none;
   color: white;
   font-size: 1rem;
   font-weight: 600;
@@ -1173,7 +1173,7 @@ const discountLabel = () => {
 }
 .pos-btn--pay:hover:not(:disabled) {
   background-color: var(--color-brand-800, #0d1a2b);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 22%, transparent), transparent 42%);
+  background-image: none;
 }
 
 @media (max-width: 1100px) {

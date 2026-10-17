@@ -23,12 +23,15 @@
         <div class="pos-preview__cart-row" />
         <div class="pos-preview__cart-row" />
         <div class="pos-preview__cart-row is-accent" />
-        <div class="pos-preview__pay">Encaisser</div>
+        <div class="pos-preview__pay">{{ t('preview.checkout') }}</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '../i18n'
+
 defineProps<{ title?: string }>()
+const { t } = useI18n()
 </script>

@@ -250,13 +250,8 @@ async function savePassword() {
   display: block;
   height: 18rem;
   border-radius: var(--radius-lg);
-  background: linear-gradient(90deg, var(--color-canvas), var(--color-surface), var(--color-canvas));
-  background-size: 200% 100%;
-  animation: profile-shimmer 1.2s ease-in-out infinite;
-}
-@keyframes profile-shimmer {
-  from { background-position: 100% 0; }
-  to { background-position: -100% 0; }
+  border: 1px solid var(--color-border);
+  background: var(--color-canvas);
 }
 .profile {
   display: grid;
@@ -287,7 +282,7 @@ async function savePassword() {
   height: 3rem;
   border-radius: 999px;
   background: var(--color-sidebar);
-  color: var(--color-sidebar-mark, #ffc400);
+  color: var(--color-sidebar-mark);
   font-weight: 700;
   flex: none;
 }

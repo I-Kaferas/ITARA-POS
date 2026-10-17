@@ -37,13 +37,6 @@ const tabs: { id: StockTab; labelKey: string; icon: string }[] = [
   { id: 'recommendations', labelKey: 'reports.storeStock.tabs.recommendations', icon: 'products' },
 ]
 
-const healthColors: Record<string, string> = {
-  healthy: '#059669',
-  low: '#d97706',
-  out: '#dc2626',
-  over: '#2563eb',
-}
-
 function localDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -113,17 +106,11 @@ const headerStore = computed(() => {
 const summary = computed(() => report.value?.summary)
 const stockHealth = computed(() => report.value?.stock_health ?? [])
 const healthTotal = computed(() => Math.max(1, stockHealth.value.reduce((sum, row) => sum + row.count, 0)))
-const healthDonut = computed(() => {
-  let cursor = 0
-  const stops = stockHealth.value.map((row) => {
-    const start = (cursor / healthTotal.value) * 100
-    cursor += row.count
-    const end = (cursor / healthTotal.value) * 100
-    return `${healthColors[row.label] ?? '#64748b'} ${start}% ${end}%`
-  })
-  return `conic-gradient(${stops.join(', ')})`
-})
-const dominantHealth = computed(() => [...stockHealth.value].sort((a, b) => b.count - a.count)[0] ?? null)
+
+function healthShare(count: number) {
+  return Math.round((count / healthTotal.value) * 1000) / 10
+}
+
 const byCategory = computed(() => report.value?.by_category ?? [])
 const categoryMax = computed(() => Math.max(1, ...byCategory.value.map(r => r.value)))
 const topSold = computed(() => report.value?.performance.top_sold ?? [])
@@ -318,20 +305,19 @@ onMounted(async () => {
             <header class="panel__header">
               <h3 class="panel__title">{{ t('reports.storeStock.stockHealth') }}</h3>
             </header>
-            <div v-if="stockHealth.some(r => r.count > 0)" class="donut-wrap">
-              <div class="donut" :style="{ background: healthDonut }">
-                <div class="donut__center">
-                  <strong v-if="dominantHealth">{{ Math.round((dominantHealth.count / healthTotal) * 100) }}%</strong>
-                  <span v-if="dominantHealth">{{ statusLabel(dominantHealth.label) }}</span>
+            <div v-if="stockHealth.some(r => r.count > 0)" class="bar-list">
+              <div v-for="row in stockHealth" :key="row.label" class="bar-list__row">
+                <div class="bar-list__meta">
+                  <span>{{ statusLabel(row.label) }}</span>
+                  <strong>{{ healthShare(row.count) }}% · {{ row.count }}</strong>
+                </div>
+                <div class="bar-list__track">
+                  <div
+                    class="bar-list__fill bar-list__fill--share"
+                    :style="{ width: `${healthShare(row.count)}%` }"
+                  />
                 </div>
               </div>
-              <ul class="donut-legend">
-                <li v-for="row in stockHealth" :key="row.label">
-                  <i class="dot" :style="{ background: healthColors[row.label] || '#64748b' }" />
-                  <span>{{ statusLabel(row.label) }}</span>
-                  <strong>{{ row.count }}</strong>
-                </li>
-              </ul>
             </div>
             <p v-else class="panel__empty">{{ t('org.empty') }}</p>
           </section>
@@ -894,14 +880,7 @@ onMounted(async () => {
 .panel__title { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--color-text-primary);}
 .panel__meta { font-size: 0.9rem; color: light-dark(#0f766e, #9ac5c2);}
 .panel__empty { margin: 1.5rem 0 0; text-align: center; color: var(--color-text-faint); font-size: 0.9rem;}
-.donut-wrap { display: flex; flex-wrap: wrap; gap: 1.25rem; align-items: center; }
-.donut { position: relative; width: 9.5rem; height: 9.5rem; border-radius: 999px; flex-shrink: 0; }
-.donut__center {
-  position: absolute; inset: 1.55rem; border-radius: 999px; background: var(--color-surface);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 0.15rem;}
-.donut-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; flex: 1; }
-.donut-legend li { display: grid; grid-template-columns: auto 1fr auto; gap: 0.5rem; align-items: center; font-size: 0.85rem; color: var(--color-text-secondary);}
-.dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 999px; }
+.bar-list__fill--share { background: var(--color-brand-600); }
 .bar-list { display: flex; flex-direction: column; gap: 0.7rem; }
 .bar-list__meta { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.82rem; color: var(--color-text-secondary); margin-bottom: 0.25rem;}
 .bar-list__track { height: 0.45rem; border-radius: 999px; background: var(--color-table-header); overflow: hidden;}

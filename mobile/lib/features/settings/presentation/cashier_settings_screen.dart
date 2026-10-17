@@ -157,7 +157,7 @@ class _Page extends StatelessWidget {
       _SectionLabel('Général'),
       _GeneralCard(config: config, prefs: prefs),
       _SectionLabel('Notifications'),
-      _NotificationsCard(enabled: prefs.notificationsEnabled),
+      _NotificationsCard(prefs: prefs),
       _SectionLabel('Verrouillage'),
       _AutoLockCard(minutes: prefs.autoLockMinutes),
       _SectionLabel('À propos'),
@@ -1397,19 +1397,65 @@ class _MenuVisibilityCard extends StatelessWidget {
 }
 
 class _NotificationsCard extends StatelessWidget {
-  const _NotificationsCard({required this.enabled});
+  const _NotificationsCard({required this.prefs});
 
-  final bool enabled;
+  final CashierPreferences prefs;
+
+  static const _channels = <(String key, IconData icon, String label)>[
+    ('orders', Icons.receipt_long_outlined, 'Orders'),
+    ('stock', Icons.inventory_2_outlined, 'Stock Updates'),
+    ('devices', Icons.devices_outlined, 'Device Connections'),
+    ('call_ringtone', Icons.ring_volume_outlined, 'Call ringtone'),
+    ('call_vibration', Icons.vibration, 'Call vibration'),
+    ('sync', Icons.sync, 'Sync Events'),
+    ('general', Icons.info_outline, 'General'),
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final masterOn = prefs.notificationsEnabled;
+    final rows = <Widget>[
+      _NotificationMasterRow(
+        enabled: masterOn,
+        onChanged: prefs.setNotificationsEnabled,
+      ),
+    ];
+    for (final (key, icon, label) in _channels) {
+      rows.add(Divider(height: 1, color: AppColors.border));
+      rows.add(
+        _NotificationChannelRow(
+          icon: icon,
+          label: label,
+          enabled: prefs.enabledNotificationChannels.contains(key),
+          interactive: masterOn,
+          onChanged: (value) => prefs.setNotificationChannel(key, value),
+        ),
+      );
+    }
+
     return _Card(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(children: rows),
+    );
+  }
+}
+
+class _NotificationMasterRow extends StatelessWidget {
+  const _NotificationMasterRow({required this.enabled, required this.onChanged});
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
           _IconBadge(
             icon: Icons.notifications_outlined,
             color: _brand,
-            background: _brand.withValues(alpha: 0.10),
+            background: _brand.withValues(alpha: 0.12),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1417,7 +1463,7 @@ class _NotificationsCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tr('Activer les notifications'),
+                  tr('Enable Notifications'),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -1425,9 +1471,7 @@ class _NotificationsCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  tr(enabled
-                      ? 'Les alertes de caisse sont actives'
-                      : 'Toutes les notifications sont coupées'),
+                  tr('Receive alerts for orders, stock & sync'),
                   style: GoogleFonts.ibmPlexSans(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,
@@ -1436,11 +1480,58 @@ class _NotificationsCard extends StatelessWidget {
               ],
             ),
           ),
-          Switch(
-            value: enabled,
-            onChanged: CashierPreferences.instance.setNotificationsEnabled,
-          ),
+          Switch(value: enabled, onChanged: onChanged),
         ],
+      ),
+    );
+  }
+}
+
+class _NotificationChannelRow extends StatelessWidget {
+  const _NotificationChannelRow({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.interactive,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final bool interactive;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: interactive ? 1 : 0.45,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            _IconBadge(
+              icon: icon,
+              color: _brand,
+              background: _brand.withValues(alpha: 0.12),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                tr(label),
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            Switch(
+              value: enabled,
+              onChanged: interactive ? onChanged : null,
+            ),
+          ],
+        ),
       ),
     );
   }

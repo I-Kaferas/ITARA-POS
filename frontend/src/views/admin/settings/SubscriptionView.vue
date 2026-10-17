@@ -427,7 +427,7 @@ function declare(invoiceId: string) {
   border: 1px solid color-mix(in srgb, var(--plan, var(--color-border)) 35%, var(--color-border));
   border-top: 4px solid var(--plan, var(--color-border));
   border-radius: 18px;
-  background: linear-gradient(180deg, var(--plan-soft, var(--color-surface)), var(--color-surface) 5.75rem);
+  background: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
 .sub__plan--current {

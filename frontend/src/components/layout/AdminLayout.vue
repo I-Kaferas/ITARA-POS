@@ -17,6 +17,7 @@ import { usePageHeaderStore } from '../../stores/pageHeader'
 import { useOfflineStore } from '../../stores/offline'
 import { useRealtimeStore } from '../../stores/realtime'
 import { resolvedTheme, useTheme } from '../../composables/useTheme'
+import { goToMarketing } from '../../utils/marketing'
 
 type NavChild = { name: string; to: string; label: string; icon: string; color?: string; module?: string | string[] }
 type NavItem = {
@@ -725,7 +726,7 @@ async function logout() {
   await auth.logout()
   brandingStore.clear()
   context.reset()
-  router.push({ name: 'login' })
+  goToMarketing()
 }
 
 function onSidebarPref(event: Event) {
@@ -830,12 +831,12 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
           <span v-else class="app-sidebar__mark" :aria-label="companyName">{{ companyInitials }}</span>
         </div>
         <div class="app-sidebar__brand-text min-w-0 flex-1">
-          <p class="app-sidebar__company font-brand m-0 text-sm font-bold tracking-[0.04em] text-slate-900">{{ brandLines.primary }}</p>
+          <p class="app-sidebar__company font-brand m-0 text-sm font-semibold tracking-tight text-slate-900">{{ brandLines.primary }}</p>
           <p
             v-if="brandLines.secondary"
-            class="font-brand m-0 text-[0.6875rem] tracking-[0.12em] text-slate-500"
+            class="font-brand m-0 text-xs tracking-wide text-slate-500"
           >{{ brandLines.secondary }}</p>
-          <p class="m-0 mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Admin Panel</p>
+          <p class="m-0 mt-1 text-meta uppercase tracking-wide text-slate-400">Admin Panel</p>
         </div>
         <button
           type="button"
@@ -1155,12 +1156,12 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
   min-height: var(--control-lg);
   width: calc(100% - var(--space-6));
   margin: var(--space-3) var(--space-3) var(--space-2);
-  border: 1px solid color-mix(in srgb, var(--color-sidebar) 18%, #ffffff);
+  border: 1px solid var(--color-sidebar-border);
   border-radius: var(--radius-md);
-  background: #ffffff;
-  color: var(--color-sidebar);
+  background: var(--color-sidebar-elevated);
+  color: var(--color-sidebar-text);
   padding: var(--nav-item-pad-y) var(--nav-item-pad-x);
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
   font-weight: 500;
   line-height: var(--line-sm);
   cursor: pointer;
@@ -1171,9 +1172,9 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
 }
 
 .module-search-btn:hover {
-  background: #f5f8fc;
-  border-color: var(--color-sidebar);
-  color: var(--color-sidebar);
+  background: var(--color-sidebar-hover);
+  border-color: var(--color-sidebar-mark);
+  color: var(--color-sidebar-text-strong);
 }
 
 .module-search-btn svg {
@@ -1187,13 +1188,13 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
 }
 
 .module-search-btn kbd {
-  border: 1px solid color-mix(in srgb, var(--color-sidebar) 28%, #ffffff);
+  border: 1px solid var(--color-sidebar-border);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-sidebar) 8%, #ffffff);
+  background: var(--color-sidebar);
   padding: 2px var(--space-2);
   font-size: var(--text-xs);
-  color: var(--color-sidebar);
-  font-family: var(--font-sans);
+  color: var(--color-sidebar-muted);
+  font-family: var(--font-mono);
 }
 
 .user-menu__trigger {
@@ -1259,22 +1260,18 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
   width: 15.5rem;
   overflow: hidden;
   padding: var(--overlay-pad);
-  border: 1px solid color-mix(in srgb, #fff 46%, var(--color-border));
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent),
-    0 12px 28px rgba(20, 32, 43, 0.08);
+  background: var(--color-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--shadow-md);
 }
 
 :global(html[data-theme="dark"]) .user-menu__panel {
-  border-color: color-mix(in srgb, #fff 14%, var(--color-border));
-  background: color-mix(in srgb, var(--color-surface) 86%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
-    0 18px 40px rgba(0, 0, 0, 0.36);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-overlay);
 }
 
 .user-menu__heading {
@@ -1503,17 +1500,17 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
   justify-content: space-between;
   gap: 1rem;
   padding: 0.55rem 1rem;
-  background: #12243c;
+  background: var(--color-brand-600);
   color: #fff;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
 .support-banner button {
   border: 0;
-  border-radius: 999px;
-  background: #e39b2b;
-  color: #12243c;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-brand-900);
   padding: 0.35rem 0.75rem;
   font-weight: 700;
   cursor: pointer;

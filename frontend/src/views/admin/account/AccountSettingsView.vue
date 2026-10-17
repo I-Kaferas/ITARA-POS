@@ -6,6 +6,7 @@ import PageFrame from '../../../components/layout/PageFrame.vue'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useAuthStore } from '../../../stores/auth'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import { goToMarketing } from '../../../utils/marketing'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -100,7 +101,7 @@ async function revokeOthers() {
 async function logoutAll() {
   if (!(await confirmDialog(t('account.confirmLogoutAll'), { danger: true, confirmLabel: t('account.logoutAll') }))) return
   await auth.logoutAll()
-  window.location.href = '/login'
+  goToMarketing()
 }
 </script>
 

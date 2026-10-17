@@ -10,6 +10,7 @@ class CashierPreferences extends ChangeNotifier {
 
   static const _textKey = 'cashier_print_text_level';
   static const _notificationsKey = 'cashier_notifications';
+  static const _notificationChannelsKey = 'cashier_notification_channels';
   static const _autoLockKey = 'cashier_auto_lock_minutes';
   static const _standardPosKey = 'cashier_standard_pos';
   static const _hiddenMenusKey = 'cashier_hidden_menus';
@@ -17,6 +18,17 @@ class CashierPreferences extends ChangeNotifier {
   /// Navigation menus, in display order.
   static const menuKeys = ['overview', 'pos', 'orders', 'kitchen', 'tables', 'shifts'];
   static const restaurantMenus = {'kitchen', 'tables'};
+
+  /// Notification channels shown on the settings page, all on by default.
+  static const notificationChannels = [
+    'orders',
+    'stock',
+    'devices',
+    'call_ringtone',
+    'call_vibration',
+    'sync',
+    'general',
+  ];
 
   /// The navigation must keep at least this many menus (bottom bar minimum).
   static const minVisibleMenus = 2;
@@ -26,9 +38,13 @@ class CashierPreferences extends ChangeNotifier {
 
   int printTextLevel = 1;
   bool notificationsEnabled = true;
+  Set<String> enabledNotificationChannels = {...notificationChannels};
   int autoLockMinutes = 0;
   bool standardPos = false;
   Set<String> hiddenMenus = {};
+
+  bool notificationChannelEnabled(String key) =>
+      notificationsEnabled && enabledNotificationChannels.contains(key);
 
   bool menuAvailable(String key) => !(standardPos && restaurantMenus.contains(key));
 
@@ -59,6 +75,10 @@ class CashierPreferences extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     printTextLevel = (prefs.getInt(_textKey) ?? 1).clamp(1, 5);
     notificationsEnabled = prefs.getBool(_notificationsKey) ?? true;
+    final channels = prefs.getStringList(_notificationChannelsKey);
+    enabledNotificationChannels = channels == null
+        ? {...notificationChannels}
+        : channels.where(notificationChannels.contains).toSet();
     autoLockMinutes = prefs.getInt(_autoLockKey) ?? 0;
     if (!autoLockChoices.contains(autoLockMinutes)) autoLockMinutes = 0;
     standardPos = prefs.getBool(_standardPosKey) ?? false;
@@ -83,6 +103,23 @@ class CashierPreferences extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_notificationsKey, value);
+  }
+
+  Future<void> setNotificationChannel(String key, bool enabled) async {
+    if (!notificationChannels.contains(key)) return;
+    final currently = enabledNotificationChannels.contains(key);
+    if (currently == enabled) return;
+    if (enabled) {
+      enabledNotificationChannels.add(key);
+    } else {
+      enabledNotificationChannels.remove(key);
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _notificationChannelsKey,
+      enabledNotificationChannels.toList(),
+    );
   }
 
   Future<void> setAutoLockMinutes(int minutes) async {

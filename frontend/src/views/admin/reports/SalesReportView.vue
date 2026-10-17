@@ -138,7 +138,6 @@ const aovLinePoints = computed(() =>
 
 const categoryRows = computed(() => report.value?.by_category ?? [])
 const categoryRevenueMax = computed(() => Math.max(1, ...categoryRows.value.map(r => r.revenue)))
-const categoryDonut = computed(() => donutBackground(categoryRows.value.map(r => ({ count: r.revenue }))))
 const topProducts = computed(() => report.value?.by_product ?? [])
 
 const categoryLabel = (label: string | null | undefined) => label || t('reports.uncategorized')
@@ -152,8 +151,18 @@ const customerSummary = computed(() => report.value?.customer_summary ?? {
 })
 const topCustomers = computed(() => report.value?.by_customer ?? [])
 const categoryForCustomers = computed(() => report.value?.by_category ?? [])
-const categoryCustomerDonut = computed(() => donutBackground(categoryForCustomers.value.map(r => ({ count: r.revenue }))))
 const categoryCustomerMax = computed(() => Math.max(1, ...categoryForCustomers.value.map(r => r.revenue)))
+
+const invoiceStatusTotal = computed(() =>
+  invoiceStatus.value.reduce((sum, row) => sum + row.count, 0) || 1,
+)
+const orderStatusTotal = computed(() =>
+  orderStatus.value.reduce((sum, row) => sum + row.count, 0) || 1,
+)
+
+function countShare(total: number, count: number) {
+  return Math.round((count / total) * 1000) / 10
+}
 
 const statusLabel = (key: string) => {
   const path = `reports.salesAnalytics.status.${key}`
@@ -176,23 +185,6 @@ const shortMonth = (label: string) => {
     return label
   }
 }
-
-const donutColors = ['#059669', '#2563eb', '#d97706', '#dc2626', '#12243c', '#0e7490', '#64748b']
-
-function donutBackground(rows: { count: number }[]) {
-  const total = rows.reduce((sum, row) => sum + row.count, 0) || 1
-  let cursor = 0
-  const stops = rows.map((row, i) => {
-    const start = (cursor / total) * 100
-    cursor += row.count
-    const end = (cursor / total) * 100
-    return `${donutColors[i % donutColors.length]} ${start}% ${end}%`
-  })
-  return `conic-gradient(${stops.join(', ')})`
-}
-
-const invoiceDonut = computed(() => donutBackground(invoiceStatus.value))
-const orderDonut = computed(() => donutBackground(orderStatus.value))
 
 onMounted(() => {
   initDates()
@@ -324,15 +316,19 @@ onMounted(() => {
             <header class="panel__header">
               <h3 class="panel__title">{{ t('reports.salesAnalytics.invoiceStatus') }}</h3>
             </header>
-            <div v-if="invoiceStatus.length" class="donut-wrap">
-              <div class="donut" :style="{ background: invoiceDonut }" />
-              <ul class="donut-legend">
-                <li v-for="(row, i) in invoiceStatus" :key="row.label">
-                  <i class="dot" :style="{ background: donutColors[i % donutColors.length] }" />
+            <div v-if="invoiceStatus.length" class="bar-list">
+              <div v-for="row in invoiceStatus" :key="row.label" class="bar-list__row">
+                <div class="bar-list__meta">
                   <span>{{ statusLabel(row.label) }}</span>
-                  <strong>{{ row.count }}</strong>
-                </li>
-              </ul>
+                  <strong>{{ countShare(invoiceStatusTotal, row.count) }}% · {{ row.count }}</strong>
+                </div>
+                <div class="bar-list__track">
+                  <div
+                    class="bar-list__fill bar-list__fill--share"
+                    :style="{ width: `${countShare(invoiceStatusTotal, row.count)}%` }"
+                  />
+                </div>
+              </div>
             </div>
             <p v-else class="panel__empty">{{ t('org.empty') }}</p>
           </section>
@@ -341,15 +337,19 @@ onMounted(() => {
             <header class="panel__header">
               <h3 class="panel__title">{{ t('reports.salesAnalytics.orderStatus') }}</h3>
             </header>
-            <div v-if="orderStatus.length" class="donut-wrap">
-              <div class="donut" :style="{ background: orderDonut }" />
-              <ul class="donut-legend">
-                <li v-for="(row, i) in orderStatus" :key="row.label">
-                  <i class="dot" :style="{ background: donutColors[i % donutColors.length] }" />
+            <div v-if="orderStatus.length" class="bar-list">
+              <div v-for="row in orderStatus" :key="row.label" class="bar-list__row">
+                <div class="bar-list__meta">
                   <span>{{ statusLabel(row.label) }}</span>
-                  <strong>{{ row.count }}</strong>
-                </li>
-              </ul>
+                  <strong>{{ countShare(orderStatusTotal, row.count) }}% · {{ row.count }}</strong>
+                </div>
+                <div class="bar-list__track">
+                  <div
+                    class="bar-list__fill bar-list__fill--share"
+                    :style="{ width: `${countShare(orderStatusTotal, row.count)}%` }"
+                  />
+                </div>
+              </div>
             </div>
             <p v-else class="panel__empty">{{ t('org.empty') }}</p>
           </section>
@@ -498,15 +498,19 @@ onMounted(() => {
             <header class="panel__header">
               <h3 class="panel__title">{{ t('reports.salesAnalytics.revenueByCategory') }}</h3>
             </header>
-            <div v-if="categoryRows.length" class="donut-wrap">
-              <div class="donut" :style="{ background: categoryDonut }" />
-              <ul class="donut-legend">
-                <li v-for="(row, i) in categoryRows" :key="`rev-${row.label || i}`">
-                  <i class="dot" :style="{ background: donutColors[i % donutColors.length] }" />
+            <div v-if="categoryRows.length" class="bar-list">
+              <div v-for="(row, index) in categoryRows" :key="`rev-${row.label || index}`" class="bar-list__row">
+                <div class="bar-list__meta">
                   <span>{{ categoryLabel(row.label) }}</span>
-                  <strong>{{ formatMoney(row.revenue) }}</strong>
-                </li>
-              </ul>
+                  <strong>{{ row.share ?? 0 }}% · {{ formatMoney(row.revenue) }}</strong>
+                </div>
+                <div class="bar-list__track">
+                  <div
+                    class="bar-list__fill bar-list__fill--share"
+                    :style="{ width: `${Math.min(100, row.share ?? 0)}%` }"
+                  />
+                </div>
+              </div>
             </div>
             <p v-else class="panel__empty">{{ t('org.empty') }}</p>
           </section>
@@ -594,15 +598,23 @@ onMounted(() => {
             <header class="panel__header">
               <h3 class="panel__title">{{ t('reports.salesAnalytics.revenueByCategory') }}</h3>
             </header>
-            <div v-if="categoryForCustomers.length" class="donut-wrap">
-              <div class="donut" :style="{ background: categoryCustomerDonut }" />
-              <ul class="donut-legend">
-                <li v-for="(row, i) in categoryForCustomers" :key="`cust-cat-${row.label || i}`">
-                  <i class="dot" :style="{ background: donutColors[i % donutColors.length] }" />
+            <div v-if="categoryForCustomers.length" class="bar-list">
+              <div
+                v-for="(row, index) in categoryForCustomers"
+                :key="`cust-cat-${row.label || index}`"
+                class="bar-list__row"
+              >
+                <div class="bar-list__meta">
                   <span>{{ categoryLabel(row.label) }}</span>
-                  <strong>{{ formatMoney(row.revenue) }}</strong>
-                </li>
-              </ul>
+                  <strong>{{ row.share ?? 0 }}% · {{ formatMoney(row.revenue) }}</strong>
+                </div>
+                <div class="bar-list__track">
+                  <div
+                    class="bar-list__fill bar-list__fill--share"
+                    :style="{ width: `${Math.min(100, row.share ?? 0)}%` }"
+                  />
+                </div>
+              </div>
             </div>
             <p v-else class="panel__empty">{{ t('org.empty') }}</p>
           </section>
@@ -968,33 +980,6 @@ onMounted(() => {
   color: var(--color-text-faint);
   text-transform: uppercase;}
 
-.donut-wrap {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.donut {
-  width: 7.5rem;
-  height: 7.5rem;
-  border-radius: 999px;
-  mask: radial-gradient(circle at center, transparent 48%, black 49%);
-  -webkit-mask: radial-gradient(circle at center, transparent 48%, black 49%);
-}
-
-.donut-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  flex: 1;
-  min-width: 8rem;
-}
-
-.donut-legend li,
 .simple-list li {
   display: flex;
   align-items: center;
@@ -1002,7 +987,6 @@ onMounted(() => {
   font-size: 0.85rem;
   color: var(--color-text-secondary);}
 
-.donut-legend strong,
 .simple-list strong {
   margin-left: auto;
   color: var(--color-text-primary);}
@@ -1044,6 +1028,10 @@ onMounted(() => {
 
 .bar-list__fill--teal {
   background: #0f766e;
+}
+
+.bar-list__fill--share {
+  background: var(--color-brand-600);
 }
 
 .bar-list__sub {

@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string
   readonly VITE_DEFAULT_TENANT_SLUG?: string
   readonly VITE_ADMIN_URL?: string
+  readonly VITE_ADMIN_REGISTER_URL?: string
 }
 
 interface ImportMeta {

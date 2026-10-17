@@ -603,14 +603,20 @@ function qtyLabel(quantity: number) {
   left: 0;
   right: 0;
   height: 140px;
-  background: repeating-linear-gradient(
-    to top,
-    transparent 0,
-    transparent calc(25% - 1px),
-    var(--color-border) calc(25% - 1px),
-    var(--color-border) 25%
-  );
   pointer-events: none;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.chart__grid::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 35px;
+  height: 1px;
+  background: var(--color-border);
+  box-shadow: 0 35px 0 0 var(--color-border), 0 70px 0 0 var(--color-border);
 }
 
 .chart__col {
@@ -635,7 +641,7 @@ function qtyLabel(quantity: number) {
   width: 100%;
   height: 100%;
   border-radius: 4px 4px 0 0;
-  background: linear-gradient(180deg, var(--color-brand-400), var(--color-brand-700));
+  background: var(--color-brand-600);
   transform: scaleY(var(--bar, 0));
   transform-origin: bottom;
   animation: bar-in var(--motion-slow) var(--ease-out) backwards;

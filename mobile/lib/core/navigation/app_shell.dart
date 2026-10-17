@@ -728,29 +728,46 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brand = config.deviceName.trim().isEmpty ? 'ITARA' : config.deviceName.trim();
+    final cashier = config.cashierName.trim().isEmpty ? 'Caissier' : config.cashierName.trim();
     return Container(
-      width: PosUi.isDesktop(context) ? 248 : 220,
+      width: PosUi.isDesktop(context) ? 260 : 228,
       decoration: const BoxDecoration(
-        color: AppColors.sidebar,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF162B45), AppColors.sidebar, Color(0xFF0C1828)],
+        ),
         border: Border(right: BorderSide(color: AppColors.sidebarBorder)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+            padding: const EdgeInsets.fromLTRB(16, 18, 10, 14),
             child: Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
-                  decoration: const BoxDecoration(
-                    color: AppColors.accent,
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.accent, Color(0xFFB86E09)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.storefront_rounded, color: AppColors.brand900, size: 18),
+                  child: const Icon(Icons.storefront_rounded, color: AppColors.brand900, size: 20),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -760,39 +777,45 @@ class _Sidebar extends StatelessWidget {
                         style: GoogleFonts.ibmPlexSans(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          letterSpacing: -0.3,
+                          fontSize: 16,
+                          letterSpacing: -0.4,
+                          height: 1.15,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         tr('Point of Sale'),
                         style: GoogleFonts.ibmPlexSans(
-                          color: AppColors.sidebarText,
-                          fontSize: 11,
+                          color: AppColors.sidebarText.withValues(alpha: 0.72),
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
-                PopupMenuButton<String>(
-                  tooltip: tr('Réglages'),
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.more_horiz, color: AppColors.sidebarText, size: 20),
-                  onSelected: (value) => _onOverflowSelected(context, value),
-                  itemBuilder: (context) => _overflowItems(),
+                Material(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  child: PopupMenuButton<String>(
+                    tooltip: tr('RÃ©glages'),
+                    padding: EdgeInsets.zero,
+                    icon: Icon(Icons.more_horiz, color: AppColors.sidebarText.withValues(alpha: 0.9), size: 20),
+                    onSelected: (value) => _onOverflowSelected(context, value),
+                    itemBuilder: (context) => _overflowItems(),
+                  ),
                 ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
             child: const _StoreSwitcher(style: _StoreSwitcherStyle.sidebar),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
             child: ListenableBuilder(
               listenable: LocalMasterServer.instance,
               builder: (context, _) {
@@ -800,29 +823,60 @@ class _Sidebar extends StatelessWidget {
                   builder: (context, net) {
                     final server = LocalMasterServer.instance.listening || net.masterReachable;
                     final online = net.internetReachable;
-                    return Column(
-                      children: [
-                        _ConnectionPill(
-                          icon: Icons.dns_outlined,
-                          label: server ? 'Server running' : 'Server offline',
-                          on: server,
-                        ),
-                        const SizedBox(height: 6),
-                        _ConnectionPill(
-                          icon: Icons.language,
-                          label: online ? 'Internet connected' : 'Offline',
-                          on: online,
-                        ),
-                      ],
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.sidebarBorder.withValues(alpha: 0.7)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _ConnectionPill(
+                              icon: Icons.dns_outlined,
+                              label: server ? 'Serveur' : 'Hors ligne',
+                              on: server,
+                              compact: true,
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 18,
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            color: AppColors.sidebarBorder,
+                          ),
+                          Expanded(
+                            child: _ConnectionPill(
+                              icon: Icons.language,
+                              label: online ? 'Internet' : 'Offline',
+                              on: online,
+                              compact: true,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 );
               },
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
+            child: Text(
+              tr('NAVIGATION').toUpperCase(),
+              style: GoogleFonts.ibmPlexSans(
+                color: AppColors.sidebarText.withValues(alpha: 0.45),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
               children: [
                 for (final item in tabs)
                   _SidebarItem(
@@ -834,48 +888,40 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
             child: ListenableBuilder(
               listenable: SyncEngine.instance,
               builder: (context, _) {
                 final syncing = SyncEngine.instance.connectivity == ConnectivityState.syncing;
                 return SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
+                  height: 42,
+                  child: FilledButton.icon(
                     onPressed: syncing ? null : () => _syncStock(context),
-                    style: ButtonStyle(
-                      foregroundColor: const WidgetStatePropertyAll(AppColors.sidebarText),
-                      iconColor: const WidgetStatePropertyAll(AppColors.sidebarText),
-                      backgroundColor: WidgetStateProperty.resolveWith(
-                        (states) => states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)
-                            ? AppColors.sidebarHover
-                            : AppColors.sidebarPanel,
-                      ),
-                      overlayColor: WidgetStatePropertyAll(AppColors.sidebarText.withValues(alpha: 0.08)),
-                      side: const WidgetStatePropertyAll(BorderSide(color: AppColors.sidebarBorder)),
-                      textStyle: WidgetStatePropertyAll(
-                        GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.sidebarText),
-                      ),
-                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: AppColors.brand900,
+                      disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.45),
+                      disabledForegroundColor: AppColors.brand900.withValues(alpha: 0.7),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      textStyle: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w700),
                     ),
                     icon: syncing
                         ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.sidebarText),
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brand900),
                           )
-                        : const Icon(Icons.sync, size: 16, color: AppColors.sidebarText),
-                    label: Text(
-                      tr(syncing ? 'Synchronisation…' : 'Synchroniser'),
-                      style: GoogleFonts.ibmPlexSans(color: AppColors.sidebarText, fontWeight: FontWeight.w600),
-                    ),
+                        : const Icon(Icons.sync_rounded, size: 17),
+                    label: Text(tr(syncing ? 'Synchronisationâ€¦' : 'Synchroniser')),
                   ),
                 );
               },
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 4),
             child: _SidebarItem(
               item: _NavItem(
                 route: 'logout',
@@ -885,24 +931,36 @@ class _Sidebar extends StatelessWidget {
                 hint: '',
               ),
               selected: false,
+              danger: true,
               onTap: () => _confirmLogout(context),
             ),
           ),
           Container(
             margin: const EdgeInsets.fromLTRB(12, 4, 12, 14),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
             decoration: BoxDecoration(
-              color: AppColors.sidebarActive,
-              borderRadius: BorderRadius.circular(14),
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.sidebarBorder.withValues(alpha: 0.8)),
             ),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppColors.accent,
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.accent,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
+                  ),
                   child: Text(
-                    tr((config.cashierName.trim().isEmpty ? 'C' : config.cashierName.trim()[0]).toUpperCase()),
-                    style: GoogleFonts.ibmPlexSans(color: AppColors.brand900, fontWeight: FontWeight.w700, fontSize: 13),
+                    cashier[0].toUpperCase(),
+                    style: GoogleFonts.ibmPlexSans(
+                      color: AppColors.brand900,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -911,18 +969,30 @@ class _Sidebar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        tr(config.cashierName.isNotEmpty ? config.cashierName : 'Caissier'),
+                        tr(cashier),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.ibmPlexSans(
                           color: Colors.white,
-                          fontSize: 13,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      Text(
-                        tr(config.posRole.label),
-                        style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.sidebarText),
+                      const SizedBox(height: 3),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          tr(config.posRole.label),
+                          style: GoogleFonts.ibmPlexSans(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.accent,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -935,7 +1005,6 @@ class _Sidebar extends StatelessWidget {
     );
   }
 }
-
 enum _StoreSwitcherStyle { chip, sidebar, subtitle }
 
 class _StoreSwitcher extends StatefulWidget {
@@ -1017,19 +1086,28 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
         color: Colors.transparent,
         child: InkWell(
           onTap: _open,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.sidebarActive,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.sidebarBorder),
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.sidebarBorder.withValues(alpha: 0.8)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.storefront_outlined, size: 16, color: Colors.white),
-                const SizedBox(width: 8),
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.storefront_outlined, size: 15, color: AppColors.accent),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     tr(label),
@@ -1044,7 +1122,7 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
                 ),
                 Tooltip(
                   message: tr('Changer de magasin'),
-                  child: const Icon(Icons.swap_horiz_rounded, size: 17, color: AppColors.sidebarText),
+                  child: Icon(Icons.unfold_more_rounded, size: 18, color: AppColors.sidebarText.withValues(alpha: 0.8)),
                 ),
               ],
             ),
@@ -1064,15 +1142,51 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
 }
 
 class _ConnectionPill extends StatelessWidget {
-  const _ConnectionPill({required this.icon, required this.label, required this.on});
+  const _ConnectionPill({
+    required this.icon,
+    required this.label,
+    required this.on,
+    this.compact = false,
+  });
 
   final IconData icon;
   final String label;
   final bool on;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final color = on ? AppColors.success : AppColors.textMuted;
+    final color = on ? const Color(0xFF34D399) : AppColors.sidebarText.withValues(alpha: 0.55);
+    if (compact) {
+      return Row(
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              boxShadow: on
+                  ? [BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 6)]
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              tr(label),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.ibmPlexSans(
+                color: Colors.white.withValues(alpha: on ? 0.92 : 0.55),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -1147,38 +1261,69 @@ class _SidebarItem extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.onTap,
+    this.danger = false,
   });
 
   final _NavItem item;
   final bool selected;
   final VoidCallback onTap;
+  final bool danger;
 
   @override
   Widget build(BuildContext context) {
+    final iconColor = danger
+        ? const Color(0xFFF87171)
+        : selected
+            ? AppColors.accent
+            : AppColors.sidebarText.withValues(alpha: 0.85);
+    final textColor = danger
+        ? const Color(0xFFFCA5A5)
+        : selected
+            ? Colors.white
+            : AppColors.sidebarText.withValues(alpha: 0.88);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 3),
       child: Material(
-        color: selected ? AppColors.sidebarActive : Colors.transparent,
+        color: selected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           hoverColor: AppColors.sidebarHover,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: selected
+                  ? Border(left: BorderSide(color: AppColors.accent, width: 3))
+                  : null,
+            ),
             child: Row(
               children: [
-                Icon(
-                  selected ? item.selectedIcon : item.icon,
-                  color: selected ? AppColors.accent : AppColors.sidebarText,
-                  size: 18,
+                Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppColors.accent.withValues(alpha: 0.16)
+                        : Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    selected ? item.selectedIcon : item.icon,
+                    color: iconColor,
+                    size: 17,
+                  ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     tr(item.label),
                     style: GoogleFonts.ibmPlexSans(
-                      color: selected ? Colors.white : AppColors.sidebarText,
+                      color: textColor,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       fontSize: 13.5,
                     ),

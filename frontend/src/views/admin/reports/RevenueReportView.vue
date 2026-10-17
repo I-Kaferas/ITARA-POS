@@ -24,8 +24,6 @@ const loading = ref(false)
 const productTab = ref<ProductTab>('all')
 const search = ref('')
 
-const donutColors = ['#059669', '#2563eb', '#d97706', '#dc2626', '#12243c', '#0e7490', '#64748b', '#be185d', '#0f766e']
-
 function initDates() {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
@@ -103,20 +101,6 @@ const categories = computed(() => {
   })
   return top
 })
-
-function donutBackground(rows: { revenue: number }[]) {
-  const total = rows.reduce((sum, row) => sum + row.revenue, 0) || 1
-  let cursor = 0
-  const stops = rows.map((row, i) => {
-    const start = (cursor / total) * 100
-    cursor += row.revenue
-    const end = (cursor / total) * 100
-    return `${donutColors[i % donutColors.length]} ${start}% ${end}%`
-  })
-  return `conic-gradient(${stops.join(', ')})`
-}
-
-const categoryDonut = computed(() => donutBackground(categories.value))
 
 const filteredProducts = computed(() => {
   let rows = report.value?.by_product ?? []
@@ -257,16 +241,19 @@ onMounted(() => {
 
         <section class="panel">
           <h3 class="panel__title">{{ t('reports.salesAnalytics.revenueByCategory') }}</h3>
-          <div v-if="categories.length" class="donut-wrap">
-            <div class="donut" :style="{ background: categoryDonut }" />
-            <ul class="legend">
-              <li v-for="(row, i) in categories" :key="`${row.label}-${i}`">
-                <span class="legend__swatch" :style="{ background: donutColors[i % donutColors.length] }" />
-                <span class="legend__text">
-                  {{ row.label || t('reports.uncategorized') }} ({{ row.share }}%)
-                </span>
-              </li>
-            </ul>
+          <div v-if="categories.length" class="bar-list">
+            <div v-for="(row, index) in categories" :key="`${row.label}-${index}`" class="bar-list__row">
+              <div class="bar-list__meta">
+                <span>{{ row.label || t('reports.uncategorized') }}</span>
+                <strong>{{ row.share ?? 0 }}% · {{ formatMoney(row.revenue) }}</strong>
+              </div>
+              <div class="bar-list__track">
+                <div
+                  class="bar-list__fill bar-list__fill--share"
+                  :style="{ width: `${Math.min(100, row.share ?? 0)}%` }"
+                />
+              </div>
+            </div>
           </div>
           <p v-else class="empty">{{ t('common.noResults') }}</p>
         </section>
@@ -530,43 +517,35 @@ onMounted(() => {
   margin-left: 0.4rem;
   height: 1.4rem;}
 
-.donut-wrap {
-  display: grid;
-  grid-template-columns: 8rem 1fr;
-  gap: 1rem;
-  align-items: center;
-}
-
-.donut {
-  width: 8rem;
-  height: 8rem;
-  border-radius: 999px;
-  mask: radial-gradient(circle, transparent 48%, #000 50%);
-  -webkit-mask: radial-gradient(circle, transparent 48%, #000 50%);
-}
-
-.legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.bar-list {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.7rem;
 }
 
-.legend li {
+.bar-list__meta {
   display: flex;
-  align-items: flex-start;
-  gap: 0.45rem;
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);}
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;
+}
 
-.legend__swatch {
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 0.2rem;
-  margin-top: 0.15rem;
-  flex-shrink: 0;
+.bar-list__track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--color-table-header);
+  overflow: hidden;
+}
+
+.bar-list__fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.bar-list__fill--share {
+  background: var(--color-brand-600);
 }
 
 .table-head {

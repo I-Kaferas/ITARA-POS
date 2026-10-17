@@ -28,7 +28,6 @@ const tabs: { id: PurchasesTab; labelKey: string; icon: string }[] = [
   { id: 'receipts', labelKey: 'reports.purchaseAnalytics.tabs.receipts', icon: 'inventory' },
 ]
 
-const donutColors = ['#0f766e', '#2563eb', '#d97706', '#dc2626', '#12243c', '#0e7490', '#64748b']
 const qtyColors: Record<string, string> = {
   ordered: '#2563eb',
   received: '#0ea5e9',
@@ -80,7 +79,9 @@ const spendMax = computed(() => Math.max(1, ...monthlySpend.value.map(r => r.spe
 const ordersMax = computed(() => Math.max(1, ...monthlySpend.value.map(r => r.orders_count)))
 
 const orderStatus = computed(() => report.value?.order_status ?? [])
-const orderDonut = computed(() => donutBackground(orderStatus.value.map(r => ({ count: r.count }))))
+const orderStatusTotal = computed(() =>
+  orderStatus.value.reduce((sum, row) => sum + row.count, 0) || 1,
+)
 
 const topCategories = computed(() => report.value?.top_categories ?? [])
 const categoryMax = computed(() => Math.max(1, ...topCategories.value.map(r => r.spend)))
@@ -106,8 +107,8 @@ const receiptSummary = computed(() => report.value?.receipt_summary ?? {
   receipt_status: [],
   inspection_results: [],
 })
-const receiptStatusDonut = computed(() =>
-  donutBackground(receiptSummary.value.receipt_status.map(r => ({ count: r.count }))),
+const receiptStatusTotal = computed(() =>
+  receiptSummary.value.receipt_status.reduce((sum, row) => sum + row.count, 0) || 1,
 )
 const quantityBreakdown = computed(() => receiptSummary.value.quantity_breakdown)
 const quantityMax = computed(() => Math.max(1, ...quantityBreakdown.value.map(r => r.qty)))
@@ -140,16 +141,8 @@ function inspectionLabel(value?: string | null) {
   return translated === path ? value : translated
 }
 
-function donutBackground(rows: { count: number }[]) {
-  const total = rows.reduce((sum, row) => sum + row.count, 0) || 1
-  let cursor = 0
-  const stops = rows.map((row, i) => {
-    const start = (cursor / total) * 100
-    cursor += row.count
-    const end = (cursor / total) * 100
-    return `${donutColors[i % donutColors.length]} ${start}% ${end}%`
-  })
-  return `conic-gradient(${stops.join(', ')})`
+function countShare(total: number, count: number) {
+  return Math.round((count / total) * 1000) / 10
 }
 
 const statusLabel = (key: string) => {
@@ -274,15 +267,19 @@ onMounted(() => {
             <header class="panel__header">
               <h3 class="panel__title">{{ t('reports.purchaseAnalytics.orderStatus') }}</h3>
             </header>
-            <div v-if="orderStatus.length" class="donut-wrap">
-              <div class="donut" :style="{ background: orderDonut }" />
-              <ul class="donut-legend">
-                <li v-for="(row, i) in orderStatus" :key="row.label">
-                  <i class="dot" :style="{ background: donutColors[i % donutColors.length] }" />
+            <div v-if="orderStatus.length" class="bar-list">
+              <div v-for="row in orderStatus" :key="row.label" class="bar-list__row">
+                <div class="bar-list__meta">
                   <span>{{ statusLabel(row.label) }}</span>
-                  <strong>{{ row.count }}</strong>
-                </li>
-              </ul>
+                  <strong>{{ countShare(orderStatusTotal, row.count) }}% · {{ row.count }}</strong>
+                </div>
+                <div class="bar-list__track">
+                  <div
+                    class="bar-list__fill bar-list__fill--share"
+                    :style="{ width: `${countShare(orderStatusTotal, row.count)}%` }"
+                  />
+                </div>
+              </div>
             </div>
             <p v-else class="panel__empty">{{ t('org.empty') }}</p>
           </section>
@@ -427,15 +424,19 @@ onMounted(() => {
             <header class="panel__header">
               <h3 class="panel__title">{{ t('reports.purchaseAnalytics.receiptStatus') }}</h3>
             </header>
-            <div v-if="receiptSummary.receipt_status.length" class="donut-wrap">
-              <div class="donut" :style="{ background: receiptStatusDonut }" />
-              <ul class="donut-legend">
-                <li v-for="(row, i) in receiptSummary.receipt_status" :key="row.label">
-                  <i class="dot" :style="{ background: donutColors[i % donutColors.length] }" />
+            <div v-if="receiptSummary.receipt_status.length" class="bar-list">
+              <div v-for="row in receiptSummary.receipt_status" :key="row.label" class="bar-list__row">
+                <div class="bar-list__meta">
                   <span>{{ statusLabel(row.label) }}</span>
-                  <strong>{{ row.count }}</strong>
-                </li>
-              </ul>
+                  <strong>{{ countShare(receiptStatusTotal, row.count) }}% · {{ row.count }}</strong>
+                </div>
+                <div class="bar-list__track">
+                  <div
+                    class="bar-list__fill bar-list__fill--share"
+                    :style="{ width: `${countShare(receiptStatusTotal, row.count)}%` }"
+                  />
+                </div>
+              </div>
             </div>
             <p v-else class="panel__empty">{{ t('org.empty') }}</p>
           </section>
@@ -899,41 +900,6 @@ onMounted(() => {
   color: var(--color-text-faint);
   text-transform: capitalize;}
 
-.donut-wrap {
-  display: flex;
-  align-items: center;
-  gap: 1.1rem;
-  flex-wrap: wrap;
-}
-
-.donut {
-  width: 8.5rem;
-  height: 8.5rem;
-  border-radius: 999px;
-  flex-shrink: 0;
-  mask: radial-gradient(circle at center, transparent 48%, #000 49%);
-  -webkit-mask: radial-gradient(circle at center, transparent 48%, #000 49%);
-}
-
-.donut-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  flex: 1;
-  min-width: 10rem;
-}
-
-.donut-legend li {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.5rem;
-  align-items: center;
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);}
-
 .bar-list {
   display: flex;
   flex-direction: column;
@@ -968,6 +934,10 @@ onMounted(() => {
 
 .bar-list__fill--teal {
   background: #0f766e;
+}
+
+.bar-list__fill--share {
+  background: var(--color-brand-600);
 }
 
 .table {

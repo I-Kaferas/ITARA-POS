@@ -8,7 +8,7 @@ import LanguageSwitcher from '../../../components/ui/LanguageSwitcher.vue'
 import { useAuthStore } from '../../../stores/auth'
 import { useBrandingStore } from '../../../stores/branding'
 
-const ITARA_LOGO_URL = '/brand/itara-nexus-logo.png?v=2'
+const ITARA_LOGO_URL = '/brand/itara-nexus-logo.png?v=3'
 const PRODUCT_NAME = 'ITARA NEXUS'
 const DEFAULT_SLUG = 'demo'
 
@@ -162,9 +162,8 @@ function editEmail() {
   min-width: 0;
   padding: clamp(1.75rem, 4vh, 3rem) clamp(1.5rem, 3vw, 2.75rem);
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 50% 46%, color-mix(in srgb, var(--login-accent, #e39b2b) 16%, transparent), transparent 58%),
-    linear-gradient(168deg, color-mix(in srgb, var(--login-primary, #12243c) 78%, #3d5a78) 0%, var(--login-primary, #12243c) 46%, #0b1728 100%);
+  background: var(--login-primary, var(--color-brand-600, #12243c));
+  border-right: 1px solid color-mix(in srgb, var(--login-primary, #12243c) 88%, #000);
   color: #fff;
   isolation: isolate;
 }
@@ -199,7 +198,7 @@ function editEmail() {
   height: 3px;
   margin-bottom: 1.15rem;
   border-radius: 2px;
-  background: var(--login-accent, #e39b2b);
+  background: var(--color-accent, var(--login-accent, #e39b2b));
 }
 
 .recover__brand-inner h1 {

@@ -1,8 +1,25 @@
 import { createI18n } from 'vue-i18n'
-import { applyDocumentLocale, persistLocale, readStoredLocale, type AppLocale } from './locales'
+import {
+  applyDocumentLocale,
+  isAppLocale,
+  persistLocale,
+  readStoredLocale,
+  type AppLocale,
+} from './locales'
 
-const initial = readStoredLocale()
-applyDocumentLocale(initial)
+function readQueryLocale(): AppLocale | null {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('lang')
+    return isAppLocale(raw) ? raw : null
+  } catch {
+    return null
+  }
+}
+
+const fromQuery = typeof window !== 'undefined' ? readQueryLocale() : null
+const initial = fromQuery || readStoredLocale()
+if (fromQuery) persistLocale(fromQuery)
+else applyDocumentLocale(initial)
 
 const localeLoaders: Record<AppLocale, () => Promise<{ default: Record<string, unknown> }>> = {
   fr: () => import('./locales/fr.json'),

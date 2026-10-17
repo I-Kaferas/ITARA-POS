@@ -170,7 +170,7 @@ abstract final class AppTheme {
         horizontalMargin: 16,
         columnSpacing: 16,
         headingTextStyle: AppTypography.overline(),
-        dataTextStyle: AppTypography.body(),
+        dataTextStyle: AppTypography.form(),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: AppColors.surface,
@@ -185,8 +185,8 @@ abstract final class AppTheme {
       tabBarTheme: TabBarThemeData(
         dividerColor: AppColors.border,
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: AppTypography.plex(fontSize: AppTextSize.md, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: AppTypography.plex(fontSize: AppTextSize.md, fontWeight: FontWeight.w500),
+        labelStyle: AppTypography.form(weight: FontWeight.w600),
+        unselectedLabelStyle: AppTypography.form(weight: FontWeight.w500),
         labelColor: AppColors.brandInk,
         unselectedLabelColor: AppColors.textMuted,
       ),
@@ -210,22 +210,15 @@ abstract final class AppTheme {
         unselectedItemColor: AppColors.textMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
-        selectedLabelStyle: AppTypography.plex(fontSize: AppTextSize.xs, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: AppTypography.plex(fontSize: AppTextSize.xs, fontWeight: FontWeight.w500),
+        selectedLabelStyle: AppTypography.label().copyWith(fontWeight: FontWeight.w600),
+        unselectedLabelStyle: AppTypography.label(),
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: AppColors.sidebar,
         selectedIconTheme: const IconThemeData(color: Colors.white),
         unselectedIconTheme: const IconThemeData(color: AppColors.sidebarText),
-        selectedLabelTextStyle: AppTypography.plex(
-          fontSize: AppTextSize.xs,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-        unselectedLabelTextStyle: AppTypography.plex(
-          fontSize: AppTextSize.xs,
-          color: AppColors.sidebarText,
-        ),
+        selectedLabelTextStyle: AppTypography.label(color: Colors.white).copyWith(fontWeight: FontWeight.w600),
+        unselectedLabelTextStyle: AppTypography.label(color: AppColors.sidebarText),
         indicatorColor: AppColors.sidebarActive,
         labelType: NavigationRailLabelType.all,
       ),
@@ -237,17 +230,15 @@ abstract final class AppTheme {
         height: 68,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
-          return AppTypography.plex(
-            fontSize: AppTextSize.xs,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+          return AppTypography.label(
             color: selected ? AppColors.brandInk : AppColors.textMuted,
-          );
+          ).copyWith(fontWeight: selected ? FontWeight.w600 : FontWeight.w500);
         }),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.brand50,
         selectedColor: AppColors.brand100,
-        labelStyle: AppTypography.plex(fontSize: AppTextSize.md, fontWeight: FontWeight.w500),
+        labelStyle: AppTypography.label(),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
         side: BorderSide.none,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -262,21 +253,17 @@ abstract final class AppTheme {
 
   static TextTheme _textTheme(TextTheme base) {
     return TextTheme(
-      displayLarge: AppTypography.display(),
+      displayLarge: AppTypography.kpi(),
       displayMedium: AppTypography.pageTitle(),
-      headlineMedium: AppTypography.title(),
+      headlineMedium: AppTypography.sectionTitle(),
       headlineSmall: AppTypography.sectionTitle(),
       titleLarge: AppTypography.sectionTitle(),
       titleMedium: AppTypography.body(weight: FontWeight.w600),
       bodyLarge: AppTypography.body(),
       bodyMedium: AppTypography.subtitle(),
       bodySmall: AppTypography.caption(),
-      labelLarge: AppTypography.plex(
-        fontSize: AppTextSize.md,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
-      ),
-      labelSmall: AppTypography.money(size: AppTextSize.sm),
+      labelLarge: AppTypography.button(),
+      labelSmall: AppTypography.money(),
     );
   }
 }

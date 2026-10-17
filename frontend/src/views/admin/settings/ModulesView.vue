@@ -289,13 +289,8 @@ onMounted(load)
   display: block;
   height: 7.5rem;
   border-radius: var(--radius-lg);
-  background: linear-gradient(90deg, var(--color-canvas), var(--color-surface), var(--color-canvas));
-  background-size: 200% 100%;
-  animation: module-shimmer 1.2s ease-in-out infinite;
-}
-@keyframes module-shimmer {
-  from { background-position: 100% 0; }
-  to { background-position: -100% 0; }
+  border: 1px solid var(--color-border);
+  background: var(--color-canvas);
 }
 .module-row.is-off { opacity: 0.72; }
 .module-row__head,

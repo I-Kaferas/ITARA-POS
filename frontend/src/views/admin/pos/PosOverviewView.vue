@@ -108,22 +108,22 @@ useRealtimeSync(realtimeTopics.posOverview, () => load(true))
           :label="t('pointOfSale.overview.todaySales')"
           :value="overview?.kpis.sales_count ?? 0"
           icon="sales"
-          accent="#059669"
-          icon-bg="#ecfdf5"
+          accent="var(--color-success)"
+          icon-bg="var(--color-success-bg)"
         />
         <KpiCard
           :label="t('pointOfSale.overview.todayRevenue')"
           :value="formatMoney(overview?.kpis.revenue ?? 0)"
           icon="receipt"
           accent="var(--color-brand-600)"
-          icon-bg="#e4edf2"
+          icon-bg="var(--color-brand-50)"
         />
         <KpiCard
           :label="t('pointOfSale.overview.currentShift')"
           :value="store.currentCashierShift ? t('pointOfSale.shifts.open') : t('pointOfSale.shifts.closed')"
           icon="shift"
-          accent="#2563eb"
-          icon-bg="#eff6ff"
+          accent="var(--color-info)"
+          icon-bg="var(--color-info-bg)"
           :delta="store.currentCashierShift ? formatDate(store.currentCashierShift.opened_at) : null"
           delta-tone="flat"
         />
@@ -131,8 +131,8 @@ useRealtimeSync(realtimeTopics.posOverview, () => load(true))
           :label="t('pointOfSale.overview.openShifts')"
           :value="openShifts.length"
           icon="account"
-          accent="#e39b2b"
-          icon-bg="#f8efdc"
+          accent="var(--color-accent)"
+          icon-bg="var(--color-accent-soft)"
         />
       </div>
 
@@ -294,46 +294,22 @@ useRealtimeSync(realtimeTopics.posOverview, () => load(true))
   width: 100%;
   margin-bottom: 1rem;
   padding: 0.85rem 1rem;
-  border: 1px solid #c5d4df;
-  border-radius: 0.75rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
   background: var(--color-table-row-hover);
   text-align: left;
-  cursor: pointer;}
-.connection-link strong { color: var(--color-text-primary); font-size: 0.9rem;}
-.connection-link span { color: var(--color-text-muted); font-size: 0.8rem;}
-.stat-card {
+  cursor: pointer;
+}
+.connection-link strong { color: var(--color-text-primary); font-size: 0.9rem; }
+.connection-link span { color: var(--color-text-muted); font-size: 0.8rem; }
+
+.panel {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
-  padding: 1rem 1.125rem;
-  box-shadow: none;}
-
-.stat-card__label {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-text-muted);}
-
-.stat-card__value {
-  margin: 0.35rem 0 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  letter-spacing: 0;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
 }
-
-.stat-card__meta {
-  margin: 0.25rem 0 0;
-  font-size: 0.75rem;
-  color: var(--color-text-faint);}
-
-.panel {
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  background: var(--color-surface);
-  overflow: hidden;}
 
 .panel__header {
   display: flex;
@@ -341,7 +317,7 @@ useRealtimeSync(realtimeTopics.posOverview, () => load(true))
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.875rem 1rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .panel__title {
@@ -379,7 +355,7 @@ useRealtimeSync(realtimeTopics.posOverview, () => load(true))
 .mini-table td {
   padding: 0.7rem 1rem;
   text-align: left;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--color-table-border);
   vertical-align: top;
 }
 
@@ -403,10 +379,11 @@ useRealtimeSync(realtimeTopics.posOverview, () => load(true))
   height: 1.25rem;
   margin-right: 0.5rem;
   border-radius: 999px;
-  background: #e4edf2;
+  background: var(--color-brand-50);
   color: var(--color-ink-brand, var(--color-brand-600));
   font-size: 0.6875rem;
-  font-weight: 700;}
+  font-weight: 700;
+}
 
 .pay-list { padding: 0.75rem 1rem 1rem; display: grid; gap: 0.875rem; }
 .pay-row__top,
@@ -472,17 +449,18 @@ useRealtimeSync(realtimeTopics.posOverview, () => load(true))
   align-items: center;
   gap: 0.875rem;
   width: 100%;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   padding: 1rem;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;}
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
+}
 
 .action-card:hover {
-  border-color: #c5d4df;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .action-card__icon {
@@ -491,10 +469,11 @@ useRealtimeSync(realtimeTopics.posOverview, () => load(true))
   justify-content: center;
   width: 2.25rem;
   height: 2.25rem;
-  border-radius: 0.625rem;
-  background: #e4edf2;
+  border-radius: var(--radius-md);
+  background: var(--color-brand-50);
   color: var(--color-ink-brand, var(--color-brand-600));
-  flex-shrink: 0;}
+  flex-shrink: 0;
+}
 
 .action-card__title {
   margin: 0;

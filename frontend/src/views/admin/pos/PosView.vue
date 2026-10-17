@@ -899,7 +899,7 @@ onUnmounted(() => {
 
 .pos-order-mode__btn--active {
   background-color: var(--color-inverse);
-  background-image: linear-gradient(180deg, color-mix(in srgb, #fff 18%, transparent), transparent 46%);
+  background-image: none;
   border-color: color-mix(in srgb, #fff 24%, var(--color-inverse));
   color: #fff;
   box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 32%, transparent);

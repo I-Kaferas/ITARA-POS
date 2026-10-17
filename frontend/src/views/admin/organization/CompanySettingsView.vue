@@ -1763,8 +1763,7 @@ async function save() {
 
 .listing__cover {
   aspect-ratio: 16 / 9;
-  background:
-    linear-gradient(160deg, var(--color-sidebar) 0%, color-mix(in srgb, var(--color-sidebar) 55%, #8ea4c4) 100%);
+  background: var(--color-sidebar);
 }
 
 .listing__cover img {

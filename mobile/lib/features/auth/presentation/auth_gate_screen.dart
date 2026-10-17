@@ -13,6 +13,7 @@ import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/network/network_bloc.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/theme/theme_controller.dart';
@@ -342,8 +343,8 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
           resizeToAvoidBottomInset: false,
           body: AnimatedPadding(
             padding: EdgeInsets.only(bottom: bottomInset),
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
+            duration: AppMotion.resolve(context, const Duration(milliseconds: 420)),
+            curve: AppMotion.emphasized,
             onEnd: _revealFocusedField,
             child: SafeArea(
             child: wide
@@ -401,8 +402,8 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
   void _revealFocusedField() {
     if (!mounted || MediaQuery.viewInsetsOf(context).bottom == 0) return;
     FocusManager.instance.primaryFocus?.context?.findRenderObject()?.showOnScreen(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
+          duration: const Duration(milliseconds: 420),
+          curve: AppMotion.emphasized,
         );
   }
 }
@@ -590,126 +591,158 @@ class _AuthForm extends StatelessWidget {
     final wide = MediaQuery.sizeOf(context).width >= 960;
     final config = context.watch<TerminalBloc>().state.config;
     final brand = config.brandName.trim().isEmpty ? 'ITARA' : config.brandName.trim();
+    final motion = AppMotion.resolve(context, const Duration(milliseconds: 420));
+    final pane = mode == AuthGateMode.staff
+        ? _StaffPane(
+            key: const ValueKey('staff'),
+            controller: pinCtrl,
+            focusNode: pinFocus,
+            length: pinLength,
+            loading: pinLoading,
+            error: pinError,
+            showPad: showPad,
+            onTogglePad: onTogglePad,
+            onDigit: onDigit,
+            onBack: onBack,
+            onClear: onClear,
+            onSubmit: onSubmitPin,
+          )
+        : _RootPane(
+            key: const ValueKey('root'),
+            email: email,
+            password: password,
+            obscure: obscure,
+            loading: rootLoading,
+            error: rootError,
+            onToggleObscure: onToggleObscure,
+            onSubmit: onSubmitRoot,
+          );
+
     return Center(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(24, wide ? 36 : 12, 24, 28),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: AppRadius.borderXl,
-              border: Border.all(color: AppColors.border),
-              boxShadow: [
-                BoxShadow(color: AppColors.brand900.withValues(alpha: 0.08), blurRadius: 28, offset: const Offset(0, 14)),
-                ...AppColors.elevationSm,
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: AppRadius.borderXl,
-              child: Column(
-                children: [
-                  if (!wide)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                      width: double.infinity,
-                      padding: EdgeInsets.fromLTRB(22, keyboardOpen ? 14 : 22, 22, keyboardOpen ? 14 : 20),
-                      color: AppColors.brand600,
-                      child: ListenableBuilder(
-                        listenable: LocaleController.instance,
-                        builder: (context, _) {
-                          return Column(
-                            children: [
-                              AnimatedCrossFade(
-                                duration: const Duration(milliseconds: 260),
-                                firstCurve: Curves.easeOut,
-                                secondCurve: Curves.easeIn,
-                                sizeCurve: Curves.easeOutCubic,
-                                crossFadeState:
-                                    keyboardOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-                                firstChild: SizedBox(
-                                  width: double.infinity,
-                                  child: Column(
-                                    children: [
-                                      _BrandMark(
-                                        logoUrl: config.brandLogoUrl,
-                                        initials: _initials(brand),
-                                        compact: true,
+          child: AnimatedSlide(
+            duration: motion,
+            curve: AppMotion.emphasized,
+            offset: keyboardOpen && !wide ? const Offset(0, -0.06) : Offset.zero,
+            child: AnimatedScale(
+              duration: motion,
+              curve: AppMotion.emphasized,
+              scale: keyboardOpen && !wide ? 0.96 : 1,
+              alignment: Alignment.topCenter,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: AppRadius.borderXl,
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.brand900.withValues(alpha: 0.08),
+                      blurRadius: 28,
+                      offset: const Offset(0, 14),
+                    ),
+                    ...AppColors.elevationSm,
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: AppRadius.borderXl,
+                  child: Column(
+                    children: [
+                      if (!wide)
+                        AnimatedContainer(
+                          duration: motion,
+                          curve: AppMotion.emphasized,
+                          width: double.infinity,
+                          padding: EdgeInsets.fromLTRB(
+                            22,
+                            keyboardOpen ? 10 : 22,
+                            22,
+                            keyboardOpen ? 10 : 20,
+                          ),
+                          color: AppColors.brand600,
+                          child: ListenableBuilder(
+                            listenable: LocaleController.instance,
+                            builder: (context, _) {
+                              return Column(
+                                children: [
+                                  AnimatedCrossFade(
+                                    duration: motion,
+                                    firstCurve: AppMotion.exit,
+                                    secondCurve: AppMotion.enter,
+                                    sizeCurve: AppMotion.emphasized,
+                                    crossFadeState: keyboardOpen
+                                        ? CrossFadeState.showSecond
+                                        : CrossFadeState.showFirst,
+                                    firstChild: SizedBox(
+                                      width: double.infinity,
+                                      child: Column(
+                                        children: [
+                                          _BrandMark(
+                                            logoUrl: config.brandLogoUrl,
+                                            initials: _initials(brand),
+                                            compact: true,
+                                          ),
+                                          const SizedBox(height: 14),
+                                          Text(
+                                            tr(_greeting()),
+                                            style: AppTypography.plex(
+                                              color: AppColors.accent,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.3,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                        ],
                                       ),
-                                      const SizedBox(height: 14),
-                                      Text(
-                                        tr(_greeting()),
-                                        style: AppTypography.plex(
-                                          color: AppColors.accent,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.3,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                    ],
+                                    ),
+                                    secondChild: const SizedBox(width: double.infinity),
                                   ),
-                                ),
-                                secondChild: const SizedBox(width: double.infinity),
-                              ),
-                              Text(
-                                tr(brand),
-                                textAlign: TextAlign.center,
-                                style: AppTypography.plex(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.3,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                AppCopy.get('loginHeadline'),
-                                textAlign: TextAlign.center,
-                                style: AppTypography.plex(color: AppColors.sidebarText, fontSize: 13),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
-                    child: Column(
-                      children: [
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 180),
-                          child: mode == AuthGateMode.staff
-                              ? _StaffPane(
-                                  key: const ValueKey('staff'),
-                                  controller: pinCtrl,
-                                  focusNode: pinFocus,
-                                  length: pinLength,
-                                  loading: pinLoading,
-                                  error: pinError,
-                                  showPad: showPad,
-                                  onTogglePad: onTogglePad,
-                                  onDigit: onDigit,
-                                  onBack: onBack,
-                                  onClear: onClear,
-                                  onSubmit: onSubmitPin,
-                                )
-                              : _RootPane(
-                                  key: const ValueKey('root'),
-                                  email: email,
-                                  password: password,
-                                  obscure: obscure,
-                                  loading: rootLoading,
-                                  error: rootError,
-                                  onToggleObscure: onToggleObscure,
-                                  onSubmit: onSubmitRoot,
-                                ),
+                                  AnimatedDefaultTextStyle(
+                                    duration: motion,
+                                    curve: AppMotion.emphasized,
+                                    style: AppTypography.plex(
+                                      color: Colors.white,
+                                      fontSize: keyboardOpen ? 18 : 24,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.3,
+                                    ),
+                                    child: Text(tr(brand), textAlign: TextAlign.center),
+                                  ),
+                                  AnimatedSize(
+                                    duration: motion,
+                                    curve: AppMotion.emphasized,
+                                    child: keyboardOpen
+                                        ? const SizedBox(width: double.infinity)
+                                        : Padding(
+                                            padding: const EdgeInsets.only(top: 4),
+                                            child: Text(
+                                              AppCopy.get('loginHeadline'),
+                                              textAlign: TextAlign.center,
+                                              style: AppTypography.plex(
+                                                color: AppColors.sidebarText,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                         ),
-                      ],
-                    ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+                        child: AnimatedSwitcher(
+                          duration: AppMotion.resolve(context, AppMotion.content),
+                          child: pane,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

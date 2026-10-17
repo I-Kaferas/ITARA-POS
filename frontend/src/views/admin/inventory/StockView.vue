@@ -229,21 +229,21 @@ function clearHistoryDates() {
           :value="stockableRows.length"
           icon="inventory"
           accent="var(--color-brand-600)"
-          icon-bg="#e4edf2"
+          icon-bg="var(--color-brand-50)"
         />
         <KpiCard
           :label="t('products.price')"
           :value="formatMoney(stockValue)"
           icon="tag"
-          accent="#059669"
-          icon-bg="#ecfdf5"
+          accent="var(--color-success)"
+          icon-bg="var(--color-success-bg)"
         />
         <KpiCard
           :label="t('dashboard.stockAlerts')"
           :value="lowStockCount"
           icon="bell"
-          accent="#c4841d"
-          icon-bg="#f8efdc"
+          accent="var(--color-warning)"
+          icon-bg="var(--color-warning-bg)"
           :delta="lowStockCount ? t('dashboard.alertsOpen') : t('dashboard.alertsClear')"
           :delta-tone="lowStockCount ? 'down' : 'up'"
         />
@@ -251,8 +251,8 @@ function clearHistoryDates() {
           :label="t('inventory.outOfStock')"
           :value="zeroStockCount"
           icon="package"
-          accent="#dc2626"
-          icon-bg="#fef2f2"
+          accent="var(--color-danger)"
+          icon-bg="var(--color-danger-bg)"
         />
       </div>
 
@@ -400,10 +400,10 @@ function clearHistoryDates() {
 <style scoped>
 
 
-.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
+.btn-secondary { border-radius: var(--radius-md); }
 .text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
-.history-list { max-height: 22rem; overflow: auto; border: 1px solid #e2e8f0; border-radius: 0.75rem; }
-.history-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0.8rem; border-bottom: 1px solid #f1f5f9; }
+.history-list { max-height: 22rem; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+.history-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--color-table-border); }
 .history-arrow {
   display: inline-flex;
   align-items: center;
@@ -414,9 +414,9 @@ function clearHistoryDates() {
   border-radius: 999px;
 }
 .history-arrow svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.history-arrow--in { background: var(--color-success-bg); color: light-dark(#059669, #6ec2a8);}
-.history-arrow--out { background: var(--color-danger-bg); color: light-dark(#dc2626, #f0a4a4);}
+.history-arrow--in { background: var(--color-success-bg); color: var(--color-success); }
+.history-arrow--out { background: var(--color-danger-bg); color: var(--color-danger); }
 .history-qty { min-width: 3.5rem; text-align: right; font-weight: 650; }
-.history-qty--in { color: light-dark(#059669, #6ec2a8);}
-.history-qty--out { color: light-dark(#dc2626, #f0a4a4);}
+.history-qty--in { color: var(--color-success); }
+.history-qty--out { color: var(--color-danger); }
 </style>
