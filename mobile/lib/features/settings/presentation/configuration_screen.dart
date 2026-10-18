@@ -227,12 +227,10 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
 
       await _repo.save(_repo.config.copyWith(deviceId: device.id));
 
-      setState(() {
-        _message = AppCopy.get('saved');
-        _messageOk = true;
-        _saving = false;
-      });
+      if (!mounted) return;
+      context.go(AppRoutes.pos);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _message = humanizeApiCode(e.toString().replaceFirst('Exception: ', ''));
         _messageOk = false;

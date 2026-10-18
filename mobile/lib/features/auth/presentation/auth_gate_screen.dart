@@ -219,7 +219,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       final chosenStore = stores.contains(currentStore)
           ? currentStore
           : (stores.isNotEmpty ? stores.first : currentStore);
-      AuthNavigation.openSettings = true;
+      AuthNavigation.openSettings = !wasConfigured;
       await repo.save(repo.config.copyWith(
         apiBaseUrl: apiBase,
         authToken: access,

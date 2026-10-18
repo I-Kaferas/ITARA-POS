@@ -103,6 +103,10 @@ class AppRouter {
         }
         if (!repo.isConfigured) return null;
 
+        if (location == AppRoutes.configuration) {
+          AuthNavigation.openSettings = false;
+          return AppRoutes.pos;
+        }
         if (!signedIn && !isPin && !isAdminLogin) return AppRoutes.pin;
         if (signedIn && AppRoutes.isConfiguration(location) && !repo.config.isAdmin) {
           return AppRoutes.pos;

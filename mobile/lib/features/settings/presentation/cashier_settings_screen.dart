@@ -1265,7 +1265,17 @@ class _GeneralCard extends StatelessWidget {
             icon: Icons.print_outlined,
             title: tr('Imprimantes'),
             subtitle: tr('Reçus et cuisine (80 mm)'),
-            onTap: () => _openConfig(context, 3),
+            onTap: () {
+              if (config.isConfigured) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PrinterRoutingScreen(),
+                  ),
+                );
+                return;
+              }
+              _openConfig(context, 3);
+            },
           ),
           Divider(height: 1, color: AppColors.border),
           _NavRow(
