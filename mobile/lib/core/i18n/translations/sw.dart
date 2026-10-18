@@ -1536,4 +1536,14 @@ const sw = <String, String>{
   'Validate Join Key': 'Thibitisha ufunguo wa kujiunga',
   'Waiting for a join key': 'Inasubiri ufunguo wa kujiunga',
   'You can find the join key in your SaaS dashboard under Devices → Generate Key': 'Ufunguo upo kwenye dashibodi ya SaaS chini ya Vifaa → Tengeneza ufunguo',
+  'Standalone': 'Huru',
+  'Independent terminal — works alone and syncs directly with the cloud when online.':
+      'Terminali huru — inafanya kazi peke yake na husawazisha moja kwa moja na wingu online.',
+  'No master required on LAN': 'Hakuna Master inayohitajika kwenye LAN',
+  'Full POS on a single device': 'POS kamili kwenye kifaa kimoja',
+  'Direct cloud sync': 'Usawazishaji wa moja kwa moja na wingu',
+  'Ideal for single-shop setups': 'Inafaa kwa duka moja',
+  'Use Standalone': 'Tumia Huru',
+  'Current mode': 'Hali ya sasa',
+  'Seul un caissier peut ouvrir un shift.': 'Ni keshia pekee anayeweza kufungua zamu.',
 };

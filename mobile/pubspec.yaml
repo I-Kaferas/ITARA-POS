@@ -38,6 +38,9 @@ dependencies:
   screen_retriever: ^0.2.2
   window_manager: ^0.5.2
   print_bluetooth_thermal: ^1.2.5
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  geolocator: ^14.1.1
   # Drift local database — full implementation in Phase 36
   # drift: ^2.28.0
   # drift_flutter: ^0.2.4

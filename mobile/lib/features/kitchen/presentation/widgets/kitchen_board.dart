@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../pos/presentation/widgets/pos_ui.dart';
 import '../../domain/kitchen_ticket.dart';
 import '../../domain/kitchen_ticket_status.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Tablet-first Kitchen Display board (§24).
 class KitchenBoard extends StatelessWidget {
@@ -98,7 +98,7 @@ class KitchenColumn extends StatelessWidget {
           Expanded(
             child: Text(
               '${status.label} · ${tickets.length}',
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
                 color: AppColors.textPrimary,
@@ -217,7 +217,7 @@ class KitchenTicketCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     tr(ticket.headline),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
                     ),

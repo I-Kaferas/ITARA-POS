@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/di/service_locator.dart';
 import '../../../core/theme/app_colors.dart';
@@ -9,6 +8,7 @@ import '../../pos/presentation/widgets/pos_ui.dart';
 import 'bloc/kitchen_bloc.dart';
 import 'widgets/kitchen_board.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Dedicated Android/Tablet Kitchen Display (§24) with realtime refresh.
 class KitchenDisplayScreen extends StatelessWidget {
@@ -72,7 +72,7 @@ class _KitchenDisplayBody extends StatelessWidget {
                                 Text(tr('CUISINE'), style: PosUi.sectionLabel()),
                                 Text(
                                   tr('Kitchen Display'),
-                                  style: GoogleFonts.ibmPlexSans(
+                                  style: AppTypography.text(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w700,
                                   ),

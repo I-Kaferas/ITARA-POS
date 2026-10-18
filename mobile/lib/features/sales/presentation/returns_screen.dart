@@ -13,6 +13,7 @@ import '../../pos/data/pos_api_service.dart';
 import '../../pos/domain/pos_models.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class ReturnsScreen extends StatefulWidget {
   const ReturnsScreen({super.key});
@@ -84,7 +85,7 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
       appBar: AppBar(
         title: Text(
           tr('Retours'),
-          style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
+          style: AppTypography.text(fontWeight: FontWeight.w700),
         ),
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,

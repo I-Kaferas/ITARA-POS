@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import 'onboarding_frame.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -98,7 +98,7 @@ class _WelcomeCopy extends StatelessWidget {
         const SizedBox(height: 28),
         Text(
           tr('Gérez. Vendez. Développez.'),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 42,
             height: 1.08,
             fontWeight: FontWeight.w700,
@@ -111,7 +111,7 @@ class _WelcomeCopy extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 420),
           child: Text(
             tr('Le point de vente, le stock, le restaurant et l’hôtel dans une même caisse, en ligne ou hors ligne.'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 16,
               height: 1.5,
               color: AppColors.textSecondary,
@@ -159,7 +159,7 @@ class _TrustChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
@@ -193,7 +193,7 @@ class _PosTerminalPreview extends StatelessWidget {
               children: [
                 Text(
                   tr('Caisse · Bureau 1'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.92),
@@ -211,7 +211,7 @@ class _PosTerminalPreview extends StatelessWidget {
                   ),
                   child: Text(
                     tr('En ligne'),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: AppColors.accent,
@@ -263,7 +263,7 @@ class _PosTerminalPreview extends StatelessWidget {
                           children: [
                             Text(
                               tr('Panier'),
-                              style: GoogleFonts.ibmPlexSans(
+                              style: AppTypography.text(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,
                                 color: AppColors.textPrimary,
@@ -278,7 +278,7 @@ class _PosTerminalPreview extends StatelessWidget {
                               children: [
                                 Text(
                                   tr('Total'),
-                                  style: GoogleFonts.ibmPlexSans(
+                                  style: AppTypography.text(
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.textSecondary,
                                   ),
@@ -286,7 +286,7 @@ class _PosTerminalPreview extends StatelessWidget {
                                 const Spacer(),
                                 Text(
                                   '19 500',
-                                  style: GoogleFonts.ibmPlexSans(
+                                  style: AppTypography.text(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.brandInk,
@@ -304,7 +304,7 @@ class _PosTerminalPreview extends StatelessWidget {
                               ),
                               child: Text(
                                 tr('Encaisser'),
-                                style: GoogleFonts.ibmPlexSans(
+                                style: AppTypography.text(
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
                                   fontSize: 13,
@@ -361,7 +361,7 @@ class _SkuTile extends StatelessWidget {
             const Spacer(),
             Text(
               tr(name),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
                 color: AppColors.textPrimary,
@@ -369,7 +369,7 @@ class _SkuTile extends StatelessWidget {
             ),
             Text(
               price,
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.accent,
@@ -397,7 +397,7 @@ class _CartLine extends StatelessWidget {
           Expanded(
             child: Text(
               tr(label),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),
@@ -405,7 +405,7 @@ class _CartLine extends StatelessWidget {
           ),
           Text(
             value,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,

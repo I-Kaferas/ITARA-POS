@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -11,6 +10,7 @@ import 'onboarding_cubit.dart';
 import 'onboarding_frame.dart';
 import 'onboarding_page.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -218,7 +218,7 @@ class _Footer extends StatelessWidget {
               onPressed: onSkip,
               child: Text(
                 tr('Ignorer'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontWeight: FontWeight.w600,
                   color: AppColors.textSecondary,
                 ),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class PosGateRegister {
   const PosGateRegister({
@@ -153,7 +153,7 @@ class _PosSessionGateState extends State<PosSessionGate> {
                       Expanded(
                         child: Text(
                           tr('Ouvrir la caisse'),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
@@ -255,7 +255,7 @@ class _PosSessionGateState extends State<PosSessionGate> {
                             )
                           : Text(
                               tr('Ouvrir la caisse'),
-                              style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
+                              style: AppTypography.text(fontWeight: FontWeight.w700),
                             ),
                     ),
                   ),

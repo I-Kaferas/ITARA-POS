@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../services/customer_display_bus.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 Color get _brand => AppColors.brandInk;
 const _brandFill = AppColors.brand700;
@@ -175,7 +175,7 @@ class _SectionLabel extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           text,
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: _brand,
@@ -210,7 +210,7 @@ class _PillButton extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: _brand,
@@ -258,7 +258,7 @@ class _HeroCard extends StatelessWidget {
                     snapshot.brandName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: wide ? 24 : 19,
                       fontWeight: FontWeight.w800,
                       color: _ink,
@@ -269,7 +269,7 @@ class _HeroCard extends StatelessWidget {
                     tr(snapshot.tagline),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: _brand,
@@ -294,7 +294,7 @@ class _HeroCard extends StatelessWidget {
             ),
             child: Text(
               _initials(snapshot.brandName),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
                 fontSize: avatar * 0.32,
@@ -349,7 +349,7 @@ class _HeroCard extends StatelessWidget {
                   const SizedBox(height: 10),
                   Text(
                     tr('Merci pour votre visite'),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 38,
                       height: 1.08,
                       fontWeight: FontWeight.w800,
@@ -361,7 +361,7 @@ class _HeroCard extends StatelessWidget {
                     trf('chez {0} !', [snapshot.brandName]),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 38,
                       height: 1.08,
                       fontWeight: FontWeight.w800,
@@ -372,7 +372,7 @@ class _HeroCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     tr('Vos articles s’affichent ici au fur et à mesure.'),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 15, height: 1.4, color: _muted),
+                    style: AppTypography.text(fontSize: 15, height: 1.4, color: _muted),
                   ),
                   const Expanded(child: _ProduceImage()),
                   customer,
@@ -470,13 +470,13 @@ class _InfoTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: _muted),
+                  style: AppTypography.text(fontSize: 12, color: _muted),
                 ),
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w700,
                     color: _text,
@@ -526,7 +526,7 @@ class _OrderPanel extends StatelessWidget {
                     children: [
                       Text(
                         tr('Votre commande'),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: _ink,
@@ -534,7 +534,7 @@ class _OrderPanel extends StatelessWidget {
                       ),
                       Text(
                         count == 1 ? tr('1 article') : trf('{0} articles', [count]),
-                        style: GoogleFonts.ibmPlexSans(fontSize: 13, color: _muted),
+                        style: AppTypography.text(fontSize: 13, color: _muted),
                       ),
                     ],
                   ),
@@ -606,7 +606,7 @@ class _StatusPill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             active ? tr('En cours') : tr('En attente'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
               color: color,
@@ -627,7 +627,7 @@ class _ColumnLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: GoogleFonts.ibmPlexSans(
+      style: AppTypography.text(
         fontSize: 11.5,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.8,
@@ -673,7 +673,7 @@ class _LineRow extends StatelessWidget {
             ),
             child: Text(
               '${line.quantity}×',
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: fontSize - 2,
                 fontWeight: FontWeight.w800,
                 color: _brand,
@@ -686,7 +686,7 @@ class _LineRow extends StatelessWidget {
               line.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w600,
                 color: _ink,
@@ -696,7 +696,7 @@ class _LineRow extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             MoneyFormatter.format(line.price, currencyCode: currencyCode),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: fontSize,
               fontWeight: FontWeight.w700,
               color: _ink,
@@ -733,7 +733,7 @@ class _EmptyOrder extends StatelessWidget {
             Text(
               tr('Votre commande apparaîtra ici'),
               textAlign: TextAlign.center,
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: _text,
@@ -743,7 +743,7 @@ class _EmptyOrder extends StatelessWidget {
             Text(
               tr('Le caissier ajoute vos articles un par un.'),
               textAlign: TextAlign.center,
-              style: GoogleFonts.ibmPlexSans(fontSize: 13.5, color: _muted),
+              style: AppTypography.text(fontSize: 13.5, color: _muted),
             ),
           ],
         ),
@@ -775,7 +775,7 @@ class _TotalBlock extends StatelessWidget {
             children: [
               Text(
                 tr('Total à payer'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
@@ -783,7 +783,7 @@ class _TotalBlock extends StatelessWidget {
               ),
               Text(
                 count == 1 ? tr('1 article') : trf('{0} articles', [count]),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12.5,
                   color: Colors.white.withValues(alpha: 0.75),
                 ),
@@ -808,7 +808,7 @@ class _TotalBlock extends StatelessWidget {
                   child: Text(
                     amount,
                     key: ValueKey(amount),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 32,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -842,7 +842,7 @@ class _Footer extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               tr('Merci et à bientôt !'),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w700,
                 color: _brand,
@@ -855,7 +855,7 @@ class _Footer extends StatelessWidget {
           children: [
             Text(
               tr('Propulsé par'),
-              style: GoogleFonts.ibmPlexSans(fontSize: 12, color: _muted),
+              style: AppTypography.text(fontSize: 12, color: _muted),
             ),
             const SizedBox(width: 6),
             Container(
@@ -868,7 +868,7 @@ class _Footer extends StatelessWidget {
               ),
               child: Text(
                 'I',
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
@@ -878,7 +878,7 @@ class _Footer extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               'ITARA POS',
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: _brand,

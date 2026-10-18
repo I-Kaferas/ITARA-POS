@@ -1037,4 +1037,14 @@ const en = <String, String>{
   'Étiquettes': 'Labels',
   'Événements envoyés': 'Events sent',
   '— Groupe uniquement —': '— Group only —',
+  'Standalone': 'Standalone',
+  'Independent terminal ? works alone and syncs directly with the cloud when online.':
+      'Independent terminal ? works alone and syncs directly with the cloud when online.',
+  'No master required on LAN': 'No master required on LAN',
+  'Full POS on a single device': 'Full POS on a single device',
+  'Direct cloud sync': 'Direct cloud sync',
+  'Ideal for single-shop setups': 'Ideal for single-shop setups',
+  'Use Standalone': 'Use Standalone',
+  'Current mode': 'Current mode',
+  'Seul un caissier peut ouvrir un shift.': 'Only a cashier can open a shift.',
 };

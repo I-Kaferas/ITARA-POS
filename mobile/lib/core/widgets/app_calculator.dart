@@ -313,7 +313,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
                 tr(_expression.isEmpty ? '0' : _expression),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.ibmPlexSans(fontSize: 11, color: const Color(0x8CFFFFFF)),
+                style: AppTypography.text(fontSize: 11, color: const Color(0x8CFFFFFF)),
               ),
               Text(
                 tr(_display),
@@ -351,7 +351,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
         const SizedBox(height: 6),
         Row(
           children: [
-            Text(trf('M {0}', [formatCalcNumber(_memory)]), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
+            Text(trf('M {0}', [formatCalcNumber(_memory)]), style: AppTypography.text(fontSize: 11, color: AppColors.textSecondary)),
             const Spacer(),
             _mini('MC', () => setState(() => _memory = 0)),
             _mini('MR', () => setState(() => _append(formatCalcNumber(_memory)))),
@@ -464,9 +464,9 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(
                 children: [
-                  Text(tr(row.$1), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(tr(row.$1), style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary)),
                   const Spacer(),
-                  Text(tr(row.$2), style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  Text(tr(row.$2), style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                 ],
               ),
             ),
@@ -485,7 +485,7 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
           border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600)),
+        child: Text(tr(label), style: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w600)),
       ),
     );
   }

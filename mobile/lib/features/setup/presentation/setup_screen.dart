@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_controller.dart';
 import 'master_setup_wizard.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Premier lancement §47 — Welcome / CREATE MASTER / CONNECT TO MASTER.
 class SetupScreen extends StatefulWidget {
@@ -84,7 +84,7 @@ class _WelcomePane extends StatelessWidget {
           const SizedBox(height: 20),
           Text(
             AppCopy.get('welcomeTitle'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 28,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -94,7 +94,7 @@ class _WelcomePane extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             AppCopy.get('welcomeBody'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 15,
               color: AppColors.textSecondary,
               height: 1.4,
@@ -120,7 +120,7 @@ class _WelcomePane extends StatelessWidget {
           Text(
             AppCopy.get('welcomeFoot'),
             textAlign: TextAlign.center,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 12,
               color: AppColors.textMuted,
             ),

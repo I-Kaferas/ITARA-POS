@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/utils/money_formatter.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../domain/shift_models.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class ShiftDetailSheet extends StatefulWidget {
   const ShiftDetailSheet({
@@ -108,9 +108,9 @@ class _ShiftDetailSheetState extends State<ShiftDetailSheet> {
                       tr(_code),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                      style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText),
                     ),
-                    Text(tr(cashier), style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted)),
+                    Text(tr(cashier), style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted)),
                   ],
                 ),
               ),
@@ -122,7 +122,7 @@ class _ShiftDetailSheetState extends State<ShiftDetailSheet> {
                 ),
                 child: Text(
                   tr(open ? 'Active' : 'Closed'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: open ? PosUi.deskPay : PosUi.deskMuted,
@@ -145,9 +145,9 @@ class _ShiftDetailSheetState extends State<ShiftDetailSheet> {
                 children: [
                   Icon(Icons.timer_outlined, size: 18, color: PosUi.deskMuted),
                   const SizedBox(width: 8),
-                  Text(trf('Duration: {0}', [_duration]), style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: PosUi.deskText)),
+                  Text(trf('Duration: {0}', [_duration]), style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700, color: PosUi.deskText)),
                   const Spacer(),
-                  Text(tr('elapsed'), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                  Text(tr('elapsed'), style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
                 ],
               ),
               const SizedBox(height: 18),
@@ -155,20 +155,20 @@ class _ShiftDetailSheetState extends State<ShiftDetailSheet> {
                 children: [
                   Icon(Icons.storefront_outlined, size: 18, color: PosUi.deskMuted),
                   const SizedBox(width: 8),
-                  Text(tr('Session stores'), style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w700, color: PosUi.deskText)),
+                  Text(tr('Session stores'), style: AppTypography.text(fontSize: 15, fontWeight: FontWeight.w700, color: PosUi.deskText)),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
                 tr(widget.register.name.toUpperCase()),
-                style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: PosUi.deskMuted),
+                style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: PosUi.deskMuted),
               ),
               const SizedBox(height: 18),
               Row(
                 children: [
                   Icon(Icons.receipt_long_outlined, size: 18, color: PosUi.deskMuted),
                   const SizedBox(width: 8),
-                  Text(tr('Commandes de la session'), style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w700, color: PosUi.deskText)),
+                  Text(tr('Commandes de la session'), style: AppTypography.text(fontSize: 15, fontWeight: FontWeight.w700, color: PosUi.deskText)),
                   const SizedBox(width: 8),
                   Container(
                     width: 22,
@@ -177,7 +177,7 @@ class _ShiftDetailSheetState extends State<ShiftDetailSheet> {
                     decoration: BoxDecoration(color: PosUi.deskRaised, shape: BoxShape.circle),
                     child: Text(
                       '${invoices.length}',
-                      style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                      style: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w800, color: PosUi.deskText),
                     ),
                   ),
                   const Spacer(),
@@ -192,7 +192,7 @@ class _ShiftDetailSheetState extends State<ShiftDetailSheet> {
               if (invoices.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(tr('Aucune commande'), style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted)),
+                  child: Text(tr('Aucune commande'), style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted)),
                 )
               else
                 for (final invoice in invoices) ...[
@@ -200,7 +200,7 @@ class _ShiftDetailSheetState extends State<ShiftDetailSheet> {
                   _OrderCard(invoice: invoice, storeName: widget.register.name),
                 ],
               const SizedBox(height: 22),
-              Text(tr('Payment Breakdown'), style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText)),
+              Text(tr('Payment Breakdown'), style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText)),
               const SizedBox(height: 14),
               _BreakdownGrid(
                 opening: summary?.openingBalance ?? session?.openingBalance ?? 0,
@@ -228,7 +228,7 @@ class _ShiftDetailSheetState extends State<ShiftDetailSheet> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                  label: Text(tr('Situation & Remise'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w800, fontSize: 13)),
+                  label: Text(tr('Situation & Remise'), style: AppTypography.text(fontWeight: FontWeight.w800, fontSize: 13)),
                 ),
               ),
               if (widget.onCloseShift != null) ...[
@@ -243,7 +243,7 @@ class _ShiftDetailSheetState extends State<ShiftDetailSheet> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                     icon: const Icon(Icons.stop_rounded, size: 16),
-                    label: Text(tr('Close Shift'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w800, fontSize: 13)),
+                    label: Text(tr('Close Shift'), style: AppTypography.text(fontWeight: FontWeight.w800, fontSize: 13)),
                   ),
                 ),
               ],
@@ -290,10 +290,10 @@ class _OrderCard extends StatelessWidget {
                   children: [
                     Text(
                       tr(invoice.reference.isEmpty ? 'Commande' : '#${invoice.reference}'),
-                      style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                      style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText),
                     ),
                     _Chip(label: storeName.toUpperCase()),
-                    if (time.isNotEmpty) Text(tr(time), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                    if (time.isNotEmpty) Text(tr(time), style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
                   ],
                 ),
                 if (meta.isNotEmpty || method.isNotEmpty) ...[
@@ -302,7 +302,7 @@ class _OrderCard extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     spacing: 8,
                     children: [
-                      if (meta.isNotEmpty) Text(tr(meta), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                      if (meta.isNotEmpty) Text(tr(meta), style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
                       if (method.isNotEmpty) _Chip(label: method, filled: true),
                     ],
                   ),
@@ -315,12 +315,12 @@ class _OrderCard extends StatelessWidget {
             children: [
               Text(
                 tr(MoneyFormatter.format(invoice.total)),
-                style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
               ),
               if (invoice.outstanding > 0)
                 Text(
                   trf('Dû: {0}', [MoneyFormatter.format(invoice.outstanding)]),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFE23D3D)),
+                  style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFE23D3D)),
                 ),
             ],
           ),
@@ -393,9 +393,9 @@ class _Tile extends StatelessWidget {
                 tr(value),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
               ),
-              Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+              Text(tr(label), style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
             ],
           ),
         ),
@@ -420,7 +420,7 @@ class _Chip extends StatelessWidget {
       ),
       child: Text(
         tr(label),
-        style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, color: filled ? const Color(0xFF8EBEFF) : PosUi.deskMuted),
+        style: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w700, color: filled ? const Color(0xFF8EBEFF) : PosUi.deskMuted),
       ),
     );
   }

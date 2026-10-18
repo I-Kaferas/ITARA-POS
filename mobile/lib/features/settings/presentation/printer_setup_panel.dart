@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -14,6 +13,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../printers/services/printer_manager.dart';
 import '../../printers/services/printer_service.dart';
 import '../../printers/services/raw_printer_output.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 Color get _accent => AppColors.brandInk;
 Color get _onAccent =>
@@ -717,7 +717,7 @@ class _EnableRow extends StatelessWidget {
               children: [
                 Text(
                   tr('Impression des tickets'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -727,7 +727,7 @@ class _EnableRow extends StatelessWidget {
                   tr(enabled
                       ? 'Les tickets partent vers l’imprimante configurée ci-dessous.'
                       : 'Désactivée : les tickets s’ouvrent dans la fenêtre d’impression.'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -758,7 +758,7 @@ class _SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             tr(title),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -814,7 +814,7 @@ class _OptionTile extends StatelessWidget {
                         tr(title),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
@@ -825,7 +825,7 @@ class _OptionTile extends StatelessWidget {
                           tr(subtitle),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 11.5,
                             color: AppColors.textMuted,
                           ),
@@ -876,7 +876,7 @@ class _ActionButton extends StatelessWidget {
       padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
       shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
       textStyle: WidgetStatePropertyAll(
-        GoogleFonts.ibmPlexSans(fontSize: 12.5, fontWeight: FontWeight.w700),
+        AppTypography.text(fontSize: 12.5, fontWeight: FontWeight.w700),
       ),
     );
     if (primary) {
@@ -952,7 +952,7 @@ class _Field extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: GoogleFonts.ibmPlexSans(fontSize: 13.5, color: AppColors.textPrimary),
+      style: AppTypography.text(fontSize: 13.5, color: AppColors.textPrimary),
       decoration: InputDecoration(
         isDense: true,
         labelText: tr(label),
@@ -998,7 +998,7 @@ class _Hint extends StatelessWidget {
           Expanded(
             child: Text(
               tr(text),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 12,
                 height: 1.4,
                 color: AppColors.textSecondary,
@@ -1031,7 +1031,7 @@ class _Loading extends StatelessWidget {
           Expanded(
             child: Text(
               tr(label),
-              style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+              style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary),
             ),
           ),
         ],
@@ -1067,7 +1067,7 @@ class _StatusBanner extends StatelessWidget {
           Expanded(
             child: Text(
               tr(status.message),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 12.5,
                 height: 1.35,
                 color: AppColors.textPrimary,

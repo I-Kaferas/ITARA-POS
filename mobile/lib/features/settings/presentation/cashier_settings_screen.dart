@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config.dart';
@@ -29,6 +28,7 @@ import '../domain/screen_lock_controller.dart';
 import 'close_period_dialog.dart';
 import 'printer_setup_panel.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 Color get _brand => AppColors.brandInk;
 Color get _onBrand =>
@@ -274,7 +274,7 @@ class _PillButton extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 tr(label),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: color,
@@ -357,7 +357,7 @@ class _ProfileCard extends StatelessWidget {
                       tr(name),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
@@ -366,7 +366,7 @@ class _ProfileCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       tr(role),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: _brand,
@@ -408,7 +408,7 @@ class _ProfileCard extends StatelessWidget {
               ),
               child: Text(
                 tr(_initials(name)),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
@@ -442,7 +442,7 @@ class _Meta extends StatelessWidget {
               tr(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 12.5,
                 color: AppColors.textSecondary,
               ),
@@ -524,7 +524,7 @@ class _LanguageRow extends StatelessWidget {
                 ),
                 child: Text(
                   tr(badge),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: selected ? _brand : AppColors.textSecondary,
@@ -538,7 +538,7 @@ class _LanguageRow extends StatelessWidget {
                   children: [
                     Text(
                       tr(title),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: selected ? _brand : AppColors.textPrimary,
@@ -546,7 +546,7 @@ class _LanguageRow extends StatelessWidget {
                     ),
                     Text(
                       tr(subtitle),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 12,
                         color: AppColors.textMuted,
                       ),
@@ -593,7 +593,7 @@ class _RoleNotice extends StatelessWidget {
                   tr(ready
                       ? 'Rôle : ${config.posRole.label}'
                       : 'Rôle de l’appareil non configuré'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -604,7 +604,7 @@ class _RoleNotice extends StatelessWidget {
                   tr(ready
                       ? 'Le menu caissier suit ce rôle. Ouvrez le Hub pour le modifier.'
                       : 'Ouvrez le Hub et définissez cet appareil comme Master ou Esclave avant de modifier ces options.'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12.5,
                     height: 1.35,
                     color: AppColors.textSecondary,
@@ -687,7 +687,7 @@ class _PrintCard extends StatelessWidget {
                   children: [
                     Text(
                       tr(prefs.printTextCaption),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 12,
                         color: AppColors.textMuted,
                       ),
@@ -695,7 +695,7 @@ class _PrintCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       tr('Aperçu ticket'),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 11 * prefs.printTextScale,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
@@ -703,7 +703,7 @@ class _PrintCard extends StatelessWidget {
                     ),
                     Text(
                       'TOTAL  36 000 FBu',
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 14 * prefs.printTextScale,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -807,7 +807,7 @@ class _HubCard extends StatelessWidget {
               children: [
                 Text(
                   tr('Hub'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -815,7 +815,7 @@ class _HubCard extends StatelessWidget {
                 ),
                 Text(
                   tr('Gestion des appareils'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,
                   ),
@@ -904,7 +904,7 @@ class _StoreCardState extends State<_StoreCard> {
                   tr(name),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -912,7 +912,7 @@ class _StoreCardState extends State<_StoreCard> {
                 ),
                 Text(
                   subtitle,
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,
                   ),
@@ -1040,7 +1040,7 @@ class _DataSyncCardState extends State<_DataSyncCard> {
                       children: [
                         Text(
                           tr('État de la synchro'),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
@@ -1048,7 +1048,7 @@ class _DataSyncCardState extends State<_DataSyncCard> {
                         ),
                         Text(
                           trf('Dernière synchro : {0}''{1}', [_ago(last), engine.pending > 0 ? ' · ${engine.pending} en attente' : '']),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 13,
                             color: AppColors.textSecondary,
                           ),
@@ -1058,7 +1058,7 @@ class _DataSyncCardState extends State<_DataSyncCard> {
                             tr(error),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.danger),
+                            style: AppTypography.text(fontSize: 12, color: AppColors.danger),
                           ),
                       ],
                     ),
@@ -1164,7 +1164,7 @@ class _SyncActionTile extends StatelessWidget {
               Text(
                 tr(title),
                 textAlign: TextAlign.center,
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -1174,7 +1174,7 @@ class _SyncActionTile extends StatelessWidget {
               Text(
                 tr(subtitle),
                 textAlign: TextAlign.center,
-                style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -1226,7 +1226,7 @@ class _ClosePeriodTile extends StatelessWidget {
                   children: [
                     Text(
                       tr('Clôturer la période'),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: AppColors.danger,
@@ -1235,7 +1235,7 @@ class _ClosePeriodTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       tr('Envoyer, vérifier et nettoyer les mouvements locaux'),
-                      style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+                      style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -1353,7 +1353,7 @@ class _MenuVisibilityCard extends StatelessWidget {
                     children: [
                       Text(
                         tr(label),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
@@ -1362,7 +1362,7 @@ class _MenuVisibilityCard extends StatelessWidget {
                       if (!available)
                         Text(
                           tr('Masqué en mode commerce'),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 12,
                             fontStyle: FontStyle.italic,
                             color: AppColors.textSecondary,
@@ -1464,7 +1464,7 @@ class _NotificationMasterRow extends StatelessWidget {
               children: [
                 Text(
                   tr('Enable Notifications'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -1472,7 +1472,7 @@ class _NotificationMasterRow extends StatelessWidget {
                 ),
                 Text(
                   tr('Receive alerts for orders, stock & sync'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,
                   ),
@@ -1519,7 +1519,7 @@ class _NotificationChannelRow extends StatelessWidget {
             Expanded(
               child: Text(
                 tr(label),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -1579,7 +1579,7 @@ class _AutoLockCard extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: 320),
                 child: Text(
                   tr('Le PIN du caissier est demandé pour reprendre. Raccourci : Ctrl+L'),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+                  style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary),
                 ),
               ),
               FilledButton.icon(
@@ -1673,7 +1673,7 @@ class _LogoutCard extends StatelessWidget {
               children: [
                 Text(
                   tr('Déconnexion'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.danger,
@@ -1681,7 +1681,7 @@ class _LogoutCard extends StatelessWidget {
                 ),
                 Text(
                   tr('Quitter le compte de cette caisse'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,
                   ),
@@ -1729,7 +1729,7 @@ class _NavRow extends StatelessWidget {
               children: [
                 Text(
                   tr(title),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -1737,7 +1737,7 @@ class _NavRow extends StatelessWidget {
                 ),
                 Text(
                   tr(subtitle),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12.5,
                     height: 1.3,
                     color: AppColors.textSecondary,
@@ -1789,7 +1789,7 @@ class _CardTitle extends StatelessWidget {
             children: [
               Text(
                 tr(title),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -1798,7 +1798,7 @@ class _CardTitle extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 tr(subtitle),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12.5,
                   height: 1.3,
                   color: AppColors.textSecondary,
@@ -1940,7 +1940,7 @@ class _ChoiceChip extends StatelessWidget {
                   tr(option.label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: fg,
@@ -1970,7 +1970,7 @@ class _SectionLabel extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             tr(text),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: _brand,

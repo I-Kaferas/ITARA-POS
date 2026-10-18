@@ -132,6 +132,14 @@ class LocalMasterDiscovery extends ChangeNotifier {
   }
 
   Future<void> searchNow() async {
+    if (!_started) {
+      await start();
+    }
+    if (!_started) {
+      searching = false;
+      notifyListeners();
+      return;
+    }
     await search();
   }
 

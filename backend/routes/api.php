@@ -763,6 +763,8 @@ Route::prefix('v1')->group(function () {
         // Cashier shifts (Phase 21 — MOD-SHIFT)
         Route::get('me/cashier-shifts/current', [CashierShiftController::class, 'currentForUser'])
             ->middleware('permission:shifts.view,shifts.manage');
+        Route::get('me/cashier-shifts', [CashierShiftController::class, 'indexForUser'])
+            ->middleware('permission:shifts.view,shifts.manage');
         Route::get('cashier-shifts/{cashierShift}', [CashierShiftController::class, 'showShift'])
             ->middleware('permission:shifts.view,shifts.manage');
         Route::get('stores/{store}/cashier-shifts', [CashierShiftController::class, 'indexForStore'])

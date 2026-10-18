@@ -9,6 +9,7 @@ import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 Future<bool?> showPosMergeSheet(
   BuildContext context, {
@@ -161,7 +162,7 @@ class _PosMergeSheetState extends State<PosMergeSheet> {
               Expanded(
                 child: Text(
                   tr('Fusionner les commandes'),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700),
+                  style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
               ),
               IconButton(

@@ -1,5 +1,16 @@
 import { formatApiErrorMessage } from '../errors/resolveApiError'
-import { cachedRead, interceptWrite, isCacheableRead, isTransientError, rememberRead } from '../offline/gateway'
+import {
+  cachedRead,
+  cachedReadMeta,
+  interceptWrite,
+  invalidateOnlineReadCache,
+  isCacheableRead,
+  isOnlineSwrRead,
+  isTransientError,
+  rememberRead,
+} from '../offline/gateway'
+import { cacheKey } from '../offline/optimistic'
+import { ageMs, peekApiReadCache, putApiReadCache, READ_FRESH_MS, READ_STALE_MS } from './readCache'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
@@ -87,6 +98,7 @@ export class StaleWorkspaceError extends Error {
 function rotateWorkspace() {
   workspaceEpoch += 1
   inflightGets.clear()
+  invalidateOnlineReadCache()
 }
 
 function workspaceScope(): string {
@@ -160,14 +172,40 @@ async function write<T>(method: string, path: string, body?: unknown, options?: 
     body: nextBody === undefined ? undefined : JSON.stringify(nextBody),
   })
 
-  if (options?.skipOffline) return send(path, method, body)
+  if (options?.skipOffline) {
+    const result = await send(path, method, body)
+    invalidateOnlineReadCache()
+    return result
+  }
 
   const decision = await interceptWrite(method, path, body, send)
-  if (!decision.passthrough) return decision.response as T
-  return send(path, method, body)
+  if (!decision.passthrough) {
+    invalidateOnlineReadCache()
+    return decision.response as T
+  }
+  const result = await send(path, method, body)
+  invalidateOnlineReadCache()
+  return result
 }
 
 const inflightGets = new Map<string, Promise<unknown>>()
+
+async function fetchAndRemember<T>(path: string): Promise<T> {
+  const data = await request<T>(path)
+  void rememberRead(path, data)
+  return data
+}
+
+function revalidateInBackground(path: string): void {
+  const key = `${workspaceScope()}|bg|${path}`
+  if (inflightGets.has(key)) return
+  const requestPromise = fetchAndRemember(path)
+    .catch(() => undefined)
+    .finally(() => {
+      if (inflightGets.get(key) === requestPromise) inflightGets.delete(key)
+    })
+  inflightGets.set(key, requestPromise)
+}
 
 export const api = {
   get: <T>(path: string) => {
@@ -175,14 +213,38 @@ export const api = {
     const pending = inflightGets.get(key)
     if (pending) return pending as Promise<T>
     const requestPromise = (async () => {
-      if (isCacheableRead(path) && typeof navigator !== 'undefined' && navigator.onLine === false) {
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+      if (isCacheableRead(path) && offline) {
         const cached = await cachedRead(path)
         if (cached !== undefined) return cached as T
       }
+
+      if (isOnlineSwrRead(path) && !offline) {
+        const memKey = cacheKey(path)
+        const mem = peekApiReadCache(memKey)
+        if (mem && ageMs(mem.at) < READ_FRESH_MS) {
+          return mem.data as T
+        }
+        if (mem && ageMs(mem.at) < READ_STALE_MS) {
+          revalidateInBackground(path)
+          return mem.data as T
+        }
+
+        const disk = await cachedReadMeta(path)
+        if (disk?.trusted) {
+          putApiReadCache(memKey, disk.data, disk.at)
+          if (ageMs(disk.at) < READ_FRESH_MS) {
+            return disk.data as T
+          }
+          if (ageMs(disk.at) < READ_STALE_MS) {
+            revalidateInBackground(path)
+            return disk.data as T
+          }
+        }
+      }
+
       try {
-        const data = await request<T>(path)
-        void rememberRead(path, data)
-        return data
+        return await fetchAndRemember<T>(path)
       } catch (error) {
         if (isCacheableRead(path) && isTransientError(error)) {
           const cached = await cachedRead(path)
@@ -200,7 +262,11 @@ export const api = {
   put: <T>(path: string, body?: unknown, options?: WriteOptions) => write<T>('PUT', path, body, options),
   patch: <T>(path: string, body?: unknown, options?: WriteOptions) => write<T>('PATCH', path, body, options),
   delete: <T>(path: string, options?: WriteOptions) => write<T>('DELETE', path, undefined, options),
-  upload: <T>(path: string, formData: FormData) => request<T>(path, { method: 'POST', body: formData }),
+  upload: async <T>(path: string, formData: FormData) => {
+    const result = await request<T>(path, { method: 'POST', body: formData })
+    invalidateOnlineReadCache()
+    return result
+  },
   async download(path: string, filename: string) {
     const epoch = workspaceEpoch
     const headers = new Headers({ Accept: 'text/csv' })

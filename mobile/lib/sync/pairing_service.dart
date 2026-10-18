@@ -15,6 +15,7 @@ import 'local_master_server.dart';
 import 'local_realtime.dart';
 import 'master_config_store.dart';
 import 'pairing_models.dart';
+import 'sync_engine.dart';
 
 export 'pairing_models.dart';
 
@@ -354,6 +355,7 @@ class PairingService extends ChangeNotifier {
     }
 
     await LocalRealtimeClient.instance.startIfSlave();
+    await SyncEngine.instance.applyRoleChange();
     _log.pairing('Paired with master host=$host');
     notifyListeners();
   }

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../sync/sync_engine.dart';
 import '../../../sync/sync_models.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Guided period close: upload, verify, back up, then clean local data.
 Future<SyncReport?> showClosePeriodDialog(BuildContext context, {required bool toMaster}) {
@@ -107,7 +107,7 @@ class _ClosePeriodDialogState extends State<_ClosePeriodDialog> {
                       Text(
                         tr('Clôturer la période'),
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 21,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
@@ -163,7 +163,7 @@ class _ClosePeriodDialogState extends State<_ClosePeriodDialog> {
                                 Expanded(
                                   child: Text(
                                     tr('Je comprends que cette action est irréversible'),
-                                    style: GoogleFonts.ibmPlexSans(fontSize: 14, color: AppColors.textPrimary),
+                                    style: AppTypography.text(fontSize: 14, color: AppColors.textPrimary),
                                   ),
                                 ),
                               ],
@@ -181,7 +181,7 @@ class _ClosePeriodDialogState extends State<_ClosePeriodDialog> {
                             ),
                             child: Text(
                               tr('Fermer'),
-                              style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 15),
+                              style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 15),
                             ),
                           ),
                         )
@@ -200,7 +200,7 @@ class _ClosePeriodDialogState extends State<_ClosePeriodDialog> {
                                   ),
                                   child: Text(
                                     tr('Annuler'),
-                                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 15),
+                                    style: AppTypography.text(fontWeight: FontWeight.w600, fontSize: 15),
                                   ),
                                 ),
                               ),
@@ -230,7 +230,7 @@ class _ClosePeriodDialogState extends State<_ClosePeriodDialog> {
                                       : const Icon(Icons.storefront_rounded, size: 18),
                                   label: Text(
                                     tr(_running ? 'Clôture…' : 'Clôturer'),
-                                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 15),
+                                    style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 15),
                                   ),
                                 ),
                               ),
@@ -292,7 +292,7 @@ class _StepRow extends StatelessWidget {
           Expanded(
             child: Text(
               tr(label),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 15,
                 fontWeight: active ? FontWeight.w600 : FontWeight.w500,
                 color: AppColors.textPrimary,
@@ -331,7 +331,7 @@ class _Notice extends StatelessWidget {
           Expanded(
             child: Text(
               tr(text),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 13.5,
                 height: 1.45,
                 color: AppColors.textPrimary,

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../sync/discovery/master_beacon.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Panneau Slave §7 — liste des Masters découverts + CONNECT.
 class DiscoveredMastersPanel extends StatelessWidget {
@@ -38,7 +39,7 @@ class DiscoveredMastersPanel extends StatelessWidget {
           Expanded(
             child: Text(
               tr(statusMessage),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 12,
                 color: AppColors.textMuted,
               ),
@@ -58,7 +59,7 @@ class DiscoveredMastersPanel extends StatelessWidget {
       children: [
         Text(
           tr('Masters trouvés'),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
@@ -107,7 +108,7 @@ class _MasterCard extends StatelessWidget {
               children: [
                 Text(
                   tr(master.name),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -134,7 +135,7 @@ class _MasterCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       tr(online ? 'En ligne' : 'Hors ligne'),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: online ? AppColors.success : AppColors.textMuted,
@@ -144,7 +145,7 @@ class _MasterCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         trf('v{0}', [master.version]),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 11,
                           color: AppColors.textMuted,
                         ),

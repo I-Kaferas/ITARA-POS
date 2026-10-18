@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/terminal_config_repository.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -9,6 +8,7 @@ import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 Future<bool?> showPosReturnSheet(
   BuildContext context, {
@@ -248,7 +248,7 @@ class _PosReturnSheetState extends State<PosReturnSheet> {
               Expanded(
                 child: Text(
                   tr('Retour / remboursement'),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700),
+                  style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
               ),
               IconButton(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../i18n/app_locale.dart';
@@ -126,7 +125,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                           Text(
                             AppCopy.get('syncTitle'),
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.ibmPlexSans(
+                            style: AppTypography.text(
                               color: Colors.white,
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
@@ -141,7 +140,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                             ),
                             child: Text(
                               tr(live.label),
-                              style: GoogleFonts.ibmPlexSans(
+                              style: AppTypography.text(
                                 color: Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -243,7 +242,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
           const SizedBox(height: 12),
           Text(
             AppCopy.get('syncBusy'),
-            style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -274,7 +273,7 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                   Expanded(
                     child: Text(
                       tr(report.message.isNotEmpty ? report.message : (report.ok ? AppCopy.get('syncDone') : AppCopy.get('syncFailed'))),
-                      style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: color),
+                      style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: color),
                     ),
                   ),
                 ],
@@ -289,11 +288,11 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
                         Icon(Icons.check_circle, size: 16, color: AppColors.success),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(tr(line.label), style: GoogleFonts.ibmPlexSans(fontSize: 14, color: AppColors.textPrimary)),
+                          child: Text(tr(line.label), style: AppTypography.text(fontSize: 14, color: AppColors.textPrimary)),
                         ),
                         Text(
                           '${line.count}',
-                          style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                          style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
                         ),
                       ],
                     ),
@@ -345,12 +344,12 @@ class _SyncInfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
+              Text(tr(label), style: AppTypography.text(fontSize: 11, color: AppColors.textMuted)),
               Text(
                 tr(value),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
             ],
           ),
@@ -631,6 +630,12 @@ class AppShell extends StatelessWidget {
           ],
         ),
         actions: [
+          if (!config.isAdmin)
+            IconButton(
+              tooltip: tr('Se déconnecter'),
+              icon: const Icon(Icons.logout_rounded),
+              onPressed: () => _confirmLogout(context),
+            ),
           const SyncStatusBar(),
           const SizedBox(width: 4),
           const ThemeModeButton(),
@@ -699,11 +704,11 @@ class _Sidebar extends StatelessWidget {
     final cashier = config.cashierName.trim().isEmpty ? 'Caissier' : config.cashierName.trim();
     return Container(
       width: PosUi.isDesktop(context) ? 260 : 228,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF162B45), AppColors.sidebar, Color(0xFF0C1828)],
+          colors: [AppColors.sidebarTop, AppColors.sidebar, AppColors.sidebarBottom],
         ),
         border: Border(right: BorderSide(color: AppColors.sidebarBorder)),
       ),
@@ -821,7 +826,7 @@ class _Sidebar extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
             child: Text(
               tr('NAVIGATION').toUpperCase(),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 color: AppColors.sidebarText.withValues(alpha: 0.45),
                 fontSize: 10.5,
                 fontWeight: FontWeight.w700,
@@ -860,7 +865,7 @@ class _Sidebar extends StatelessWidget {
                       disabledForegroundColor: AppColors.brand900.withValues(alpha: 0.7),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      textStyle: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w700),
+                      textStyle: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w700),
                     ),
                     icon: syncing
                         ? const SizedBox(
@@ -911,7 +916,7 @@ class _Sidebar extends StatelessWidget {
                   ),
                   child: Text(
                     cashier[0].toUpperCase(),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       color: AppColors.brand900,
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
@@ -927,7 +932,7 @@ class _Sidebar extends StatelessWidget {
                         tr(cashier),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           color: Colors.white,
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
@@ -942,7 +947,7 @@ class _Sidebar extends StatelessWidget {
                         ),
                         child: Text(
                           tr(config.posRole.label),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
                             color: AppColors.accent,
@@ -1022,7 +1027,7 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
                 several ? trf('{0} · {1} magasins', [label, _stores.length]) : label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 11,
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w500,
@@ -1068,7 +1073,7 @@ class _StoreSwitcherState extends State<_StoreSwitcher> {
                     tr(label),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -1132,7 +1137,7 @@ class _ConnectionPill extends StatelessWidget {
               tr(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 color: Colors.white.withValues(alpha: on ? 0.92 : 0.55),
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
@@ -1159,7 +1164,7 @@ class _ConnectionPill extends StatelessWidget {
               tr(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 color: color,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1277,7 +1282,7 @@ class _SidebarItem extends StatelessWidget {
                 Expanded(
                   child: Text(
                     tr(item.label),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       color: textColor,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       fontSize: 13.5,
@@ -1328,7 +1333,7 @@ class _TopBar extends StatelessWidget {
               children: [
                 Text(
                   tr(title),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.2,
@@ -1425,7 +1430,7 @@ class _ContextChip extends StatelessWidget {
               tr(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
           ),
           if (trailing != null) ...[

@@ -38,6 +38,15 @@ const menuId = ref<string | null>(null)
 
 const storeIdValue = storeId
 
+const roleSlugs = computed(() => (auth.user?.roles ?? []).map(role => role.slug))
+const isCashier = computed(() => roleSlugs.value.includes('cashier'))
+const canViewAllShifts = computed(() =>
+  roleSlugs.value.some(slug =>
+    ['administrator', 'company_owner', 'branch_manager', 'store_manager'].includes(slug),
+  ),
+)
+const canOpenShift = computed(() => isCashier.value)
+
 const activeRegisters = computed(() => store.cashRegisters.filter(r => r.is_active !== false))
 const myShift = computed(() => store.currentCashierShift)
 const busyRegisterIds = computed(() => new Set(
@@ -45,12 +54,19 @@ const busyRegisterIds = computed(() => new Set(
 ))
 const freeRegisters = computed(() => activeRegisters.value.filter(reg => !busyRegisterIds.value.has(reg.id)))
 
-const activeCount = computed(() => store.cashierShifts.filter(shift => shift.status === 'open').length)
-const closedCount = computed(() => store.cashierShifts.filter(shift => shift.status === 'closed').length)
+const scopedShifts = computed(() => {
+  if (canViewAllShifts.value && storeId.value) return store.cashierShifts
+  const userId = auth.user?.id
+  if (!userId) return []
+  return store.cashierShifts.filter(shift => shift.cashier_id === userId)
+})
+
+const activeCount = computed(() => scopedShifts.value.filter(shift => shift.status === 'open').length)
+const closedCount = computed(() => scopedShifts.value.filter(shift => shift.status === 'closed').length)
 
 const visibleShifts = computed(() => {
   const query = search.value.trim().toLowerCase()
-  return store.cashierShifts
+  return scopedShifts.value
     .filter(shift => statusFilter.value === 'all' || shift.status === statusFilter.value)
     .filter(shift => {
       if (!query) return true
@@ -71,15 +87,21 @@ const visibleShifts = computed(() => {
 })
 
 async function load() {
-  if (!storeIdValue.value) return
   loading.value = true
   error.value = ''
   try {
-    await Promise.all([
-      store.loadCashRegisters(storeIdValue.value),
-      store.loadStoreCashierShifts(storeIdValue.value),
-      store.loadCurrentCashierShift(),
-    ])
+    await store.loadCurrentCashierShift()
+    if (canViewAllShifts.value && storeIdValue.value) {
+      await Promise.all([
+        store.loadCashRegisters(storeIdValue.value),
+        store.loadStoreCashierShifts(storeIdValue.value),
+      ])
+    } else {
+      await store.loadMyCashierShifts()
+      if (storeIdValue.value) {
+        await store.loadCashRegisters(storeIdValue.value)
+      }
+    }
     const preferred = freeRegisters.value[0]?.id ?? activeRegisters.value[0]?.id ?? ''
     if (!selectedRegisterId.value || !freeRegisters.value.some(reg => reg.id === selectedRegisterId.value)) {
       selectedRegisterId.value = preferred
@@ -123,8 +145,16 @@ function isMine(shift: CashierShift) {
 }
 
 function openModal() {
+  if (!canOpenShift.value) {
+    error.value = t('pointOfSale.shifts.cashierOnly')
+    return
+  }
   if (myShift.value) {
     error.value = t('pointOfSale.shifts.alreadyOpen')
+    return
+  }
+  if (!storeIdValue.value) {
+    error.value = t('pos.selectStore')
     return
   }
   if (!freeRegisters.value.length) {
@@ -147,6 +177,11 @@ function closeModal() {
 }
 
 async function confirmOpen() {
+  if (!canOpenShift.value) {
+    error.value = t('pointOfSale.shifts.cashierOnly')
+    showOpen.value = false
+    return
+  }
   if (myShift.value) {
     error.value = t('pointOfSale.shifts.alreadyOpen')
     showOpen.value = false
@@ -209,11 +244,14 @@ function toggleMenu(id: string) {
 <template>
   <PageFrame>
     <div class="shifts-root" @click="menuId = null">
-      <div v-if="!storeId" class="shifts-note">
+      <div v-if="!canOpenShift && !canViewAllShifts" class="shifts-note">
+        {{ t('pointOfSale.shifts.cashierOnly') }}
+      </div>
+      <div v-else-if="canOpenShift && !storeId" class="shifts-note">
         {{ t('pos.selectStore') }}
       </div>
 
-      <template v-else>
+      <template v-if="canOpenShift || canViewAllShifts">
         <header class="shifts-head">
           <div class="shifts-brand">
             <span class="shifts-mark" aria-hidden="true">
@@ -236,7 +274,7 @@ function toggleMenu(id: string) {
               {{ t('pointOfSale.shifts.refresh') }}
             </button>
             <button
-              v-if="myShift"
+              v-if="myShift && (canOpenShift || isMine(myShift))"
               type="button"
               class="shifts-btn shifts-btn--danger"
               @click.stop="closeModal"
@@ -245,10 +283,10 @@ function toggleMenu(id: string) {
               {{ t('pointOfSale.shifts.closeAction') }}
             </button>
             <button
-              v-else
+              v-else-if="canOpenShift"
               type="button"
               class="shifts-btn shifts-btn--primary"
-              :disabled="!freeRegisters.length"
+              :disabled="!storeId || !freeRegisters.length"
               @click.stop="openModal"
             >
               {{ t('pointOfSale.shifts.openAction') }}
@@ -285,7 +323,7 @@ function toggleMenu(id: string) {
               </svg>
             </span>
             <div>
-              <strong>{{ store.cashierShifts.length }}</strong>
+              <strong>{{ scopedShifts.length }}</strong>
               <span>{{ t('pointOfSale.shifts.totalShifts') }}</span>
             </div>
           </article>
@@ -322,7 +360,7 @@ function toggleMenu(id: string) {
         <p v-if="!activeRegisters.length" class="shifts-note">{{ t('pointOfSale.shifts.noRegisterHint') }}</p>
         <p v-else-if="!myShift && !freeRegisters.length" class="shifts-note">{{ t('pointOfSale.shifts.noFreeRegister') }}</p>
 
-        <LoadingBlock v-if="loading && !store.cashierShifts.length" :label="t('common.loading')" />
+        <LoadingBlock v-if="loading && !scopedShifts.length" :label="t('common.loading')" />
 
         <div v-else-if="visibleShifts.length" class="shifts-grid">
           <article

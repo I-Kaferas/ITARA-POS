@@ -2,11 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
 import '../../sync/local_master_server.dart';
 import '../network/network_bloc.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 const _bg = Color(0xFF0F1524);
 const _line = Color(0xFF1F2A3D);
@@ -61,7 +61,7 @@ class ConfigTopBar extends StatelessWidget {
                   tr('Réglages'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -73,7 +73,7 @@ class ConfigTopBar extends StatelessWidget {
                   tr('Mode de configuration'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(color: _muted, fontSize: 12, height: 1.3),
+                  style: AppTypography.text(color: _muted, fontSize: 12, height: 1.3),
                 ),
               ],
             ),
@@ -113,7 +113,7 @@ class _FeaturesButton extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 tr('Fonctions de l’application'),
-                style: GoogleFonts.ibmPlexSans(color: _violet, fontSize: 13.5, fontWeight: FontWeight.w600),
+                style: AppTypography.text(color: _violet, fontSize: 13.5, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -189,7 +189,7 @@ class _StatusChip extends StatelessWidget {
           const SizedBox(width: 7),
           Text(
             label,
-            style: GoogleFonts.ibmPlexSans(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppTypography.text(color: color, fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -209,7 +209,7 @@ class _LogoutButton extends StatelessWidget {
       style: TextButton.styleFrom(
         foregroundColor: _red,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        textStyle: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w600),
+        textStyle: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w600),
       ),
       icon: const Icon(Icons.logout_rounded, size: 17),
       label: Text(tr('Quitter la session')),

@@ -5,12 +5,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/architecture/business_continuity.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
-import '../../../core/config/terminal_stores.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -46,6 +44,7 @@ import '../services/customer_display_bus.dart';
 import '../services/pos_cart_engine.dart';
 import '../services/pos_favorites_store.dart';
 import '../services/pos_pending_intent.dart';
+import 'widgets/delivery_map_card.dart';
 import 'widgets/pos_cart_panel.dart';
 import 'customer_display_launcher.dart';
 import 'widgets/pos_category_sidebar.dart';
@@ -58,6 +57,7 @@ import 'widgets/pos_search_bar.dart';
 import 'widgets/pos_table_picker.dart';
 import 'widgets/pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class PosScreen extends StatelessWidget {
   const PosScreen({super.key, this.embedded = false});
@@ -101,8 +101,6 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   final _shiftsApi = LocalShiftsStore.instance;
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
-  List<TerminalStoreOption> _deliveryLocations = const [];
-  bool _deliveryLocationsLoading = false;
   late final HidScannerController _hidScanner;
   final _cashDrawer = CashDrawerService();
 
@@ -213,29 +211,14 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   void _onServiceMode(String mode) {
     if (mode == 'delivery') {
       _cart.setServiceMode('delivery');
-      unawaited(_loadDeliveryLocations());
       return;
     }
     _cart.setServiceMode('takeaway');
   }
 
-  Future<void> _loadDeliveryLocations() async {
-    if (_deliveryLocations.isNotEmpty || _deliveryLocationsLoading) return;
-    _deliveryLocationsLoading = true;
-    try {
-      final stores = await loadTerminalStores(directory: true);
-      if (!mounted) return;
-      setState(() => _deliveryLocations = stores);
-    } catch (_) {
-      if (mounted) setState(() {});
-    } finally {
-      _deliveryLocationsLoading = false;
-    }
-  }
-
-  void _pickDeliveryLocation(String name) {
+  void _pickDeliveryLocation(String address) {
     _cart.setServiceMode('delivery');
-    _cart.setDeliveryAddress(name);
+    _cart.setDeliveryAddress(address);
   }
 
   void _onProductState(ProductState state) {
@@ -972,11 +955,9 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                               if (_cart.serviceMode == 'delivery' && (_cart.tableId == null || _cart.tableId!.isEmpty))
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                                  child: _DeliveryLocationCard(
-                                    locations: _deliveryLocations,
-                                    selected: _cart.deliveryAddress,
-                                    loading: _deliveryLocationsLoading && _deliveryLocations.isEmpty,
-                                    onPick: _pickDeliveryLocation,
+                                  child: DeliveryMapCard(
+                                    selectedAddress: _cart.deliveryAddress,
+                                    onPicked: _pickDeliveryLocation,
                                   ),
                                 ),
                             ],
@@ -1058,11 +1039,6 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                             },
                             onPay: _shortcutPayment,
                             onDiscount: () => setState(() => _requestDiscount = true),
-                            onNewSale: () => unawaited(_shortcutNewSale()),
-                            onRetrieve: _shortcutRetrieve,
-                            onNote: () => setState(() => _requestNote = true),
-                            onLoyalty: () => setState(() => _requestLoyalty = true),
-                            onSplit: () => setState(() => _requestSplit = true),
                           ),
                           cartCount: _cart.itemCount,
                           cartTotal: MoneyFormatter.format(_cart.total),
@@ -1259,7 +1235,7 @@ class _ShiftRequiredNotice extends StatelessWidget {
             Expanded(
               child: Text(
                 tr('Aucun shift ouvert. Ouvrez un shift avant d’ajouter des articles au panier.'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -1271,7 +1247,7 @@ class _ShiftRequiredNotice extends StatelessWidget {
               onPressed: onOpen,
               child: Text(
                 tr('Ouvrir un shift'),
-                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, color: AppColors.warning),
+                style: AppTypography.text(fontWeight: FontWeight.w700, color: AppColors.warning),
               ),
             ),
           ],
@@ -1541,7 +1517,7 @@ class _OptionDialogState extends State<_OptionDialog> {
                                     children: [
                                       Text(
                                         tr(variant.displayLabel),
-                                        style: GoogleFonts.ibmPlexSans(
+                                        style: AppTypography.text(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
                                           color: AppColors.textPrimary,
@@ -1550,7 +1526,7 @@ class _OptionDialogState extends State<_OptionDialog> {
                                       if (variant.sku.isNotEmpty)
                                         Text(
                                           tr(variant.sku),
-                                          style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
+                                          style: AppTypography.text(fontSize: 11, color: AppColors.textMuted),
                                         ),
                                     ],
                                   ),
@@ -1560,7 +1536,7 @@ class _OptionDialogState extends State<_OptionDialog> {
                                     variant.price,
                                     currencyCode: AppConfig.currencyCode,
                                   )),
-                                  style: GoogleFonts.ibmPlexSans(
+                                  style: AppTypography.text(
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.brandInk,
                                     fontSize: 12,
@@ -1579,7 +1555,7 @@ class _OptionDialogState extends State<_OptionDialog> {
             if (saleUnits.length > 1) ...[
               Text(
                 tr('Unité de vente'),
-                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                style: AppTypography.text(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 8),
               ...saleUnits.map((unit) {
@@ -1605,7 +1581,7 @@ class _OptionDialogState extends State<_OptionDialog> {
                             Expanded(
                               child: Text(
                                 tr(unit.name),
-                                style: GoogleFonts.ibmPlexSans(
+                                style: AppTypography.text(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
                                   color: AppColors.textPrimary,
@@ -1617,7 +1593,7 @@ class _OptionDialogState extends State<_OptionDialog> {
                                 unit.price,
                                 currencyCode: AppConfig.currencyCode,
                               )),
-                              style: GoogleFonts.ibmPlexSans(
+                              style: AppTypography.text(
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.brandInk,
                                 fontSize: 12,
@@ -1634,7 +1610,7 @@ class _OptionDialogState extends State<_OptionDialog> {
             ],
             Row(
               children: [
-                Text(tr('Quantité'), style: GoogleFonts.ibmPlexSans(color: AppColors.textPrimary)),
+                Text(tr('Quantité'), style: AppTypography.text(color: AppColors.textPrimary)),
                 const Spacer(),
                 IconButton(
                   onPressed: _quantity <= 1 ? null : () => setState(() => _quantity -= 1),
@@ -1642,7 +1618,7 @@ class _OptionDialogState extends State<_OptionDialog> {
                 ),
                 Text(
                   '$_quantity',
-                  style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  style: AppTypography.text(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                 ),
                 IconButton(
                   onPressed: () => setState(() => _quantity += 1),
@@ -1761,119 +1737,3 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-class _DeliveryLocationCard extends StatelessWidget {
-  const _DeliveryLocationCard({
-    required this.locations,
-    required this.selected,
-    required this.loading,
-    required this.onPick,
-  });
-
-  final List<TerminalStoreOption> locations;
-  final String selected;
-  final bool loading;
-  final ValueChanged<String> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final current = selected.trim();
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: PosUi.deskCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: PosUi.deskAccent.withValues(alpha: 0.55)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black45, blurRadius: 16, offset: Offset(0, 6)),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              tr('Choisir le lieu'),
-              style: PosUi.cardTitle(color: PosUi.deskText).copyWith(fontSize: 16),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              tr('Touchez un lieu pour cette livraison.'),
-              style: PosUi.body(color: PosUi.deskMuted),
-            ),
-            const SizedBox(height: 12),
-            if (loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final place in locations)
-                    _LocationPick(
-                      label: place.name,
-                      selected: current == place.name,
-                      onTap: () => onPick(place.name),
-                    ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LocationPick extends StatelessWidget {
-  const _LocationPick({required this.label, required this.selected, required this.onTap});
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? PosUi.deskAccent : PosUi.deskField,
-      elevation: selected ? 4 : 1,
-      shadowColor: Colors.black54,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: selected ? PosUi.deskAccent : PosUi.deskLine),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.location_on_outlined,
-                size: 16,
-                color: selected ? PosUi.deskInk : PosUi.deskAccent,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                tr(label),
-                style: PosUi.body(
-                  weight: FontWeight.w700,
-                  color: selected ? PosUi.deskInk : PosUi.deskText,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

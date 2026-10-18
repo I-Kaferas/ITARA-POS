@@ -7,6 +7,7 @@
 #include "generated_plugin_registrant.h"
 
 #include <desktop_multi_window/desktop_multi_window_plugin.h>
+#include <geolocator_windows/geolocator_windows.h>
 #include <nsd_windows/nsd_windows_plugin_c_api.h>
 #include <print_bluetooth_thermal/print_bluetooth_thermal_plugin_c_api.h>
 #include <printing/printing_plugin.h>
@@ -17,6 +18,8 @@
 void RegisterPlugins(flutter::PluginRegistry* registry) {
   DesktopMultiWindowPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("DesktopMultiWindowPlugin"));
+  GeolocatorWindowsRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("GeolocatorWindows"));
   NsdWindowsPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("NsdWindowsPluginCApi"));
   PrintBluetoothThermalPluginCApiRegisterWithRegistrar(

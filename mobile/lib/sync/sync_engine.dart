@@ -116,16 +116,31 @@ class SyncEngine extends ChangeNotifier {
 
   Future<void> _bindRealtime() async {
     await _realtimeSub?.cancel();
+    _realtimeSub = null;
     final config = TerminalConfigRepository.instance.config;
     if (config.isMaster) {
       LocalRealtimeHub.instance.start();
       _realtimeSub = LocalRealtimeHub.instance.events.listen(_onRealtimeEvent);
       return;
     }
+    await LocalRealtimeClient.instance.stop();
     if (config.isSlave) {
       await LocalRealtimeClient.instance.startIfSlave();
       _realtimeSub = LocalRealtimeClient.instance.events.listen(_onRealtimeEvent);
     }
+  }
+
+  /// Call after Master ↔ Slave ↔ Standalone role changes so probes and realtime match.
+  Future<void> applyRoleChange() async {
+    if (!_started) {
+      start();
+      return;
+    }
+    await _bindRealtime();
+    await _probe();
+    connectivity = _connectivityForIdle();
+    notifyListeners();
+    if (!_running) unawaited(runCycle());
   }
 
   Future<void> _onRealtimeEvent(RealtimeEvent event) async {

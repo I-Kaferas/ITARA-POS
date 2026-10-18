@@ -17,6 +17,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/app_typography.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/theme/theme_cubit.dart';
+import 'core/ui/silent_scaffold_messenger.dart';
 import 'data/local/data_model_bootstrap.dart';
 import 'features/onboarding/onboarding_gate.dart';
 import 'features/auth/presentation/bloc/authentication_bloc.dart';
@@ -35,21 +36,19 @@ import 'features/settings/domain/cashier_preferences.dart';
 import 'features/settings/presentation/auto_lock_guard.dart';
 import 'sync/local_master_discovery.dart';
 import 'sync/local_master_server.dart';
-import 'sync/local_realtime.dart';
 import 'sync/sync_engine.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
 Future<void> main(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  AppTypography.useBundledFonts();
-  if (args.isNotEmpty && args.first == 'multi_window') {
-    final payload = args.length > 2 ? args[2] : '';
-    runApp(CustomerDisplayApp(initialJson: payload));
-    return;
-  }
   await runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      AppTypography.useBundledFonts();
+      if (args.isNotEmpty && args.first == 'multi_window') {
+        final payload = args.length > 2 ? args[2] : '';
+        runApp(CustomerDisplayApp(initialJson: payload));
+        return;
+      }
 
       await configureDependencies();
       await DataModelBootstrap.ensureDefaults();
@@ -90,11 +89,27 @@ Future<void> _bootBackgroundServices(AppLogger logger) async {
     sl<SyncEngine>().start();
     await sl<LocalMasterServer>().startIfMaster();
     await sl<LocalMasterDiscovery>().start();
-    await LocalRealtimeClient.instance.startIfSlave();
+    await sl<SyncEngine>().applyRoleChange();
+    var lastRole = sl<TerminalConfigRepository>().config.posRole;
+    var lastMasterHost = sl<TerminalConfigRepository>().config.masterHost;
+    var lastPairToken = sl<TerminalConfigRepository>().config.masterPairToken;
     sl<TerminalConfigRepository>().addListener(() {
-      unawaited(sl<LocalMasterServer>().startIfMaster());
-      unawaited(LocalRealtimeClient.instance.startIfSlave());
-      sl<ThemeCubit>().applyFromConfig();
+      final config = sl<TerminalConfigRepository>().config;
+      final roleChanged = lastRole != config.posRole;
+      final masterLinkChanged =
+          lastMasterHost != config.masterHost || lastPairToken != config.masterPairToken;
+      lastRole = config.posRole;
+      lastMasterHost = config.masterHost;
+      lastPairToken = config.masterPairToken;
+      unawaited(() async {
+        if (roleChanged) {
+          await sl<LocalMasterServer>().startIfMaster();
+        }
+        if (roleChanged || masterLinkChanged) {
+          await sl<SyncEngine>().applyRoleChange();
+        }
+        sl<ThemeCubit>().applyFromConfig();
+      }());
     });
     logger.info('Background services started', tag: 'boot');
   } catch (error, stack) {
@@ -165,13 +180,15 @@ class PosApp extends StatelessWidget {
                 ],
                 routerConfig: AppRouter.create(),
                 builder: (context, child) => AppViewportScale(
-                  child: ThemeRefresh(
-                    sources: [
-                      LocaleController.instance,
-                      CashierPreferences.instance,
-                      sl<TerminalConfigRepository>(),
-                    ],
-                    child: AutoLockGuard(child: child ?? const SizedBox.shrink()),
+                  child: SilentScaffoldMessenger(
+                    child: ThemeRefresh(
+                      sources: [
+                        LocaleController.instance,
+                        CashierPreferences.instance,
+                        sl<TerminalConfigRepository>(),
+                      ],
+                      child: AutoLockGuard(child: child ?? const SizedBox.shrink()),
+                    ),
                   ),
                 ),
               );

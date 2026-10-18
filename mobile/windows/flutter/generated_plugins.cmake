@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   desktop_multi_window
+  geolocator_windows
   nsd_windows
   print_bluetooth_thermal
   printing

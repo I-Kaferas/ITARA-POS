@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_colors.dart';
@@ -12,6 +11,7 @@ import '../../pos/presentation/widgets/pos_ui.dart';
 import '../domain/cash_register_models.dart';
 import 'bloc/cash_register_bloc.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class CashRegisterScreen extends StatelessWidget {
   const CashRegisterScreen({super.key});
@@ -145,7 +145,7 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   tr('Caisse'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -259,7 +259,7 @@ class _ReconciliationCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr(register.name),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w700),
+                  style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
               PosBadge(
@@ -390,7 +390,7 @@ class _ActionsGrid extends StatelessWidget {
       children: [
         Text(
           tr('Fonctions'),
-          style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700),
+          style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
         Wrap(

@@ -13,6 +13,7 @@ import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../receipt/domain/receipt_models.dart';
 import '../../receipt/services/receipt_print_service.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class SaleDetailScreen extends StatefulWidget {
   const SaleDetailScreen({super.key, required this.saleId});
@@ -154,7 +155,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                     children: [
                       Text(
                         tr('Créer un retour'),
-                        style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700),
+                        style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 12),
                       Expanded(
@@ -296,7 +297,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: Text(tr(reference), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
+        title: Text(tr(reference), style: AppTypography.text(fontWeight: FontWeight.w700)),
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,

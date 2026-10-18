@@ -20,6 +20,7 @@ import '../../printers/domain/printer.dart';
 import '../../printers/domain/printer_connection_type.dart';
 import '../../printers/services/printer_service.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// CREATE MASTER flow (mobile.md §47).
 class MasterSetupWizard extends StatefulWidget {
@@ -388,7 +389,7 @@ class _WizardHeader extends StatelessWidget {
             children: [
               Text(
                 tr('CREATE MASTER'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppColors.brandInk,
@@ -398,7 +399,7 @@ class _WizardHeader extends StatelessWidget {
               const Spacer(),
               Text(
                 '${step + 1}/$total',
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12,
                   color: AppColors.textMuted,
                 ),
@@ -425,7 +426,7 @@ class _WizardHeader extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             tr(title),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 22,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -433,7 +434,7 @@ class _WizardHeader extends StatelessWidget {
           ),
           Text(
             tr(caption),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 13,
               color: AppColors.textSecondary,
             ),
@@ -482,7 +483,7 @@ class _WizardFooter extends StatelessWidget {
               ),
               child: Text(
                 tr(error!),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   color: AppColors.danger,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -648,7 +649,7 @@ class _StatusCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr(title),
-                  style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
+                  style: AppTypography.text(fontWeight: FontWeight.w700),
                 ),
               ),
               if (onRefresh != null)
@@ -729,7 +730,7 @@ class _PrintersStep extends StatelessWidget {
       children: [
         Text(
           tr('Ajoutez l’imprimante caisse (optionnel — failover §41 si plusieurs).'),
-          style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary),
+          style: AppTypography.text(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
         _Field(controller: nameCtrl, label: tr('Nom'), requiredField: false),
@@ -749,7 +750,7 @@ class _PrintersStep extends StatelessWidget {
         if (saved)
           Text(
             tr('Imprimante enregistrée'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               color: AppColors.success,
               fontWeight: FontWeight.w600,
             ),
@@ -776,7 +777,7 @@ class _PairDevicesStep extends StatelessWidget {
       children: [
         Text(
           tr('Les Slaves utilisent ce code pour s’appairer au Master.'),
-          style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary),
+          style: AppTypography.text(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 16),
         Container(
@@ -802,7 +803,7 @@ class _PairDevicesStep extends StatelessWidget {
                 tr(lanAddress == null
                     ? 'Master LAN'
                     : '$lanAddress:${LocalMasterServer.port}'),
-                style: GoogleFonts.ibmPlexSans(color: AppColors.textMuted),
+                style: AppTypography.text(color: AppColors.textMuted),
               ),
               const SizedBox(height: 12),
               Row(
@@ -854,7 +855,7 @@ class _CompleteStep extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           tr('Master prêt'),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 22,
             fontWeight: FontWeight.w700,
           ),
@@ -870,7 +871,7 @@ class _CompleteStep extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           tr('Les terminaux Slave peuvent maintenant se connecter.'),
-          style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary),
+          style: AppTypography.text(color: AppColors.textSecondary),
         ),
       ],
     );

@@ -23,24 +23,22 @@ class LocalShiftsStore {
     MovementType(value: 'expense', label: tr('Expense'), labelFr: 'Dépense', direction: 'out'),
   ];
 
-  /// The open shift for this till, preferring the register already selected.
+  /// The open shift for the connected cashier (not any shift on the store).
   Future<({CashRegister register, CashRegisterSession session})?> openShift() async {
-    final registers = await fetchRegisters();
     final config = TerminalConfigRepository.instance.config;
-    ({CashRegister register, CashRegisterSession session})? fallback;
+    final cashierId = config.cashierId.trim();
+    if (cashierId.isEmpty) return null;
+
+    final mine = await openShiftForCashier(cashierId);
+    if (mine == null) return null;
+
+    final registers = await fetchRegisters();
     for (final register in registers) {
       final session = register.openSession;
-      if (session == null || !session.isOpen) continue;
-      final match = (
-        register: register,
-        session: session,
-      );
-      if (register.id == config.cashRegisterId || session.id == config.cashSessionId) {
-        return match;
-      }
-      fallback ??= match;
+      if (session == null || session.id != mine.id) continue;
+      return (register: register, session: session);
     }
-    return fallback;
+    return null;
   }
 
   Future<List<CashRegister>> fetchRegisters() async {
@@ -109,13 +107,14 @@ class LocalShiftsStore {
       orderBy: 'opened_at DESC',
     );
     final mine = cashierId.trim();
+    if (mine.isEmpty) return null;
     for (final row in rows) {
       final registerId = row['cash_register_id']?.toString() ?? '';
       if (!visibleIds.contains(registerId)) continue;
       final session = CashRegisterSession.fromJson(_sessionJson(row));
       if (!session.isOpen) continue;
       final owner = session.openedById?.trim() ?? '';
-      if (mine.isNotEmpty && owner.isNotEmpty && owner != mine) continue;
+      if (owner != mine) continue;
       return session;
     }
     return null;
@@ -127,6 +126,9 @@ class LocalShiftsStore {
     String? notes,
   }) async {
     final config = TerminalConfigRepository.instance.config;
+    if (!config.canOpenShift) {
+      throw Exception('Seul un caissier peut ouvrir un shift.');
+    }
     final mine = await openShiftForCashier(config.cashierId);
     if (mine != null) {
       throw Exception('Close your current shift before opening another.');

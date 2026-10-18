@@ -703,6 +703,7 @@ class SaleEngine
      *     status?: string|null,
      *     payment_status?: string|null,
      *     customer_id?: string|null,
+     *     processed_by?: string|null,
      *     from?: string|null,
      *     to?: string|null
      * }  $filters
@@ -731,6 +732,7 @@ class SaleEngine
      *     status?: string|null,
      *     payment_status?: string|null,
      *     customer_id?: string|null,
+     *     processed_by?: string|null,
      *     from?: string|null,
      *     to?: string|null
      * }  $filters
@@ -763,6 +765,10 @@ class SaleEngine
 
         if (! empty($filters['customer_id'])) {
             $query->where('customer_id', $filters['customer_id']);
+        }
+
+        if (! empty($filters['processed_by'])) {
+            $query->where('processed_by', $filters['processed_by']);
         }
 
         if (! empty($filters['from'])) {

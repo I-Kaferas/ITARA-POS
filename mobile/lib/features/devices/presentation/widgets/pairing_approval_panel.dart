@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../sync/pairing_models.dart';
 import '../bloc/master_pairing_bloc.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Panneau Master §8 — code + QR + demandes ACCEPT / REJECT.
 class PairingApprovalPanel extends StatelessWidget {
@@ -32,7 +33,7 @@ class PairingApprovalPanel extends StatelessWidget {
                         tr(code == null
                             ? 'Code d\'appairage : —'
                             : 'Code: $code'),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 2,
@@ -41,7 +42,7 @@ class PairingApprovalPanel extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         tr('Discovery → Handshake → Auth → Pairing → Authorization'),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 11,
                           color: AppColors.textMuted,
                         ),
@@ -81,7 +82,7 @@ class PairingApprovalPanel extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 tr('Demandes d\'appairage'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -97,7 +98,7 @@ class PairingApprovalPanel extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 tr('En attente d\'un Slave. Affichez le code ou le QR.'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12,
                   color: AppColors.textSecondary,
                 ),
@@ -130,7 +131,7 @@ class _PendingPairCard extends StatelessWidget {
         children: [
           Text(
             tr(request.wantsToConnectLabel),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),

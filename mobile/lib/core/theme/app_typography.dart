@@ -59,16 +59,69 @@ abstract final class AppTypography {
     });
   }
 
+  static const _bodySteps = <double>[12, 14, 16, 17];
+  static const _titleSteps = <double>[16, 18, 20, 24, 28, 36];
+
+  static double _nearest(double size, List<double> steps) {
+    var best = steps.first;
+    var bestDistance = (size - best).abs();
+    for (final step in steps) {
+      final distance = (size - step).abs();
+      if (distance < bestDistance || (distance == bestDistance && step > best)) {
+        best = step;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
+  /// Snaps a raw size onto the scale and uses Plus Jakarta Sans for titles.
+  static TextStyle text({
+    TextStyle? textStyle,
+    double? fontSize,
+    FontWeight? fontWeight,
+    FontStyle? fontStyle,
+    Color? color,
+    double? height,
+    double? letterSpacing,
+  }) {
+    final size = fontSize ?? textStyle?.fontSize ?? AppTextSize.base;
+    final weight = fontWeight ?? textStyle?.fontWeight ?? FontWeight.w400;
+    final style = fontStyle ?? textStyle?.fontStyle;
+    final title = style != FontStyle.italic && weight.value >= FontWeight.w600.value && size >= 15;
+    final snapped = title ? _nearest(size, _titleSteps) : _nearest(size, _bodySteps);
+    final resolved = title
+        ? GoogleFonts.plusJakartaSans(
+            fontSize: snapped,
+            fontWeight: weight,
+            fontStyle: style,
+            color: color ?? textStyle?.color,
+            height: height ?? textStyle?.height,
+            letterSpacing: letterSpacing ?? textStyle?.letterSpacing,
+          )
+        : GoogleFonts.ibmPlexSans(
+            fontSize: snapped,
+            fontWeight: weight,
+            fontStyle: style,
+            color: color ?? textStyle?.color,
+            height: height ?? textStyle?.height,
+            letterSpacing: letterSpacing ?? textStyle?.letterSpacing,
+          );
+    return resolved;
+  }
+
   static TextStyle plex({
     double fontSize = AppTextSize.body,
     FontWeight fontWeight = FontWeight.w400,
+    FontStyle? fontStyle,
     Color? color,
     double? height,
     double? letterSpacing,
   }) =>
-      GoogleFonts.ibmPlexSans(
+      text(
         fontSize: fontSize,
         fontWeight: fontWeight,
+        fontStyle: fontStyle,
         color: color,
         height: height,
         letterSpacing: letterSpacing,
@@ -81,7 +134,7 @@ abstract final class AppTypography {
     double? height,
     double? letterSpacing,
   }) =>
-      GoogleFonts.plusJakartaSans(
+      text(
         fontSize: fontSize,
         fontWeight: fontWeight,
         color: color,

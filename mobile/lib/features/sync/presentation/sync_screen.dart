@@ -10,6 +10,7 @@ import '../../../core/theme/app_motion.dart';
 import '../../../sync/offline_store.dart';
 import '../../../sync/sync_engine.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class SyncScreen extends StatefulWidget {
   const SyncScreen({super.key});
@@ -90,7 +91,7 @@ class _SyncScreenState extends State<SyncScreen> {
           const SizedBox(height: 16),
           Text(
             tr(snapshot.modeLabel),
-            style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w600),
+            style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
@@ -110,7 +111,7 @@ class _SyncScreenState extends State<SyncScreen> {
             tr(snapshot.mode == OperatingMode.isolatedOffline
                 ? 'Slave → Sync Queue → Master → Cloud (au retour)'
                 : 'File → API → serveur → ACK → marqué synchronisé'),
-            style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600),
+            style: AppTypography.text(fontWeight: FontWeight.w600),
           ),
           Text(
             tr(engine.lastSent == 0 && engine.lastAcknowledged == 0
@@ -137,7 +138,7 @@ class _SyncScreenState extends State<SyncScreen> {
                 children: [
                   Text(
                     tr('Dernière synchronisation'),
-                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
+                    style: AppTypography.text(fontWeight: FontWeight.w700),
                   ),
                   if (engine.lastReport.message.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -150,7 +151,7 @@ class _SyncScreenState extends State<SyncScreen> {
                       child: Row(
                         children: [
                           Expanded(child: Text(tr(line.label))),
-                          Text('${line.count}', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
+                          Text('${line.count}', style: AppTypography.text(fontWeight: FontWeight.w700)),
                         ],
                       ),
                     ),
@@ -183,7 +184,7 @@ class _SyncScreenState extends State<SyncScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          Text(tr("File d'attente"), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
+          Text(tr("File d'attente"), style: AppTypography.text(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           if (_items.isEmpty)
             Text(tr('Aucune transaction locale.'), style: TextStyle(color: AppColors.textMuted))
@@ -254,7 +255,7 @@ class _OperatingModeCard extends StatelessWidget {
                 value: mode,
                 child: Text(
                   tr(mode.label),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
                     color: color,
@@ -285,7 +286,7 @@ class _OperatingModeCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             trf('Chemin: {0}', [mode.syncPath]),
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -323,7 +324,7 @@ class _CapChip extends StatelessWidget {
       ),
       child: Text(
         '$label ${enabled ? '✓' : '—'}',
-        style: GoogleFonts.ibmPlexSans(
+        style: AppTypography.text(
           fontSize: 11,
           fontWeight: FontWeight.w600,
           color: color,
@@ -356,7 +357,7 @@ class _ChainCard extends StatelessWidget {
         children: [
           Text(
             tr('Chaîne locale — fonctionne sans internet'),
-            style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600),
+            style: AppTypography.text(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
@@ -401,7 +402,7 @@ class _Chip extends StatelessWidget {
         color: AppColors.canvas,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text('$label $value', style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600)),
+      child: Text('$label $value', style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
 }

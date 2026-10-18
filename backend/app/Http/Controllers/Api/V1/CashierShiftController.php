@@ -33,6 +33,21 @@ class CashierShiftController extends Controller
         ]);
     }
 
+    public function indexForUser(Request $request): JsonResponse
+    {
+        $shifts = CashierShift::query()
+            ->where('cashier_id', $request->user()->id)
+            ->with(['cashier', 'branch', 'cashRegister', 'device'])
+            ->withCount([
+                'sales as orders_count' => fn ($query) => $query->where('status', 'completed'),
+            ])
+            ->orderByDesc('opened_at')
+            ->limit(50)
+            ->get();
+
+        return response()->json(['data' => $shifts]);
+    }
+
     public function indexForStore(Store $store): JsonResponse
     {
         $shifts = CashierShift::query()

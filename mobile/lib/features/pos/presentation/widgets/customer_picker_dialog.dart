@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/i18n/app_locale.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -10,6 +9,7 @@ import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_cart_engine.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Customer picker chrome aligned with [LogoutProfileDialog].
 Future<void> showCustomerPickerDialog(
@@ -157,7 +157,7 @@ class _CustomerPickerDialogState extends State<CustomerPickerDialog> {
                               )
                             : Text(
                                 tr(_initials(selected.name)),
-                                style: GoogleFonts.ibmPlexSans(
+                                style: AppTypography.text(
                                   color: AppColors.brand900,
                                   fontSize: 30,
                                   fontWeight: FontWeight.w700,
@@ -168,7 +168,7 @@ class _CustomerPickerDialogState extends State<CustomerPickerDialog> {
                       Text(
                         tr('Client'),
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
@@ -183,7 +183,7 @@ class _CustomerPickerDialogState extends State<CustomerPickerDialog> {
                         ),
                         child: Text(
                           tr(selected?.name ?? 'Aucun client'),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -293,7 +293,7 @@ class _SearchPane extends StatelessWidget {
           child: TextField(
             controller: search,
             textInputAction: TextInputAction.search,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 14,
               color: AppColors.textPrimary,
             ),
@@ -338,7 +338,7 @@ class _SearchPane extends StatelessWidget {
                       children: [
                         Text(
                           tr(selected!.displayLabel),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
@@ -348,7 +348,7 @@ class _SearchPane extends StatelessWidget {
                           tr(selected!.pending
                               ? 'En attente de synchro'
                               : 'Client sélectionné'),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 11.5,
                             color: AppColors.textMuted,
                           ),
@@ -360,7 +360,7 @@ class _SearchPane extends StatelessWidget {
                     onPressed: onClear,
                     child: Text(
                       tr('Retirer'),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontWeight: FontWeight.w700,
                         color: AppColors.danger,
                       ),
@@ -382,7 +382,7 @@ class _SearchPane extends StatelessWidget {
                   child: Text(
                     tr('Aucun client trouvé'),
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary),
+                    style: AppTypography.text(color: AppColors.textSecondary),
                   ),
                 )
               : ListView.separated(
@@ -432,7 +432,7 @@ class _SearchPane extends StatelessWidget {
                                   children: [
                                     Text(
                                       tr(customer.name),
-                                      style: GoogleFonts.ibmPlexSans(
+                                      style: AppTypography.text(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
                                         color: AppColors.textPrimary,
@@ -444,7 +444,7 @@ class _SearchPane extends StatelessWidget {
                                           : customer.subtitle),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.ibmPlexSans(
+                                      style: AppTypography.text(
                                         fontSize: 12,
                                         color: AppColors.textMuted,
                                       ),
@@ -512,7 +512,7 @@ class _CreatePane extends StatelessWidget {
           TextField(
             controller: name,
             textInputAction: TextInputAction.next,
-            style: GoogleFonts.ibmPlexSans(fontSize: 14, color: AppColors.textPrimary),
+            style: AppTypography.text(fontSize: 14, color: AppColors.textPrimary),
             decoration: decoration('Nom', Icons.badge_outlined),
           ),
           const SizedBox(height: 10),
@@ -520,7 +520,7 @@ class _CreatePane extends StatelessWidget {
             controller: phone,
             keyboardType: TextInputType.phone,
             textInputAction: TextInputAction.next,
-            style: GoogleFonts.ibmPlexSans(fontSize: 14, color: AppColors.textPrimary),
+            style: AppTypography.text(fontSize: 14, color: AppColors.textPrimary),
             decoration: decoration('Téléphone', Icons.phone_outlined),
           ),
           const SizedBox(height: 10),
@@ -528,7 +528,7 @@ class _CreatePane extends StatelessWidget {
             controller: email,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.done,
-            style: GoogleFonts.ibmPlexSans(fontSize: 14, color: AppColors.textPrimary),
+            style: AppTypography.text(fontSize: 14, color: AppColors.textPrimary),
             decoration: decoration('Email', Icons.mail_outline),
             onSubmitted: (_) => onSubmit(),
           ),
@@ -536,7 +536,7 @@ class _CreatePane extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               tr(error!),
-              style: GoogleFonts.ibmPlexSans(color: AppColors.danger, fontSize: 13),
+              style: AppTypography.text(color: AppColors.danger, fontSize: 13),
             ),
           ],
           const SizedBox(height: 14),
@@ -550,7 +550,7 @@ class _CreatePane extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             tr('Le client est enregistré sur ce terminal, puis envoyé lors de la synchronisation.'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 12,
               height: 1.35,
               color: AppColors.textSecondary,

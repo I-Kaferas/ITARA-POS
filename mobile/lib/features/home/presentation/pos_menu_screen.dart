@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../../settings/domain/cashier_preferences.dart';
@@ -11,6 +10,7 @@ import '../../auth/presentation/logout_profile_dialog.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../sync/presentation/sync_status_bar.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Hub « Menu » smartphone §18 — réglages et modules secondaires.
 class PosMenuScreen extends StatelessWidget {
@@ -97,7 +97,7 @@ class PosMenuScreen extends StatelessWidget {
                             tr(config.deviceName.isEmpty
                                 ? 'ITARA POS'
                                 : config.deviceName),
-                            style: GoogleFonts.ibmPlexSans(
+                            style: AppTypography.text(
                               fontWeight: FontWeight.w700,
                               fontSize: 16,
                             ),
@@ -145,7 +145,7 @@ class PosMenuScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     tr(item.label),
-                                    style: GoogleFonts.ibmPlexSans(
+                                    style: AppTypography.text(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14,
                                     ),

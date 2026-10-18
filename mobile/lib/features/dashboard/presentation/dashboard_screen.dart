@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
@@ -10,6 +9,7 @@ import '../../../sync/sync_engine.dart';
 import '../../../sync/sync_models.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
@@ -171,7 +171,7 @@ class _Welcome extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           tr(cashier),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 28,
             fontWeight: FontWeight.w700,
             height: 1.15,
@@ -220,7 +220,7 @@ class _Pill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             tr(label),
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -263,12 +263,12 @@ class _OpenRegister extends StatelessWidget {
                   children: [
                     Text(
                       tr('Ouvrir la caisse'),
-                      style: GoogleFonts.ibmPlexSans(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700),
+                      style: AppTypography.text(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       tr('Encaisser rapidement, client et paiement.'),
-                      style: GoogleFonts.ibmPlexSans(color: Colors.white.withValues(alpha: 0.72), fontSize: 13),
+                      style: AppTypography.text(color: Colors.white.withValues(alpha: 0.72), fontSize: 13),
                     ),
                   ],
                 ),
@@ -335,7 +335,7 @@ class _Shortcut extends StatelessWidget {
                 child: Icon(icon, size: 18, color: accent ? AppColors.accent : AppColors.brandInk),
               ),
               const Spacer(),
-              Text(tr(title), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 14)),
+              Text(tr(title), style: AppTypography.text(fontWeight: FontWeight.w600, fontSize: 14)),
               const SizedBox(height: 2),
               Text(
                 tr(subtitle),

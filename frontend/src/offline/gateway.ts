@@ -1,11 +1,39 @@
 import { enqueue, listActive } from './queue'
 import { applyOptimistic, cacheKey, extractDocs, hospitalityDocs, hospitalityLatestKey, rememberHospitality } from './optimistic'
-import { classifyWrite, isCacheableRead, isRecord, referencedIds, versionTarget } from './policy'
+import { bustApiReadCache, isCacheEntryTrusted, putApiReadCache } from '../api/readCache'
+import { classifyWrite, isCacheableRead, isOnlineSwrRead, isRecord, referencedIds, versionTarget } from './policy'
 
-export { isCacheableRead }
+export { isCacheableRead, isOnlineSwrRead }
 import { readSnapshot, saveSnapshot } from './storage'
 import type { OfflineDomain, OfflineTransaction } from './types'
 import { isUuid, newUuid } from './uuid'
+
+const CACHE_MARKER = 1 as const
+
+type CacheEnvelope = {
+  __itaraCache: typeof CACHE_MARKER
+  at: number
+  data: unknown
+}
+
+function isCacheEnvelope(value: unknown): value is CacheEnvelope {
+  return isRecord(value) && value.__itaraCache === CACHE_MARKER && 'data' in value
+}
+
+function wrapCache(body: unknown, at = Date.now()): CacheEnvelope {
+  return { __itaraCache: CACHE_MARKER, at, data: body }
+}
+
+function unwrapCache(value: unknown): { at: number; data: unknown; trusted: boolean } | null {
+  if (value === null || value === undefined) return null
+  if (isCacheEnvelope(value)) {
+    const at = typeof value.at === 'number' ? value.at : 0
+    const trusted = isCacheEntryTrusted(at)
+    return { at, data: value.data, trusted }
+  }
+  // Legacy snapshots (pre-envelope) — treat as immediately stale for online SWR.
+  return { at: 0, data: value, trusted: false }
+}
 
 export interface WriteDecision {
   passthrough: boolean
@@ -44,18 +72,34 @@ export function isTransientError(error: unknown): boolean {
 
 export async function rememberRead(path: string, body: unknown): Promise<void> {
   if (!isCacheableRead(path)) return
-  await saveSnapshot(cacheKey(path), body)
+  const at = Date.now()
+  const key = cacheKey(path)
+  putApiReadCache(key, body, at)
+  await saveSnapshot(key, wrapCache(body, at))
   if (path.startsWith('/hospitality')) await rememberHospitality(path, body)
 }
 
-export async function cachedRead(path: string): Promise<unknown | undefined> {
-  const exact = await readSnapshot<unknown>(cacheKey(path))
-  if (exact !== null) return exact
+export async function cachedReadMeta(
+  path: string,
+): Promise<{ at: number; data: unknown; trusted: boolean } | null> {
+  const key = cacheKey(path)
+  const exact = unwrapCache(await readSnapshot<unknown>(key))
+  if (exact) return exact
   if (path.startsWith('/hospitality')) {
-    const latest = await readSnapshot<unknown>('hospitality:latest')
-    if (latest !== null) return latest
+    const latest = unwrapCache(await readSnapshot<unknown>(hospitalityLatestKey()))
+    if (latest) return latest
   }
-  return undefined
+  return null
+}
+
+export async function cachedRead(path: string): Promise<unknown | undefined> {
+  const meta = await cachedReadMeta(path)
+  return meta ? meta.data : undefined
+}
+
+/** Drop in-memory GET cache after mutations / workspace changes. Disk stays for offline. */
+export function invalidateOnlineReadCache(): void {
+  bustApiReadCache()
 }
 
 export async function interceptWrite(

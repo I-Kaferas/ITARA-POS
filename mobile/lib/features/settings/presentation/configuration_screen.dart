@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/branding/branding_service.dart';
 import '../../../core/config/app_config.dart';
@@ -31,6 +30,7 @@ import '../../receipt/domain/printer_models.dart';
 import '../../settings/data/device_api_service.dart';
 import '../../../sync/local_master_discovery.dart';
 import '../../../sync/local_master_server.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 class ConfigurationScreen extends StatefulWidget {
   const ConfigurationScreen({super.key, this.initialSection = 0});
 
@@ -393,11 +393,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                   children: [
                     Text(
                       'Rôle : ${_role.label}',
-                      style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                     ),
                     Text(
                       _role.description,
-                      style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                      style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -413,17 +413,17 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         ),
         if (_role == PosRole.slave) ...[
           const SizedBox(height: 18),
-          Text('Découverte automatique', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+          Text('Découverte automatique', style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           Text(
             'Les Masters du réseau local apparaissent ici. Touchez-en un pour l’appairer.',
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+            style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           const _DiscoveredMasters(),
         ],
         const SizedBox(height: 22),
-        Text('Informations du terminal', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text('Informations du terminal', style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -487,8 +487,8 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(color: AppColors.border),
               ),
-              title: Text(item.$1, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-              subtitle: Text(item.$2, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
+              title: Text(item.$1, style: AppTypography.text(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              subtitle: Text(item.$2, style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary)),
               trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
               onTap: item.$3,
             ),
@@ -510,7 +510,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           alignment: Alignment.centerLeft,
           child: Text(
             "À l'enregistrement, le slug charge la marque et remplit le Tenant ID.",
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+            style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(height: 12),
@@ -522,7 +522,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           alignment: Alignment.centerLeft,
           child: Text(
             'Identifiant du magasin, différent du Tenant ID du commerce.',
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+            style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(height: 12),
@@ -545,7 +545,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         const SizedBox(height: 8),
         Text(
           'Utilisé en priorité. Le cloud sert de secours si le réseau local ne répond pas.',
-          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+          style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
         _field(_apiUrlCtrl, 'API cloud', icon: Icons.cloud_outlined),
@@ -567,11 +567,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           const _DiscoveredMasters(),
         ],
         const SizedBox(height: 22),
-        Text('Réglage impression', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700)),
+        Text('Réglage impression', style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Text(
           'Modèle, connexion et ticket, configurés avec le terminal.',
-          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+          style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
         _printSection(),
@@ -701,11 +701,11 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                   children: [
                     Text(
                       _printerEnabled ? 'Impression activée' : 'Impression désactivée',
-                      style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary),
+                      style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary),
                     ),
                     Text(
                       '${model.brand} · ${model.label}',
-                      style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                      style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -718,7 +718,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        Text('Modèle', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text('Modèle', style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         ...PrinterModelPreset.all.map((item) {
           final selected = _printerModel == item.id;
@@ -748,10 +748,10 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary)),
+                            Text(item.label, style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary)),
                             Text(
                               '${item.brand} · ${item.hint}',
-                              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary),
+                              style: AppTypography.text(fontSize: 11, color: AppColors.textSecondary),
                             ),
                           ],
                         ),
@@ -764,7 +764,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
           );
         }),
         const SizedBox(height: 8),
-        Text('Connexion', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text('Connexion', style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -783,7 +783,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
         const SizedBox(height: 6),
         Text(
           _printerConnection.hint,
-          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+          style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
         if (_printerConnection.isNetwork) ...[
@@ -831,7 +831,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
       obscureText: obscure,
       enabled: enabled,
       onChanged: (_) => setState(() {}),
-      style: GoogleFonts.ibmPlexSans(fontSize: 14),
+      style: AppTypography.text(fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -901,7 +901,7 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   AppCopy.get('configTitle'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: compact ? 20 : 24,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.6,
@@ -914,14 +914,14 @@ class _Header extends StatelessWidget {
                   _tenantLine(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.brandInk),
+                  style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.brandInk),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '$name · $platform · ${role.label}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                  style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -952,7 +952,7 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         configured ? 'Configuré' : 'Incomplet',
-        style: GoogleFonts.ibmPlexSans(
+        style: AppTypography.text(
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: configured ? AppColors.success : AppColors.warning,
@@ -1035,7 +1035,7 @@ class _NavTile extends StatelessWidget {
                 children: [
                   Text(
                     section.label,
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: selected ? AppColors.brandInk : AppColors.textPrimary,
@@ -1043,7 +1043,7 @@ class _NavTile extends StatelessWidget {
                   ),
                   Text(
                     section.caption,
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 11,
                       color: AppColors.textSecondary,
                     ),
@@ -1106,7 +1106,7 @@ class _SectionChips extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 section.label,
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: active ? Colors.white : AppColors.textPrimary,
@@ -1132,7 +1132,7 @@ class _SectionHeading extends StatelessWidget {
       children: [
         Text(
           section.label,
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 18,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
@@ -1142,7 +1142,7 @@ class _SectionHeading extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           section.caption,
-          style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
+          style: AppTypography.text(fontSize: 13, color: AppColors.textSecondary),
         ),
       ],
     );
@@ -1167,13 +1167,13 @@ class _Fact extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
+          Text(label, style: AppTypography.text(fontSize: 11, color: AppColors.textSecondary)),
           const SizedBox(height: 4),
           Text(
             value,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+            style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -1226,7 +1226,7 @@ class _Footer extends StatelessWidget {
               ),
               child: Text(
                 message!,
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   color: messageOk ? AppColors.success : AppColors.danger,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -1339,7 +1339,7 @@ class _LocalMasterStatus extends StatelessWidget {
             children: [
               Text(
                 ready ? 'Serveur maître local actif' : 'Serveur maître local arrêté',
-                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary),
+                style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 4),
               Text(
@@ -1348,7 +1348,7 @@ class _LocalMasterStatus extends StatelessWidget {
                     : server.listening
                         ? "Écoute sur le port ${LocalMasterServer.port}, mais l'adresse IP locale est introuvable."
                         : server.lastError ?? "Le terminal maître n'écoute pas encore sur le réseau local.",
-                style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
               ),
               if (ready) ...[
                 const SizedBox(height: 12),

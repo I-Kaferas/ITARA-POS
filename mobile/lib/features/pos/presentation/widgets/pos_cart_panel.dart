@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -26,12 +25,7 @@ class PosCartPanel extends StatelessWidget {
     this.onClear,
     this.onPay,
     this.onDiscount,
-    this.onNewSale,
-    this.onRetrieve,
     this.onCustomerDisplay,
-    this.onNote,
-    this.onLoyalty,
-    this.onSplit,
   });
 
   final PosCartEngine cart;
@@ -48,12 +42,7 @@ class PosCartPanel extends StatelessWidget {
   final VoidCallback? onClear;
   final VoidCallback? onPay;
   final VoidCallback? onDiscount;
-  final VoidCallback? onNewSale;
-  final VoidCallback? onRetrieve;
   final VoidCallback? onCustomerDisplay;
-  final VoidCallback? onNote;
-  final VoidCallback? onLoyalty;
-  final VoidCallback? onSplit;
 
   Widget _customerField() {
     return Material(
@@ -193,7 +182,7 @@ class PosCartPanel extends StatelessWidget {
                     Expanded(
                       child: Text(
                         trf('Modification — {0}\nAjoutez des articles puis Enregistrer (Attente)', [cart.activeHoldLabel ?? 'commande en attente']),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: AppColors.warning,
@@ -232,11 +221,6 @@ class PosCartPanel extends StatelessWidget {
             onClear: onClear,
             onPay: onPay,
             onDiscount: onDiscount,
-            onNewSale: onNewSale,
-            onRetrieve: onRetrieve,
-            onNote: onNote,
-            onLoyalty: onLoyalty,
-            onSplit: onSplit,
           ),
         ],
       ),
@@ -251,11 +235,6 @@ class _OrderCheckout extends StatelessWidget {
     this.onClear,
     this.onPay,
     this.onDiscount,
-    this.onNewSale,
-    this.onRetrieve,
-    this.onNote,
-    this.onLoyalty,
-    this.onSplit,
   });
 
   final PosCartEngine cart;
@@ -263,11 +242,6 @@ class _OrderCheckout extends StatelessWidget {
   final VoidCallback? onClear;
   final VoidCallback? onPay;
   final VoidCallback? onDiscount;
-  final VoidCallback? onNewSale;
-  final VoidCallback? onRetrieve;
-  final VoidCallback? onNote;
-  final VoidCallback? onLoyalty;
-  final VoidCallback? onSplit;
 
   String _money(int amount) => MoneyFormatter.format(amount, currencyCode: AppConfig.currencyCode);
 
@@ -375,45 +349,6 @@ class _OrderCheckout extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.delete_outline, size: 16),
                   label: Text(tr('Clear Cart')),
-                ),
-              ),
-              const SizedBox(width: 8),
-              PopupMenuButton<String>(
-                tooltip: tr('More'),
-                onSelected: (value) {
-                  switch (value) {
-                    case 'pay':
-                      onPay?.call();
-                    case 'new':
-                      onNewSale?.call();
-                    case 'retrieve':
-                      onRetrieve?.call();
-                    case 'note':
-                      onNote?.call();
-                    case 'loyalty':
-                      onLoyalty?.call();
-                    case 'split':
-                      onSplit?.call();
-                  }
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(value: 'pay', child: Text(tr('Pay'))),
-                  PopupMenuItem(value: 'new', child: Text(tr('New sale'))),
-                  PopupMenuItem(value: 'retrieve', child: Text(tr('Held orders'))),
-                  PopupMenuItem(value: 'split', child: Text(tr('Split'))),
-                  PopupMenuItem(value: 'note', child: Text(tr('Note'))),
-                  PopupMenuItem(value: 'loyalty', child: Text(tr('Loyalty'))),
-                ],
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: PosUi.deskField,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: PosUi.deskLine),
-                  ),
-                  child: Icon(Icons.apps_rounded, color: PosUi.deskText, size: 18),
                 ),
               ),
             ],
@@ -545,7 +480,7 @@ class _CartLineTile extends StatelessWidget {
                   value: line.quantity,
                   child: Text(
                     '${line.quantity}',
-                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w800, fontSize: 14, color: PosUi.deskText),
+                    style: AppTypography.text(fontWeight: FontWeight.w800, fontSize: 14, color: PosUi.deskText),
                   ),
                 ),
               ),

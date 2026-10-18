@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -10,6 +9,7 @@ import '../data/pos_api_service.dart';
 import '../domain/pos_models.dart';
 import 'widgets/pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class PosReservationsScreen extends StatefulWidget {
   const PosReservationsScreen({super.key});
@@ -136,7 +136,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                     children: [
                       Text(
                         tr(existing == null ? 'Nouvelle réservation' : 'Modifier la réservation'),
-                        style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700),
+                        style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 14),
                       TextField(
@@ -269,7 +269,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: Text(tr('Réservations'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
+        title: Text(tr('Réservations'), style: AppTypography.text(fontWeight: FontWeight.w700)),
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
@@ -362,7 +362,7 @@ class _PosReservationsScreenState extends State<PosReservationsScreen> {
                       Expanded(
                         child: Text(
                           tr(item.guestName),
-                          style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w700),
+                          style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w700),
                         ),
                       ),
                       PosBadge(label: _statusLabel(item.status), tone: _statusTone(item.status)),

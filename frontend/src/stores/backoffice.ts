@@ -457,6 +457,11 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return cashierShifts.value
   }
 
+  async function loadMyCashierShifts() {
+    cashierShifts.value = (await api.get<ApiListResponse<CashierShift>>('/me/cashier-shifts')).data
+    return cashierShifts.value
+  }
+
   async function loadCashierShiftDetail(shiftId: string, storeId?: string | null) {
     if (storeId) {
       return api.get<{ data: CashierShift; summary: ShiftSummary }>(
@@ -2086,7 +2091,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadBranches, saveBranch, deleteBranch, loadBranchProfile, addBranchExpense, loadStores, saveStore, deleteStore,
     loadWarehouses, saveWarehouse, deleteWarehouse, loadDevices, saveDevice, deleteDevice, revokeDevice, regenerateDeviceToken,
     loadCashRegisters, saveCashRegister, deleteCashRegister,
-    loadStoreCashierShifts, loadCashierShiftDetail, loadCurrentCashierShift, openCashierShift, closeCashierShift,
+    loadStoreCashierShifts, loadMyCashierShifts, loadCashierShiftDetail, loadCurrentCashierShift, openCashierShift, closeCashierShift,
     getCurrentRegisterSession, openRegisterSession, closeRegisterSession, recordRegisterMovement, countRegisterCash, getRegisterReconciliation,
     loadUsers, loadUserSessions, resetUserPassword, setUserActive, revokeUserSessions, loadRoles, loadPermissions, saveRole, deleteRole, assignUserRole, assignUserStore, removeUserRole,
     loadCatalogs, saveCatalog, deleteCatalog, loadCategories, saveCategory, deleteCategory,

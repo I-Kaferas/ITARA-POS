@@ -49,6 +49,12 @@ class LocalMasterServer extends ChangeNotifier {
   static String? clientBaseUrl() {
     final config = TerminalConfigRepository.instance.config;
     if (config.isMaster) return null;
+    // Slave must talk to the LAN Master only — never prefer cloud/ERP URL.
+    if (config.isSlave) {
+      final host = config.masterHost.trim();
+      if (host.isNotEmpty) return baseUrlForHost(host);
+      return null;
+    }
     final explicit = config.internalApiBaseUrl.trim();
     if (explicit.isNotEmpty) return explicit.replaceAll(RegExp(r'/$'), '');
     final host = config.masterHost.trim();

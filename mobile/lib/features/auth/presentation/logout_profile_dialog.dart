@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/config/terminal_config.dart';
@@ -161,7 +160,7 @@ class _ProfilePane extends StatelessWidget {
                 ),
                 child: Text(
                   tr(initials),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     color: AppColors.brand900,
                     fontSize: 30,
                     fontWeight: FontWeight.w700,
@@ -172,7 +171,7 @@ class _ProfilePane extends StatelessWidget {
               Text(
                 tr(name),
                 textAlign: TextAlign.center,
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -188,7 +187,7 @@ class _ProfilePane extends StatelessWidget {
                   ),
                   child: Text(
                     tr(code),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       color: AppColors.accent,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -205,7 +204,7 @@ class _ProfilePane extends StatelessWidget {
                 ),
                 child: Text(
                   tr(role),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -291,12 +290,12 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted)),
+              Text(tr(label), style: AppTypography.text(fontSize: 11, color: AppColors.textMuted)),
               Text(
                 tr(value),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
             ],
           ),
@@ -339,7 +338,7 @@ class _PermissionsPane extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 AppCopy.get('permissions'),
-                style: GoogleFonts.ibmPlexSans(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                style: AppTypography.text(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -350,7 +349,7 @@ class _PermissionsPane extends StatelessWidget {
                   padding: const EdgeInsets.all(24),
                   child: Text(
                     AppCopy.get('noRights'),
-                    style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary),
+                    style: AppTypography.text(color: AppColors.textSecondary),
                   ),
                 )
               : ListView.separated(
@@ -365,7 +364,7 @@ class _PermissionsPane extends StatelessWidget {
                       children: [
                         Text(
                           tr(section.title),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             color: AppColors.brandInk,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -383,7 +382,7 @@ class _PermissionsPane extends StatelessWidget {
                                 Expanded(
                                   child: Text(
                                     tr(action),
-                                    style: GoogleFonts.ibmPlexSans(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+                                    style: AppTypography.text(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
                                   ),
                                 ),
                               ],

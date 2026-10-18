@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide BarcodeType;
 
 import '../../../core/theme/app_colors.dart';
@@ -14,6 +13,7 @@ import 'camera_scan_screen.dart';
 import 'widgets/barcode_label_preview.dart';
 import 'widgets/hid_scanner_field.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class BarcodeHubScreen extends StatefulWidget {
   const BarcodeHubScreen({super.key});
@@ -240,7 +240,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
               if (_scannerMode == 'hid')
                 Text(
                   tr('Scanner USB ou Bluetooth (mode clavier) actif — scannez un code.'),
-                  style: GoogleFonts.ibmPlexSans(color: AppColors.textSecondary, fontSize: 13),
+                  style: AppTypography.text(color: AppColors.textSecondary, fontSize: 13),
                 ),
               const SizedBox(height: 10),
               Align(
@@ -377,7 +377,7 @@ class _BarcodeHubScreenState extends State<BarcodeHubScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         tr(title),
-        style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.brandInk),
+        style: AppTypography.text(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.brandInk),
       ),
     );
   }

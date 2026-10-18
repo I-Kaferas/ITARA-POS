@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -7,6 +6,7 @@ import '../../pos/presentation/widgets/pos_ui.dart';
 import '../domain/shift_models.dart';
 import '../services/shift_z_report_printer.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class ShiftHandoverDialog extends StatefulWidget {
   const ShiftHandoverDialog({
@@ -136,7 +136,7 @@ class _ShiftHandoverDialogState extends State<ShiftHandoverDialog> {
                       children: [
                         Text(
                           tr('Situation & Remise de Caisse'),
-                          style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                          style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText),
                         ),
                         _LivePill(open: widget.session.isOpen),
                       ],
@@ -144,7 +144,7 @@ class _ShiftHandoverDialogState extends State<ShiftHandoverDialog> {
                     const SizedBox(height: 4),
                     Text(
                       trf('Session {0} · Caissier : {1} · {2}', [_code, _cashier, _duration]),
-                      style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: PosUi.deskMuted),
+                      style: AppTypography.text(fontSize: 12.5, color: PosUi.deskMuted),
                     ),
                   ],
                 ),
@@ -228,21 +228,21 @@ class _ShiftHandoverDialogState extends State<ShiftHandoverDialog> {
               const SizedBox(height: 18),
               Text(
                 tr('Articles Vendus & Stocks par Magasin'),
-                style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
               ),
               const SizedBox(height: 4),
               Text(
                 tr('Produits vendus durant cette session, répartis par magasin avec stock restant disponible.'),
-                style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: PosUi.deskMuted),
+                style: AppTypography.text(fontSize: 12.5, color: PosUi.deskMuted),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _search,
                 onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
-                style: GoogleFonts.ibmPlexSans(fontSize: 14, color: PosUi.deskText),
+                style: AppTypography.text(fontSize: 14, color: PosUi.deskText),
                 decoration: InputDecoration(
                   hintText: tr('Filtrer par nom ou code produit...'),
-                  hintStyle: GoogleFonts.ibmPlexSans(fontSize: 14, color: PosUi.deskMuted),
+                  hintStyle: AppTypography.text(fontSize: 14, color: PosUi.deskMuted),
                   prefixIcon: Icon(Icons.search_rounded, color: PosUi.deskMuted),
                   filled: true,
                   fillColor: PosUi.deskField,
@@ -266,7 +266,7 @@ class _ShiftHandoverDialogState extends State<ShiftHandoverDialog> {
                         padding: const EdgeInsets.symmetric(vertical: 28),
                         child: Text(
                           tr('Aucun article vendu durant cette session.'),
-                          style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted),
+                          style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted),
                         ),
                       )
                     else
@@ -295,7 +295,7 @@ class _ShiftHandoverDialogState extends State<ShiftHandoverDialog> {
                     minimumSize: const Size.fromHeight(48),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: Text(tr('Close'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
+                  child: Text(tr('Close'), style: AppTypography.text(fontWeight: FontWeight.w700)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -317,7 +317,7 @@ class _ShiftHandoverDialogState extends State<ShiftHandoverDialog> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: PosUi.deskInk),
                         )
                       : const Icon(Icons.print_outlined, size: 18),
-                  label: Text(tr('Imprimer'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w800)),
+                  label: Text(tr('Imprimer'), style: AppTypography.text(fontWeight: FontWeight.w800)),
                 ),
               ),
             ],
@@ -368,7 +368,7 @@ class _LivePill extends StatelessWidget {
       ),
       child: Text(
         tr(open ? 'EN DIRECT' : 'CLÔTURÉ'),
-        style: GoogleFonts.ibmPlexSans(fontSize: 10, fontWeight: FontWeight.w800, color: color, letterSpacing: 0.4),
+        style: AppTypography.text(fontSize: 10, fontWeight: FontWeight.w800, color: color, letterSpacing: 0.4),
       ),
     );
   }
@@ -396,7 +396,7 @@ class _SectionBox extends StatelessWidget {
             children: [
               Icon(Icons.inventory_2_outlined, size: 16, color: PosUi.deskMuted),
               const SizedBox(width: 8),
-              Text(tr(title), style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: PosUi.deskText)),
+              Text(tr(title), style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700, color: PosUi.deskText)),
             ],
           ),
           const SizedBox(height: 12),
@@ -442,15 +442,15 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               tr(value),
-              style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
+              style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
             ),
             const SizedBox(height: 2),
-            Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+            Text(tr(label), style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
             if (note != null) ...[
               const SizedBox(height: 6),
               Text(
                 tr(note!),
-                style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
+                style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
               ),
             ],
           ],
@@ -467,7 +467,7 @@ class _TableHead extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, color: PosUi.deskMuted, letterSpacing: 0.4);
+    final style = AppTypography.text(fontSize: 11, fontWeight: FontWeight.w700, color: PosUi.deskMuted, letterSpacing: 0.4);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -506,12 +506,12 @@ class _StoreBlock extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr(store.name.toUpperCase()),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                  style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w800, color: PosUi.deskText),
                 ),
               ),
               Text(
                 trf('{0} article(s)', [store.articlesCount]),
-                style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted),
+                style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
               ),
             ],
           ),
@@ -540,13 +540,13 @@ class _ProductRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tr(line.name), style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: PosUi.deskText)),
+                Text(tr(line.name), style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700, color: PosUi.deskText)),
                 if (line.code.isNotEmpty)
-                  Text(trf('Code : {0}', [line.code]), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                  Text(trf('Code : {0}', [line.code]), style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
                 if (line.creditQty > 0)
                   Text(
                     trf('{0} à crédit', [line.creditQty]),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
+                    style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
                   ),
               ],
             ),
@@ -558,7 +558,7 @@ class _ProductRow extends StatelessWidget {
             child: Text(
               tr(_money(line.total, currency, withCode: false)),
               textAlign: TextAlign.right,
-              style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700, color: PosUi.deskText),
+              style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700, color: PosUi.deskText),
             ),
           ),
         ],
@@ -584,7 +584,7 @@ class _QtyPill extends StatelessWidget {
       child: Text(
         tr(value),
         textAlign: TextAlign.center,
-        style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w800, color: foreground),
+        style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w800, color: foreground),
       ),
     );
   }
@@ -615,12 +615,12 @@ class _TotalsRow extends StatelessWidget {
               children: [
                 Text(
                   tr('TOTAL ARTICLES VENDUS'),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                  style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w800, color: PosUi.deskText),
                 ),
                 if (credit > 0)
                   Text(
                     trf('{0} à crédit', [credit]),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
+                    style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
                   ),
               ],
             ),
@@ -630,19 +630,19 @@ class _TotalsRow extends StatelessWidget {
             child: Text(
               '$sold',
               textAlign: TextAlign.center,
-              style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskAccent),
+              style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskAccent),
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text('—', textAlign: TextAlign.center, style: GoogleFonts.ibmPlexSans(fontSize: 14, color: PosUi.deskMuted)),
+            child: Text('—', textAlign: TextAlign.center, style: AppTypography.text(fontSize: 14, color: PosUi.deskMuted)),
           ),
           Expanded(
             flex: 2,
             child: Text(
               tr(total),
               textAlign: TextAlign.right,
-              style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskStock),
+              style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskStock),
             ),
           ),
         ],

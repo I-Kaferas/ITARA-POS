@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/theme/app_colors.dart';
@@ -11,6 +10,7 @@ import '../data/pos_api_service.dart';
 import '../domain/pos_models.dart';
 import 'widgets/pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class PosOverviewScreen extends StatefulWidget {
   const PosOverviewScreen({super.key});
@@ -246,7 +246,7 @@ class _GreetingHeader extends StatelessWidget {
           backgroundColor: AppColors.cashierBlue,
           child: Text(
             tr(_initials(name)),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               color: Colors.white,
               fontWeight: FontWeight.w700,
               fontSize: 16,
@@ -262,7 +262,7 @@ class _GreetingHeader extends StatelessWidget {
                 '${_greeting(now)}, $name',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
@@ -274,7 +274,7 @@ class _GreetingHeader extends StatelessWidget {
                 '$place · ${_longDate(now)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
@@ -322,7 +322,7 @@ class _TodaySalesCard extends StatelessWidget {
               child: Center(
                 child: Text(
                   tr(_initials(name)),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
                     color: AppColors.brandInk,
@@ -336,7 +336,7 @@ class _TodaySalesCard extends StatelessWidget {
             tr(name),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
@@ -347,7 +347,7 @@ class _TodaySalesCard extends StatelessWidget {
             value: revenueLabel,
             child: Text(
               tr(revenueLabel),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.6,
@@ -358,7 +358,7 @@ class _TodaySalesCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             tr('No target set'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: AppColors.danger,
@@ -423,7 +423,7 @@ class _SummaryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.ibmPlexSans(
+    final style = AppTypography.text(
       fontSize: 11,
       fontWeight: FontWeight.w700,
       letterSpacing: 0.6,
@@ -451,7 +451,7 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.ibmPlexSans(
+    final style = AppTypography.text(
       fontSize: 13,
       fontWeight: day.isToday ? FontWeight.w700 : FontWeight.w500,
       color: day.isToday ? AppColors.brandInk : AppColors.textPrimary,
@@ -577,7 +577,7 @@ class _StatTile extends StatelessWidget {
                     tr(value),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                       color: AppColors.brandInk,
@@ -588,7 +588,7 @@ class _StatTile extends StatelessWidget {
                   tr(label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                  style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -664,7 +664,7 @@ class _HourBars extends StatelessWidget {
                 child: Text(
                   tr(label),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 10, color: AppColors.textMuted),
+                  style: AppTypography.text(fontSize: 10, color: AppColors.textMuted),
                 ),
               ),
           ],
@@ -722,12 +722,12 @@ class _PaymentLine extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr(label),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
               ),
               Text(
                 tr(money(amount)),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: AppColors.brandInk,
@@ -781,7 +781,7 @@ class _DashCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr(title),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.brandInk,

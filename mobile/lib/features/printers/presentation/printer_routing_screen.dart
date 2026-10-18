@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/di/service_locator.dart';
@@ -10,6 +9,7 @@ import '../domain/print_route.dart';
 import '../domain/printer.dart';
 import 'bloc/printer_routing_bloc.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// UI to define Category / Product / Document → Printer (mobile.md §40).
 class PrinterRoutingScreen extends StatelessWidget {
@@ -66,7 +66,7 @@ class _PrinterRoutingView extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   tr(state.errorMessage!),
-                  style: GoogleFonts.ibmPlexSans(color: AppColors.danger, fontSize: 13),
+                  style: AppTypography.text(color: AppColors.danger, fontSize: 13),
                 ),
               ],
               const SizedBox(height: 16),
@@ -138,17 +138,17 @@ class _ExampleBanner extends StatelessWidget {
         children: [
           Text(
             tr('Routage POS'),
-            style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14),
+            style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 14),
           ),
           const SizedBox(height: 6),
           Text(
             tr('Drink → Bar · Pizza → Cuisine · Receipt → Caisse'),
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+            style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           Text(
             tr('Priorité : Produit > Catégorie > Document'),
-            style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
+            style: AppTypography.text(fontSize: 11, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -178,14 +178,14 @@ class _Section extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(tr(title), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 15)),
+        Text(tr(title), style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 15)),
         const SizedBox(height: 2),
-        Text(tr(subtitle), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary)),
+        Text(tr(subtitle), style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary)),
         const SizedBox(height: 8),
         if (routes.isEmpty)
           Text(
             tr('Aucune règle'),
-            style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textMuted),
+            style: AppTypography.text(fontSize: 13, color: AppColors.textMuted),
           )
         else
           ...routes.map(
@@ -200,7 +200,7 @@ class _Section extends StatelessWidget {
                   },
                   color: AppColors.brandInk,
                 ),
-                title: Text(tr(route.displayLabel), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600)),
+                title: Text(tr(route.displayLabel), style: AppTypography.text(fontWeight: FontWeight.w600)),
                 subtitle: Text(
                   trf('{0} · {1} · prio {2}''{3}', [route.matchKey, destinationOf(route), route.priority, route.enabled ? '' : ' · désactivé']),
                 ),

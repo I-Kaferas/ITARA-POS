@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/i18n/app_locale.dart';
@@ -26,23 +25,24 @@ import '../domain/company_link.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../data/master_overview_repository.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
-const _accent = Color(0xFF6D3FE6);
-const _info = Color(0xFF3B82F6);
-const _amber = Color(0xFFF59E0B);
+const _accent = AppColors.brand600;
+const _info = AppColors.info;
+const _amber = AppColors.accent;
 
 typedef _ModuleSpec = ({String label, IconData icon, Color color});
 
 _ModuleSpec _spec(CloudSyncModule module) => switch (module) {
-      CloudSyncModule.company => (label: tr('Company'), icon: Icons.apartment_rounded, color: const Color(0xFF7C5CFF)),
+      CloudSyncModule.company => (label: tr('Company'), icon: Icons.apartment_rounded, color: AppColors.brand600),
       CloudSyncModule.usersRoles => (label: tr('Users & Roles'), icon: Icons.groups_rounded, color: _info),
       CloudSyncModule.categories => (label: tr('Categories'), icon: Icons.category_rounded, color: _amber),
-      CloudSyncModule.products => (label: tr('Products'), icon: Icons.inventory_2_rounded, color: const Color(0xFF8B5CF6)),
-      CloudSyncModule.stock => (label: tr('Stock'), icon: Icons.warehouse_rounded, color: const Color(0xFFEC4899)),
-      CloudSyncModule.customers => (label: tr('Customers'), icon: Icons.person_rounded, color: const Color(0xFF06B6D4)),
+      CloudSyncModule.products => (label: tr('Products'), icon: Icons.inventory_2_rounded, color: AppColors.brand500),
+      CloudSyncModule.stock => (label: tr('Stock'), icon: Icons.warehouse_rounded, color: AppColors.warning),
+      CloudSyncModule.customers => (label: tr('Customers'), icon: Icons.person_rounded, color: _info),
       CloudSyncModule.paymentMethods => (label: tr('Payment Methods'), icon: Icons.credit_card_rounded, color: _amber),
-      CloudSyncModule.shifts => (label: tr('Shifts'), icon: Icons.schedule_rounded, color: const Color(0xFF10B981)),
-      CloudSyncModule.sales => (label: tr('Sales & Orders'), icon: Icons.receipt_long_rounded, color: const Color(0xFF6366F1)),
+      CloudSyncModule.shifts => (label: tr('Shifts'), icon: Icons.schedule_rounded, color: AppColors.success),
+      CloudSyncModule.sales => (label: tr('Sales & Orders'), icon: Icons.receipt_long_rounded, color: AppColors.brand700),
     };
 
 String _ago(DateTime at) {
@@ -279,7 +279,7 @@ class _Header extends StatelessWidget {
                   children: [
                     Text(
                       tr('Master Configuration'),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 21,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -287,7 +287,7 @@ class _Header extends StatelessWidget {
                     ),
                     Text(
                       tr('Server settings & company connection'),
-                      style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+                      style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -354,7 +354,7 @@ class _Chip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             tr(label),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -400,8 +400,8 @@ class _Tabs extends StatelessWidget {
         indicatorColor: _accent,
         indicatorWeight: 2.5,
         dividerColor: Colors.transparent,
-        labelStyle: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w600),
+        labelStyle: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w600),
         tabs: [
           tab(Icons.dashboard_rounded, 'Overview'),
           tab(Icons.devices_rounded, 'Devices'),
@@ -468,7 +468,7 @@ class _Panel extends StatelessWidget {
             children: [
               Text(
                 tr(title),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -477,7 +477,7 @@ class _Panel extends StatelessWidget {
               if (subtitle != null)
                 Text(
                   tr(subtitle!),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12,
                     color: subtitleColor ?? AppColors.textSecondary,
                   ),
@@ -580,7 +580,7 @@ class _ActionButton extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
             )
           : Icon(icon, size: 17),
-      label: Text(tr(label), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+      label: Text(tr(label), style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 13)),
     );
   }
 }
@@ -646,7 +646,7 @@ class _StatsGrid extends StatelessWidget {
         final cards = [
           _StatCard(
             icon: Icons.inventory_2_rounded,
-            color: const Color(0xFF8B5CF6),
+            color: AppColors.brand500,
             badge: 'active',
             value: Text('${overview.records(CloudSyncModule.products)}'),
             label: tr('Total products'),
@@ -744,7 +744,7 @@ class _StatCard extends StatelessWidget {
                           tr(badge),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.ibmPlexSans(fontSize: 10.5, fontWeight: FontWeight.w700, color: tone),
+                          style: AppTypography.text(fontSize: 10.5, fontWeight: FontWeight.w700, color: tone),
                         ),
                       ),
                     ],
@@ -755,7 +755,7 @@ class _StatCard extends StatelessWidget {
           ),
           const Spacer(),
           DefaultTextStyle(
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 23,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
@@ -769,7 +769,7 @@ class _StatCard extends StatelessWidget {
             tr(label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+            style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -896,7 +896,7 @@ class _HealthTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             tr(label),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -1037,7 +1037,7 @@ class _ModuleRow extends StatelessWidget {
               children: [
                 Text(
                   tr(spec.label),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -1057,13 +1057,13 @@ class _ModuleRow extends StatelessWidget {
                       ),
                       child: Text(
                         trf('{0} record{1}', [records, records == 1 ? '' : 's']),
-                        style: GoogleFonts.ibmPlexSans(fontSize: 10.5, color: AppColors.textSecondary),
+                        style: AppTypography.text(fontSize: 10.5, color: AppColors.textSecondary),
                       ),
                     ),
                     if (status != null)
                       Text(
                         tr(status),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
                           color: statusColor,
@@ -1077,7 +1077,7 @@ class _ModuleRow extends StatelessWidget {
                     tr(result!.message),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.danger),
+                    style: AppTypography.text(fontSize: 11, color: AppColors.danger),
                   ),
                 ],
               ],
@@ -1177,7 +1177,7 @@ class _ActivityPanelState extends State<_ActivityPanel> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
                     tr('No activity yet. Terminals, sales and sync runs will appear here.'),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textMuted),
+                    style: AppTypography.text(fontSize: 12.5, color: AppColors.textMuted),
                   ),
                 )
               : Column(
@@ -1235,7 +1235,7 @@ class _ActivityRow extends StatelessWidget {
                 children: [
                   Text(
                     tr(item.title),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
@@ -1246,7 +1246,7 @@ class _ActivityRow extends StatelessWidget {
                       tr(item.detail),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                      style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                     ),
                 ],
               ),
@@ -1255,7 +1255,7 @@ class _ActivityRow extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             tr(_ago(item.at)),
-            style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
+            style: AppTypography.text(fontSize: 11, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -1309,7 +1309,7 @@ class _DevicesTab extends StatelessWidget {
                           Text(
                             tr('POS terminals appear here once they pair with this Master'),
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textMuted),
+                            style: AppTypography.text(fontSize: 12.5, color: AppColors.textMuted),
                           ),
                         ],
                       ),
@@ -1335,7 +1335,7 @@ class _CompanyTab extends StatefulWidget {
 }
 
 class _CompanyTabState extends State<_CompanyTab> {
-  static const _violet = Color(0xFF7C5CFF);
+  static const _violet = AppColors.brand600;
 
   final _joinCtrl = TextEditingController();
   final _apiCtrl = TextEditingController();
@@ -1541,7 +1541,7 @@ class _CompanyTabState extends State<_CompanyTab> {
             textCapitalization: TextCapitalization.characters,
             autocorrect: false,
             enableSuggestions: false,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 15,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.4,
@@ -1577,14 +1577,14 @@ class _CompanyTabState extends State<_CompanyTab> {
                 : const Icon(Icons.key_rounded, size: 18),
             label: Text(
               tr('Validate Join Key'),
-              style: GoogleFonts.ibmPlexSans(fontSize: 14.5, fontWeight: FontWeight.w700),
+              style: AppTypography.text(fontSize: 14.5, fontWeight: FontWeight.w700),
             ),
           ),
           if (_message != null) ...[
             const SizedBox(height: 10),
             Text(
               tr(_message!),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
                 color: _messageOk ? AppColors.success : AppColors.danger,
@@ -1600,7 +1600,7 @@ class _CompanyTabState extends State<_CompanyTab> {
               Expanded(
                 child: Text(
                   tr('You can find the join key in your SaaS dashboard under Devices → Generate Key'),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted, height: 1.35),
+                  style: AppTypography.text(fontSize: 12, color: AppColors.textMuted, height: 1.35),
                 ),
               ),
             ],
@@ -1622,7 +1622,7 @@ class _CompanyTabState extends State<_CompanyTab> {
         children: [
           Text(
             tr('API Base URL'),
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+            style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -1631,7 +1631,7 @@ class _CompanyTabState extends State<_CompanyTab> {
             onChanged: (_) => setState(() {}),
             keyboardType: TextInputType.url,
             autocorrect: false,
-            style: GoogleFonts.ibmPlexSans(fontSize: 13.5, color: AppColors.textPrimary),
+            style: AppTypography.text(fontSize: 13.5, color: AppColors.textPrimary),
             decoration: _inputDecoration(hint: 'https://api.example.com', icon: Icons.link_rounded),
           ),
           const SizedBox(height: 12),
@@ -1653,7 +1653,7 @@ class _CompanyTabState extends State<_CompanyTab> {
                 : Icon(Icons.lock_outline_rounded, size: 16, color: dirty ? _violet : AppColors.textMuted),
             label: Text(
               tr('Save URL'),
-              style: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w700),
+              style: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -1668,7 +1668,7 @@ class _CompanyTabState extends State<_CompanyTab> {
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.ibmPlexSans(
+      hintStyle: AppTypography.text(
         fontSize: 13.5,
         letterSpacing: 0.6,
         color: AppColors.textMuted,
@@ -1726,7 +1726,7 @@ class _ConnectionBanner extends StatelessWidget {
               children: [
                 Text(
                   tr(title),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -1735,7 +1735,7 @@ class _ConnectionBanner extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   tr(subtitle),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+                  style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -1775,7 +1775,7 @@ class _Facts extends StatelessWidget {
                   children: [
                     Text(
                       tr(fact.$1),
-                      style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                      style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1788,7 +1788,7 @@ class _Facts extends StatelessWidget {
                           textAlign: TextAlign.right,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textPrimary,
@@ -1878,7 +1878,7 @@ class _SyncTab extends StatelessWidget {
                               children: [
                                 Text(
                                   '${item.$2}',
-                                  style: GoogleFonts.ibmPlexSans(
+                                  style: AppTypography.text(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
                                     color: AppColors.textPrimary,
@@ -1886,7 +1886,7 @@ class _SyncTab extends StatelessWidget {
                                 ),
                                 Text(
                                   tr(item.$1),
-                                  style: GoogleFonts.ibmPlexSans(fontSize: 11.5, color: AppColors.textSecondary),
+                                  style: AppTypography.text(fontSize: 11.5, color: AppColors.textSecondary),
                                 ),
                               ],
                             ),

@@ -111,11 +111,31 @@ abstract final class AppColors {
   static const violet500 = accent;
   static const violet600 = Color(0xFFB86E09);
 
-  static const sidebar = Color(0xFF12243C);
-  static const sidebarPanel = Color(0xFF0F2036);
-  static const sidebarBorder = Color(0xFF2A4060);
-  static const sidebarHover = Color(0xFF1A3050);
-  static const sidebarActive = Color(0xFF0D1C32);
+  static const sidebarLight = Color(0xFF12243C);
+  static const sidebarPanelLight = Color(0xFF0F2036);
+  static const sidebarBorderLight = Color(0xFF2A4060);
+  static const sidebarHoverLight = Color(0xFF1A3050);
+  static const sidebarActiveLight = Color(0xFF0D1C32);
+  static const sidebarTopLight = Color(0xFF162B45);
+  static const sidebarBottomLight = Color(0xFF0C1828);
+
+  static const sidebarDark = Color(0xFF2A3A50);
+  static const sidebarPanelDark = Color(0xFF27364A);
+  static const sidebarBorderDark = Color(0xFF3F5370);
+  static const sidebarHoverDark = Color(0xFF314562);
+  static const sidebarActiveDark = Color(0xFF253347);
+  static const sidebarTopDark = Color(0xFF314562);
+  static const sidebarBottomDark = Color(0xFF243244);
+
+  static bool get _darkPalette => identical(_palette, AppPalette.dark);
+
+  static Color get sidebar => _darkPalette ? sidebarDark : sidebarLight;
+  static Color get sidebarPanel => _darkPalette ? sidebarPanelDark : sidebarPanelLight;
+  static Color get sidebarBorder => _darkPalette ? sidebarBorderDark : sidebarBorderLight;
+  static Color get sidebarHover => _darkPalette ? sidebarHoverDark : sidebarHoverLight;
+  static Color get sidebarActive => _darkPalette ? sidebarActiveDark : sidebarActiveLight;
+  static Color get sidebarTop => _darkPalette ? sidebarTopDark : sidebarTopLight;
+  static Color get sidebarBottom => _darkPalette ? sidebarBottomDark : sidebarBottomLight;
   static const sidebarText = Color(0xFFE8EEF8);
 
   static const success = Color(0xFF0F7A4D);

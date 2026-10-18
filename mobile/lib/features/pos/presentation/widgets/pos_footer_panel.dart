@@ -14,6 +14,7 @@ import 'customer_picker_dialog.dart';
 import 'pos_payment_dialog.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class PosFooterPanel extends StatelessWidget {
   const PosFooterPanel({
@@ -264,7 +265,7 @@ class PosFooterPanel extends StatelessWidget {
                       icon: const Icon(Icons.pause_circle_outline, size: 20),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.brand600,
-                        textStyle: GoogleFonts.ibmPlexSans(
+                        textStyle: AppTypography.text(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                           letterSpacing: 0.4,
@@ -343,7 +344,7 @@ class PosFooterPanel extends StatelessWidget {
                       onPressed: cart.isEmpty ? null : () => _showPaymentDialog(context),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.brand600,
-                        textStyle: GoogleFonts.ibmPlexSans(
+                        textStyle: AppTypography.text(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
                           letterSpacing: 0.8,
@@ -614,7 +615,7 @@ class PosFooterPanel extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   tr('Détail, modification, séparation et paiement tant que la commande n’est pas encaissée.'),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                  style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 Flexible(
@@ -637,12 +638,12 @@ class PosFooterPanel extends StatelessWidget {
                                         Expanded(
                                           child: Text(
                                             tr(sale.label),
-                                            style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14),
+                                            style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 14),
                                           ),
                                         ),
                                         Text(
                                           tr(_formatTime(sale.heldAt)),
-                                          style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textMuted),
+                                          style: AppTypography.text(fontSize: 11, color: AppColors.textMuted),
                                         ),
                                       ],
                                     ),
@@ -650,21 +651,21 @@ class PosFooterPanel extends StatelessWidget {
                                       const SizedBox(height: 2),
                                       Text(
                                         tr(sale.customer!.displayLabel),
-                                        style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                                        style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                                       ),
                                     ],
                                     if (sale.note != null && sale.note!.isNotEmpty) ...[
                                       const SizedBox(height: 2),
                                       Text(
                                         tr(sale.note!),
-                                        style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
+                                        style: AppTypography.text(fontSize: 12, color: AppColors.textMuted),
                                       ),
                                     ],
                                     const SizedBox(height: 10),
                                     if (sale.lines.isEmpty)
                                       Text(
                                         tr('Aucun article (commande distante sans détail local).'),
-                                        style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
+                                        style: AppTypography.text(fontSize: 12, color: AppColors.textMuted),
                                       )
                                     else
                                       ...sale.lines.map((line) {
@@ -679,7 +680,7 @@ class PosFooterPanel extends StatelessWidget {
                                                   children: [
                                                     Text(
                                                       tr(line.displayName),
-                                                      style: GoogleFonts.ibmPlexSans(
+                                                      style: AppTypography.text(
                                                         fontSize: 13,
                                                         fontWeight: FontWeight.w600,
                                                         color: AppColors.textPrimary,
@@ -688,7 +689,7 @@ class PosFooterPanel extends StatelessWidget {
                                                     const SizedBox(height: 2),
                                                     Text(
                                                       trf('{0} × {1}', [line.quantity, _money(line.unitPrice)]),
-                                                      style: GoogleFonts.ibmPlexSans(
+                                                      style: AppTypography.text(
                                                         fontSize: 11,
                                                         color: AppColors.textMuted,
                                                       ),
@@ -721,12 +722,12 @@ class PosFooterPanel extends StatelessWidget {
                                         children: [
                                           Text(
                                             trf('{0} art.', [sale.itemCount]),
-                                            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                                            style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                                           ),
                                           const Spacer(),
                                           Text(
                                             tr('Total '),
-                                            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                                            style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                                           ),
                                           Text(
                                             tr(_money(sale.total)),
@@ -1069,12 +1070,12 @@ class _SummaryRow extends StatelessWidget {
         children: [
           Text(
             tr(label),
-            style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
+            style: AppTypography.text(fontSize: 13, color: AppColors.textSecondary),
           ),
           const Spacer(),
           Text(
             tr(value),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
@@ -1114,7 +1115,7 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                 children: [
                   Text(
                     tr('Choisissez les articles (et quantités) à déplacer vers une nouvelle commande en attente.'),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                    style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 12),
                   ConstrainedBox(
@@ -1137,14 +1138,14 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                             children: [
                               Text(
                                 tr(line.displayName),
-                                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13),
+                                style: AppTypography.text(fontWeight: FontWeight.w600, fontSize: 13),
                               ),
                               const SizedBox(height: 6),
                               Row(
                                 children: [
                                   Text(
                                     trf('Qty {0}', [line.quantity]),
-                                    style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
+                                    style: AppTypography.text(fontSize: 12, color: AppColors.textMuted),
                                   ),
                                   const Spacer(),
                                   IconButton(
@@ -1154,7 +1155,7 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                                         : () => setModalState(() => selected[line.lineId] = move - 1),
                                     icon: const Icon(Icons.remove, size: 18),
                                   ),
-                                  Text('$move', style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700)),
+                                  Text('$move', style: AppTypography.text(fontWeight: FontWeight.w700)),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
                                     onPressed: move >= line.quantity
@@ -1173,7 +1174,7 @@ Future<Map<String, int>?> showPosSplitDialog(BuildContext context, PosCartEngine
                   const SizedBox(height: 8),
                   Text(
                     trf('À séparer: {0} · Restent: {1}', [moveCount, remainCount]),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                    style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
               ),

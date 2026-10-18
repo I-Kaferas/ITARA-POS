@@ -7,6 +7,7 @@ import '../../../../core/theme/app_motion.dart';
 import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 bool _useMobilePaymentSheet(BuildContext context) {
   if (!kIsWeb &&
@@ -337,7 +338,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                           ),
                         ),
                         const SizedBox(height: 18),
-                        Text(tr('Payment Type'), style: GoogleFonts.ibmPlexSans(textStyle: labelStyle)),
+                        Text(tr('Payment Type'), style: AppTypography.text(textStyle: labelStyle)),
                         const SizedBox(height: 8),
                         _ProcessModeTabs(
                           mode: _mode,
@@ -359,10 +360,10 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                         ],
                         if (_mode == 'single') ...[
                           const SizedBox(height: 18),
-                          Text(tr('Payment Method'), style: GoogleFonts.ibmPlexSans(textStyle: labelStyle)),
+                          Text(tr('Payment Method'), style: AppTypography.text(textStyle: labelStyle)),
                           const SizedBox(height: 8),
                           if (tenders.isEmpty)
-                            Text(tr('No payment method'), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: const Color(0xFF9AABBE)))
+                            Text(tr('No payment method'), style: AppTypography.text(fontSize: 12, color: const Color(0xFF9AABBE)))
                           else
                             Wrap(
                               spacing: 8,
@@ -381,19 +382,19 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                               ],
                             ),
                           const SizedBox(height: 18),
-                          Text(tr('Amount Received'), style: GoogleFonts.ibmPlexSans(textStyle: labelStyle)),
+                          Text(tr('Amount Received'), style: AppTypography.text(textStyle: labelStyle)),
                             const SizedBox(height: 8),
                             TextField(
                               controller: _tenderedCtrl,
                               onChanged: (_) => setState(() {}),
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.ibmPlexSans(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white),
+                              style: AppTypography.text(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white),
                               decoration: InputDecoration(
                                 filled: true,
                                 fillColor: const Color(0xFF101828),
                                 hintText: widget.major(widget.total),
-                                hintStyle: GoogleFonts.ibmPlexSans(fontSize: 28, fontWeight: FontWeight.w700, color: const Color(0xFF6E7C90)),
+                                hintStyle: AppTypography.text(fontSize: 28, fontWeight: FontWeight.w700, color: const Color(0xFF6E7C90)),
                                 contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
@@ -412,7 +413,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                         ] else if (_mode == 'credit') ...[
                           if (widget.customer != null && accounts.isNotEmpty) ...[
                             const SizedBox(height: 18),
-                            Text(tr('Payment Method'), style: GoogleFonts.ibmPlexSans(textStyle: labelStyle)),
+                            Text(tr('Payment Method'), style: AppTypography.text(textStyle: labelStyle)),
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 8,
@@ -436,7 +437,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                             const SizedBox(height: 18),
                             Text(
                               tr('The full amount is recorded as a house offer.'),
-                              style: GoogleFonts.ibmPlexSans(fontSize: 13, height: 1.35, color: const Color(0xFF9AABBE)),
+                              style: AppTypography.text(fontSize: 13, height: 1.35, color: const Color(0xFF9AABBE)),
                             ),
                           ],
                         ] else ...[
@@ -455,7 +456,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                               ),
                           ],
                           const SizedBox(height: 16),
-                          Text(tr('Payment Method'), style: GoogleFonts.ibmPlexSans(textStyle: labelStyle)),
+                          Text(tr('Payment Method'), style: AppTypography.text(textStyle: labelStyle)),
                           const SizedBox(height: 8),
                           _MixMethodField(
                             value: _draftMethod,
@@ -474,7 +475,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                                   onChanged: (_) => setState(() {}),
                                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.ibmPlexSans(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
+                                  style: AppTypography.text(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
                                   decoration: InputDecoration(
                                     filled: true,
                                     fillColor: const Color(0xFF121A28),
@@ -502,7 +503,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                                   padding: const EdgeInsets.symmetric(horizontal: 18),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 ),
-                                child: Text(tr('Add'), style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w800)),
+                                child: Text(tr('Add'), style: AppTypography.text(fontSize: 15, fontWeight: FontWeight.w800)),
                               ),
                             ],
                           ),
@@ -581,7 +582,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                     const SizedBox(height: 14),
                     if (_mode == 'single') ...[
                       if (available.isEmpty)
-                        Text(tr('Aucun mode de paiement configuré'), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted))
+                        Text(tr('Aucun mode de paiement configuré'), style: AppTypography.text(fontSize: 12, color: AppColors.textMuted))
                       else
                         LayoutBuilder(
                           builder: (context, constraints) {
@@ -732,13 +733,13 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tr('Paiement'), style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Text(tr('Paiement'), style: AppTypography.text(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                 if (customer != null)
                   Text(
                     tr(customer!.displayLabel),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary),
+                    style: AppTypography.text(fontSize: 11, color: AppColors.textSecondary),
                   ),
               ],
             ),
@@ -767,12 +768,12 @@ class _TotalCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(tr('Montant dû'), style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+          Text(tr('Montant dû'), style: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
           const SizedBox(height: 4),
           Text(tr(totalLabel), style: GoogleFonts.ibmPlexMono(fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
           if (customerBalance != null) ...[
             const SizedBox(height: 4),
-            Text(trf('Solde client {0}', [customerBalance]), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: AppColors.textSecondary)),
+            Text(trf('Solde client {0}', [customerBalance]), style: AppTypography.text(fontSize: 11, color: AppColors.textSecondary)),
           ],
         ],
       ),
@@ -810,7 +811,7 @@ class _ModeTabs extends StatelessWidget {
                     child: Text(
                       tr(entry.$2),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: mode == entry.$1 ? Colors.white : AppColors.textSecondary,
@@ -863,9 +864,9 @@ class _MethodTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    Text(tr(label), style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                     if (hint != null)
-                      Text(tr(hint!), style: GoogleFonts.ibmPlexSans(fontSize: 10, color: AppColors.warning)),
+                      Text(tr(hint!), style: AppTypography.text(fontSize: 10, color: AppColors.warning)),
                   ],
                 ),
               ),
@@ -898,7 +899,7 @@ class _MixStat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+          Text(tr(label), style: AppTypography.text(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
           Text(tr(value), style: GoogleFonts.ibmPlexMono(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
         ],
@@ -1012,7 +1013,7 @@ class _ChangeBanner extends StatelessWidget {
         children: [
           Icon(Icons.currency_exchange, size: 16, color: AppColors.success),
           const SizedBox(width: 8),
-          Text(tr('Monnaie'), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w600)),
+          Text(tr('Monnaie'), style: AppTypography.text(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w600)),
           const Spacer(),
           Text(tr(value), style: GoogleFonts.ibmPlexMono(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.success)),
         ],
@@ -1044,7 +1045,7 @@ class _ErrorBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 tr(message),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12,
                   color: AppColors.danger,
                   fontWeight: FontWeight.w600,
@@ -1126,12 +1127,12 @@ class _ProcessHeader extends StatelessWidget {
               children: [
                 Text(
                   tr('Process Payment'),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white),
+                  style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   tr('Choose one payment method or split the total across multiple methods.'),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12, height: 1.35, color: Color(0xFFF3EEFF)),
+                  style: AppTypography.text(fontSize: 12, height: 1.35, color: Color(0xFFF3EEFF)),
                 ),
               ],
             ),
@@ -1159,7 +1160,7 @@ class _SheetAmountRow extends StatelessWidget {
       children: [
         Text(
           tr(label),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: emphasize ? 16 : 14,
             fontWeight: emphasize ? FontWeight.w800 : FontWeight.w500,
             color: const Color(0xFFE8EEF6),
@@ -1168,7 +1169,7 @@ class _SheetAmountRow extends StatelessWidget {
         const Spacer(),
         Text(
           tr(value),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: emphasize ? 22 : 16,
             fontWeight: FontWeight.w800,
             color: emphasize ? const Color(0xFFC4B5FD) : const Color(0xFFF4F7FB),
@@ -1211,7 +1212,7 @@ class _ProcessModeTabs extends StatelessWidget {
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: mode == entry.$1 ? Colors.white : const Color(0xFF9AABBE),
@@ -1246,7 +1247,7 @@ class _CustomerNotice extends StatelessWidget {
           Expanded(
             child: Text(
               tr('Select a customer on this order to use Credit or House offer.'),
-              style: GoogleFonts.ibmPlexSans(fontSize: 12, height: 1.35, color: const Color(0xFFF3E2B8)),
+              style: AppTypography.text(fontSize: 12, height: 1.35, color: const Color(0xFFF3E2B8)),
             ),
           ),
         ],
@@ -1272,12 +1273,12 @@ class _RemainingBanner extends StatelessWidget {
         children: [
           Text(
             tr('Remaining'),
-            style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFFE07A12)),
+            style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFFE07A12)),
           ),
           const Spacer(),
           Text(
             tr(value),
-            style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFFE07A12)),
+            style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFFE07A12)),
           ),
         ],
       ),
@@ -1313,7 +1314,7 @@ class _MixMethodField extends StatelessWidget {
           hint: const SizedBox.shrink(),
           dropdownColor: const Color(0xFF1A2233),
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF9AABBE)),
-          style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+          style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
           items: [
             for (final method in methods)
               DropdownMenuItem(value: method.value, child: Text(tr(method.label))),
@@ -1349,9 +1350,9 @@ class _CommittedLine extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+            child: Text(tr(label), style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
           ),
-          Text(tr(amount), style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFFC4B5FD))),
+          Text(tr(amount), style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFFC4B5FD))),
           IconButton(
             onPressed: onRemove,
             icon: const Icon(Icons.close, size: 16, color: Color(0xFF9AABBE)),
@@ -1396,7 +1397,7 @@ class _MethodPill extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 tr(label),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: selected ? Colors.white : const Color(0xFFE8EEF6),

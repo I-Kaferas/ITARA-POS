@@ -3,11 +3,11 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../domain/screen_lock_controller.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 const _accent = Color(0xFF7C5CFF);
 const _pinLength = 4;
@@ -197,7 +197,7 @@ class _ClockPanel extends StatelessWidget {
         const Spacer(flex: 2),
         Text(
           time,
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 112,
             height: 1,
             fontWeight: FontWeight.w600,
@@ -208,7 +208,7 @@ class _ClockPanel extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           date[0].toUpperCase() + date.substring(1),
-          style: GoogleFonts.ibmPlexSans(fontSize: 22, fontWeight: FontWeight.w500, color: Colors.white70),
+          style: AppTypography.text(fontSize: 22, fontWeight: FontWeight.w500, color: Colors.white70),
         ),
         const Spacer(flex: 3),
         Row(
@@ -218,14 +218,14 @@ class _ClockPanel extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               trf('Session de {0} verrouillée', [name]),
-              style: GoogleFonts.ibmPlexSans(fontSize: 14, color: Colors.white70),
+              style: AppTypography.text(fontSize: 14, color: Colors.white70),
             ),
           ],
         ),
         const SizedBox(height: 6),
         Text(
           tr('Cliquez ou appuyez sur une touche pour déverrouiller'),
-          style: GoogleFonts.ibmPlexSans(fontSize: 13, color: Colors.white54),
+          style: AppTypography.text(fontSize: 13, color: Colors.white54),
         ),
         const SizedBox(height: 36),
       ],
@@ -274,16 +274,16 @@ class _SignInPanel extends StatelessWidget {
               ),
               child: Text(
                 name[0].toUpperCase(),
-                style: GoogleFonts.ibmPlexSans(fontSize: 46, fontWeight: FontWeight.w700, color: Colors.white),
+                style: AppTypography.text(fontSize: 46, fontWeight: FontWeight.w700, color: Colors.white),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               name,
-              style: GoogleFonts.ibmPlexSans(fontSize: 26, fontWeight: FontWeight.w600, color: Colors.white),
+              style: AppTypography.text(fontSize: 26, fontWeight: FontWeight.w600, color: Colors.white),
             ),
             if (device.isNotEmpty)
-              Text(device, style: GoogleFonts.ibmPlexSans(fontSize: 13, color: Colors.white60)),
+              Text(device, style: AppTypography.text(fontSize: 13, color: Colors.white60)),
             const SizedBox(height: 22),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -314,7 +314,7 @@ class _SignInPanel extends StatelessWidget {
                     : Text(
                         error != null ? tr(error!) : tr('Saisissez votre PIN'),
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 13.5,
                           color: error != null ? const Color(0xFFFF8A8A) : Colors.white60,
                         ),
@@ -344,7 +344,7 @@ class _SignInPanel extends StatelessWidget {
               onPressed: onSwitchUser,
               style: TextButton.styleFrom(foregroundColor: Colors.white70),
               icon: const Icon(Icons.switch_account_outlined, size: 18),
-              label: Text(tr('Changer d’utilisateur'), style: GoogleFonts.ibmPlexSans(fontSize: 13.5)),
+              label: Text(tr('Changer d’utilisateur'), style: AppTypography.text(fontSize: 13.5)),
             ),
           ],
         ),
@@ -373,7 +373,7 @@ class _Key extends StatelessWidget {
               ? Icon(icon, color: Colors.white, size: 22)
               : Text(
                   label!,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: AppTypography.text(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white),
                 ),
         ),
       ),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import 'onboarding_frame.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 enum OnboardingVisual { commerce, pos, hospitality, control }
 
@@ -79,7 +79,7 @@ class _Copy extends StatelessWidget {
           ),
           child: Text(
             tr(data.eyebrow),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
@@ -90,7 +90,7 @@ class _Copy extends StatelessWidget {
         const SizedBox(height: 14),
         Text(
           tr(data.title),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 34,
             height: 1.12,
             fontWeight: FontWeight.w700,
@@ -101,7 +101,7 @@ class _Copy extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           tr(data.body),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 16,
             height: 1.5,
             color: AppColors.textSecondary,
@@ -143,7 +143,7 @@ class _PointRow extends StatelessWidget {
           ),
           child: Text(
             '$index',
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: tint,
@@ -156,7 +156,7 @@ class _PointRow extends StatelessWidget {
             padding: const EdgeInsets.only(top: 3),
             child: Text(
               tr(text),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 14,
                 height: 1.4,
                 color: AppColors.textPrimary,
@@ -197,7 +197,7 @@ class _Illustration extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr(data.title),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
                     color: AppColors.textPrimary,
@@ -284,7 +284,7 @@ class _PosVisual extends StatelessWidget {
             children: [
               Text(
                 tr('À encaisser'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontWeight: FontWeight.w600,
                   color: AppColors.textSecondary,
                 ),
@@ -292,7 +292,7 @@ class _PosVisual extends StatelessWidget {
               const Spacer(),
               Text(
                 '22 000',
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   color: tint,
@@ -421,7 +421,7 @@ class _MiniBar extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 13,
                 color: AppColors.textSecondary,
               ),
@@ -429,7 +429,7 @@ class _MiniBar extends StatelessWidget {
           ),
           Text(
             value,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
@@ -460,14 +460,14 @@ class _MetricChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 11,
               color: AppColors.textMuted,
             ),
           ),
           Text(
             value,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
@@ -493,7 +493,7 @@ class _TicketLine extends StatelessWidget {
           Expanded(
             child: Text(
               tr(left),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 13,
                 color: AppColors.textSecondary,
               ),
@@ -501,7 +501,7 @@ class _TicketLine extends StatelessWidget {
           ),
           Text(
             right,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
@@ -536,7 +536,7 @@ class _PayPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.ibmPlexSans(
+        style: AppTypography.text(
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: active ? Colors.white : AppColors.textSecondary,
@@ -573,7 +573,7 @@ class _TableTile extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontWeight: FontWeight.w700,
               fontSize: 16,
               color: color,
@@ -581,7 +581,7 @@ class _TableTile extends StatelessWidget {
           ),
           Text(
             status,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 10,
               fontWeight: FontWeight.w600,
               color: AppColors.textMuted,

@@ -8,6 +8,7 @@ import '../../../sync/sync_engine.dart';
 import '../../pos/domain/pos_models.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Stock local léger pour navigation smartphone §18.
 class StockScreen extends StatefulWidget {
@@ -148,7 +149,7 @@ class _StockScreenState extends State<StockScreen> {
                                     tr(p.name),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.ibmPlexSans(
+                                    style: AppTypography.text(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14,
                                     ),

@@ -1236,13 +1236,28 @@ class OfflineStore {
     return names;
   }
 
-  Future<List<Map<String, dynamic>>> listLocalSales({int limit = 80, String? storeId}) async {
+  Future<List<Map<String, dynamic>>> listLocalSales({
+    int limit = 80,
+    String? storeId,
+    String? userId,
+  }) async {
     final db = await _db;
     final scope = (storeId ?? TerminalConfigRepository.instance.config.storeId).trim();
+    final owner = (userId ?? '').trim();
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (scope.isNotEmpty) {
+      clauses.add('store_id = ?');
+      args.add(scope);
+    }
+    if (owner.isNotEmpty) {
+      clauses.add('user_id = ?');
+      args.add(owner);
+    }
     final rows = await db.query(
       'sales',
-      where: scope.isEmpty ? null : 'store_id = ?',
-      whereArgs: scope.isEmpty ? null : [scope],
+      where: clauses.isEmpty ? null : clauses.join(' AND '),
+      whereArgs: clauses.isEmpty ? null : args,
       orderBy: 'created_at DESC',
       limit: limit,
     );

@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
+import DeliveryMapPicker from '../../../components/pos/DeliveryMapPicker.vue'
 import PosCartPanel from '../../../components/pos/PosCartPanel.vue'
 import PosCategorySidebar from '../../../components/pos/PosCategorySidebar.vue'
 import PosFooterPanel from '../../../components/pos/PosFooterPanel.vue'
@@ -42,22 +43,9 @@ const optionQty = ref(1)
 const accompanimentHost = ref<{ product: PosProduct; lineId: string } | null>(null)
 const selectedAccompanimentIds = ref<string[]>([])
 const cartOpen = ref(false)
-const deliveryLocations = computed(() =>
-  context.activeDirectoryStores.length ? context.activeDirectoryStores : context.activeStores,
-)
-
 function chooseDelivery() {
   if (pos.activeTable) return
   pos.orderMode = 'delivery'
-  if (!context.directoryStores.length) {
-    void context.loadDirectoryStores().catch(() => {
-      if (!context.stores.length) void context.loadStores()
-    })
-  }
-}
-
-function pickLocation(name: string) {
-  pos.deliveryAddress = name
 }
 
 function ensureServiceReady(): boolean {
@@ -584,26 +572,10 @@ onUnmounted(() => {
             </div>
 
             <div v-if="!pos.activeTable && pos.orderMode === 'delivery'" class="pos-location-card">
-              <div class="pos-location-card__head">
-                <AppIcon name="store-pin" :size="18" />
-                <strong>{{ t('pos.chooseLocation') }}</strong>
-              </div>
-              <p class="pos-delivery__hint">{{ t('pos.chooseLocationHint') }}</p>
-              <div class="pos-location-picks" role="listbox" :aria-label="t('pos.chooseLocation')">
-                <button
-                  v-for="store in deliveryLocations"
-                  :key="store.id"
-                  type="button"
-                  class="pos-location-pick"
-                  role="option"
-                  :aria-selected="pos.deliveryAddress === store.name"
-                  :class="{ 'pos-location-pick--selected': pos.deliveryAddress === store.name }"
-                  @click="pickLocation(store.name)"
-                >
-                  <AppIcon name="store-pin" :size="16" />
-                  <span>{{ store.name }}</span>
-                </button>
-              </div>
+              <DeliveryMapPicker
+                :model-value="pos.deliveryAddress"
+                @update:model-value="(value) => { pos.deliveryAddress = value }"
+              />
             </div>
             <p v-else-if="!pos.activeTable" class="pos-delivery__hint pos-delivery__hint--alone">
               {{ t('pos.takeawayHint') }}

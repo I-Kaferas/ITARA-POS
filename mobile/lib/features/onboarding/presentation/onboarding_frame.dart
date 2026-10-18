@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class OnboardingFrame extends StatelessWidget {
   const OnboardingFrame({super.key, required this.child, this.footer});
@@ -152,7 +152,7 @@ class OnboardingMark extends StatelessWidget {
           children: [
             Text(
               tr(AppConstants.appName),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: compact ? 17 : 24,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
@@ -163,7 +163,7 @@ class OnboardingMark extends StatelessWidget {
             if (!compact)
               Text(
                 tr('Point de vente professionnel'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textMuted,
@@ -190,7 +190,7 @@ class OnboardingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.ibmPlexSans(
+    final style = AppTypography.text(
       fontWeight: FontWeight.w600,
       fontSize: 15,
       letterSpacing: -0.1,

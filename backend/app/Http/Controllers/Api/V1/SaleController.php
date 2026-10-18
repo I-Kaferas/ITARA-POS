@@ -40,6 +40,7 @@ class SaleController extends Controller
                     'status' => $filters['status'] ?? null,
                     'payment_status' => $filters['payment_status'] ?? null,
                     'customer_id' => $filters['customer_id'] ?? null,
+                    'processed_by' => $filters['processed_by'] ?? null,
                     'from' => $filters['from'] ?? null,
                     'to' => $filters['to'] ?? null,
                 ],
@@ -235,6 +236,7 @@ class SaleController extends Controller
             'status' => ['nullable', 'string', Rule::in(SaleStatus::values())],
             'payment_status' => ['nullable', 'string', Rule::in(SalePaymentStatus::values())],
             'customer_id' => ['nullable', 'uuid', 'exists:customers,id'],
+            'processed_by' => ['nullable', 'uuid', 'exists:users,id'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);

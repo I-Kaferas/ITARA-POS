@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../hospitality/data/hospitality_api.dart';
 import '../../../hospitality/domain/restaurant_models.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class PosTableChoice {
   const PosTableChoice(this.id, this.label);
@@ -87,7 +87,7 @@ class _TablePickerDialogState extends State<_TablePickerDialog> {
           Expanded(
             child: Text(
               'Choisir une table',
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
@@ -134,7 +134,7 @@ class _TablePickerDialogState extends State<_TablePickerDialog> {
                       padding: const EdgeInsets.only(top: 8, bottom: 8),
                       child: Text(
                         zone.name.toUpperCase(),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           fontSize: 11.5,
                           letterSpacing: 0.6,
                           fontWeight: FontWeight.w700,
@@ -249,7 +249,7 @@ class _TableTile extends StatelessWidget {
                       table.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: locked ? AppColors.textSecondary : AppColors.textPrimary,
@@ -266,7 +266,7 @@ class _TableTile extends StatelessWidget {
                 ].join(' · '),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.ibmPlexSans(fontSize: 11, color: tone, fontWeight: FontWeight.w600),
+                style: AppTypography.text(fontSize: 11, color: tone, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -296,7 +296,7 @@ class _Message extends StatelessWidget {
             Text(
               text,
               textAlign: TextAlign.center,
-              style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
+              style: AppTypography.text(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
         ),

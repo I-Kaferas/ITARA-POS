@@ -278,7 +278,7 @@ class _SlaveSetupWizardState extends State<SlaveSetupWizard> {
                     child: Text(
                       tr(_error!),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 13,
                         color: AppColors.danger,
                       ),
@@ -320,7 +320,7 @@ class _WizardHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr('Slave Setup'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -329,7 +329,7 @@ class _WizardHeader extends StatelessWidget {
               ),
               Text(
                 '${step + 1}/${steps.length}',
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textMuted,
@@ -383,7 +383,7 @@ class _WelcomeDiscoverStep extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           tr('Ce terminal rejoindra un Master sur le réseau local.'),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 14,
             color: AppColors.textSecondary,
             height: 1.4,
@@ -413,7 +413,7 @@ class _WelcomeDiscoverStep extends StatelessWidget {
                           : (state.masters.isEmpty
                               ? 'Aucun Master trouvé'
                               : 'Masters found')),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -443,7 +443,7 @@ class _WelcomeDiscoverStep extends StatelessWidget {
                       tr(state.statusMessage.isEmpty
                           ? 'Assurez-vous qu’un Master est allumé sur le même Wi‑Fi / LAN.'
                           : state.statusMessage),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 13,
                         color: AppColors.textSecondary,
                       ),
@@ -514,7 +514,7 @@ class _DiscoverMasterCard extends StatelessWidget {
               children: [
                 Text(
                   tr(master.name.isEmpty ? 'ITARA POS' : master.name),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -570,7 +570,7 @@ class _PairingStep extends StatelessWidget {
           tr(master == null
               ? 'Scannez le QR du Master ou saisissez le code à 6 chiffres.'
               : 'Connecté à ${master!.name} (${master!.displayHost}).\nScan QR ou code d’appairage.'),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 14,
             color: AppColors.textSecondary,
             height: 1.4,
@@ -588,7 +588,7 @@ class _PairingStep extends StatelessWidget {
         Center(
           child: Text(
             tr('ou'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 13,
               color: AppColors.textMuted,
               fontWeight: FontWeight.w600,
@@ -608,7 +608,7 @@ class _PairingStep extends StatelessWidget {
             children: [
               Text(
                 tr('Pairing Code'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
@@ -616,7 +616,7 @@ class _PairingStep extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 tr('Saisissez le code à 6 chiffres affiché sur le Master, puis attendez ACCEPT.'),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12,
                   color: AppColors.textSecondary,
                 ),
@@ -670,7 +670,7 @@ class _PairingStep extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr('Authorization… en attente ACCEPT sur le Master.'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 13,
                     color: AppColors.textSecondary,
                   ),
@@ -732,7 +732,7 @@ class _PairOptionCard extends StatelessWidget {
                   children: [
                     Text(
                       tr(title),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
@@ -740,7 +740,7 @@ class _PairOptionCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       tr(subtitle),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
@@ -750,7 +750,7 @@ class _PairOptionCard extends StatelessWidget {
               ),
               Text(
                 tr(actionLabel),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: AppColors.brandInk,
@@ -792,7 +792,7 @@ class _IdentityStep extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           tr('Nommez ce terminal et choisissez son rôle au sein du magasin.'),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 14,
             color: AppColors.textSecondary,
           ),
@@ -800,7 +800,7 @@ class _IdentityStep extends StatelessWidget {
         const SizedBox(height: 24),
         Text(
           tr('Device Name'),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -818,7 +818,7 @@ class _IdentityStep extends StatelessWidget {
         const SizedBox(height: 22),
         Text(
           tr('Role'),
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),

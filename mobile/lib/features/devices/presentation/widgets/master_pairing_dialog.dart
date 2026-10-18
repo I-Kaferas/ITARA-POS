@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../sync/local_master_discovery.dart';
 import '../../../../sync/pairing_models.dart';
 import '../bloc/master_pairing_bloc.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Asks for the Master's 6-digit code, then waits for ACCEPT.
 /// Returns true once this device is registered as a slave of [master].
@@ -25,7 +25,7 @@ Future<bool> pairWithDiscoveredMaster(
           Text(
             tr('La découverte ne suffit pas. Saisissez le code à 6 chiffres '
             'du Master, puis attendez ACCEPT.'),
-            style: GoogleFonts.ibmPlexSans(fontSize: 13),
+            style: AppTypography.text(fontSize: 13),
           ),
           const SizedBox(height: 12),
           TextField(

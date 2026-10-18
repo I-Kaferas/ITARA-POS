@@ -278,6 +278,7 @@ class PosApiService {
     String? from,
     String? to,
     String? customerId,
+    String? processedBy,
   }) async {
     if (_storeId.isEmpty) return [];
     final body = await _requestOrNull(
@@ -290,6 +291,7 @@ class PosApiService {
         if (from != null && from.isNotEmpty) 'from': from,
         if (to != null && to.isNotEmpty) 'to': to,
         if (customerId != null && customerId.isNotEmpty) 'customer_id': customerId,
+        if (processedBy != null && processedBy.isNotEmpty) 'processed_by': processedBy,
       },
     );
     if (body != null) return _listOfMaps(body['data']);

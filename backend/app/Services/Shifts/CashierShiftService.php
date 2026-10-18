@@ -35,6 +35,12 @@ class CashierShiftService
         ?string $deviceId = null,
         bool $offlineReplay = false,
     ): CashierShift {
+        if (! $cashier->hasRole('cashier')) {
+            throw ValidationException::withMessages([
+                'cashier' => ['Only cashiers can open a shift.'],
+            ]);
+        }
+
         if ($clientUuid !== null && $clientUuid !== '') {
             $replay = CashierShift::query()
                 ->where('tenant_id', $register->tenant_id)

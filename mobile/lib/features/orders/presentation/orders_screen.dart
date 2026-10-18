@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -15,6 +15,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../core/widgets/role_guard.dart';
 import '../../../sync/offline_store.dart';
+import '../../../sync/sync_engine.dart';
+import '../../../sync/sync_models.dart';
 import '../../pos/data/pos_api_service.dart';
 import '../../pos/domain/pos_models.dart';
 import '../../pos/presentation/customer_display_launcher.dart';
@@ -25,6 +27,7 @@ import '../../receipt/domain/receipt_models.dart';
 import '../../receipt/services/receipt_print_service.dart';
 import '../data/orders_api_service.dart';
 import '../domain/order_models.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -123,6 +126,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
+  bool get _isAdmin => TerminalConfigRepository.instance.config.isAdmin;
+
+  String get _cashierId => TerminalConfigRepository.instance.config.cashierId.trim();
+
   List<String> get _waiterNames {
     final names = <String>{};
     for (final sale in _venteRows) {
@@ -133,26 +140,64 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return list;
   }
 
+  bool get _canReachNetwork {
+    final snap = SyncEngine.instance.snapshot;
+    if (snap.masterReachable || snap.cloudReachable) return true;
+    return switch (snap.connectivity) {
+      ConnectivityState.online ||
+      ConnectivityState.localAvailable ||
+      ConnectivityState.cloudAvailable ||
+      ConnectivityState.syncing =>
+        true,
+      _ => false,
+    };
+  }
+
   Future<void> _loadLocalSales() async {
-    final storeId = TerminalConfigRepository.instance.config.storeId;
+    final config = TerminalConfigRepository.instance.config;
+    final storeId = config.storeId;
     final sales = await OfflineStore.instance.listLocalSales(storeId: storeId);
     final holds = OfflineStore.instance.holdsForStore(await OfflineStore.instance.loadLocalHolds(), storeId);
     final names = await OfflineStore.instance.productNamesById(storeId: storeId);
-    final remote = await _remoteSales(sales);
     if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
+    // Offline-first: paint SQLite immediately; never block the UI on the network.
     setState(() {
       _catalogNames = names;
+      _sales = sales.map((row) => _SaleRow.fromLocal(row, names)).toList();
+      _holds = holds.map(_SaleRow.fromHold).where((sale) => sale.total > 0 || sale.reference.isNotEmpty).toList();
+      if (!_isAdmin) {
+        final selfName = config.cashierName.trim();
+        if (selfName.isNotEmpty) _waiter = selfName;
+      }
+    });
+    if (_canReachNetwork) {
+      unawaited(_mergeRemoteSales(storeId: storeId, local: sales, names: names));
+    }
+  }
+
+  Future<void> _mergeRemoteSales({
+    required String storeId,
+    required List<Map<String, dynamic>> local,
+    required Map<String, String> names,
+  }) async {
+    final remote = await _remoteSales(local);
+    if (!mounted || remote.isEmpty) return;
+    if (TerminalConfigRepository.instance.config.storeId != storeId) return;
+    setState(() {
       _sales = [
-        ...sales.map((row) => _SaleRow.fromLocal(row, names)),
+        ...local.map((row) => _SaleRow.fromLocal(row, names)),
         ...remote,
       ];
-      _holds = holds.map(_SaleRow.fromHold).where((sale) => sale.total > 0 || sale.reference.isNotEmpty).toList();
     });
   }
 
   Future<List<_SaleRow>> _remoteSales(List<Map<String, dynamic>> local) async {
+    if (!_canReachNetwork) return const [];
     try {
-      final remote = await _posApi.fetchSales();
+      final config = TerminalConfigRepository.instance.config;
+      final remote = await _posApi.fetchSales(
+        processedBy: config.isAdmin || config.cashierId.trim().isEmpty ? null : config.cashierId.trim(),
+      );
       final seen = <String>{};
       for (final row in local) {
         final id = row['id']?.toString() ?? '';
@@ -228,6 +273,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return text.replaceFirst('Exception: ', '');
   }
 
+  bool _belongsToCurrentCashier(_SaleRow sale) {
+    final me = _cashierId;
+    if (me.isEmpty) {
+      final myName = TerminalConfigRepository.instance.config.cashierName.trim();
+      if (myName.isEmpty) return true;
+      return (sale.cashierName ?? '').trim() == myName;
+    }
+    final owner = (sale.cashierId ?? '').trim();
+    if (owner.isNotEmpty) return owner == me;
+    final myName = TerminalConfigRepository.instance.config.cashierName.trim();
+    if (myName.isEmpty) return true;
+    return (sale.cashierName ?? '').trim() == myName;
+  }
+
   List<_SaleRow> get _venteRows {
     final remoteIds = _sales.where((sale) => sale.isRemote).map((sale) => sale.id).toSet();
     for (final sale in _sales.where((sale) => sale.isRemote)) {
@@ -240,7 +299,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
       if (serverId != null && serverId.isNotEmpty && remoteIds.contains(serverId)) return false;
       return true;
     });
-    final rows = [...holds, ..._sales];
+    var rows = [...holds, ..._sales];
+    if (!_isAdmin) {
+      rows = rows.where(_belongsToCurrentCashier).toList();
+    }
     rows.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return rows;
   }
@@ -624,7 +686,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         canvasColor: PosUi.deskCard,
         popupMenuTheme: PopupMenuThemeData(
           color: PosUi.deskCard,
-          textStyle: GoogleFonts.ibmPlexSans(color: PosUi.deskText, fontSize: 14),
+          textStyle: AppTypography.text(color: PosUi.deskText, fontSize: 14),
         ),
       ),
       child: ColoredBox(
@@ -641,6 +703,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               storeKey: _storeKey,
               waiter: _waiter,
               waiters: _waiterNames,
+              waiterFilterEnabled: _isAdmin,
               lane: _quarantine ? -1 : _lane,
               quarantine: _quarantine,
               refreshing: _loading,
@@ -665,7 +728,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   _selectedId = null;
                   _lane = 0;
                   _quarantine = false;
-                  _waiter = 'all';
+                  final selfName = TerminalConfigRepository.instance.config.cashierName.trim();
+                  _waiter = !_isAdmin && selfName.isNotEmpty ? selfName : 'all';
                 });
                 _load();
               },
@@ -682,7 +746,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
                 ),
-                child: Text(_sectionError!, style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.danger)),
+                child: Text(_sectionError!, style: AppTypography.text(fontSize: 12, color: AppColors.danger)),
               ),
             ),
           Expanded(
@@ -781,6 +845,7 @@ class _OrdersChrome extends StatelessWidget {
     required this.storeKey,
     required this.waiter,
     required this.waiters,
+    this.waiterFilterEnabled = true,
     required this.lane,
     required this.quarantine,
     required this.refreshing,
@@ -800,6 +865,7 @@ class _OrdersChrome extends StatelessWidget {
   final String storeKey;
   final String waiter;
   final List<String> waiters;
+  final bool waiterFilterEnabled;
   final int lane;
   final bool quarantine;
   final bool refreshing;
@@ -844,7 +910,7 @@ class _OrdersChrome extends StatelessWidget {
                 children: [
                   Text(
                     'Orders',
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -854,7 +920,7 @@ class _OrdersChrome extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted),
+                    style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted),
                   ),
                 ],
               ),
@@ -907,12 +973,21 @@ class _OrdersChrome extends StatelessWidget {
             Expanded(
               child: _FilterMenu(
                 icon: Icons.person_outline,
-                value: waiters.contains(waiter) || waiter == 'all' ? waiter : 'all',
-                items: [
-                  const DropdownMenuItem(value: 'all', child: Text('All waiters')),
-                  for (final name in waiters) DropdownMenuItem(value: name, child: Text(name)),
-                ],
-                onChanged: onWaiter,
+                value: waiterFilterEnabled
+                    ? (waiters.contains(waiter) || waiter == 'all' ? waiter : 'all')
+                    : (waiter == 'all' && waiters.isNotEmpty ? waiters.first : waiter),
+                items: waiterFilterEnabled
+                    ? [
+                        const DropdownMenuItem(value: 'all', child: Text('All waiters')),
+                        for (final name in waiters) DropdownMenuItem(value: name, child: Text(name)),
+                      ]
+                    : [
+                        DropdownMenuItem(
+                          value: waiter == 'all' && waiters.isNotEmpty ? waiters.first : waiter,
+                          child: Text(waiter == 'all' ? 'Mes commandes' : waiter),
+                        ),
+                      ],
+                onChanged: waiterFilterEnabled ? onWaiter : null,
               ),
             ),
             const SizedBox(width: 10),
@@ -933,11 +1008,11 @@ class _OrdersChrome extends StatelessWidget {
         TextField(
           controller: search,
           onChanged: onSearch,
-          style: GoogleFonts.ibmPlexSans(fontSize: 14, color: PosUi.deskText),
+          style: AppTypography.text(fontSize: 14, color: PosUi.deskText),
           cursorColor: PosUi.deskAccent,
           decoration: InputDecoration(
             hintText: 'Search by order number, customer or waiter...',
-            hintStyle: GoogleFonts.ibmPlexSans(color: PosUi.deskMuted, fontSize: 14),
+            hintStyle: AppTypography.text(color: PosUi.deskMuted, fontSize: 14),
             prefixIcon: Icon(Icons.search, color: PosUi.deskMuted, size: 20),
             filled: true,
             fillColor: PosUi.deskField,
@@ -1000,7 +1075,7 @@ class _FilterMenu extends StatelessWidget {
   final IconData icon;
   final String value;
   final List<DropdownMenuItem<String>> items;
-  final ValueChanged<String> onChanged;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1031,11 +1106,13 @@ class _FilterMenu extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   icon: Icon(Icons.keyboard_arrow_down_rounded, color: PosUi.deskMuted),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w600, color: PosUi.deskText),
+                  style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w600, color: PosUi.deskText),
                   items: items,
-                  onChanged: (next) {
-                    if (next != null) onChanged(next);
-                  },
+                  onChanged: onChanged == null
+                      ? null
+                      : (next) {
+                          if (next != null) onChanged!(next);
+                        },
                 ),
               ),
             ),
@@ -1074,7 +1151,7 @@ class _LaneTab extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 13,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               color: selected ? PosUi.deskText : PosUi.deskMuted,
@@ -1122,7 +1199,7 @@ class _OutlineAction extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2, color: PosUi.deskAccent),
             )
           : Icon(icon, size: 16),
-      label: Text(label, style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13)),
+      label: Text(label, style: AppTypography.text(fontWeight: FontWeight.w600, fontSize: 13)),
     );
   }
 }
@@ -1153,7 +1230,7 @@ class _OrdersTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: PosUi.deskMuted);
+    final style = AppTypography.text(fontSize: 12, fontWeight: FontWeight.w600, color: PosUi.deskMuted);
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: PosUi.deskLine)),
@@ -1221,7 +1298,7 @@ class _OrderTableRow extends StatelessWidget {
                       item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                      style: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w800, color: PosUi.deskText),
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -1235,7 +1312,7 @@ class _OrderTableRow extends StatelessWidget {
                             ),
                             child: Text(
                               item.badge!,
-                              style: GoogleFonts.ibmPlexSans(fontSize: 10, fontWeight: FontWeight.w800, color: PosUi.deskInk),
+                              style: AppTypography.text(fontSize: 10, fontWeight: FontWeight.w800, color: PosUi.deskInk),
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -1246,7 +1323,7 @@ class _OrderTableRow extends StatelessWidget {
                               item.secondary!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted),
+                              style: AppTypography.text(fontSize: 11, color: PosUi.deskMuted),
                             ),
                           ),
                       ],
@@ -1263,7 +1340,7 @@ class _OrderTableRow extends StatelessWidget {
                       item.customer,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskText),
+                      style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskText),
                     ),
                     if (item.servedBy.isNotEmpty) ...[
                       const SizedBox(height: 3),
@@ -1271,7 +1348,7 @@ class _OrderTableRow extends StatelessWidget {
                         '${item.servedPrefix}: ${item.servedBy}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted),
+                        style: AppTypography.text(fontSize: 11, color: PosUi.deskMuted),
                       ),
                     ],
                   ],
@@ -1283,7 +1360,7 @@ class _OrderTableRow extends StatelessWidget {
                   MoneyFormatter.format(item.amount, currencyCode: item.currency),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                  style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w800, color: PosUi.deskText),
                 ),
               ),
               Expanded(
@@ -1301,7 +1378,7 @@ class _OrderTableRow extends StatelessWidget {
                         item.status,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.ibmPlexSans(fontSize: 12.5, fontWeight: FontWeight.w700, color: color),
+                        style: AppTypography.text(fontSize: 12.5, fontWeight: FontWeight.w700, color: color),
                       ),
                     ),
                   ],
@@ -1313,7 +1390,7 @@ class _OrderTableRow extends StatelessWidget {
                   item.payment,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
+                  style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
                 ),
               ),
               Expanded(
@@ -1322,7 +1399,7 @@ class _OrderTableRow extends StatelessWidget {
                   item.meta,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: PosUi.deskMuted),
+                  style: AppTypography.text(fontSize: 12.5, color: PosUi.deskMuted),
                 ),
               ),
               SizedBox(
@@ -1399,7 +1476,7 @@ class _OrderDetailPage extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         title: Text(
           detail.title,
-          style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w800, color: PosUi.deskText),
+          style: AppTypography.text(fontWeight: FontWeight.w800, color: PosUi.deskText),
         ),
       ),
       body: ListView(
@@ -1468,7 +1545,7 @@ class _DetailBody extends StatelessWidget {
                     children: [
                       Text(
                         detail.title,
-                        style: GoogleFonts.ibmPlexSans(fontSize: 20, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                        style: AppTypography.text(fontSize: 20, fontWeight: FontWeight.w800, color: PosUi.deskText),
                       ),
                       _DotPill(label: detail.status, color: statusColor),
                       if (detail.paymentLabel.isNotEmpty)
@@ -1477,7 +1554,7 @@ class _DetailBody extends StatelessWidget {
                   ),
                   if (when.isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    Text(when, style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: PosUi.deskMuted)),
+                    Text(when, style: AppTypography.text(fontSize: 12.5, color: PosUi.deskMuted)),
                   ],
                 ],
               ),
@@ -1522,11 +1599,11 @@ class _DetailBody extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Remaining Balance', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                  Text('Remaining Balance', style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
                   const SizedBox(height: 2),
                   Text(
                     _money(detail.remaining),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 20, fontWeight: FontWeight.w800, color: PosUi.deskAccent),
+                    style: AppTypography.text(fontSize: 20, fontWeight: FontWeight.w800, color: PosUi.deskAccent),
                   ),
                 ],
               ),
@@ -1537,7 +1614,7 @@ class _DetailBody extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'Items (${detail.lines.length})',
-            style: GoogleFonts.ibmPlexSans(fontSize: 15, fontWeight: FontWeight.w800, color: PosUi.deskText),
+            style: AppTypography.text(fontSize: 15, fontWeight: FontWeight.w800, color: PosUi.deskText),
           ),
           const SizedBox(height: 8),
           for (final line in detail.lines) ...[
@@ -1555,18 +1632,18 @@ class _DetailBody extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(line.name, style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText)),
+                        Text(line.name, style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText)),
                         const SizedBox(height: 3),
                         Text(
                           '${line.quantity} pcs x ${_money(line.unitPrice)}',
-                          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted),
+                          style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
                         ),
                       ],
                     ),
                   ),
                   Text(
                     _money(line.lineTotal),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                    style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText),
                   ),
                 ],
               ),
@@ -1612,7 +1689,7 @@ class _DetailBody extends StatelessWidget {
                   children: [
                     Icon(Icons.receipt_long_outlined, size: 16, color: invoiceBlue),
                     const SizedBox(width: 8),
-                    Text('Payment History', style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText)),
+                    Text('Payment History', style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText)),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -1629,7 +1706,7 @@ class _DetailBody extends StatelessWidget {
           for (final row in detail.rows)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text('${row.$1}: ${row.$2}', style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+              child: Text('${row.$1}: ${row.$2}', style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
             ),
         ],
         if (modify != null || addArticles != null || split != null || pay != null) ...[
@@ -1684,7 +1761,7 @@ class _DetailBody extends StatelessWidget {
                   children: [
                     Icon(Icons.print_outlined, size: 16, color: PosUi.deskMuted),
                     const SizedBox(width: 8),
-                    Text('Print', style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskText)),
+                    Text('Print', style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskText)),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -1744,7 +1821,7 @@ class _DotPill extends StatelessWidget {
         children: [
           Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 6),
-          Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+          Text(label, style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
         ],
       ),
     );
@@ -1775,13 +1852,13 @@ class _PersonCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted)),
+                Text(label, style: AppTypography.text(fontSize: 11, color: PosUi.deskMuted)),
                 const SizedBox(height: 2),
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText),
+                  style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText),
                 ),
               ],
             ),
@@ -1806,9 +1883,9 @@ class _MoneyLine extends StatelessWidget {
     final weight = strong || accent ? FontWeight.w800 : FontWeight.w500;
     return Row(
       children: [
-        Text(label, style: GoogleFonts.ibmPlexSans(fontSize: strong ? 14 : 13, fontWeight: weight, color: color)),
+        Text(label, style: AppTypography.text(fontSize: strong ? 14 : 13, fontWeight: weight, color: color)),
         const Spacer(),
-        Text(value, style: GoogleFonts.ibmPlexSans(fontSize: strong ? 15 : 13, fontWeight: weight, color: color)),
+        Text(value, style: AppTypography.text(fontSize: strong ? 15 : 13, fontWeight: weight, color: color)),
       ],
     );
   }
@@ -1848,14 +1925,14 @@ class _PaymentTile extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: accent.withValues(alpha: 0.7)),
             ),
-            child: Text('$index', style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
+            child: Text('$index', style: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(payment.method, style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText)),
+                Text(payment.method, style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: PosUi.deskText)),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 8,
@@ -1863,14 +1940,14 @@ class _PaymentTile extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     if (when.isNotEmpty)
-                      Text(when, style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted)),
+                      Text(when, style: AppTypography.text(fontSize: 11, color: PosUi.deskMuted)),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: accent.withValues(alpha: 0.6)),
                       ),
-                      child: Text(payment.method, style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
+                      child: Text(payment.method, style: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
                     ),
                   ],
                 ),
@@ -1878,13 +1955,13 @@ class _PaymentTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'Treated by: ${payment.treatedBy}',
-                    style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: accent),
+                    style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w600, color: accent),
                   ),
                 ],
               ],
             ),
           ),
-          Text(money(payment.amount), style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w800, color: accent)),
+          Text(money(payment.amount), style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: accent)),
         ],
       ),
     );
@@ -1911,7 +1988,7 @@ class _Empty extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           'No data available',
-          style: GoogleFonts.ibmPlexSans(
+          style: AppTypography.text(
             fontSize: 15,
             fontWeight: FontWeight.w500,
             color: PosUi.deskMuted,
@@ -2096,6 +2173,7 @@ class _SaleRow {
     this.paymentStatusRaw,
     this.lines = const [],
     this.serviceMode,
+    this.cashierId,
     this.cashierName,
     this.ticket,
     this.tableId,
@@ -2123,6 +2201,7 @@ class _SaleRow {
   final String? paymentStatusRaw;
   final List<_LineDetail> lines;
   final String? serviceMode;
+  final String? cashierId;
   final String? cashierName;
   final String? ticket;
   final String? tableId;
@@ -2135,6 +2214,7 @@ class _SaleRow {
     String currency = 'FBU';
     var lines = const <_LineDetail>[];
     String? serviceMode;
+    String? cashierId = row['user_id']?.toString();
     String? cashierName;
     String? ticket;
     String? tableId;
@@ -2145,6 +2225,10 @@ class _SaleRow {
       currency = payload['currency']?.toString() ?? currency;
       serviceMode = payload['service_mode']?.toString();
       cashierName = payload['cashier_name']?.toString();
+      final payloadUser = payload['user_id']?.toString();
+      if ((cashierId == null || cashierId.isEmpty) && payloadUser != null && payloadUser.isNotEmpty) {
+        cashierId = payloadUser;
+      }
       ticket = payload['payment_transaction_number']?.toString();
       tableId = payload['table_id']?.toString();
       final payloadItems = payload['items'];
@@ -2198,6 +2282,7 @@ class _SaleRow {
       itemCount: lines.fold<int>(0, (sum, line) => sum + line.quantity),
       customerName: customerName,
       serviceMode: serviceMode,
+      cashierId: cashierId,
       cashierName: cashierName,
       ticket: ticket,
       tableId: tableId,
@@ -2226,6 +2311,7 @@ class _SaleRow {
       createdAt: created,
       currency: row['currency']?.toString() ?? 'FBU',
       customerName: customer is Map ? customer['name']?.toString() : null,
+      cashierId: cashier is Map ? cashier['id']?.toString() : null,
       cashierName: cashier is Map ? cashier['name']?.toString() : null,
       serviceMode: row['service_mode']?.toString(),
       ticket: row['payment_transaction_number']?.toString(),
@@ -2240,7 +2326,8 @@ class _SaleRow {
 
   factory _SaleRow.fromHold(Map<String, dynamic> row) {
     final held = PosHeldSale.fromLocalJson(row);
-    final currency = TerminalConfigRepository.instance.config.currencyCode;
+    final config = TerminalConfigRepository.instance.config;
+    final currency = config.currencyCode;
     return _SaleRow(
       id: held.id,
       serverId: held.serverId,
@@ -2257,7 +2344,8 @@ class _SaleRow {
       itemCount: held.itemCount,
       isHold: true,
       paymentStatusRaw: 'unpaid',
-      cashierName: TerminalConfigRepository.instance.config.cashierName,
+      cashierId: config.cashierId.trim().isEmpty ? null : config.cashierId.trim(),
+      cashierName: config.cashierName,
       tableId: held.tableId,
       lines: held.lines
           .map(

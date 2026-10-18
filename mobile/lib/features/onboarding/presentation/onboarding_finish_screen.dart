@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
@@ -8,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../onboarding_gate.dart';
 import 'onboarding_frame.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class OnboardingFinishScreen extends StatelessWidget {
   const OnboardingFinishScreen({
@@ -92,7 +92,7 @@ class OnboardingFinishScreen extends StatelessWidget {
                 Text(
                   tr('Prêt à ouvrir la caisse'),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
@@ -103,7 +103,7 @@ class OnboardingFinishScreen extends StatelessWidget {
                 Text(
                   tr('La connexion et les droits restent ceux déjà en place. Aucun compte n’est créé ici.'),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 15,
                     height: 1.45,
                     color: AppColors.textSecondary,

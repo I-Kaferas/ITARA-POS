@@ -12,8 +12,7 @@ export function hospitalityLatestKey(): string {
   return `hospitality:latest:${scopePrefix()}`
 }
 
-export async function rememberHospitality(path: string, body: unknown): Promise<void> {
-  await saveSnapshot(cacheKey(path), body)
+export async function rememberHospitality(_path: string, body: unknown): Promise<void> {
   const docs = extractDocs(body)
   if (!docs) return
   const current = extractDocs(await readSnapshot<unknown>(hospitalityLatestKey())) ?? []

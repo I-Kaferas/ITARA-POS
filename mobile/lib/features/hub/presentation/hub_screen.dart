@@ -14,6 +14,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../sync/local_master_discovery.dart';
 import '../../../sync/local_master_server.dart';
 import '../../../sync/pairing_service.dart';
+import '../../../sync/sync_engine.dart';
 import '../../devices/presentation/bloc/device_bloc.dart';
 import '../../devices/presentation/bloc/master_discovery_bloc.dart';
 import '../../devices/presentation/bloc/master_pairing_bloc.dart';
@@ -22,10 +23,12 @@ import '../../devices/presentation/widgets/discovered_masters_panel.dart';
 import '../../devices/presentation/widgets/master_pairing_dialog.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
-const _masterColor = Color(0xFF6D3FE6);
-const _terminalColor = Color(0xFF0EA5E9);
-const _infoColor = Color(0xFF3B82F6);
+const _masterColor = AppColors.brand600;
+const _terminalColor = AppColors.info;
+const _standaloneColor = AppColors.accent;
+const _infoColor = AppColors.info;
 
 /// Device management: Master dashboard, or role selection for other roles.
 class HubScreen extends StatefulWidget {
@@ -99,8 +102,14 @@ class _HubScreenState extends State<HubScreen> {
 
   Future<void> _becomeTerminal() async {
     if (_role != PosRole.slave && !await _confirmLeaveMaster('POS Terminal')) return;
-    await _switchRole(PosRole.slave);
-    _searchMasters();
+    setState(() => _changingRole = true);
+    try {
+      await _switchRole(PosRole.slave);
+      await LocalMasterDiscovery.instance.start();
+      _searchMasters();
+    } finally {
+      if (mounted) setState(() => _changingRole = false);
+    }
   }
 
   Future<void> _becomeStandalone() async {
@@ -128,10 +137,30 @@ class _HubScreenState extends State<HubScreen> {
   }
 
   Future<void> _switchRole(PosRole role) async {
-    if (_role != role) {
-      await _repo.save(_repo.config.copyWith(posRole: role));
+    final previous = _role;
+    if (previous != role) {
+      var next = _repo.config.copyWith(posRole: role);
+      // Leaving slave: drop Master link so we don't keep probing a dead host.
+      if (previous == PosRole.slave && role != PosRole.slave) {
+        next = next.copyWith(
+          masterHost: '',
+          masterPairToken: '',
+          masterDeviceId: '',
+        );
+      }
+      // Becoming slave: clear self-master leftovers; pairing will set masterHost.
+      if (role == PosRole.slave && previous == PosRole.master) {
+        next = next.copyWith(
+          masterHost: '',
+          masterPairToken: '',
+          masterDeviceId: '',
+        );
+      }
+      await _repo.save(next);
     }
     await LocalMasterServer.instance.startIfMaster();
+    await LocalMasterDiscovery.instance.start();
+    await SyncEngine.instance.applyRoleChange();
     if (mounted) setState(() => _changingRole = false);
   }
 
@@ -281,7 +310,7 @@ class _MasterHubView extends StatelessWidget {
                           Expanded(
                             child: Text(
                               trf('Registered devices ({0})', [devices.length]),
-                              style: GoogleFonts.ibmPlexSans(
+                              style: AppTypography.text(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
@@ -364,7 +393,7 @@ class _RoleSelectView extends StatelessWidget {
               Text(
                 tr('Select device role'),
                 textAlign: TextAlign.center,
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -374,12 +403,12 @@ class _RoleSelectView extends StatelessWidget {
               Text(
                 tr('Choose how this device will operate in the POS network'),
                 textAlign: TextAlign.center,
-                style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+                style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final wide = constraints.maxWidth >= 720;
+                  final wide = constraints.maxWidth >= 960;
                   final master = _DeviceRoleCard(
                     icon: Icons.dns_rounded,
                     color: _masterColor,
@@ -417,9 +446,35 @@ class _RoleSelectView extends StatelessWidget {
                     fill: wide,
                     onAction: onFindMaster,
                   );
+                  final standalone = _DeviceRoleCard(
+                    icon: Icons.storefront_rounded,
+                    color: _standaloneColor,
+                    title: tr('Standalone'),
+                    description:
+                        tr('Independent terminal — works alone and syncs directly with the cloud when online.'),
+                    features: const [
+                      'No master required on LAN',
+                      'Full POS on a single device',
+                      'Direct cloud sync',
+                      'Ideal for single-shop setups',
+                    ],
+                    actionIcon: Icons.check_circle_outline_rounded,
+                    actionLabel: role == PosRole.standalone
+                        ? tr('Current mode')
+                        : tr('Use Standalone'),
+                    selected: role == PosRole.standalone,
+                    fill: wide,
+                    onAction: onStandalone,
+                  );
                   if (!wide) {
                     return Column(
-                      children: [master, const SizedBox(height: 14), terminal],
+                      children: [
+                        master,
+                        const SizedBox(height: 14),
+                        terminal,
+                        const SizedBox(height: 14),
+                        standalone,
+                      ],
                     );
                   }
                   return IntrinsicHeight(
@@ -429,28 +484,12 @@ class _RoleSelectView extends StatelessWidget {
                         Expanded(child: master),
                         const SizedBox(width: 16),
                         Expanded(child: terminal),
+                        const SizedBox(width: 16),
+                        Expanded(child: standalone),
                       ],
                     ),
                   );
                 },
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: TextButton.icon(
-                  onPressed: onStandalone,
-                  style: TextButton.styleFrom(
-                    foregroundColor:
-                        role == PosRole.standalone ? AppColors.brandInk : AppColors.textMuted,
-                  ),
-                  icon: Icon(
-                    role == PosRole.standalone ? Icons.check_circle : PosRole.standalone.icon,
-                    size: 16,
-                  ),
-                  label: Text(
-                    tr('Use this device on its own (standalone)'),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 12.5, fontWeight: FontWeight.w600),
-                  ),
-                ),
               ),
               if (role == PosRole.slave) ...[
                 const SizedBox(height: 16),
@@ -487,7 +526,7 @@ class _AvailableMasters extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr('Masters on the local network'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -594,7 +633,7 @@ class _HubHeader extends StatelessWidget {
                   children: [
                     Text(
                       tr(title),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -602,7 +641,7 @@ class _HubHeader extends StatelessWidget {
                     ),
                     Text(
                       tr('Device management'),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 12.5,
                         color: AppColors.textSecondary,
                       ),
@@ -655,7 +694,7 @@ class _HeaderButton extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 tr(label),
-                style: GoogleFonts.ibmPlexSans(
+                style: AppTypography.text(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -692,7 +731,7 @@ class _StatusChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             tr(label),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -747,7 +786,7 @@ class _ServerCard extends StatelessWidget {
               children: [
                 Text(
                   tr(running ? 'Server running' : 'Server stopped'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -779,7 +818,7 @@ class _ServerCard extends StatelessWidget {
             icon: Icon(running ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 18),
             label: Text(
               tr(running ? 'Stop' : 'Start'),
-              style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13),
+              style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 13),
             ),
           ),
         ],
@@ -812,7 +851,7 @@ class _PendingBanner extends StatelessWidget {
               tr(count == 1
                   ? '1 terminal is waiting for approval'
                   : '$count terminals are waiting for approval'),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -889,7 +928,7 @@ class _PairingDialogState extends State<_PairingDialog> {
                       Expanded(
                         child: Text(
                           tr('Pair a POS terminal'),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
@@ -904,7 +943,7 @@ class _PairingDialogState extends State<_PairingDialog> {
                   ),
                   Text(
                     tr('Scan this QR code from the POS terminal, or enter the 6-digit code.'),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+                    style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 18),
                   if (payload == null)
@@ -919,7 +958,7 @@ class _PairingDialogState extends State<_PairingDialog> {
                         tr(running
                             ? 'No local network address found. Connect this device to Wi-Fi or a LAN cable to show the QR code.'
                             : 'Start the server to generate a pairing QR code.'),
-                        style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textPrimary),
+                        style: AppTypography.text(fontSize: 13, color: AppColors.textPrimary),
                       ),
                     )
                   else ...[
@@ -955,7 +994,7 @@ class _PairingDialogState extends State<_PairingDialog> {
                     Text(
                       '${payload.name} · ${payload.hostEndpoint}',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                      style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -965,7 +1004,7 @@ class _PairingDialogState extends State<_PairingDialog> {
                         const SizedBox(width: 6),
                         Text(
                           trf('Expires in {0}', [_remaining()]),
-                          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
+                          style: AppTypography.text(fontSize: 12, color: AppColors.textMuted),
                         ),
                         const SizedBox(width: 10),
                         TextButton.icon(
@@ -985,7 +1024,7 @@ class _PairingDialogState extends State<_PairingDialog> {
                           const SizedBox(height: 16),
                           Text(
                             tr('Waiting for approval'),
-                            style: GoogleFonts.ibmPlexSans(
+                            style: AppTypography.text(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,
@@ -1035,7 +1074,7 @@ class _PendingRequestTile extends StatelessWidget {
               children: [
                 Text(
                   tr(request.wantsToConnectLabel),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -1087,7 +1126,7 @@ class _EmptyDevices extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             tr('No registered devices'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 14,
               fontWeight: FontWeight.w700,
               color: AppColors.textSecondary,
@@ -1097,7 +1136,7 @@ class _EmptyDevices extends StatelessWidget {
           Text(
             tr('Slave POS terminals will appear here once they connect'),
             textAlign: TextAlign.center,
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
+            style: AppTypography.text(fontSize: 12, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -1159,14 +1198,10 @@ class _DeviceRoleCard extends StatelessWidget {
                 height: 48,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [color, Color.lerp(color, Colors.black, 0.18)!],
-                  ),
+                  color: color,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
-                    BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 14),
+                    BoxShadow(color: color.withValues(alpha: 0.28), blurRadius: 10),
                   ],
                 ),
                 child: Icon(icon, color: Colors.white, size: 24),
@@ -1181,7 +1216,7 @@ class _DeviceRoleCard extends StatelessWidget {
                   ),
                   child: Text(
                     tr('Current'),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: color,
@@ -1193,7 +1228,7 @@ class _DeviceRoleCard extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             tr(title),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -1202,7 +1237,7 @@ class _DeviceRoleCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             tr(description),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 12.5,
               height: 1.4,
               color: AppColors.textSecondary,
@@ -1228,7 +1263,7 @@ class _DeviceRoleCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       tr(feature),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 12.5,
                         color: AppColors.textPrimary,
                       ),
@@ -1259,7 +1294,7 @@ class _DeviceRoleCard extends StatelessWidget {
                   : Icon(actionIcon, size: 16),
               label: Text(
                 tr(actionLabel),
-                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13),
+                style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 13),
               ),
             ),
           ),

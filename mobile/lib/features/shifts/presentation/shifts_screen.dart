@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/config/app_config.dart';
@@ -19,6 +18,7 @@ import 'shift_close_gate.dart';
 import 'shift_detail_sheet.dart';
 import 'shift_handover_dialog.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 class ShiftsScreen extends StatefulWidget {
   const ShiftsScreen({super.key});
@@ -109,15 +109,20 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
 
   ({CashRegister register, CashRegisterSession session})? get _myOpenShift {
     final cashierId = TerminalConfigRepository.instance.config.cashierId.trim();
+    if (cashierId.isEmpty) return null;
     for (final shift in _shifts) {
       if (!shift.session.isOpen) continue;
       final owner = shift.session.openedById?.trim() ?? '';
-      if (cashierId.isEmpty || owner.isEmpty || owner == cashierId) return shift;
+      if (owner == cashierId) return shift;
     }
     return null;
   }
 
   Future<void> _openSession(CashRegister register) async {
+    if (!TerminalConfigRepository.instance.config.canOpenShift) {
+      _showMessage('Seul un caissier peut ouvrir un shift.');
+      return;
+    }
     if (_myOpenShift != null) {
       _showMessage('Close your current shift before opening another.');
       return;
@@ -138,7 +143,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(tr('Ouvrir le shift'), style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text(tr('Ouvrir le shift'), style: AppTypography.text(fontSize: 17, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text('${register.name} · ${register.code}', style: PosUi.caption()),
                 const SizedBox(height: 14),
@@ -239,7 +244,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(tr('Fermer le shift'), style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text(tr('Fermer le shift'), style: AppTypography.text(fontSize: 17, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(tr(register.name), style: PosUi.caption()),
                 const SizedBox(height: 14),
@@ -471,7 +476,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(tr('Mouvement de caisse'), style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
+                  Text(tr('Mouvement de caisse'), style: AppTypography.text(fontSize: 17, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     key: ValueKey(selectedType),
@@ -552,6 +557,10 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
   }
 
   Future<void> _startShift() async {
+    if (!TerminalConfigRepository.instance.config.canOpenShift) {
+      _showMessage('Seul un caissier peut ouvrir un shift.');
+      return;
+    }
     if (_myOpenShift != null) {
       _showMessage('Close your current shift before opening another.');
       return;
@@ -574,17 +583,26 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canManage = TerminalConfigRepository.instance.config.canManageShifts;
+    final config = TerminalConfigRepository.instance.config;
+    final canManage = config.canManageShifts;
+    final canOpen = config.canOpenShift;
+    final cashierId = config.cashierId.trim();
     final query = _search.text.trim().toLowerCase();
     bool matches(String value) => query.isEmpty || value.toLowerCase().contains(query);
+    bool isMine(CashRegisterSession? session) {
+      if (cashierId.isEmpty || session == null) return false;
+      return (session.openedById?.trim() ?? '') == cashierId;
+    }
 
     final active = _registers.where((register) {
       if (!register.hasOpenSession) return false;
       final session = register.openSession;
+      if (!config.isAdmin && !isMine(session)) return false;
       return matches('${register.name} ${register.code} ${session?.openedByName ?? ''}');
     }).toList();
     final closed = _shifts.where((shift) {
       if (shift.session.isOpen) return false;
+      if (!config.isAdmin && !isMine(shift.session)) return false;
       return matches('${shift.register.name} ${shift.register.code} ${shift.session.openedByName ?? ''}');
     }).toList();
     final showActive = _lane != 2;
@@ -616,7 +634,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               onLane: (value) => setState(() => _lane = value),
               onSearch: (_) => setState(() {}),
               onRefresh: _loading ? null : _load,
-              onOpen: canManage && mine == null ? () => _startShift() : null,
+              onOpen: canOpen && mine == null ? () => _startShift() : null,
               onClose: canManage && mine != null ? () => _closeSession(mine.register) : null,
             ),
           ),
@@ -640,7 +658,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                                       children: [
                                         SizedBox(
                                           height: constraints.maxHeight,
-                                          child: _ShiftsEmpty(onStart: canManage ? _startShift : null),
+                                          child: _ShiftsEmpty(onStart: canOpen ? _startShift : null),
                                         ),
                                       ],
                                     ),
@@ -778,7 +796,7 @@ class _ShiftsChrome extends StatelessWidget {
                 children: [
                   Text(
                     tr('Work Shifts'),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
@@ -787,7 +805,7 @@ class _ShiftsChrome extends StatelessWidget {
                   ),
                   Text(
                     tr('Manage work shifts, track cash flow and reconcile'),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted),
+                    style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted),
                   ),
                 ],
               ),
@@ -802,7 +820,7 @@ class _ShiftsChrome extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: const Icon(Icons.stop_rounded, size: 16),
-                label: Text(tr('Close Shift'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+                label: Text(tr('Close Shift'), style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 13)),
               ),
               const SizedBox(width: 8),
             ],
@@ -816,7 +834,7 @@ class _ShiftsChrome extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: Text(tr('Open Shift'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 13)),
+                label: Text(tr('Open Shift'), style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 13)),
               ),
               const SizedBox(width: 8),
             ],
@@ -836,7 +854,7 @@ class _ShiftsChrome extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh_rounded, size: 16),
-              label: Text(tr('Refresh'), style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13)),
+              label: Text(tr('Refresh'), style: AppTypography.text(fontWeight: FontWeight.w600, fontSize: 13)),
             ),
           ],
         ),
@@ -855,7 +873,7 @@ class _ShiftsChrome extends StatelessWidget {
               icon: Icon(onClose != null ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 18),
               label: Text(
                 tr(onClose != null ? 'Close Shift' : 'Open Shift'),
-                style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 14),
+                style: AppTypography.text(fontWeight: FontWeight.w700, fontSize: 14),
               ),
             ),
           ),
@@ -949,13 +967,13 @@ class _ShiftStat extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               tr(value),
-              style: GoogleFonts.ibmPlexSans(fontSize: 19, fontWeight: FontWeight.w800, color: PosUi.deskText),
+              style: AppTypography.text(fontSize: 19, fontWeight: FontWeight.w800, color: PosUi.deskText),
             ),
             Text(
               tr(label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted),
+              style: AppTypography.text(fontSize: 11, color: PosUi.deskMuted),
             ),
           ],
         ),
@@ -983,13 +1001,13 @@ class _ShiftStat extends StatelessWidget {
               children: [
                 Text(
                   tr(value),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: PosUi.deskText,
                   ),
                 ),
-                Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                Text(tr(label), style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
               ],
             ),
           ),
@@ -1029,7 +1047,7 @@ class _ShiftFilters extends StatelessWidget {
                   ),
                   child: Text(
                     tr(_labels[i]),
-                    style: GoogleFonts.ibmPlexSans(
+                    style: AppTypography.text(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: lane == i ? PosUi.deskInk : PosUi.deskMuted,
@@ -1055,10 +1073,10 @@ class _ShiftSearch extends StatelessWidget {
     return TextField(
       controller: search,
       onChanged: onSearch,
-      style: GoogleFonts.ibmPlexSans(fontSize: 14, color: PosUi.deskText),
+      style: AppTypography.text(fontSize: 14, color: PosUi.deskText),
       decoration: InputDecoration(
         hintText: tr('Search shifts...'),
-        hintStyle: GoogleFonts.ibmPlexSans(color: PosUi.deskMuted, fontSize: 14),
+        hintStyle: AppTypography.text(color: PosUi.deskMuted, fontSize: 14),
         prefixIcon: Icon(Icons.search, color: PosUi.deskMuted, size: 20),
         filled: true,
         fillColor: PosUi.deskCard,
@@ -1086,14 +1104,14 @@ class _ShiftsEmpty extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           tr('No shifts yet'),
-          style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText),
+          style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w800, color: PosUi.deskText),
         ),
         const SizedBox(height: 6),
         TextButton(
           onPressed: onStart,
           child: Text(
             tr('Count your opening cash and start your shift'),
-            style: GoogleFonts.ibmPlexSans(fontSize: 13, color: PosUi.deskMuted),
+            style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted),
           ),
         ),
       ],
@@ -1168,7 +1186,7 @@ class _WorkShiftCard extends StatelessWidget {
       ),
       child: Text(
         tr(open ? 'Active' : 'Closed'),
-        style: GoogleFonts.ibmPlexSans(
+        style: AppTypography.text(
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: open ? PosUi.deskStock : PosUi.deskMuted,
@@ -1179,7 +1197,7 @@ class _WorkShiftCard extends StatelessWidget {
       tr(_code),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: GoogleFonts.ibmPlexSans(
+      style: AppTypography.text(
         fontSize: compact ? 13.5 : 16,
         fontWeight: FontWeight.w800,
         color: PosUi.deskText,
@@ -1256,13 +1274,13 @@ class _WorkShiftCard extends StatelessWidget {
                         tr(cashier),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted),
+                        style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
                       ),
                     ),
                     SizedBox(width: compact ? 8 : 12),
                     Icon(Icons.schedule, size: 14, color: PosUi.deskMuted),
                     const SizedBox(width: 4),
-                    Text(tr(time), style: GoogleFonts.ibmPlexSans(fontSize: 12, color: PosUi.deskMuted)),
+                    Text(tr(time), style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted)),
                   ],
                 ),
               ),
@@ -1293,7 +1311,7 @@ class _WorkShiftCard extends StatelessWidget {
                         tr(register.name.toUpperCase()),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
+                        style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
                       ),
                     ),
                   ],
@@ -1320,13 +1338,13 @@ class _Metric extends StatelessWidget {
     final valueText = Text(
       tr(value),
       maxLines: 1,
-      style: GoogleFonts.ibmPlexSans(
+      style: AppTypography.text(
         fontSize: compact ? 13 : 15,
         fontWeight: FontWeight.w800,
         color: valueColor ?? PosUi.deskText,
       ),
     );
-    final labelText = Text(tr(label), style: GoogleFonts.ibmPlexSans(fontSize: 11, color: PosUi.deskMuted));
+    final labelText = Text(tr(label), style: AppTypography.text(fontSize: 11, color: PosUi.deskMuted));
 
     if (compact) {
       return Row(
@@ -1424,7 +1442,7 @@ class _UnpaidOrdersPanel extends StatelessWidget {
         children: [
           Text(
             trf('Commandes non payées ({0})', [rows.length]),
-            style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+            style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 8),
           if (rows.isEmpty)
@@ -1432,7 +1450,7 @@ class _UnpaidOrdersPanel extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 6),
               child: Text(
                 tr('Aucune commande impayée sur ce shift.'),
-                style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+                style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary),
               ),
             )
           else
@@ -1449,7 +1467,7 @@ class _UnpaidOrdersPanel extends StatelessWidget {
                             row.$1,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.ibmPlexSans(
+                            style: AppTypography.text(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,
@@ -1459,7 +1477,7 @@ class _UnpaidOrdersPanel extends StatelessWidget {
                             row.$2,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.ibmPlexSans(fontSize: 11.5, color: AppColors.textSecondary),
+                            style: AppTypography.text(fontSize: 11.5, color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -1467,7 +1485,7 @@ class _UnpaidOrdersPanel extends StatelessWidget {
                     const SizedBox(width: 10),
                     Text(
                       MoneyFormatter.format(row.$3),
-                      style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.warning),
+                      style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.warning),
                     ),
                   ],
                 ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../config/terminal_config_repository.dart';
 import '../config/terminal_stores.dart';
@@ -8,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../widgets/app_buttons.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Loads the stores the signed-in account can use, lets the user pick one
 /// and makes it the terminal's active store.
@@ -106,7 +106,7 @@ class StoreSwitcherDialog extends StatelessWidget {
                       Text(
                         tr('Magasins'),
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.text(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
@@ -117,7 +117,7 @@ class StoreSwitcherDialog extends StatelessWidget {
                         Text(
                           tr(brand),
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             color: Colors.white.withValues(alpha: 0.82),
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -134,7 +134,7 @@ class StoreSwitcherDialog extends StatelessWidget {
                           ),
                           child: Text(
                             tr(current.name),
-                            style: GoogleFonts.ibmPlexSans(
+                            style: AppTypography.text(
                               color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -188,7 +188,7 @@ class StoreSwitcherDialog extends StatelessWidget {
                                     children: [
                                       Text(
                                         tr(store.name),
-                                        style: GoogleFonts.ibmPlexSans(
+                                        style: AppTypography.text(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,
                                           color: AppColors.textPrimary,
@@ -197,7 +197,7 @@ class StoreSwitcherDialog extends StatelessWidget {
                                       if (store.code.trim().isNotEmpty)
                                         Text(
                                           tr(store.code),
-                                          style: GoogleFonts.ibmPlexSans(
+                                          style: AppTypography.text(
                                             fontSize: 12,
                                             color: AppColors.textMuted,
                                           ),
@@ -217,7 +217,7 @@ class StoreSwitcherDialog extends StatelessWidget {
                                     ),
                                     child: Text(
                                       tr('Actuel'),
-                                      style: GoogleFonts.ibmPlexSans(
+                                      style: AppTypography.text(
                                         color: Colors.white,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
@@ -238,7 +238,7 @@ class StoreSwitcherDialog extends StatelessWidget {
                     child: Text(
                       tr('Votre compte n’a accès qu’à ce magasin.'),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),

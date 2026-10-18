@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import 'onboarding_frame.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Visual tour only. Figures are invented and are never written to sales.
 class ProductShowcaseScreen extends StatelessWidget {
@@ -26,7 +26,7 @@ class ProductShowcaseScreen extends StatelessWidget {
             onPressed: () => context.go(finish),
             child: Text(
               tr('Ignorer'),
-              style: GoogleFonts.ibmPlexSans(
+              style: AppTypography.text(
                 fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
               ),
@@ -64,7 +64,7 @@ class ProductShowcaseScreen extends StatelessWidget {
                 ),
                 child: Text(
                   tr('Démo'),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppColors.violet600,
@@ -76,7 +76,7 @@ class ProductShowcaseScreen extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             tr('Aperçu du logiciel'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 30,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.6,
@@ -86,7 +86,7 @@ class ProductShowcaseScreen extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             tr('Démonstration. Ces chiffres sont fictifs et ne sont pas enregistrés dans les ventes.'),
-            style: GoogleFonts.ibmPlexSans(
+            style: AppTypography.text(
               fontSize: 14,
               height: 1.4,
               color: AppColors.textSecondary,
@@ -187,7 +187,7 @@ class _DemoCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   tr(title),
-                  style: GoogleFonts.ibmPlexSans(
+                  style: AppTypography.text(
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                   ),
@@ -213,7 +213,7 @@ class _DemoCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       tr(line),
-                      style: GoogleFonts.ibmPlexSans(
+                      style: AppTypography.text(
                         fontSize: 13,
                         height: 1.3,
                         color: AppColors.textSecondary,

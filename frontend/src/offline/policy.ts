@@ -31,12 +31,67 @@ const REFERENCE_KEYS = [
   'check_id', 'stay_id', 'room_id', 'table_id',
 ]
 
+/** Paths that may be served from the local read cache (online SWR + offline). */
+const CACHEABLE_EXACT = new Set([
+  '/stores',
+  '/companies',
+  '/currencies',
+  '/roles',
+  '/permissions',
+  '/users',
+  '/brands',
+  '/units',
+  '/taxes',
+  '/tax-groups',
+  '/catalog-attributes',
+  '/dashboard/stats',
+  '/me/cashier-shifts/current',
+  '/products',
+  '/customers',
+  '/suppliers',
+])
+
+const CACHEABLE_PREFIXES = [
+  '/hospitality',
+  '/sync/references',
+  '/companies/',
+  '/branches/',
+  '/catalogs/',
+  '/stores/',
+  '/products/',
+  '/customers/',
+  '/suppliers/',
+  '/currencies/',
+  '/taxes/',
+  '/users/',
+  '/brands/',
+  '/units/',
+  '/warehouses/',
+  '/roles/',
+]
+
+/** Highly volatile — keep for offline fallback, but never short-circuit online network. */
+const ONLINE_SWR_BLOCKLIST = new Set([
+  '/me/cashier-shifts/current',
+])
+
+function pathOnly(path: string): string {
+  const q = path.indexOf('?')
+  return q >= 0 ? path.slice(0, q) : path
+}
+
 export function isCacheableRead(path: string): boolean {
-  return path.startsWith('/hospitality')
-    || path.startsWith('/sync/references')
-    || path === '/me/cashier-shifts/current'
-    || /^\/stores\/[^/]+\/pos\/catalog/.test(path)
-    || /^\/stores\/[^/]+\/cash-registers/.test(path)
+  const p = pathOnly(path)
+  if (p.startsWith('/auth') || p.startsWith('/realtime') || p.startsWith('/public')) return false
+  if (CACHEABLE_EXACT.has(p)) return true
+  if (CACHEABLE_PREFIXES.some((prefix) => p.startsWith(prefix))) return true
+  return /^\/stores\/[^/]+\/(pos\/catalog|cash-registers|devices|cashier-shifts)/.test(p)
+}
+
+/** Fresh/stale SWR while online (excludes shift/session snapshots). */
+export function isOnlineSwrRead(path: string): boolean {
+  if (!isCacheableRead(path)) return false
+  return !ONLINE_SWR_BLOCKLIST.has(pathOnly(path))
 }
 
 export function classifyWrite(method: string, path: string, body: unknown): ClassifiedWrite | null {

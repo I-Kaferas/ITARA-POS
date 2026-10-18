@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
@@ -9,6 +8,7 @@ import '../../pos/presentation/widgets/pos_ui.dart';
 import '../data/local_shifts_store.dart';
 import '../domain/shift_models.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Syncs, then lists open and unpaid orders. The close-shift form opens only after this step.
 Future<bool> showShiftCloseGate(
@@ -123,12 +123,12 @@ class _ShiftCloseGateState extends State<_ShiftCloseGate> {
             children: [
               Text(
                 tr('Synchronisation avant clôture'),
-                style: GoogleFonts.ibmPlexSans(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 6),
               Text(
                 tr('Les commandes encore ouvertes ou non payées. Touchez une ligne pour le détail.'),
-                style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary, height: 1.35),
+                style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary, height: 1.35),
               ),
               const SizedBox(height: 14),
               Container(
@@ -158,7 +158,7 @@ class _ShiftCloseGateState extends State<_ShiftCloseGate> {
                     Expanded(
                       child: Text(
                         tr(_syncMessage),
-                        style: GoogleFonts.ibmPlexSans(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        style: AppTypography.text(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                       ),
                     ),
                   ],
@@ -167,7 +167,7 @@ class _ShiftCloseGateState extends State<_ShiftCloseGate> {
               const SizedBox(height: 14),
               Text(
                 trf('Commandes en attente ({0})', [count]),
-                style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700),
+                style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -176,7 +176,7 @@ class _ShiftCloseGateState extends State<_ShiftCloseGate> {
                         alignment: Alignment.topLeft,
                         child: Text(
                           tr('Aucune commande en attente.'),
-                          style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
+                          style: AppTypography.text(fontSize: 13, color: AppColors.textSecondary),
                         ),
                       )
                     : ListView(
@@ -265,14 +265,14 @@ class _OrderTile extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w700),
+                        style: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textSecondary),
+                        style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -280,7 +280,7 @@ class _OrderTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   MoneyFormatter.format(amount),
-                  style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700),
+                  style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(width: 4),
                 Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
@@ -318,17 +318,17 @@ class _OrderDetailDialog extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(title, style: GoogleFonts.ibmPlexSans(fontSize: 17, fontWeight: FontWeight.w700)),
+              Text(title, style: AppTypography.text(fontSize: 17, fontWeight: FontWeight.w700)),
               if (subtitle.trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(subtitle, style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary)),
+                Text(subtitle, style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary)),
               ],
               const SizedBox(height: 14),
               Expanded(
                 child: lines.isEmpty
                     ? Text(
                         tr('Aucun article (commande distante sans détail local).'),
-                        style: GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.textSecondary),
+                        style: AppTypography.text(fontSize: 13, color: AppColors.textSecondary),
                       )
                     : ListView(
                         children: [
@@ -343,18 +343,18 @@ class _OrderDetailDialog extends StatelessWidget {
                                       children: [
                                         Text(
                                           line.name,
-                                          style: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w600),
+                                          style: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w600),
                                         ),
                                         Text(
                                           trf('{0} × {1}', [line.quantity, MoneyFormatter.format(line.unitPrice)]),
-                                          style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
+                                          style: AppTypography.text(fontSize: 12, color: AppColors.textMuted),
                                         ),
                                       ],
                                     ),
                                   ),
                                   Text(
                                     MoneyFormatter.format(line.unitPrice * line.quantity),
-                                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700),
+                                    style: AppTypography.text(fontWeight: FontWeight.w700),
                                   ),
                                 ],
                               ),
@@ -368,12 +368,12 @@ class _OrderDetailDialog extends StatelessWidget {
                   Expanded(
                     child: Text(
                       tr('Total'),
-                      style: GoogleFonts.ibmPlexSans(fontSize: 14, fontWeight: FontWeight.w700),
+                      style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700),
                     ),
                   ),
                   Text(
                     MoneyFormatter.format(total),
-                    style: GoogleFonts.ibmPlexSans(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ],
               ),

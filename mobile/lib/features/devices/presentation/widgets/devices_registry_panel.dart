@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../sync/device_registry.dart';
 import '../bloc/device_bloc.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
+import 'package:pos_mobile/core/theme/app_typography.dart';
 
 /// Master device list + §45 management actions (View / Rename / Disable / …).
 class DevicesRegistryPanel extends StatelessWidget {
@@ -28,7 +28,7 @@ class DevicesRegistryPanel extends StatelessWidget {
         if (devices.isEmpty) {
           return Text(
             tr('Aucun appareil appairé. Affichez le code ci-dessus sur les esclaves.'),
-            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w600),
           );
         }
         return Column(
@@ -36,7 +36,7 @@ class DevicesRegistryPanel extends StatelessWidget {
           children: [
             Text(
               trf('Devices ({0})', [devices.length]),
-              style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w700),
+              style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             ...devices.map((d) => DeviceRegistryRow(device: d)),
@@ -168,13 +168,13 @@ class DeviceRegistryRow extends StatelessWidget {
             width: 110,
             child: Text(
               tr(label),
-              style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted),
+              style: AppTypography.text(fontSize: 12, color: AppColors.textMuted),
             ),
           ),
           Expanded(
             child: Text(
               tr(value),
-              style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600),
+              style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -274,7 +274,7 @@ class DeviceRegistryRow extends StatelessWidget {
                           Expanded(
                             child: Text(
                               tr(device.name.isEmpty ? device.id : device.name),
-                              style: GoogleFonts.ibmPlexSans(
+                              style: AppTypography.text(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -286,7 +286,7 @@ class DeviceRegistryRow extends StatelessWidget {
                             width: 72,
                             child: Text(
                               tr(_osLabel),
-                              style: GoogleFonts.ibmPlexSans(
+                              style: AppTypography.text(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
                               ),
@@ -298,7 +298,7 @@ class DeviceRegistryRow extends StatelessWidget {
                       if (subtitle.isNotEmpty)
                         Text(
                           tr(subtitle),
-                          style: GoogleFonts.ibmPlexSans(
+                          style: AppTypography.text(
                             fontSize: 11,
                             color: AppColors.textMuted,
                           ),

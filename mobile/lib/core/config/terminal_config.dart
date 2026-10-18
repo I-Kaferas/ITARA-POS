@@ -240,6 +240,17 @@ class TerminalConfig {
 
   bool get isMaster => posRole == PosRole.master;
   bool get isSlave => posRole == PosRole.slave;
+
+  /// Business role (RBAC), not Master/Slave terminal role.
+  bool get isCashier => roles.any((role) {
+        final value = role.toLowerCase();
+        return value == 'cashier' || value == 'caissier';
+      });
+
+  /// Opening a shift is reserved to cashiers on Master/Standalone terminals.
+  bool get canOpenShift => !isSlave && isCashier;
+
+  /// View / close shifts on Master or Standalone.
   bool get canManageShifts => !isSlave;
   bool get canManageOrders => !isSlave;
 
