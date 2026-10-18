@@ -100,9 +100,6 @@ onBeforeUnmount(() => window.clearInterval(timer))
       @pointermove="onPointerMove"
       @pointerleave="onPointerLeave"
     >
-      <div class="eco__glow eco__glow--a" aria-hidden="true" />
-      <div class="eco__glow eco__glow--b" aria-hidden="true" />
-
       <div
         class="eco__parallax"
         :style="{
@@ -500,9 +497,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
   border-radius: 999px;
   background: color-mix(in srgb, #fff 8%, transparent);
   border: 1px solid color-mix(in srgb, #fff 16%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  box-shadow: none;
 }
 
 .eco__tab {
@@ -529,9 +524,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
 .eco__tab.is-active {
   color: var(--brand-primary-900, #0a1523);
   background: var(--brand-accent, #e39b2b);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent),
-    0 4px 12px rgba(227, 155, 43, 0.28);
+  box-shadow: none;
 }
 
 .eco__blurb {
@@ -598,7 +591,14 @@ onBeforeUnmount(() => window.clearInterval(timer))
   animation: eco-float 4.8s ease-in-out infinite;
   cursor: pointer;
   outline: none;
-  transition: opacity 220ms ease, filter 220ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 320ms cubic-bezier(0.34, 1.45, 0.64, 1), opacity 220ms ease, filter 220ms ease;
+}
+
+.eco__float:hover {
+  transform: scale(1.16) rotate(-8deg);
+  filter: drop-shadow(0 8px 10px color-mix(in srgb, var(--brand-accent, #e39b2b) 50%, transparent));
 }
 
 .eco__float--1 { animation-delay: 0s; }
@@ -692,8 +692,8 @@ onBeforeUnmount(() => window.clearInterval(timer))
 }
 
 @keyframes eco-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -6px; }
 }
 
 @keyframes eco-dash {
@@ -738,5 +738,6 @@ onBeforeUnmount(() => window.clearInterval(timer))
   .eco__wire { stroke-dasharray: none; }
   .eco__packets { display: none; }
   .eco__parallax { transform: none !important; }
+  .eco__float:hover { transform: none; filter: none; }
 }
 </style>

@@ -1,0 +1,4 @@
+Copyright 2020 The Plus Jakarta Sans Project Authors (https://github.com/tokotype/PlusJakartaSans), with Reserved Font Name "Plus Jakarta Sans".
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The full license text is in OFL.txt.

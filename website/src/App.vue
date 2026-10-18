@@ -169,8 +169,8 @@ onBeforeUnmount(() => {
           class="brand-lockup__logo"
           :src="logoSrc"
           :alt="productName"
-          width="58"
-          height="58"
+          width="48"
+          height="48"
           @error="logoFailed = true"
         />
         <span v-else class="brand-mark">{{ productName.trim()[0]?.toUpperCase() || 'I' }}</span>
@@ -308,8 +308,8 @@ onBeforeUnmount(() => {
               class="footer__logo"
               :src="logoSrc"
               :alt="productName"
-              width="58"
-              height="58"
+              width="48"
+              height="48"
               @error="logoFailed = true"
             />
             <span>{{ productName }}</span>

@@ -33,10 +33,8 @@ return new class extends Migration
 
         $this->backfill();
 
-        Schema::table('cashier_shifts', function (Blueprint $table) {
-            $table->index(['tenant_id', 'branch_id', 'opened_at'], 'shifts_tenant_branch_opened_idx');
-            $table->index(['tenant_id', 'device_id', 'status'], 'shifts_tenant_device_status_idx');
-        });
+        $this->ensureIndex('shifts_tenant_branch_opened_idx', ['tenant_id', 'branch_id', 'opened_at']);
+        $this->ensureIndex('shifts_tenant_device_status_idx', ['tenant_id', 'device_id', 'status']);
     }
 
     public function down(): void
@@ -46,13 +44,10 @@ return new class extends Migration
         }
 
         Schema::table('cashier_shifts', function (Blueprint $table) {
-            try {
-                $table->dropIndex('shifts_tenant_branch_opened_idx');
-            } catch (\Throwable) {
-            }
-            try {
-                $table->dropIndex('shifts_tenant_device_status_idx');
-            } catch (\Throwable) {
+            foreach (['shifts_tenant_branch_opened_idx', 'shifts_tenant_device_status_idx'] as $index) {
+                if ($this->hasIndex($index)) {
+                    $table->dropIndex($index);
+                }
             }
 
             if (Schema::hasColumn('cashier_shifts', 'device_id')) {
@@ -70,43 +65,49 @@ return new class extends Migration
             return;
         }
 
-        $driver = Schema::getConnection()->getDriverName();
+        $shifts = DB::table('cashier_shifts')
+            ->where(function ($query) {
+                $query->whereNull('branch_id')->orWhereNull('device_id');
+            })
+            ->get(['id', 'cash_register_id', 'branch_id', 'device_id']);
 
-        if ($driver === 'sqlite') {
-            $shifts = DB::table('cashier_shifts')
-                ->whereNull('branch_id')
-                ->orWhereNull('device_id')
-                ->get(['id', 'cash_register_id', 'branch_id', 'device_id']);
-
-            foreach ($shifts as $shift) {
-                $register = DB::table('cash_registers')->where('id', $shift->cash_register_id)->first();
-                if ($register === null) {
-                    continue;
-                }
-
-                $branchId = $shift->branch_id;
-                if ($branchId === null && Schema::hasColumn('stores', 'branch_id')) {
-                    $branchId = DB::table('stores')->where('id', $register->store_id)->value('branch_id');
-                }
-
-                $deviceId = $shift->device_id ?? ($register->device_id ?? null);
-
-                DB::table('cashier_shifts')->where('id', $shift->id)->update([
-                    'branch_id' => $branchId,
-                    'device_id' => $deviceId,
-                ]);
+        foreach ($shifts as $shift) {
+            $register = DB::table('cash_registers')->where('id', $shift->cash_register_id)->first();
+            if ($register === null) {
+                continue;
             }
 
+            $branchId = $shift->branch_id;
+            if ($branchId === null && Schema::hasColumn('stores', 'branch_id')) {
+                $branchId = DB::table('stores')->where('id', $register->store_id)->value('branch_id');
+            }
+
+            $deviceId = $shift->device_id ?? ($register->device_id ?? null);
+
+            DB::table('cashier_shifts')->where('id', $shift->id)->update([
+                'branch_id' => $branchId,
+                'device_id' => $deviceId,
+            ]);
+        }
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    private function ensureIndex(string $name, array $columns): void
+    {
+        if ($this->hasIndex($name)) {
             return;
         }
 
-        DB::statement('
-            UPDATE cashier_shifts AS cs
-            INNER JOIN cash_registers AS cr ON cr.id = cs.cash_register_id
-            INNER JOIN stores AS s ON s.id = cr.store_id
-            SET cs.branch_id = COALESCE(cs.branch_id, s.branch_id),
-                cs.device_id = COALESCE(cs.device_id, cr.device_id)
-            WHERE cs.branch_id IS NULL OR cs.device_id IS NULL
-        ');
+        Schema::table('cashier_shifts', function (Blueprint $table) use ($name, $columns) {
+            $table->index($columns, $name);
+        });
+    }
+
+    private function hasIndex(string $name): bool
+    {
+        return collect(Schema::getIndexes('cashier_shifts'))
+            ->contains(fn (array $index): bool => ($index['name'] ?? '') === $name);
     }
 };

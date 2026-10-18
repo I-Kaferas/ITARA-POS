@@ -8,64 +8,54 @@ import 'app_colors.dart';
 export 'app_radius.dart';
 export 'app_spacing.dart';
 
-/// Official type scale. Prefer named [AppTypography] styles over raw sizes.
+/// Professional scale on a 16 px base: display → xs.
 ///
-/// | Role              | Size | Weight |
-/// |-------------------|------|--------|
-/// | Page title        | 26   | 600    |
-/// | Section title     | 18   | 600    |
-/// | Subtitle          | 15   | 500    |
-/// | Body              | 14   | 400    |
-/// | Form / table      | 13   | 400    |
-/// | Button            | 14   | 500    |
-/// | Label             | 12   | 500    |
-/// | KPI               | 28   | 600    |
-/// | Amount            | 15   | 500    |
+/// | Step    | px | Role                          |
+/// |---------|----|-------------------------------|
+/// | display | 36 | Hero                          |
+/// | 3xl     | 28 | Page title, KPI               |
+/// | 2xl     | 24 | Large title                   |
+/// | xl      | 20 | Section title                 |
+/// | lg      | 18 | Small title                   |
+/// | md      | 17 | Subtitle                      |
+/// | base    | 16 | Body, buttons                 |
+/// | sm      | 14 | Forms, secondary              |
+/// | xs      | 12 | Labels, captions              |
+///
+/// Titles use Plus Jakarta Sans. Text uses IBM Plex Sans.
 abstract final class AppTextSize {
-  /// Labels, badges, navigation captions (12–13).
-  static const double label = 12;
+  static const double xs = 12;
+  static const double sm = 14;
+  static const double base = 16;
+  static const double md = 17;
+  static const double lg = 18;
+  static const double xl = 20;
+  static const double xxl = 24;
+  static const double xxxl = 28;
+  static const double display = 36;
 
-  /// Table cells and form fields (13–14).
-  static const double form = 13;
-
-  /// Standard body and button size.
-  static const double body = 14;
-
-  /// Subtitles and secondary copy (15–16).
-  static const double subtitle = 15;
-
-  /// Monetary amounts and figures (14–16).
-  static const double amount = 15;
-
-  /// Section and card titles (18–20).
-  static const double section = 18;
-
-  /// Page titles (24–28).
-  static const double page = 26;
-
-  /// Primary KPIs and hero figures (28–32).
-  static const double kpi = 28;
-
-  // Aliases kept for existing call sites.
-  static const double xs = label;
-  static const double sm = label;
-  static const double md = form;
-  static const double base = body;
-  static const double lg = subtitle;
-  static const double xl = section;
-  static const double xxl = page;
-  static const double display = kpi;
+  static const double label = xs;
+  static const double form = sm;
+  static const double body = base;
+  static const double subtitle = md;
+  static const double amount = base;
+  static const double section = xl;
+  static const double page = xxxl;
+  static const double kpi = xxxl;
 }
 
-/// Shared typography — IBM Plex Sans (+ IBM Plex Mono for amounts).
+/// Shared typography — Plus Jakarta Sans for titles, IBM Plex Sans for text,
+/// IBM Plex Mono for amounts.
 abstract final class AppTypography {
-  /// IBM Plex ships in `assets/google_fonts/`: a terminal must render the same
+  /// Fonts ship in `assets/google_fonts/`: a terminal must render the same
   /// text whether or not it has ever been online.
   static void useBundledFonts() {
     GoogleFonts.config.allowRuntimeFetching = false;
     LicenseRegistry.addLicense(() async* {
       final license = await rootBundle.loadString('assets/google_fonts/OFL.txt');
       yield LicenseEntryWithLineBreaks(const ['IBM Plex'], license);
+      final jakarta = await rootBundle.loadString('assets/google_fonts/PlusJakartaSans-OFL.txt');
+      yield LicenseEntryWithLineBreaks(const ['Plus Jakarta Sans'], jakarta);
     });
   }
 
@@ -77,6 +67,21 @@ abstract final class AppTypography {
     double? letterSpacing,
   }) =>
       GoogleFonts.ibmPlexSans(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+      );
+
+  static TextStyle jakarta({
+    double fontSize = AppTextSize.section,
+    FontWeight fontWeight = FontWeight.w600,
+    Color? color,
+    double? height,
+    double? letterSpacing,
+  }) =>
+      GoogleFonts.plusJakartaSans(
         fontSize: fontSize,
         fontWeight: fontWeight,
         color: color,
@@ -97,88 +102,117 @@ abstract final class AppTypography {
         height: height,
       );
 
-  /// Primary KPI / hero figure — 28 px · 600.
-  static TextStyle kpi({Color? color}) => plex(
+  /// Display — 36 px · Plus Jakarta Sans 700.
+  static TextStyle display({Color? color}) => jakarta(
+        fontSize: AppTextSize.display,
+        fontWeight: FontWeight.w700,
+        height: 1.15,
+        letterSpacing: -0.8,
+        color: color ?? AppColors.textPrimary,
+      );
+
+  /// KPI figure — 28 px · Plus Jakarta Sans 600.
+  static TextStyle kpi({Color? color}) => jakarta(
         fontSize: AppTextSize.kpi,
         fontWeight: FontWeight.w600,
+        height: 1.2,
         letterSpacing: -0.5,
         color: color ?? AppColors.textPrimary,
       );
 
-  /// Alias of [kpi] for legacy call sites.
-  static TextStyle display({Color? color}) => kpi(color: color);
-
-  /// Page title — 26 px · 600.
-  static TextStyle pageTitle({Color? color}) => plex(
+  /// Page title — 28 px · Plus Jakarta Sans 700.
+  static TextStyle pageTitle({Color? color}) => jakarta(
         fontSize: AppTextSize.page,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
+        height: 1.2,
+        letterSpacing: -0.4,
+        color: color ?? AppColors.textPrimary,
+      );
+
+  /// Large title — 24 px · Plus Jakarta Sans 700.
+  static TextStyle titleLarge({Color? color}) => jakarta(
+        fontSize: AppTextSize.xxl,
+        fontWeight: FontWeight.w700,
+        height: 1.25,
         letterSpacing: -0.3,
         color: color ?? AppColors.textPrimary,
       );
 
-  /// Dialog / card title — 18 px · 600 (same band as section).
+  /// Dialog / card title — 20 px · Plus Jakarta Sans 600.
   static TextStyle title({Color? color}) => sectionTitle(color: color);
 
-  /// Section title — 18 px · 600.
-  static TextStyle sectionTitle({Color? color}) => plex(
+  /// Section title — 20 px · Plus Jakarta Sans 600.
+  static TextStyle sectionTitle({Color? color}) => jakarta(
         fontSize: AppTextSize.section,
         fontWeight: FontWeight.w600,
+        height: 1.25,
         letterSpacing: -0.2,
         color: color ?? AppColors.textPrimary,
       );
 
-  /// Subtitle — 15 px · 500.
+  /// Small title — 18 px · Plus Jakarta Sans 600.
+  static TextStyle titleSmall({Color? color}) => jakarta(
+        fontSize: AppTextSize.lg,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+        color: color ?? AppColors.textPrimary,
+      );
+
+  /// Subtitle — 17 px · IBM Plex Sans 500.
   static TextStyle subtitle({Color? color}) => plex(
         fontSize: AppTextSize.subtitle,
         fontWeight: FontWeight.w500,
+        height: 1.45,
         color: color ?? AppColors.textSecondary,
       );
 
-  /// Standard text — 14 px · 400.
+  /// Standard text — 16 px · IBM Plex Sans 400.
   static TextStyle body({Color? color, FontWeight weight = FontWeight.w400}) => plex(
         fontSize: AppTextSize.body,
         fontWeight: weight,
+        height: 1.5,
         color: color ?? AppColors.textPrimary,
       );
 
-  /// Tables and forms — 13 px · 400.
+  /// Tables and forms — 14 px · IBM Plex Sans 400.
   static TextStyle form({Color? color, FontWeight weight = FontWeight.w400}) => plex(
         fontSize: AppTextSize.form,
         fontWeight: weight,
+        height: 1.45,
         color: color ?? AppColors.textPrimary,
       );
 
-  /// Compact secondary text — 12 px · 500 (label band).
+  /// Compact secondary text — 12 px · IBM Plex Sans 500.
   static TextStyle caption({Color? color}) => plex(
-        fontSize: AppTextSize.label,
+        fontSize: AppTextSize.xs,
         fontWeight: FontWeight.w500,
         color: color ?? AppColors.textMuted,
       );
 
-  /// Field and chip labels — 12 px · 500.
+  /// Field and chip labels — 12 px · IBM Plex Sans 500.
   static TextStyle label({Color? color}) => plex(
-        fontSize: AppTextSize.label,
+        fontSize: AppTextSize.xs,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.2,
         color: color ?? AppColors.textSecondary,
       );
 
-  /// Table column headers / overlines — 12 px · 500.
+  /// Table column headers / overlines — 12 px · IBM Plex Sans 500.
   static TextStyle overline({Color? color}) => plex(
-        fontSize: AppTextSize.label,
+        fontSize: AppTextSize.xs,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.4,
         color: color ?? AppColors.textMuted,
       );
 
-  /// Buttons — 14 px · 500.
+  /// Buttons — 16 px · IBM Plex Sans 500.
   static TextStyle button({Color? color}) => plex(
-        fontSize: AppTextSize.body,
+        fontSize: AppTextSize.base,
         fontWeight: FontWeight.w500,
         color: color ?? AppColors.textPrimary,
       );
 
-  /// Amounts and figures — 15 px · 500 (IBM Plex Mono).
+  /// Amounts and figures — 16 px · IBM Plex Mono 500.
   static TextStyle money({
     double size = AppTextSize.amount,
     FontWeight weight = FontWeight.w500,

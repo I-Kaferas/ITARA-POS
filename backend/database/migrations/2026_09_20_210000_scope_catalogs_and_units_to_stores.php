@@ -27,13 +27,13 @@ return new class extends Migration
                 ->constrained('stores')
                 ->cascadeOnDelete();
             $table->dropUnique(['tenant_id', 'code']);
-            $table->unique(['tenant_id', 'store_id', 'code']);
-            $table->index(['tenant_id', 'store_id', 'is_active']);
+            $table->unique(['tenant_id', 'store_id', 'code'], 'units_tenant_store_code_uq');
+            $table->index(['tenant_id', 'store_id', 'is_active'], 'units_tenant_store_active_idx');
         });
 
         Schema::table('products', function (Blueprint $table) {
             $table->dropUnique(['tenant_id', 'sku']);
-            $table->unique(['catalog_id', 'sku']);
+            $table->unique(['catalog_id', 'sku'], 'products_catalog_sku_uq');
         });
 
         $this->backfillStoreCatalogsAndUnits();
@@ -42,20 +42,23 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->dropUnique(['catalog_id', 'sku']);
+            $table->dropUnique('products_catalog_sku_uq');
             $table->unique(['tenant_id', 'sku']);
         });
 
         Schema::table('units', function (Blueprint $table) {
-            $table->dropUnique(['tenant_id', 'store_id', 'code']);
-            $table->dropIndex(['tenant_id', 'store_id', 'is_active']);
+            $table->dropUnique('units_tenant_store_code_uq');
+            $table->dropIndex('units_tenant_store_active_idx');
             $table->dropConstrainedForeignId('store_id');
             $table->unique(['tenant_id', 'code']);
         });
 
         Schema::table('catalogs', function (Blueprint $table) {
+            $table->dropForeign(['store_id']);
+        });
+        Schema::table('catalogs', function (Blueprint $table) {
             $table->dropUnique(['store_id']);
-            $table->dropConstrainedForeignId('store_id');
+            $table->dropColumn('store_id');
         });
     }
 

@@ -349,10 +349,30 @@ class LanguagePicker extends StatelessWidget {
               runSpacing: 8,
               children: [
                 for (final code in AppLocales.codes)
-                  ChoiceChip(
-                    label: Text(AppLocales.labels[code]!),
-                    selected: current == code,
-                    onSelected: (_) => LocaleController.instance.apply(code),
+                  Builder(
+                    builder: (context) {
+                      final selected = current == code;
+                      return ChoiceChip(
+                        showCheckmark: false,
+                        label: Text(
+                          AppLocales.labels[code]!,
+                          style: TextStyle(
+                            color: selected ? Colors.white : AppColors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        selected: selected,
+                        color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return AppColors.brand600;
+                          }
+                          return AppColors.fieldFill;
+                        }),
+                        side: BorderSide(color: selected ? AppColors.brand600 : AppColors.border),
+                        onSelected: (_) => LocaleController.instance.apply(code),
+                      );
+                    },
                   ),
               ],
             ),

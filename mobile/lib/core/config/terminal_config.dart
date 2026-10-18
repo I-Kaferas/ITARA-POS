@@ -55,6 +55,7 @@ class TerminalConfig {
     this.masterDeviceId = '',
     this.masterHost = '',
     this.masterPairToken = '',
+    this.deviceSyncToken = '',
     this.currencyCode = 'USD',
     this.locale = 'fr',
     this.timezone = 'Africa/Bujumbura',
@@ -102,6 +103,7 @@ class TerminalConfig {
       masterDeviceId: _string(json['master_device_id']),
       masterHost: _string(json['master_host']),
       masterPairToken: _string(json['master_pair_token']),
+      deviceSyncToken: _string(json['device_sync_token']),
       currencyCode: _string(json['currency_code'], 'USD'),
       locale: _string(json['locale'], 'fr'),
       timezone: _string(json['timezone'], 'Africa/Bujumbura'),
@@ -173,6 +175,8 @@ class TerminalConfig {
   final String masterHost;
   /// LAN pair token issued by the Master after secure pairing.
   final String masterPairToken;
+  /// Join key from the SaaS dashboard (Devices → Generate Key).
+  final String deviceSyncToken;
   final String currencyCode;
   final String locale;
   final String timezone;
@@ -259,6 +263,7 @@ class TerminalConfig {
         'master_device_id': masterDeviceId,
         'master_host': masterHost,
         'master_pair_token': masterPairToken,
+        'device_sync_token': deviceSyncToken,
         'currency_code': currencyCode,
         'locale': locale,
         'timezone': timezone,
@@ -305,6 +310,7 @@ class TerminalConfig {
     String? masterDeviceId,
     String? masterHost,
     String? masterPairToken,
+    String? deviceSyncToken,
     String? currencyCode,
     String? locale,
     String? timezone,
@@ -350,6 +356,7 @@ class TerminalConfig {
       masterDeviceId: masterDeviceId ?? this.masterDeviceId,
       masterHost: masterHost ?? this.masterHost,
       masterPairToken: masterPairToken ?? this.masterPairToken,
+      deviceSyncToken: deviceSyncToken ?? this.deviceSyncToken,
       currencyCode: currencyCode ?? this.currencyCode,
       locale: locale ?? this.locale,
       timezone: timezone ?? this.timezone,

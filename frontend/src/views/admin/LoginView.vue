@@ -386,7 +386,7 @@ async function submit() {
   min-height: 100dvh;
   overflow: hidden;
   background: #f4f6f8;
-  font-family: var(--font-sans, "IBM Plex Sans", system-ui, sans-serif);
+  font-family: var(--font-sans, "IBM Plex Sans", "Segoe UI", sans-serif);
 }
 
 .login__brand {

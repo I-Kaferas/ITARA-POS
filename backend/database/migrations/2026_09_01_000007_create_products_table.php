@@ -21,7 +21,7 @@ return new class extends Migration
             $table->bigInteger('base_price')->default(0);
             $table->bigInteger('cost_price')->default(0);
             $table->boolean('is_active')->default(true);
-            $table->jsonb('metadata')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../sync/offline_store.dart';
 import '../../auth/data/pin_auth_service.dart';
 import '../../../core/widgets/role_guard.dart';
 import '../../../core/theme/app_colors.dart';
@@ -14,6 +15,7 @@ import '../../pos/presentation/widgets/pos_ui.dart';
 import '../data/local_shifts_store.dart';
 import '../domain/shift_models.dart';
 import '../services/shift_z_report_printer.dart';
+import 'shift_close_gate.dart';
 import 'shift_detail_sheet.dart';
 import 'shift_handover_dialog.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
@@ -206,6 +208,15 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     }
 
     final expected = current.summary?.expectedCash ?? current.session?.expectedCash ?? 0;
+    final unpaid = (current.summary?.invoices ?? []).where(_invoiceUnpaid).toList();
+    final holds = OfflineStore.instance.holdsForStore(
+      await OfflineStore.instance.loadLocalHolds(),
+      TerminalConfigRepository.instance.config.storeId,
+    );
+    if (!mounted) return;
+    final proceed = await showShiftCloseGate(context, unpaid: unpaid, holds: holds);
+    if (!proceed || !mounted) return;
+
     final actualCtrl = TextEditingController(
       text: (expected / 100).toStringAsFixed(2),
     );
@@ -221,8 +232,8 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(PosUi.radiusXl)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
+          constraints: BoxConstraints(maxWidth: 520, maxHeight: MediaQuery.sizeOf(context).height * 0.88),
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -247,6 +258,8 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 14),
+                _UnpaidOrdersPanel(invoices: unpaid, holds: holds),
                 const SizedBox(height: 14),
                 TextField(
                   controller: actualCtrl,
@@ -1337,6 +1350,130 @@ class _Metric extends StatelessWidget {
         const SizedBox(height: 2),
         labelText,
       ],
+    );
+  }
+}
+
+bool _invoiceUnpaid(ShiftInvoice invoice) {
+  if (invoice.outstanding > 0) return true;
+  final method = (invoice.method ?? '').toLowerCase();
+  return method == 'credit' || method == 'on_credit' || method == 'unpaid';
+}
+
+int _holdTotal(Map<String, dynamic> hold) {
+  final items = hold['items'];
+  if (items is! List) return 0;
+  var sum = 0;
+  for (final raw in items) {
+    if (raw is! Map) continue;
+    final quantity = raw['quantity'] is num
+        ? (raw['quantity'] as num).round()
+        : int.tryParse('${raw['quantity']}') ?? 1;
+    final price = raw['unit_price'] is num
+        ? (raw['unit_price'] as num).round()
+        : int.tryParse('${raw['unit_price']}') ?? 0;
+    final discount = raw['line_discount_fixed'] is num ? (raw['line_discount_fixed'] as num).round() : 0;
+    sum += price * (quantity < 1 ? 1 : quantity) - discount;
+  }
+  final ticketDiscount = hold['discount_amount'];
+  if (ticketDiscount is num) sum -= ticketDiscount.round();
+  return sum < 0 ? 0 : sum;
+}
+
+String _holdLabel(Map<String, dynamic> hold) {
+  final label = hold['label']?.toString().trim() ?? '';
+  if (label.isNotEmpty) return label;
+  final table = hold['table_label']?.toString().trim() ?? '';
+  if (table.isNotEmpty) return table;
+  final customer = hold['customer'];
+  if (customer is Map) {
+    final name = customer['name']?.toString().trim() ?? '';
+    if (name.isNotEmpty) return name;
+  }
+  return tr('Commande ouverte');
+}
+
+class _UnpaidOrdersPanel extends StatelessWidget {
+  const _UnpaidOrdersPanel({required this.invoices, required this.holds});
+
+  final List<ShiftInvoice> invoices;
+  final List<Map<String, dynamic>> holds;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <(String, String, int)>[
+      for (final invoice in invoices)
+        (
+          invoice.reference.isEmpty ? tr('Vente') : invoice.reference,
+          invoice.customerName?.trim().isNotEmpty == true
+              ? invoice.customerName!.trim()
+              : tr(invoice.method ?? 'impayée'),
+          invoice.outstanding > 0 ? invoice.outstanding : invoice.total,
+        ),
+      for (final hold in holds) (_holdLabel(hold), tr('Encaissement en attente'), _holdTotal(hold)),
+    ];
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      decoration: BoxDecoration(
+        color: rows.isEmpty ? AppColors.fieldFill : AppColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(PosUi.radiusMd),
+        border: Border.all(color: rows.isEmpty ? AppColors.border : AppColors.warning.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            trf('Commandes non payées ({0})', [rows.length]),
+            style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 8),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                tr('Aucune commande impayée sur ce shift.'),
+                style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+              ),
+            )
+          else
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            row.$1,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.ibmPlexSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            row.$2,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.ibmPlexSans(fontSize: 11.5, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      MoneyFormatter.format(row.$3),
+                      style: GoogleFonts.ibmPlexSans(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.warning),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
     );
   }
 }

@@ -97,26 +97,19 @@ abstract final class PosUi {
     return width >= deskBreakpoint ? 980 : width;
   }
 
-  static TextStyle sectionLabel({Color? color}) => AppTypography.plex(
-        fontSize: 10.5,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.0,
+  static TextStyle sectionLabel({Color? color}) => AppTypography.label(
         color: color ?? AppColors.textMuted,
-      );
+      ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.6);
 
-  static TextStyle cardTitle({Color? color}) => AppTypography.plex(
-        fontSize: 13,
+  static TextStyle cardTitle({Color? color}) => AppTypography.jakarta(
+        fontSize: AppTextSize.sm,
         fontWeight: FontWeight.w600,
         height: 1.25,
         color: color ?? AppColors.textPrimary,
       );
 
   static TextStyle body({Color? color, FontWeight weight = FontWeight.w500}) =>
-      AppTypography.plex(
-        fontSize: 13,
-        fontWeight: weight,
-        color: color ?? AppColors.textPrimary,
-      );
+      AppTypography.body(color: color, weight: weight);
 
   static TextStyle caption({Color? color}) => AppTypography.caption(color: color);
 

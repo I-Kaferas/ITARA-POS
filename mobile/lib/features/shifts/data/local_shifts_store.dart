@@ -322,6 +322,49 @@ class LocalShiftsStore {
     });
   }
 
+  /// Lines stored with a local sale, used when reviewing an unpaid order.
+  Future<List<({String name, int quantity, int unitPrice})>> linesForReference(String reference) async {
+    final key = reference.trim();
+    if (key.isEmpty) return const [];
+    final db = await LocalDatabase.instance.database;
+    final rows = await db.query('sales', where: 'reference = ?', whereArgs: [key], limit: 1);
+    if (rows.isEmpty) return const [];
+    final saleId = rows.first['id']?.toString() ?? '';
+    try {
+      final decoded = jsonDecode(rows.first['payload_json']?.toString() ?? '{}');
+      if (decoded is Map && decoded['items'] is List) {
+        final lines = <({String name, int quantity, int unitPrice})>[];
+        for (final raw in decoded['items'] as List) {
+          if (raw is! Map) continue;
+          final name = (raw['product_name'] ?? raw['name'] ?? 'Article').toString();
+          final quantity = syncAsInt(raw['quantity']);
+          final price = syncAsInt(raw['unit_price']);
+          lines.add((name: name, quantity: quantity < 1 ? 1 : quantity, unitPrice: price));
+        }
+        if (lines.isNotEmpty) return lines;
+      }
+    } catch (_) {}
+    if (saleId.isEmpty) return const [];
+    final items = await db.query('sale_items', where: 'sale_id = ?', whereArgs: [saleId]);
+    return [
+      for (final row in items)
+        (
+          name: () {
+            try {
+              final decoded = jsonDecode(row['json']?.toString() ?? '{}');
+              if (decoded is Map) {
+                final name = (decoded['product_name'] ?? decoded['name'])?.toString().trim() ?? '';
+                if (name.isNotEmpty) return name;
+              }
+            } catch (_) {}
+            return 'Article';
+          }(),
+          quantity: syncAsInt(row['quantity']) < 1 ? 1 : syncAsInt(row['quantity']),
+          unitPrice: syncAsInt(row['unit_price']),
+        ),
+    ];
+  }
+
   Future<CashRegisterSession?> _openSession(String registerId) async {
     final rows = await DataModelDaos.shifts.list(
       where: "cash_register_id = ? AND lower(status) = ? AND (closed_at IS NULL OR closed_at = '')",

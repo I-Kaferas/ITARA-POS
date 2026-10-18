@@ -4,9 +4,9 @@
    Primary #12243C, accent #E39B2B used only as a signal.
    Tenant branding overrides the brand scale at runtime. */
 @theme {
-  --font-sans: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-display: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --font-display: "Plus Jakarta Sans", "IBM Plex Sans", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   --color-brand-50: #f1f2f3;
   --color-brand-100: #e3e5e8;
@@ -54,21 +54,23 @@
   --radius-xl: 12px;
   --radius-2xl: 12px;
 
-  /* ERP type scale — page 24–28 · section 18–20 · body 14 · form 13–14 · KPI 28–32 */
-  --text-xs: 12px;
-  --text-xs--line-height: 16px;
-  --text-sm: 14px;
-  --text-sm--line-height: 20px;
-  --text-base: 14px;
-  --text-base--line-height: 20px;
-  --text-lg: 18px;
-  --text-lg--line-height: 26px;
-  --text-xl: 20px;
-  --text-xl--line-height: 28px;
-  --text-2xl: 24px;
-  --text-2xl--line-height: 30px;
-  --text-3xl: 28px;
-  --text-3xl--line-height: 34px;
+  /* Type scale — base 16px · display → xs (aligned with vitrine) */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.35;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 1rem;
+  --text-base--line-height: 1.6;
+  --text-md: 1.0625rem;
+  --text-md--line-height: 1.5;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.35;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 1.75rem;
+  --text-3xl--line-height: 1.25;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -104,7 +106,9 @@
   --header-pad-x: var(--space-6);
   --header-gap: var(--space-3);
 
-  --leading-body: 1.5;
+  --leading-body: 1.6;
+  --leading-snug: 1.35;
+  --leading-tight: 1.2;
   --leading-title: 1.25;
   --leading-metric: 1.15;
   --title-gap: var(--space-1);
@@ -140,39 +144,37 @@
 
   --touch-min: 44px;
 
-  /* Semantic type roles
-     Page 24–28/600 · Section 18–20/600 · Subtitle 15–16/500 · Body 14/400
-     Tables/forms 13–14/400 · Buttons 14/500 · Labels 12–13/500
-     KPI 28–32/600 · Amounts 14–16/500 */
-  --text-2xs: 12px;
-  --text-xs: 12px;
-  --text-label: 13px;
-  --text-form: 14px;
-  --text-sm: 14px;
-  --text-md: 15px;
-  --text-subtitle: 15px;
-  --text-amount: 15px;
-  --text-lg: 18px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
-  /* Single page-title size (topbar + in-page headers) */
-  --text-page: 24px;
-  --text-3xl: 28px;
-  --text-kpi: 30px;
+  /* Semantic type roles — display → xs, root 16px
+     display/page · 3xl · 2xl · xl · lg · md/subtitle · base/body · sm/form · xs/label */
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-label: 0.75rem;
+  --text-form: 0.875rem;
+  --text-sm: 0.875rem;
+  --text-md: 1.0625rem;
+  --text-subtitle: 1.0625rem;
+  --text-amount: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-page: clamp(1.75rem, 2.2vw, 2.25rem);
+  --text-3xl: clamp(1.75rem, 2.6vw, 2.25rem);
+  --text-display: clamp(2.25rem, 4vw, 3rem);
+  --text-kpi: clamp(1.75rem, 2.4vw, 2.25rem);
 
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
 
-  --line-2xs: 16px;
-  --line-xs: 16px;
-  --line-label: 18px;
-  --line-sm: 20px;
-  --line-md: 22px;
-  --line-lg: 26px;
-  --line-xl: 28px;
-  --line-page: 30px;
-  --line-kpi: 36px;
+  --line-2xs: 1.35;
+  --line-xs: 1.35;
+  --line-label: 1.35;
+  --line-sm: 1.45;
+  --line-md: 1.5;
+  --line-lg: 1.4;
+  --line-xl: 1.35;
+  --line-page: 1.2;
+  --line-kpi: 1.2;
 
   --tracking-tight: -0.03em;
   --tracking-snug: -0.02em;
@@ -283,27 +285,23 @@
     --control-md: var(--touch-min);
     --control-lg: var(--touch-min);
     --control-xl: var(--touch-min);
-    /* Low end of type ranges on small screens */
-    --text-page: 24px;
-    --text-lg: 18px;
-    --text-subtitle: 15px;
-    --text-kpi: 28px;
-    --text-amount: 14px;
-    --line-page: 30px;
-    --line-kpi: 34px;
+    --text-page: 1.75rem;
+    --text-lg: 1.125rem;
+    --text-subtitle: 1rem;
+    --text-kpi: 1.75rem;
+    --text-amount: 0.875rem;
+    --text-display: 2.25rem;
   }
 }
 
 @media (min-width: 1440px) {
   :root {
-    /* Keep page title locked to topbar scale; bump section/KPI only */
-    --text-page: 24px;
-    --text-lg: 20px;
-    --text-subtitle: 16px;
-    --text-kpi: 32px;
-    --text-amount: 16px;
-    --line-page: 30px;
-    --line-kpi: 38px;
+    --text-page: 2.25rem;
+    --text-lg: 1.25rem;
+    --text-subtitle: 1.0625rem;
+    --text-kpi: 2.25rem;
+    --text-amount: 1rem;
+    --text-display: 3rem;
   }
 }
 
@@ -425,13 +423,14 @@ html[data-theme-switching] .user-menu__trigger {
 }
 
 html {
-  --ui-zoom: 0.8;
+  --ui-zoom: 0.75;
   width: 100%;
   max-width: 100%;
   height: 100%;
   overflow: hidden;
   background: var(--color-canvas);
   zoom: var(--ui-zoom);
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -443,7 +442,7 @@ body {
   height: 100%;
   overflow: hidden;
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 400;
   line-height: var(--leading-body);
   letter-spacing: 0;
@@ -460,11 +459,23 @@ option {
   font-family: inherit;
 }
 
-/* One typeface on every surface, including panels teleported to body.
-   Metrics / code may use the mono stack. */
+/* Body + UI: IBM Plex Sans. Titles: Plus Jakarta Sans. Metrics: mono. */
 body,
-body *:not(.font-mono):not(.tabular):not(.num):not(.text-metric):not(code):not(pre):not(kbd) {
+body *:not(.font-mono):not(.tabular):not(.num):not(.text-metric):not(code):not(pre):not(kbd):not(.font-display):not(.font-brand):not(.text-page-title):not(.text-section-title):not(.text-card-title):not(.text-kpi):not(h1):not(h2):not(h3) {
   font-family: var(--font-sans) !important;
+}
+
+.font-display,
+.font-brand,
+.text-page-title,
+.text-section-title,
+.text-card-title,
+.text-kpi,
+h1,
+h2,
+h3 {
+  font-family: var(--font-display) !important;
+  letter-spacing: -0.02em;
 }
 
 .font-mono,
@@ -476,6 +487,7 @@ pre,
 kbd {
   font-family: var(--font-mono) !important;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
 }
 
 #app {
@@ -545,7 +557,7 @@ kbd {
 .font-display,
 .font-brand {
   font-family: var(--font-display);
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
 }
 
 .text-page-title {
@@ -588,7 +600,7 @@ kbd {
 }
 
 .text-body {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: var(--weight-regular);
   line-height: var(--leading-body);
   color: var(--color-text);

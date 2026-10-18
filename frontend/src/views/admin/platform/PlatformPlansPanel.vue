@@ -83,7 +83,7 @@ async function save(plan: Plan, event: Event) {
       grace_days: Number(data.get('grace_days')),
       limits,
     })
-    notice.value = plan.name
+    notice.value = t('platform.planSaved')
     await load()
   } catch (err) {
     error.value = extractApiErrorMessage(err)

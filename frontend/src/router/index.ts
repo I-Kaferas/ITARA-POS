@@ -729,6 +729,24 @@ const router = createRouter({
               meta: { requiresAuth: true, platformSection: 'subscriptions' },
             },
         {
+              path: 'platform/licenses',
+              name: 'platform-licenses',
+              component: () => import('../views/admin/platform/PlatformView.vue'),
+              meta: { requiresAuth: true, platformSection: 'licenses' },
+            },
+        {
+              path: 'platform/modules',
+              name: 'platform-modules',
+              component: () => import('../views/admin/platform/PlatformView.vue'),
+              meta: { requiresAuth: true, platformSection: 'modules' },
+            },
+        {
+              path: 'platform/devices',
+              name: 'platform-devices',
+              component: () => import('../views/admin/platform/PlatformView.vue'),
+              meta: { requiresAuth: true, platformSection: 'devices' },
+            },
+        {
               path: 'platform/users',
               name: 'platform-users',
               component: () => import('../views/admin/platform/PlatformView.vue'),

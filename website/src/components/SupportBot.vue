@@ -211,8 +211,7 @@ watch(locale, () => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.95rem 1rem;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-primary, #12243c) 92%, #000), var(--brand-primary, #12243c));
+  background: var(--brand-primary, #12243c);
   color: #fff;
 }
 
@@ -225,11 +224,21 @@ watch(locale, () => {
   color: var(--brand-accent, #e39b2b);
   background: color-mix(in srgb, var(--brand-accent, #e39b2b) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--brand-accent, #e39b2b) 35%, transparent);
+  transition: transform 340ms cubic-bezier(0.34, 1.45, 0.64, 1);
 }
 
 .bot__avatar :deep(svg) {
   width: 1.15rem;
   height: 1.15rem;
+  transform-origin: center;
+}
+
+.bot__head:hover .bot__avatar {
+  transform: translateY(-3px) scale(1.1);
+}
+
+.bot__head:hover .bot__avatar :deep(svg) {
+  animation: icon-wiggle 520ms ease;
 }
 
 .bot__head-copy {
@@ -402,6 +411,12 @@ watch(locale, () => {
 .bot__send :deep(svg) {
   width: 1.05rem;
   height: 1.05rem;
+  transform-origin: center;
+  transition: transform 340ms cubic-bezier(0.34, 1.45, 0.64, 1);
+}
+
+.bot__send:hover :deep(svg) {
+  transform: translateY(-2px) scale(1.14) rotate(-10deg);
 }
 
 @media (max-width: 520px) {

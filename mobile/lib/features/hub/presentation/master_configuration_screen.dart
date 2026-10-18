@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../core/i18n/app_locale.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../sync/cloud/cloud_sync_engine.dart';
@@ -16,11 +17,12 @@ import '../../../sync/device_registry.dart';
 import '../../../sync/local_master_discovery.dart';
 import '../../../sync/local_master_server.dart';
 import '../../../sync/local_realtime.dart';
-import '../../../sync/master_config_store.dart';
 import '../../../sync/offline_store.dart';
 import '../../devices/presentation/bloc/device_bloc.dart';
 import '../../devices/presentation/widgets/devices_registry_panel.dart';
 import '../../devices/presentation/widgets/pairing_approval_panel.dart';
+import '../../settings/data/device_api_service.dart';
+import '../domain/company_link.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../data/master_overview_repository.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
@@ -82,7 +84,6 @@ class _MasterConfigurationScreenState extends State<MasterConfigurationScreen>
   CloudSyncModule? _syncingModule;
   final Map<CloudSyncModule, CloudSyncReport> _moduleResults = {};
   bool _syncingAll = false;
-  bool _checkingCloud = false;
   Timer? _refresh;
 
   @override
@@ -169,21 +170,6 @@ class _MasterConfigurationScreenState extends State<MasterConfigurationScreen>
             : '$failed module${failed == 1 ? '' : 's'} failed'));
   }
 
-  Future<void> _checkCloud() async {
-    setState(() => _checkingCloud = true);
-    final ok = await CloudSyncEngine.instance.probe();
-    if (!mounted) return;
-    setState(() => _checkingCloud = false);
-    _toast(ok ? 'Cloud reachable' : 'Cloud unreachable');
-  }
-
-  Future<void> _publishConfig() async {
-    await MasterConfigStore.instance.publishFromLocalTerminal();
-    if (!mounted) return;
-    _toast('Configuration published to terminals');
-    await _load();
-  }
-
   Future<void> _toggleServer() async {
     final server = LocalMasterServer.instance;
     if (server.listening) {
@@ -229,12 +215,7 @@ class _MasterConfigurationScreenState extends State<MasterConfigurationScreen>
                       onSyncAll: _syncAll,
                     ),
                     _DevicesTab(onRefresh: _load),
-                    _CompanyTab(
-                      overview: _overview,
-                      checkingCloud: _checkingCloud,
-                      onCheckCloud: _checkCloud,
-                      onPublish: _publishConfig,
-                    ),
+                    const _CompanyTab(),
                     _SyncTab(
                       overview: _overview,
                       syncingAll: _syncingAll,
@@ -1346,22 +1327,145 @@ class _DevicesTab extends StatelessWidget {
 
 // ── Company ─────────────────────────────────────────────────────────────────
 
-class _CompanyTab extends StatelessWidget {
-  const _CompanyTab({
-    required this.overview,
-    required this.checkingCloud,
-    required this.onCheckCloud,
-    required this.onPublish,
-  });
+class _CompanyTab extends StatefulWidget {
+  const _CompanyTab();
 
-  final MasterOverview overview;
-  final bool checkingCloud;
-  final VoidCallback onCheckCloud;
-  final VoidCallback onPublish;
+  @override
+  State<_CompanyTab> createState() => _CompanyTabState();
+}
+
+class _CompanyTabState extends State<_CompanyTab> {
+  static const _violet = Color(0xFF7C5CFF);
+
+  final _joinCtrl = TextEditingController();
+  final _apiCtrl = TextEditingController();
+  final _apiFocus = FocusNode();
+  bool _validating = false;
+  bool _savingUrl = false;
+  String? _message;
+  bool _messageOk = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final config = TerminalConfigRepository.instance.config;
+    _joinCtrl.text = CompanyLink.formatJoinKey(config.deviceSyncToken);
+    _apiCtrl.text = config.apiBaseUrl;
+  }
+
+  @override
+  void dispose() {
+    _joinCtrl.dispose();
+    _apiCtrl.dispose();
+    _apiFocus.dispose();
+    super.dispose();
+  }
 
   String _value(String raw) => raw.trim().isEmpty ? '—' : raw.trim();
 
-  String _when(DateTime? at) => at == null ? 'Never' : _ago(at);
+  void _onJoinChanged(String value) {
+    final formatted = CompanyLink.formatJoinKey(value);
+    if (formatted == value) {
+      setState(() {});
+      return;
+    }
+    _joinCtrl.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+    setState(() {});
+  }
+
+  Future<void> _copyJoinKey() async {
+    final key = _joinCtrl.text.trim();
+    if (key.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: key));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(tr('Join key copied')), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  Future<void> _saveUrl() async {
+    final url = _apiCtrl.text.trim();
+    if (url.isEmpty || _savingUrl) return;
+    setState(() => _savingUrl = true);
+    try {
+      final repo = TerminalConfigRepository.instance;
+      await repo.save(repo.config.copyWith(apiBaseUrl: url));
+      if (!mounted) return;
+      setState(() {
+        _message = 'API address saved';
+        _messageOk = true;
+        _savingUrl = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _message = humanizeApiCode(error.toString().replaceFirst('Exception: ', ''));
+        _messageOk = false;
+        _savingUrl = false;
+      });
+    }
+  }
+
+  Future<void> _validate() async {
+    final key = CompanyLink.formatJoinKey(_joinCtrl.text);
+    if (!CompanyLink.isComplete(key)) {
+      setState(() {
+        _message = 'Enter the join key first';
+        _messageOk = false;
+      });
+      return;
+    }
+    final url = _apiCtrl.text.trim();
+    if (url.isEmpty) {
+      setState(() {
+        _message = 'Enter the API address first';
+        _messageOk = false;
+      });
+      return;
+    }
+    final repo = TerminalConfigRepository.instance;
+    if (repo.config.authToken.trim().isEmpty) {
+      setState(() {
+        _message = 'Sign in before validating the join key';
+        _messageOk = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _validating = true;
+      _message = null;
+    });
+    try {
+      if (url != repo.config.apiBaseUrl.trim()) {
+        await repo.save(repo.config.copyWith(apiBaseUrl: url));
+      }
+      final data = await DeviceApiService().pairWithJoinKey(key);
+      final next = CompanyLink.applyPair(
+        current: TerminalConfigRepository.instance.config,
+        joinKey: key,
+        data: data,
+      );
+      await TerminalConfigRepository.instance.save(next);
+      if (!mounted) return;
+      setState(() {
+        _joinCtrl.text = next.deviceSyncToken;
+        _message = 'Join key accepted';
+        _messageOk = true;
+        _validating = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _message = humanizeApiCode(error.toString().replaceFirst('Exception: ', ''));
+        _messageOk = false;
+        _validating = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1369,24 +1473,39 @@ class _CompanyTab extends StatelessWidget {
       listenable: TerminalConfigRepository.instance,
       builder: (context, _) {
         final config = TerminalConfigRepository.instance.config;
-        final cloud = CloudSyncEngine.instance;
-        final shared = overview.sharedConfig;
-        final sharedAt = DateTime.tryParse(shared['updated_at']?.toString() ?? '');
-        final account = [config.cashierName, config.cashierEmail]
-            .where((part) => part.trim().isNotEmpty)
-            .join(' • ');
+        final connected = config.deviceSyncToken.trim().isNotEmpty;
+        final company = config.brandName.trim();
         return _TabList(
           children: [
+            _ConnectionBanner(connected: connected, company: company),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final join = _joinCard();
+                final api = _apiCard(config.apiBaseUrl);
+                if (constraints.maxWidth < 860) {
+                  return Column(
+                    children: [
+                      join,
+                      const SizedBox(height: 16),
+                      api,
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: join),
+                    const SizedBox(width: 16),
+                    Expanded(child: api),
+                  ],
+                );
+              },
+            ),
             _Panel(
               icon: Icons.apartment_rounded,
-              color: const Color(0xFF7C5CFF),
-              title: config.brandName.trim().isEmpty ? 'Company' : config.brandName.trim(),
-              subtitle: tr('Identity shared with every terminal'),
-              action: OutlinedButton.icon(
-                onPressed: () => context.go('${AppRoutes.configuration}?section=1'),
-                icon: const Icon(Icons.edit_outlined, size: 16),
-                label: Text(tr('Edit')),
-              ),
+              color: _violet,
+              title: company.isEmpty ? 'Company identity' : company,
+              subtitle: connected ? 'Filled from the join key' : 'Waiting for a join key',
               child: _Facts(
                 facts: [
                   ('Tenant', _value(config.tenantSlug)),
@@ -1400,51 +1519,229 @@ class _CompanyTab extends StatelessWidget {
                 ],
               ),
             ),
-            _Panel(
-              icon: Icons.cloud_rounded,
-              color: _info,
-              title: tr('Cloud connection'),
-              subtitle: cloud.cloudReachable ? 'ITARA ERP Cloud reachable' : 'Not confirmed yet',
-              subtitleColor: cloud.cloudReachable ? AppColors.success : AppColors.textSecondary,
-              action: _ActionButton(
-                icon: Icons.wifi_tethering_rounded,
-                label: tr('Test'),
-                color: _info,
-                busy: checkingCloud,
-                onPressed: onCheckCloud,
-              ),
-              child: _Facts(
-                facts: [
-                  ('API address', _value(config.apiBaseUrl)),
-                  ('Signed in as', account.isEmpty ? '—' : account),
-                  ('Last cloud sync', _when(cloud.lastSyncAt)),
-                  ('Last result', cloud.lastError ?? (cloud.lastSyncAt == null ? '—' : 'OK')),
-                ],
-              ),
-            ),
-            _Panel(
-              icon: Icons.share_rounded,
-              color: AppColors.success,
-              title: tr('Shared configuration'),
-              subtitle: tr('Printers, POS and branding sent to terminals'),
-              action: _ActionButton(
-                icon: Icons.send_rounded,
-                label: tr('Publish'),
-                color: AppColors.success,
-                onPressed: onPublish,
-              ),
-              child: _Facts(
-                facts: [
-                  ('Version', _value(shared['version']?.toString() ?? '')),
-                  ('Updated', _when(sharedAt)),
-                  ('Printers', '${(shared['printers'] as List?)?.length ?? 0}'),
-                  ('Print routes', '${(shared['printer_routes'] as List?)?.length ?? 0}'),
-                ],
-              ),
-            ),
           ],
         );
       },
+    );
+  }
+
+  Widget _joinCard() {
+    final ready = CompanyLink.isComplete(_joinCtrl.text);
+    return _Panel(
+      icon: Icons.key_rounded,
+      color: _violet,
+      title: 'Device Join Key',
+      subtitle: 'Enter the key generated from your web dashboard (Devices module)',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _joinCtrl,
+            onChanged: _onJoinChanged,
+            textCapitalization: TextCapitalization.characters,
+            autocorrect: false,
+            enableSuggestions: false,
+            style: GoogleFonts.ibmPlexSans(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+              color: AppColors.textPrimary,
+            ),
+            decoration: _inputDecoration(
+              hint: 'ITN-XXXX-XXXX-XXXX',
+              icon: Icons.key_rounded,
+              suffix: IconButton(
+                tooltip: tr('Copy'),
+                onPressed: _copyJoinKey,
+                icon: Icon(Icons.copy_rounded, size: 18, color: AppColors.textSecondary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _validating || !ready ? null : _validate,
+            style: FilledButton.styleFrom(
+              backgroundColor: _violet,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: _violet.withValues(alpha: 0.45),
+              disabledForegroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: _validating
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.key_rounded, size: 18),
+            label: Text(
+              tr('Validate Join Key'),
+              style: GoogleFonts.ibmPlexSans(fontSize: 14.5, fontWeight: FontWeight.w700),
+            ),
+          ),
+          if (_message != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              tr(_message!),
+              style: GoogleFonts.ibmPlexSans(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: _messageOk ? AppColors.success : AppColors.danger,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline_rounded, size: 15, color: AppColors.textMuted),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tr('You can find the join key in your SaaS dashboard under Devices → Generate Key'),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12, color: AppColors.textMuted, height: 1.35),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _apiCard(String savedUrl) {
+    final dirty = _apiCtrl.text.trim() != savedUrl.trim();
+    return _Panel(
+      icon: Icons.settings_rounded,
+      color: _violet,
+      title: 'API Configuration',
+      subtitle: 'Cloud API server address',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            tr('API Base URL'),
+            style: GoogleFonts.ibmPlexSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _apiCtrl,
+            focusNode: _apiFocus,
+            onChanged: (_) => setState(() {}),
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            style: GoogleFonts.ibmPlexSans(fontSize: 13.5, color: AppColors.textPrimary),
+            decoration: _inputDecoration(hint: 'https://api.example.com', icon: Icons.link_rounded),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _savingUrl || _apiCtrl.text.trim().isEmpty ? null : _saveUrl,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: dirty ? _violet : AppColors.textSecondary,
+              disabledForegroundColor: AppColors.textMuted,
+              minimumSize: const Size.fromHeight(46),
+              side: BorderSide(color: dirty ? _violet.withValues(alpha: 0.7) : AppColors.borderStrong),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: _savingUrl
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary),
+                  )
+                : Icon(Icons.lock_outline_rounded, size: 16, color: dirty ? _violet : AppColors.textMuted),
+            label: Text(
+              tr('Save URL'),
+              style: GoogleFonts.ibmPlexSans(fontSize: 13.5, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String hint,
+    required IconData icon,
+    Widget? suffix,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.ibmPlexSans(
+        fontSize: 13.5,
+        letterSpacing: 0.6,
+        color: AppColors.textMuted,
+        fontWeight: FontWeight.w500,
+      ),
+      prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: AppColors.canvas,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _violet, width: 1.4),
+      ),
+    );
+  }
+}
+
+class _ConnectionBanner extends StatelessWidget {
+  const _ConnectionBanner({required this.connected, required this.company});
+
+  final bool connected;
+  final String company;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = connected ? AppColors.success : _amber;
+    final title = connected ? 'Connected' : 'Not Connected';
+    final subtitle = connected
+        ? (company.isEmpty ? 'This device is linked to the company' : company)
+        : 'Enter your join key to connect this device';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.38)),
+      ),
+      child: Row(
+        children: [
+          _IconTile(
+            icon: connected ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+            color: color,
+            size: 44,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr(title),
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  tr(subtitle),
+                  style: GoogleFonts.ibmPlexSans(fontSize: 12.5, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

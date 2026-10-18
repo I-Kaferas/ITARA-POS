@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignUuid('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete();
             $table->string('serial_number', 150);
             $table->string('status', 30)->default('available');
-            $table->jsonb('metadata')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

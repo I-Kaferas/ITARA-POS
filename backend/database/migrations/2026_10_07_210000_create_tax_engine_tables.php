@@ -82,8 +82,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['tenant_id', 'is_active', 'priority']);
-            $table->index(['tenant_id', 'tax_class_id', 'country']);
+            $table->index(['tenant_id', 'is_active', 'priority'], 'tax_rules_tenant_active_priority_idx');
+            $table->index(['tenant_id', 'tax_class_id', 'country'], 'tax_rules_tenant_class_country_idx');
         });
 
         if (Schema::hasTable('products') && ! Schema::hasColumn('products', 'tax_class_id')) {

@@ -1,10 +1,9 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(pos_mobile LANGUAGES CXX)
+project(itara_pos LANGUAGES CXX)
 
-# The name of the executable created for the application. Change this to change
-# the on-disk name of your application.
-set(BINARY_NAME "pos_mobile")
+# On-disk executable name (Task Manager / .exe). Window title stays "ITARA POS".
+set(BINARY_NAME "ITARA_POS")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

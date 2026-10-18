@@ -124,6 +124,21 @@ function openEdit(device: Device) {
   showModal.value = true
 }
 
+function isHostOrIp(value: string): boolean {
+  const host = value.trim()
+  if (!host) return false
+  // IPv4
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) {
+    return host.split('.').every((part) => {
+      const n = Number(part)
+      return Number.isInteger(n) && n >= 0 && n <= 255
+    })
+  }
+  // IPv6 (loose) or hostname / localhost / CAISSE-01
+  if (host.includes(':')) return true
+  return /^(?=.{1,253}$)([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)(\.([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?))*$/.test(host)
+}
+
 async function save() {
   saveError.value = ''
   saveNotice.value = ''
@@ -133,16 +148,22 @@ async function save() {
     return
   }
 
+  const name = form.value.name.trim()
+  if (!name) {
+    saveError.value = t('org.deviceNameRequired')
+    return
+  }
+
   const ip = form.value.ip_address.trim()
-  if (form.value.connection_type === 'network' && ip && !/^(\d{1,3}\.){3}\d{1,3}$/.test(ip) && !ip.includes(':')) {
-    saveError.value = t('org.deviceSaveFailed')
+  if (form.value.connection_type === 'network' && ip && !isHostOrIp(ip)) {
+    saveError.value = t('org.deviceIpInvalid')
     return
   }
 
   saving.value = true
   try {
     await store.saveDevice(storeId.value, {
-      name: form.value.name.trim(),
+      name,
       category: form.value.category,
       device_type: form.value.category,
       pos_role: form.value.pos_role,
@@ -359,7 +380,7 @@ async function revoke(device: Device) {
             <template v-if="form.connection_type === 'network'">
               <div>
                 <FieldLabel icon="conn-network">{{ t('org.ipAddress') }}</FieldLabel>
-                <input v-model="form.ip_address" class="field w-full" placeholder="192.168.1.100" />
+                <input v-model="form.ip_address" class="field w-full" placeholder="192.168.1.100 ou localhost" />
               </div>
               <div>
                 <FieldLabel icon="conn-network">{{ t('org.port') }}</FieldLabel>

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import '../../../core/api/api_client.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
 
 class RegisteredDevice {
@@ -68,5 +71,24 @@ class DeviceApiService {
       return RegisteredDevice.fromJson(Map<String, dynamic>.from(data));
     }
     return RegisteredDevice.fromJson(body);
+  }
+
+  /// Links this terminal with the dashboard join key and returns the company.
+  Future<Map<String, dynamic>> pairWithJoinKey(String syncToken) async {
+    final config = TerminalConfigRepository.instance.config;
+    final os = Platform.operatingSystem;
+    final platform = (os == 'android' || os == 'windows') ? os : 'other';
+    final body = await _client.post(
+      '/devices/pair',
+      body: {
+        'sync_token': syncToken.trim(),
+        if (config.deviceIdentifier.trim().isNotEmpty) 'identifier': config.deviceIdentifier.trim(),
+        'platform': platform,
+        'app_version': AppConfig.appVersion,
+      },
+    );
+    final data = body['data'];
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return body;
   }
 }

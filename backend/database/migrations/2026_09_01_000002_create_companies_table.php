@@ -15,8 +15,8 @@ return new class extends Migration
             $table->string('legal_name')->nullable();
             $table->string('tax_id', 100)->nullable();
             $table->char('currency_code', 3)->default('FBU');
-            $table->jsonb('address')->nullable();
-            $table->jsonb('settings')->nullable();
+            $table->json('address')->nullable();
+            $table->json('settings')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes();

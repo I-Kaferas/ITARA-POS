@@ -16,6 +16,7 @@ use App\Services\Authorization\AuthorizationService;
 use App\Services\Platform\PlatformAuditLogger;
 use App\Modules\ModuleRegistry;
 use App\Services\Platform\SaasCatalog;
+use App\Services\Platform\SaasPlanCatalog;
 use App\Services\Platform\SaasSubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,23 @@ class PlatformAdminController extends Controller
             $plans[$plan] = ($plans[$plan] ?? 0) + 1;
         }
 
+        $activeSubs = SaasSubscription::query()
+            ->with('plan')
+            ->whereIn('status', ['active', 'trial', 'past_due'])
+            ->get();
+        $subscriptionMrr = 0;
+        foreach ($activeSubs as $subscription) {
+            $plan = $subscription->plan;
+            if ($plan === null) {
+                continue;
+            }
+            $subscriptionMrr += $subscription->billing_cycle === 'monthly'
+                ? (int) $plan->monthly_price
+                : (int) round(((int) $plan->yearly_price) / 12);
+        }
+
+        $openInvoices = (int) SaasInvoice::query()->where('status', 'open')->sum('amount');
+
         return response()->json([
             'data' => [
                 'companies' => $companies->count(),
@@ -49,9 +67,11 @@ class PlatformAdminController extends Controller
                 'devices' => Device::withoutGlobalScopes()->count(),
                 'sales' => $this->salesCount(),
                 'revenue' => $this->revenue(),
+                'subscription_mrr' => $subscriptionMrr,
+                'open_invoices' => $openInvoices,
                 'plans' => $plans,
                 'modules' => SaasCatalog::MODULES,
-                'available_plans' => SaasCatalog::PLANS,
+                'available_plans' => array_keys(SaasPlanCatalog::definitions()),
             ],
         ]);
     }
@@ -103,9 +123,13 @@ class PlatformAdminController extends Controller
     public function updateCompany(Request $request, Tenant $tenant): JsonResponse
     {
         $this->assertSuperAdmin($request);
+        $planCodes = array_values(array_unique(array_merge(
+            array_keys(SaasCatalog::PLANS),
+            array_keys(SaasCatalog::COMMERCIAL_RANK),
+        )));
         $data = $request->validate([
             'status' => ['sometimes', Rule::in(SaasCatalog::LIFECYCLE)],
-            'plan' => ['sometimes', 'nullable', Rule::in(array_keys(SaasCatalog::PLANS))],
+            'plan' => ['sometimes', 'nullable', Rule::in($planCodes)],
             'modules' => ['sometimes', 'array'],
             'modules.*' => ['string', Rule::in(array_merge(ModuleRegistry::CODES, array_keys(ModuleRegistry::ALIASES)))],
             'license_status' => ['sometimes', Rule::in(['active', 'suspended', 'expired'])],
@@ -121,15 +145,21 @@ class PlatformAdminController extends Controller
         $saas['subscription'] = is_array($saas['subscription'] ?? null) ? $saas['subscription'] : [];
         $modules = $saas['modules'] ?? $this->saas->modules($tenant);
         if (array_key_exists('plan', $data) && $data['plan']) {
-            $modules = SaasCatalog::PLANS[$data['plan']];
-            $saas['subscription']['plan'] = $data['plan'];
+            $commercial = SaasCatalog::toCommercial($data['plan']);
+            $definition = SaasPlanCatalog::definitions()[$commercial] ?? null;
+            if (is_array($definition) && isset($definition['limits']['modules']) && is_array($definition['limits']['modules'])) {
+                $modules = $definition['limits']['modules'];
+            } elseif (isset(SaasCatalog::PLANS[$data['plan']])) {
+                $modules = SaasCatalog::PLANS[$data['plan']];
+            }
+            $saas['subscription']['plan'] = $commercial;
         }
         if (array_key_exists('modules', $data)) {
             $modules = array_values(array_unique($data['modules']));
         }
         $saas['modules'] = ModuleRegistry::normalize($modules);
         if ($saas['modules'] === []) {
-            return response()->json(['message' => 'At least one module must stay on.'], 422);
+            return response()->json(['message' => 'Au moins un module doit rester activé.'], 422);
         }
         $saas['license']['key'] = $saas['license']['key'] ?? ('ITARA-'.strtoupper(Str::random(4)).'-'.strtoupper(Str::random(4)));
         $saas['license']['status'] = $data['license_status'] ?? ($saas['license']['status'] ?? 'active');
@@ -312,16 +342,6 @@ class PlatformAdminController extends Controller
         return response()->json(['data' => $rows]);
     }
 
-    /** @return list<array<string, mixed>> */
-    private function tickets(): array
-    {
-        $rows = [];
-        foreach (Tenant::query()->orderBy('name')->get() as $tenant) {
-            foreach ($this->saas->saas($tenant)['support'] as $ticket) {
-                $rows[] = [
-                    'id' => $ticket['id'] ?? null,
-                    'company' => $tenant->name,
-                    'tenant_id' => $tenant->id,
     public function revokeDevice(Request $request, string $device): JsonResponse
     {
         $this->assertSuperAdmin($request);
@@ -396,6 +416,16 @@ class PlatformAdminController extends Controller
         return response()->json(app(AuthService::class)->issueSession($target, $request, 'platform-support'));
     }
 
+    /** @return list<array<string, mixed>> */
+    private function tickets(): array
+    {
+        $rows = [];
+        foreach (Tenant::query()->orderBy('name')->get() as $tenant) {
+            foreach ($this->saas->saas($tenant)['support'] as $ticket) {
+                $rows[] = [
+                    'id' => $ticket['id'] ?? null,
+                    'company' => $tenant->name,
+                    'tenant_id' => $tenant->id,
                     'subject' => $ticket['subject'] ?? '',
                     'message' => $ticket['message'] ?? '',
                     'status' => $ticket['status'] ?? 'open',

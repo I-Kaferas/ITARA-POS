@@ -16,7 +16,7 @@ return new class extends Migration
             $table->date('manufactured_at')->nullable();
             $table->date('expires_at')->nullable();
             $table->foreignUuid('supplier_id')->nullable()->constrained('suppliers')->nullOnDelete();
-            $table->jsonb('metadata')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

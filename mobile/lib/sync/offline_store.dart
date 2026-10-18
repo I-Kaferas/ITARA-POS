@@ -1565,6 +1565,97 @@ class OfflineStore {
     return syncAsInt(rows.first['c']);
   }
 
+  /// A sale whose outbox row is already acknowledged must not block the close.
+  Future<void> reconcileAckedSales() async {
+    final db = await _db;
+    await db.rawUpdate(
+      'UPDATE sales SET sync_status = ? '
+      'WHERE sync_status != ? AND id IN ('
+      'SELECT entity_id FROM ${SyncOutbox.table} WHERE entity = ? AND status = ?)',
+      [
+        SyncQueueStatus.synced.name,
+        SyncQueueStatus.synced.name,
+        'sale',
+        OutboxStatus.synced.wire,
+      ],
+    );
+  }
+
+  /// Puts local sales back in the outbox when their queue row disappeared.
+  Future<int> requeueUnsentSales() async {
+    final db = await _db;
+    final sales = await db.query(
+      'sales',
+      where: 'sync_status != ?',
+      whereArgs: [SyncQueueStatus.synced.name],
+    );
+    var added = 0;
+    for (final sale in sales) {
+      final id = sale['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
+      final existing = await db.query(
+        SyncOutbox.table,
+        where: 'entity = ? AND entity_id = ?',
+        whereArgs: ['sale', id],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) continue;
+      await SyncOutbox.instance.enqueue(
+        entity: 'sale',
+        entityId: id,
+        operation: 'create',
+        payload: sale['payload_json']?.toString() ?? '{}',
+      );
+      added++;
+    }
+    return added;
+  }
+
+  /// Distinct operations that still block a period close, one line each.
+  Future<List<String>> blockingOperationLabels() async {
+    await reconcileAckedSales();
+    final lines = <String>[];
+    final coveredSales = <String>{};
+    final queued = await SyncOutbox.instance.details(limit: 80);
+    for (final row in queued) {
+      final status = OutboxStatus.parse(row['status']?.toString());
+      if (status == OutboxStatus.synced) continue;
+      final entity = row['entity']?.toString() ?? '';
+      final entityId = row['entity_id']?.toString() ?? '';
+      if (entity == 'sale' && entityId.isNotEmpty) coveredSales.add(entityId);
+      final reference = _payloadReference(row['payload']);
+      final label = reference.isNotEmpty ? reference : (entityId.isNotEmpty ? entityId : entity);
+      final error = row['last_error']?.toString().trim() ?? '';
+      lines.add(error.isEmpty ? '$label · ${status.wire}' : '$label · $error');
+    }
+
+    final db = await _db;
+    final sales = await db.query(
+      'sales',
+      columns: ['id', 'reference', 'sync_status'],
+      where: 'sync_status != ?',
+      whereArgs: [SyncQueueStatus.synced.name],
+    );
+    for (final sale in sales) {
+      final id = sale['id']?.toString() ?? '';
+      if (coveredSales.contains(id)) continue;
+      final reference = sale['reference']?.toString().trim() ?? '';
+      lines.add('${reference.isEmpty ? id : reference} · ${sale['sync_status']}');
+    }
+    return lines;
+  }
+
+  String _payloadReference(dynamic raw) {
+    try {
+      final decoded = raw is String ? jsonDecode(raw) : raw;
+      if (decoded is Map) {
+        final reference = decoded['reference']?.toString().trim() ?? '';
+        if (reference.isNotEmpty) return reference;
+      }
+    } catch (_) {}
+    return '';
+  }
+
   /// Deletes local rows the server has already acknowledged.
   /// Sales and payments stay (receipts, daily references), and the highest
   /// sync event stays because the next sequence number is derived from it.

@@ -124,7 +124,7 @@ class SaasCatalog
                 'expires_on' => $saved['license']['expires_on'] ?? null,
             ],
             'subscription' => [
-                'plan' => is_string($plan) ? $plan : null,
+                'plan' => is_string($plan) && $plan !== '' ? self::toCommercial($plan) : null,
                 'status' => $saved['subscription']['status'] ?? 'active',
                 'renews_on' => $saved['subscription']['renews_on'] ?? null,
             ],

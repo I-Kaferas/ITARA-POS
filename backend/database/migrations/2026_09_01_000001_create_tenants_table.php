@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug', 100)->unique();
             $table->string('status', 20)->default('active');
-            $table->jsonb('settings')->nullable();
+            $table->json('settings')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

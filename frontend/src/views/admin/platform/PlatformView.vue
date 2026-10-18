@@ -70,7 +70,7 @@ const tabs: { id: Tab; icon: string }[] = [
   { id: 'stats', icon: 'dashboard' },
   { id: 'support', icon: 'mail' },
   { id: 'audit', icon: 'receipt' },
-  { id: 'backups', icon: 'layers' },
+  { id: 'backups', icon: 'download' },
 ]
 
 const { t } = useI18n()
@@ -295,6 +295,9 @@ const sectionByRoute: Record<string, Tab> = {
   platform: 'stats',
   'platform-tenants': 'companies',
   'platform-plans': 'subscriptions',
+  'platform-licenses': 'licenses',
+  'platform-modules': 'modules',
+  'platform-devices': 'devices',
   'platform-users': 'users',
   'platform-support': 'support',
   'platform-audit': 'audit',
@@ -304,6 +307,9 @@ const routeByTab: Partial<Record<Tab, string>> = {
   stats: 'platform',
   companies: 'platform-tenants',
   subscriptions: 'platform-plans',
+  licenses: 'platform-licenses',
+  modules: 'platform-modules',
+  devices: 'platform-devices',
   users: 'platform-users',
   support: 'platform-support',
   audit: 'platform-audit',
@@ -579,13 +585,15 @@ onMounted(() => {
               <td>{{ company.devices }}</td>
               <td>{{ company.open_support }}</td>
               <td class="text-right">
-                <button class="btn-secondary" type="button" :disabled="busy" @click="openShop(company)"><AppIcon name="eye" :size="16" /> {{ t('platform.openShop') }}</button>
-                <button class="btn-secondary" type="button" @click="openManage(company)"><AppIcon name="edit" :size="16" /> {{ t('platform.edit') }}</button>
-                <button class="btn-secondary" type="button" :disabled="busy" @click="copyId(company.id)"><AppIcon name="layers" :size="16" /> {{ t('platform.copyId') }}</button>
-                <button class="btn-secondary" type="button" :disabled="busy" @click="setCompanyStatus(company, company.status === 'active' ? 'suspended' : 'active')">
-                  <AppIcon name="check" :size="16" />
-                  {{ company.status === 'active' ? t('platform.suspend') : t('platform.activate') }}
-                </button>
+                <div class="platform-actions">
+                  <button class="btn-primary" type="button" :disabled="busy" @click="openShop(company)"><AppIcon name="eye" :size="16" /> {{ t('platform.openShop') }}</button>
+                  <button class="btn-secondary" type="button" @click="openManage(company)"><AppIcon name="edit" :size="16" /> {{ t('platform.edit') }}</button>
+                  <button class="btn-secondary" type="button" :disabled="busy" @click="setCompanyStatus(company, company.status === 'active' ? 'suspended' : 'active')">
+                    <AppIcon name="check" :size="16" />
+                    {{ company.status === 'active' ? t('platform.suspend') : t('platform.activate') }}
+                  </button>
+                  <button class="btn-secondary" type="button" :disabled="busy" :title="t('platform.copyId')" @click="copyId(company.id)"><AppIcon name="layers" :size="16" /></button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -865,8 +873,8 @@ onMounted(() => {
           <template #toolbar>
             <select v-model="ticketFilter" class="field">
               <option value="all">{{ t('platform.all') }}</option>
-              <option value="open">{{ t('platform.active') }}</option>
-              <option value="closed">{{ t('platform.close') }}</option>
+              <option value="open">{{ t('platform.ticketOpen') }}</option>
+              <option value="closed">{{ t('platform.ticketClosed') }}</option>
             </select>
           </template>
           <table class="ui-table min-w-full">
@@ -883,7 +891,7 @@ onMounted(() => {
               <tr v-for="ticket in filteredTickets" :key="ticket.id">
                 <td class="font-medium">{{ ticket.subject }}</td>
                 <td>{{ ticket.company }}</td>
-                <td><Badge :variant="ticket.status === 'open' ? 'warning' : 'neutral'" dot>{{ ticket.status }}</Badge></td>
+                <td><Badge :variant="ticket.status === 'open' ? 'warning' : 'neutral'" dot>{{ ticket.status === 'open' ? t('platform.ticketOpen') : t('platform.ticketClosed') }}</Badge></td>
                 <td class="platform-message">{{ ticket.message }}</td>
                 <td class="text-right">
                   <button v-if="ticket.status === 'open'" class="btn-secondary" type="button" :disabled="busy" @click="closeTicket(ticket.id)"><AppIcon name="close" :size="16" /> {{ t('platform.close') }}</button>
@@ -982,12 +990,12 @@ onMounted(() => {
         <p class="platform-note">{{ t('platform.adminPasswordHint') }}</p>
       </form>
       <template #footer>
-        <button class="btn-secondary" type="button" @click="showCreate = false"><AppIcon name="close" :size="16" /> {{ t('platform.close') }}</button>
+        <button class="btn-secondary" type="button" @click="showCreate = false"><AppIcon name="close" :size="16" /> {{ t('platform.dismiss') }}</button>
         <button class="btn-primary" type="button" :disabled="busy || !createForm.name.trim() || !createForm.admin_email.trim() || createForm.admin_password.length < 8" @click="createCompany"><AppIcon name="plus" :size="16" /> {{ t('platform.create') }}</button>
       </template>
     </AppModal>
 
-    <AppModal :open="showManage" :title="editor.name || t('platform.manageTitle')" :subtitle="t('platform.manageTitle')" icon="building" size="xl" @close="showManage = false">
+    <AppModal :open="showManage" :title="editor.name || t('platform.manageTitle')" :subtitle="t('platform.manageSubtitle')" icon="building" size="xl" @close="showManage = false">
       <form class="platform-form" @submit.prevent="saveCompany">
         <div class="platform-form__grid">
           <div>
@@ -1011,7 +1019,7 @@ onMounted(() => {
             <input v-model="editor.expires_on" class="field" type="date" />
           </div>
           <div>
-            <FieldLabel icon="coins">{{ t('platform.tabs.subscriptions') }}</FieldLabel>
+            <FieldLabel icon="coins">{{ t('platform.subscriptionStatus') }}</FieldLabel>
             <select v-model="editor.subscription_status" class="field">
               <option v-for="status in subscriptionStatuses" :key="status" :value="status">{{ t(`platform.subscriptionStatuses.${status}`) }}</option>
             </select>
@@ -1023,7 +1031,7 @@ onMounted(() => {
         </div>
 
         <div>
-          <FieldLabel icon="layers">{{ t('platform.tabs.subscriptions') }}</FieldLabel>
+          <FieldLabel icon="coins">{{ t('platform.plan') }}</FieldLabel>
           <div class="platform-choices">
             <button
               v-for="plan in plans"
@@ -1056,7 +1064,7 @@ onMounted(() => {
         </div>
       </form>
       <template #footer>
-        <button class="btn-secondary" type="button" @click="showManage = false"><AppIcon name="close" :size="16" /> {{ t('platform.close') }}</button>
+        <button class="btn-secondary" type="button" @click="showManage = false"><AppIcon name="close" :size="16" /> {{ t('platform.dismiss') }}</button>
         <button class="btn-primary" type="button" :disabled="busy" @click="saveCompany"><AppIcon name="check" :size="16" /> {{ t('platform.save') }}</button>
       </template>
     </AppModal>

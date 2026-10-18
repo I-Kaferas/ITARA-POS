@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('status', 20)->default('completed');
             $table->dateTime('paid_at');
             $table->foreignUuid('recorded_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->jsonb('allocations')->nullable();
+            $table->json('allocations')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

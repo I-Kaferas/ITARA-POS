@@ -236,11 +236,14 @@ abstract final class AppTheme {
         }),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.brand50,
-        selectedColor: AppColors.brand100,
-        labelStyle: AppTypography.label(),
+        backgroundColor: AppColors.fieldFill,
+        selectedColor: AppColors.brand600,
+        disabledColor: AppColors.brand50,
+        labelStyle: AppTypography.label(color: AppColors.textPrimary),
+        secondaryLabelStyle: AppTypography.label(color: Colors.white),
+        checkmarkColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
-        side: BorderSide.none,
+        side: BorderSide(color: AppColors.border),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       ),
       dividerTheme: DividerThemeData(
@@ -253,17 +256,25 @@ abstract final class AppTheme {
 
   static TextTheme _textTheme(TextTheme base) {
     return TextTheme(
-      displayLarge: AppTypography.kpi(),
+      displayLarge: AppTypography.display(),
       displayMedium: AppTypography.pageTitle(),
+      displaySmall: AppTypography.titleLarge(),
+      headlineLarge: AppTypography.titleLarge(),
       headlineMedium: AppTypography.sectionTitle(),
-      headlineSmall: AppTypography.sectionTitle(),
+      headlineSmall: AppTypography.titleSmall(),
       titleLarge: AppTypography.sectionTitle(),
-      titleMedium: AppTypography.body(weight: FontWeight.w600),
+      titleMedium: AppTypography.titleSmall(),
+      titleSmall: AppTypography.jakarta(
+        fontSize: AppTextSize.base,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+      ),
       bodyLarge: AppTypography.body(),
-      bodyMedium: AppTypography.subtitle(),
-      bodySmall: AppTypography.caption(),
+      bodyMedium: AppTypography.body(),
+      bodySmall: AppTypography.form(),
       labelLarge: AppTypography.button(),
-      labelSmall: AppTypography.money(),
+      labelMedium: AppTypography.label(),
+      labelSmall: AppTypography.caption(),
     );
   }
 }

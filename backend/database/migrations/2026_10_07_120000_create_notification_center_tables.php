@@ -34,7 +34,7 @@ return new class extends Migration
             $table->json('channels');
             $table->timestamps();
 
-            $table->unique(['tenant_id', 'scope_key', 'event']);
+            $table->unique(['tenant_id', 'scope_key', 'event'], 'notif_prefs_tenant_scope_event_uq');
         });
 
         Schema::create('notification_channel_settings', function (Blueprint $table) {
@@ -64,7 +64,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['tenant_id', 'created_at']);
-            $table->index(['user_id', 'channel', 'fingerprint']);
+            $table->index(['user_id', 'channel', 'fingerprint'], 'notif_deliveries_user_channel_fp_idx');
             $table->index(['tenant_id', 'status']);
         });
 

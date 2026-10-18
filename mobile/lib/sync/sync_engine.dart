@@ -264,17 +264,20 @@ class SyncEngine extends ChangeNotifier {
   /// local movements. Nothing is deleted unless every operation is synced.
   Future<SyncReport> closePeriod({void Function(ClosePeriodStep step)? onStep}) async {
     onStep?.call(ClosePeriodStep.upload);
+    await OfflineStore.instance.reconcileAckedSales();
+    await OfflineStore.instance.requeueUnsentSales();
     final upload = await sendStock();
-    if (!upload.ok) return upload;
+    if (!upload.ok && upload.sent == 0 && activeTarget == null) return upload;
 
     onStep?.call(ClosePeriodStep.verify);
+    await OfflineStore.instance.reconcileAckedSales();
     await refreshCounts();
-    final unsyncedSales = await OfflineStore.instance.unsyncedSalesCount();
-    final left = pending + failed + conflicts + unsyncedSales;
-    if (left > 0) {
+    final blocked = await OfflineStore.instance.blockingOperationLabels();
+    if (blocked.isNotEmpty) {
+      final preview = blocked.take(6).join('\n');
       lastReport = SyncReport(
         ok: false,
-        message: trf('Période non clôturée : {0} opération(s) pas encore synchronisée(s).', [left]),
+        message: '${trf('Période non clôturée : {0} opération(s) pas encore synchronisée(s).', [blocked.length])}\n$preview',
         sent: upload.sent,
       );
       notifyListeners();

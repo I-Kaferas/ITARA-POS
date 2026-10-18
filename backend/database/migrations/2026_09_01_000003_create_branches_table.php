@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignUuid('company_id')->constrained('companies')->cascadeOnDelete();
             $table->string('name');
             $table->string('code', 50);
-            $table->jsonb('address')->nullable();
+            $table->json('address')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes();

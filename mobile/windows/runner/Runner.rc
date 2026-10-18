@@ -94,7 +94,7 @@ BEGIN
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "ITARA POS" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 ITARA. All rights reserved." "\0"
-            VALUE "OriginalFilename", "pos_mobile.exe" "\0"
+            VALUE "OriginalFilename", "ITARA_POS.exe" "\0"
             VALUE "ProductName", "ITARA POS" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('loyalty_points')->default(0)->after('payment_terms_days');
             $table->string('loyalty_tier', 30)->default('standard')->after('loyalty_points');
             $table->text('notes')->nullable()->after('loyalty_tier');
-            $table->jsonb('metadata')->nullable()->after('notes');
+            $table->json('metadata')->nullable()->after('notes');
 
             $table->unique(['tenant_id', 'code']);
             $table->index(['tenant_id', 'loyalty_tier']);

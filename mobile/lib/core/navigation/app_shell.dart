@@ -31,36 +31,6 @@ import 'config_top_bar.dart';
 import 'store_switcher_dialog.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
-void _onOverflowSelected(BuildContext context, String value) {
-  switch (value) {
-    case 'barcode':
-      context.go(AppRoutes.barcode);
-    case 'sync':
-      _syncStock(context);
-    case 'menu':
-      context.go(AppRoutes.menu);
-    case 'settings':
-      context.go(AppRoutes.cashierSettings);
-    case 'store':
-      openStoreSwitcher(context);
-    case 'logout':
-      _confirmLogout(context);
-  }
-}
-
-List<PopupMenuEntry<String>> _overflowItems() {
-  final admin = TerminalConfigRepository.instance.config.isAdmin;
-  return [
-    if (admin) PopupMenuItem(value: 'settings', child: Text(tr('Réglages'))),
-    PopupMenuItem(value: 'store', child: Text(tr('Changer de magasin'))),
-    PopupMenuItem(value: 'menu', child: Text(tr('Plus'))),
-    PopupMenuItem(value: 'barcode', child: Text(tr('Codes-barres'))),
-    PopupMenuItem(value: 'sync', child: Text(tr('Synchroniser le stock'))),
-    PopupMenuDivider(),
-    PopupMenuItem(value: 'logout', child: Text(tr('Se déconnecter'))),
-  ];
-}
-
 Future<void> _syncStock(BuildContext context) async {
   await SyncEngine.instance.refreshCounts();
   if (!context.mounted) return;
@@ -462,16 +432,22 @@ class AppShell extends StatelessWidget {
     ),
   ];
 
-  static List<_NavItem> _visibleTabs() {
+  static List<_NavItem> _visibleTabs({required bool admin}) {
     final prefs = CashierPreferences.instance;
     final tabs = _phoneTabs.where((t) => prefs.menuVisible(t.menuKey!)).toList();
-    if (tabs.length >= CashierPreferences.minVisibleMenus) return tabs;
-    return _phoneTabs
-        .where((t) => tabs.contains(t) || t.menuKey == 'overview' || t.menuKey == 'pos')
-        .toList();
+    final base = tabs.length >= CashierPreferences.minVisibleMenus
+        ? tabs
+        : _phoneTabs
+            .where((t) => tabs.contains(t) || t.menuKey == 'overview' || t.menuKey == 'pos')
+            .toList();
+    if (!admin) return base;
+    return [...base, _prefsItem];
   }
 
   static bool _tabMatches(_NavItem item, String location) {
+    if (item.route == AppRoutes.cashierSettings) {
+      return location == AppRoutes.cashierSettings;
+    }
     switch (item.route) {
       case AppRoutes.dashboard:
         return location == AppRoutes.dashboard ||
@@ -585,9 +561,9 @@ class AppShell extends StatelessWidget {
     final config = TerminalConfigRepository.instance.config;
     final location = GoRouterState.of(context).uri.path;
     final page = _currentPage(location);
-    final tabs = _visibleTabs();
+    final tabs = _visibleTabs(admin: config.isAdmin);
     final phoneTab = tabs.indexWhere((t) => _tabMatches(t, location));
-    final configuring = AppRoutes.isConfiguration(location);
+    final configuring = location == AppRoutes.configuration || location.startsWith(AppRoutes.hub);
     void exitConfiguration() => context.go(AppRoutes.pos);
 
     if (form.isDesk) {
@@ -649,10 +625,7 @@ class AppShell extends StatelessWidget {
           children: [
             Text(
               tr(page.label),
-              style: GoogleFonts.ibmPlexSans(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
+              style: AppTypography.titleSmall(),
             ),
             const _StoreSwitcher(style: _StoreSwitcherStyle.subtitle),
           ],
@@ -662,11 +635,6 @@ class AppShell extends StatelessWidget {
           const SizedBox(width: 4),
           const ThemeModeButton(),
           const CalculatorButton(),
-          PopupMenuButton<String>(
-            tooltip: tr('Plus'),
-            onSelected: (value) => _onOverflowSelected(context, value),
-            itemBuilder: (context) => _overflowItems(),
-          ),
         ],
       ),
       body: KeyedSubtree(
@@ -684,8 +652,8 @@ class AppShell extends StatelessWidget {
           }),
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
-            return GoogleFonts.ibmPlexSans(
-              fontSize: 11,
+            return AppTypography.plex(
+              fontSize: AppTextSize.xs,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               color: selected ? AppColors.brandInk : AppColors.textSecondary,
             );
@@ -774,12 +742,12 @@ class _Sidebar extends StatelessWidget {
                     children: [
                       Text(
                         tr(brand),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.jakarta(
                           color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                          letterSpacing: -0.4,
-                          height: 1.15,
+                          fontWeight: FontWeight.w700,
+                          fontSize: AppTextSize.lg,
+                          letterSpacing: -0.3,
+                          height: 1.2,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -787,24 +755,11 @@ class _Sidebar extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         tr('Point of Sale'),
-                        style: GoogleFonts.ibmPlexSans(
+                        style: AppTypography.caption(
                           color: AppColors.sidebarText.withValues(alpha: 0.72),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
-                  ),
-                ),
-                Material(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(10),
-                  child: PopupMenuButton<String>(
-                    tooltip: tr('RÃ©glages'),
-                    padding: EdgeInsets.zero,
-                    icon: Icon(Icons.more_horiz, color: AppColors.sidebarText.withValues(alpha: 0.9), size: 20),
-                    onSelected: (value) => _onOverflowSelected(context, value),
-                    itemBuilder: (context) => _overflowItems(),
                   ),
                 ),
               ],

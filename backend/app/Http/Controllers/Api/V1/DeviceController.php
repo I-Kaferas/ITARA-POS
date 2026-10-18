@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\Device;
 use App\Models\Store;
 use App\Models\Tenant;
@@ -185,10 +186,13 @@ class DeviceController extends Controller
             'last_sync_at' => now(),
         ])->save();
 
-        $fresh = $device->fresh('warehouses');
+        $fresh = $device->fresh(['warehouses', 'store.branch', 'branch']);
         $this->broadcastDevice($fresh, 'device.connected');
 
-        return response()->json(['data' => $this->present($fresh)]);
+        $payload = $this->present($fresh);
+        $payload['company'] = $this->companySnapshot($fresh);
+
+        return response()->json(['data' => $payload]);
     }
 
     public function heartbeat(Request $request, Device $device): JsonResponse
@@ -278,6 +282,24 @@ class DeviceController extends Controller
         return ['pos', 'printer', 'tablet', 'computer', 'other', 'scanner'];
     }
 
+    private function isHostOrIp(string $value): bool
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return false;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_IP) !== false) {
+            return true;
+        }
+
+        // Single-label hosts (localhost, CAISSE-01) or FQDN.
+        return (bool) preg_match(
+            '/^(?=.{1,253}$)([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)(\.([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?))*$/',
+            $value,
+        );
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -304,7 +326,15 @@ class DeviceController extends Controller
             'platform' => ['nullable', 'string', 'max:50'],
             'app_version' => ['nullable', 'string', 'max:30'],
             'connection_type' => ['nullable', 'string', 'in:network,usb,bluetooth'],
-            'ip_address' => ['nullable', 'ip'],
+            // LAN terminals often use a hostname (PC-CAISSE, localhost) rather than a raw IP.
+            'ip_address' => ['nullable', 'string', 'max:255', function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($value === null || $value === '') {
+                    return;
+                }
+                if (! is_string($value) || ! $this->isHostOrIp($value)) {
+                    $fail('L’adresse réseau doit être une IP ou un nom d’hôte valide.');
+                }
+            }],
             'port' => ['nullable', 'integer', 'between:1,65535'],
             'description' => ['nullable', 'string', 'max:1000'],
             'is_active' => ['boolean'],
@@ -373,6 +403,41 @@ class DeviceController extends Controller
                 'identifier' => $device->identifier,
             ],
         );
+    }
+
+    /**
+     * Company, tenant and store carried by a join key, so the terminal can
+     * fill its configuration from the token alone.
+     *
+     * @return array<string, mixed>
+     */
+    private function companySnapshot(Device $device): array
+    {
+        $company = Company::query()->where('is_active', true)->oldest()->first()
+            ?? Company::query()->oldest()->first();
+        $tenant = $device->tenant_id ? Tenant::query()->find($device->tenant_id) : null;
+        $store = $device->store;
+        $address = $company?->address ?: $tenant?->address;
+
+        return [
+            'id' => $company?->id,
+            'name' => $company?->trade_name ?: ($company?->name ?: ($tenant?->trade_name ?: $tenant?->name)),
+            'legal_name' => $company?->legal_name ?: $tenant?->legal_name,
+            'tax_id' => $company?->tax_id ?: $tenant?->tax_id,
+            'phone' => $company?->phone ?: $tenant?->phone,
+            'email' => $company?->email ?: $tenant?->email,
+            'logo_url' => $company?->logo_url ?: $tenant?->logo_url,
+            'currency_code' => $company?->currency_code ?: $tenant?->currency_code,
+            'locale' => $company?->locale ?: $tenant?->locale,
+            'timezone' => $company?->timezone ?: $tenant?->timezone,
+            'address' => is_array($address) ? $address : null,
+            'tenant_id' => $device->tenant_id,
+            'tenant_slug' => $tenant?->slug,
+            'tenant_name' => $tenant?->name,
+            'store_id' => $device->store_id,
+            'store_name' => $store?->name,
+            'branch_name' => $device->branch?->name ?? $store?->branch?->name,
+        ];
     }
 
     /**

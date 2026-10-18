@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -417,88 +418,169 @@ class _AuthHero extends StatelessWidget {
     final brand = config.brandName.trim().isEmpty ? 'ITARA' : config.brandName.trim();
     return ColoredBox(
       color: AppColors.brand600,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 36, 40, 32),
-        child: ListenableBuilder(
-          listenable: LocaleController.instance,
-          builder: (context, _) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Positioned.fill(child: _ThinkingOrbs()),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(40, 36, 40, 32),
+            child: ListenableBuilder(
+              listenable: LocaleController.instance,
+              builder: (context, _) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _BrandMark(logoUrl: config.brandLogoUrl, initials: _initials(brand), compact: true),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tr(brand),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.plex(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
+                    Row(
+                      children: [
+                        _BrandMark(logoUrl: config.brandLogoUrl, initials: _initials(brand), compact: true),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                tr(brand),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.plex(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                tr('ITARA POS'),
+                                style: AppTypography.plex(
+                                  color: AppColors.accent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            tr('ITARA POS'),
-                            style: AppTypography.plex(
-                              color: AppColors.accent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Container(width: 42, height: 3, color: AppColors.accent),
+                    const SizedBox(height: 18),
+                    Text(
+                      tr(_greeting()),
+                      style: AppTypography.plex(
+                        color: AppColors.accent,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      AppCopy.get('loginHeadline'),
+                      style: AppTypography.display(color: Colors.white).copyWith(height: 1.1),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      AppCopy.get('loginPitch'),
+                      style: AppTypography.plex(color: AppColors.sidebarText, fontSize: 15, height: 1.45),
+                    ),
+                    const SizedBox(height: 28),
+                    _ProductPoint(index: '01', title: AppCopy.get('loginSale'), hint: AppCopy.get('loginSaleHint')),
+                    const SizedBox(height: 12),
+                    _ProductPoint(index: '02', title: AppCopy.get('loginStock'), hint: AppCopy.get('loginStockHint')),
+                    const SizedBox(height: 12),
+                    _ProductPoint(index: '03', title: AppCopy.get('loginShops'), hint: AppCopy.get('loginShopsHint')),
+                    const Spacer(),
                   ],
-                ),
-                const Spacer(),
-                Container(width: 42, height: 3, color: AppColors.accent),
-                const SizedBox(height: 18),
-                Text(
-                  tr(_greeting()),
-                  style: AppTypography.plex(
-                    color: AppColors.accent,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  AppCopy.get('loginHeadline'),
-                  style: AppTypography.plex(
-                    color: Colors.white,
-                    fontSize: 36,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.8,
-                    height: 1.05,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  AppCopy.get('loginPitch'),
-                  style: AppTypography.plex(color: AppColors.sidebarText, fontSize: 15, height: 1.45),
-                ),
-                const SizedBox(height: 28),
-                _ProductPoint(index: '01', title: AppCopy.get('loginSale'), hint: AppCopy.get('loginSaleHint')),
-                const SizedBox(height: 12),
-                _ProductPoint(index: '02', title: AppCopy.get('loginStock'), hint: AppCopy.get('loginStockHint')),
-                const SizedBox(height: 12),
-                _ProductPoint(index: '03', title: AppCopy.get('loginShops'), hint: AppCopy.get('loginShopsHint')),
-                const Spacer(),
-              ],
-            );
-          },
-        ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+/// Soft drifting glow orbs behind the navy login hero.
+class _ThinkingOrbs extends StatefulWidget {
+  const _ThinkingOrbs();
+
+  @override
+  State<_ThinkingOrbs> createState() => _ThinkingOrbsState();
+}
+
+class _ThinkingOrbsState extends State<_ThinkingOrbs> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 18))..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceMotion(context)) {
+      if (_controller.isAnimating) _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return CustomPaint(
+            painter: _ThinkingOrbsPainter(t: _controller.value),
+            child: const SizedBox.expand(),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ThinkingOrbsPainter extends CustomPainter {
+  _ThinkingOrbsPainter({required this.t});
+
+  final double t;
+
+  static const _orbs = <({double ax, double ay, double r, Color color, double phase, double speed})>[
+    (ax: 0.18, ay: 0.22, r: 0.22, color: Color(0x33E39B2B), phase: 0.0, speed: 1.0),
+    (ax: 0.78, ay: 0.18, r: 0.18, color: Color(0x283A6B9A), phase: 1.2, speed: 0.85),
+    (ax: 0.62, ay: 0.72, r: 0.26, color: Color(0x2EE39B2B), phase: 2.4, speed: 1.15),
+    (ax: 0.12, ay: 0.78, r: 0.16, color: Color(0x222F6F9A), phase: 0.7, speed: 0.9),
+    (ax: 0.48, ay: 0.48, r: 0.14, color: Color(0x18FFFFFF), phase: 3.1, speed: 1.3),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final minSide = math.min(size.width, size.height);
+    for (final orb in _orbs) {
+      final angle = (t * orb.speed * math.pi * 2) + orb.phase;
+      final dx = math.sin(angle) * minSide * 0.06;
+      final dy = math.cos(angle * 0.85) * minSide * 0.05;
+      final pulse = 0.88 + 0.12 * math.sin(angle * 1.4);
+      final center = Offset(size.width * orb.ax + dx, size.height * orb.ay + dy);
+      final radius = minSide * orb.r * pulse;
+      final paint = Paint()..color = orb.color;
+      canvas.drawCircle(center, radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ThinkingOrbsPainter oldDelegate) => oldDelegate.t != t;
 }
 
 class _ProductPoint extends StatelessWidget {
@@ -967,18 +1049,13 @@ class _StaffPane extends StatelessWidget {
             Text(
               AppCopy.get('pinTitle'),
               textAlign: TextAlign.center,
-              style: AppTypography.plex(
-                color: AppColors.brand600,
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
-              ),
+              style: AppTypography.pageTitle(color: AppColors.brandInk),
             ),
             const SizedBox(height: 8),
             Text(
               AppCopy.get('pinHint'),
               textAlign: TextAlign.center,
-              style: AppTypography.plex(color: AppColors.textSecondary, fontSize: 14, height: 1.4),
+              style: AppTypography.form(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 26),
             _PinDots(length: length, hasError: error != null),
@@ -1023,20 +1100,20 @@ class _StaffPane extends StatelessWidget {
             ],
             if (loading) ...[
               const SizedBox(height: 16),
-              const SizedBox(
+              SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brand700),
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brandInk),
               ),
             ],
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: loading ? null : onTogglePad,
-              style: TextButton.styleFrom(foregroundColor: AppColors.brand700),
+              style: TextButton.styleFrom(foregroundColor: AppColors.brandInk),
               icon: Icon(showPad ? Icons.keyboard_hide_outlined : Icons.dialpad_rounded, size: 18),
               label: Text(
                 AppCopy.get(showPad ? 'hideKeypad' : 'useKeypad'),
-                style: AppTypography.plex(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.brand700),
+                style: AppTypography.plex(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.brandInk),
               ),
             ),
             if (showPad) ...[
@@ -1082,18 +1159,13 @@ class _RootPane extends StatelessWidget {
             Text(
               AppCopy.get('settingsMode'),
               textAlign: TextAlign.center,
-              style: AppTypography.plex(
-                color: AppColors.brandInk,
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
-              ),
+              style: AppTypography.pageTitle(color: AppColors.brandInk),
             ),
             const SizedBox(height: 8),
             Text(
               AppCopy.get('ownerHint'),
               textAlign: TextAlign.center,
-              style: AppTypography.plex(color: AppColors.textSecondary, fontSize: 14, height: 1.4),
+              style: AppTypography.form(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 14),
             Container(
@@ -1212,7 +1284,7 @@ class _PinDots extends StatelessWidget {
       children: List.generate(4, (index) {
         final filled = index < length;
         final active = !hasError && index == length && length < 4;
-        final color = hasError ? AppColors.danger : AppColors.brand700;
+        final color = hasError ? AppColors.danger : AppColors.brandInk;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           margin: const EdgeInsets.symmetric(horizontal: 7),
@@ -1282,11 +1354,11 @@ class _Pad extends StatelessWidget {
               ),
               child: Center(
                 child: key == 'back'
-                    ? const Icon(Icons.backspace_outlined, color: AppColors.brand700, size: 20)
+                    ? Icon(Icons.backspace_outlined, color: AppColors.brandInk, size: 20)
                     : Text(
                         tr(key == 'clear' ? 'C' : key),
                         style: AppTypography.plex(
-                          color: utility ? AppColors.brand700 : AppColors.textPrimary,
+                          color: utility ? AppColors.brandInk : AppColors.textPrimary,
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
                         ),
