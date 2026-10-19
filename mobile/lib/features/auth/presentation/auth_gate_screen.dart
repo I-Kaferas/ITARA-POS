@@ -178,14 +178,10 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       final decoded = jsonDecode(response.body);
       final body = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
       if (response.statusCode != 200) {
-        final message = body['message']?.toString()
-            ?? (body['errors'] is Map
-                ? ((body['errors'] as Map).values.first is List
-                    ? ((body['errors'] as Map).values.first as List).first?.toString()
-                    : null)
-                : null)
-            ?? 'Connexion refusée (HTTP ${response.statusCode})';
-        throw Exception(humanizeApiCode(message));
+        throw Exception(apiEnvelopeMessage(
+          body,
+          fallback: 'Connexion refusée (HTTP ${response.statusCode})',
+        ));
       }
 
       final access = (body['access_token'] as String? ?? '').trim();

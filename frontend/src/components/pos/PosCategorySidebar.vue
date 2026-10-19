@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import AppIcon from '../ui/AppIcon.vue'
 import type { PosCategory } from '../../types/pos'
 
 defineProps<{
@@ -16,101 +17,166 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const CATEGORY_ICONS = [
+  'products',
+  'coffee',
+  'catering',
+  'package',
+  'layers',
+  'fridge',
+  'sparkles',
+  'tag',
+  'inventory',
+  'coins',
+] as const
+
+function iconFor(index: number) {
+  return CATEGORY_ICONS[index % CATEGORY_ICONS.length]
+}
 </script>
 
 <template>
-  <div
-    v-if="loading"
-    class="pos-cat-tabs"
-    role="status"
-    :aria-label="t('common.loading')"
-  >
-    <span
-      v-for="i in 5"
-      :key="i"
-      class="pos-cat-tabs__chip pos-cat-tabs__chip--skel ui-skeleton"
-      :style="{ width: `${5.2 + (i % 3) * 1.1}rem` }"
-      aria-hidden="true"
-    />
-  </div>
-  <div v-else class="pos-cat-tabs" role="tablist" :aria-label="t('pos.categories')">
-    <button
-      type="button"
-      role="tab"
-      class="pos-cat-tabs__chip"
-      :class="{ 'pos-cat-tabs__chip--active': selectedCategoryId === null }"
-      :aria-selected="selectedCategoryId === null"
-      @click="emit('select', null)"
+  <div class="pos-cats">
+    <div
+      v-if="loading"
+      class="pos-cats__row"
+      role="status"
+      :aria-label="t('common.loading')"
     >
-      {{ allLabel }} ({{ totalCount ?? 0 }})
-    </button>
-    <button
-      v-for="category in categories"
-      :key="category.id"
-      type="button"
-      role="tab"
-      class="pos-cat-tabs__chip"
-      :class="{ 'pos-cat-tabs__chip--active': selectedCategoryId === category.id }"
-      :aria-selected="selectedCategoryId === category.id"
-      @click="emit('select', category.id)"
-    >
-      {{ category.name }} ({{ counts?.[category.id] ?? 0 }})
-    </button>
+      <span
+        v-for="i in 6"
+        :key="i"
+        class="pos-cats__tile pos-cats__tile--skel ui-skeleton"
+        aria-hidden="true"
+      />
+    </div>
+    <div v-else class="pos-cats__row" role="tablist" :aria-label="t('pos.categories')">
+      <button
+        type="button"
+        role="tab"
+        class="pos-cats__tile"
+        :class="{ 'pos-cats__tile--active': selectedCategoryId === null }"
+        :aria-selected="selectedCategoryId === null"
+        @click="emit('select', null)"
+      >
+        <span class="pos-cats__icon">
+          <AppIcon name="menu" :size="20" />
+        </span>
+        <span class="pos-cats__label">{{ allLabel }}</span>
+        <span class="pos-cats__count">{{ totalCount ?? 0 }}</span>
+      </button>
+      <button
+        v-for="(category, index) in categories"
+        :key="category.id"
+        type="button"
+        role="tab"
+        class="pos-cats__tile"
+        :class="{ 'pos-cats__tile--active': selectedCategoryId === category.id }"
+        :aria-selected="selectedCategoryId === category.id"
+        @click="emit('select', category.id)"
+      >
+        <span class="pos-cats__icon">
+          <AppIcon :name="iconFor(index)" :size="20" />
+        </span>
+        <span class="pos-cats__label">{{ category.name }}</span>
+        <span class="pos-cats__count">{{ counts?.[category.id] ?? 0 }}</span>
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.pos-cat-tabs {
+.pos-cats {
+  min-width: 0;
+}
+
+.pos-cats__row {
   display: flex;
   flex-wrap: nowrap;
-  gap: 2px;
+  gap: 0.65rem;
   overflow-x: auto;
-  margin-bottom: 0.35rem;
-  padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
-  backdrop-filter: blur(12px);
+  padding: 0.15rem 0.1rem 0.35rem;
   scrollbar-width: thin;
 }
 
-.pos-cat-tabs__chip {
-  flex-shrink: 0;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
+.pos-cats__tile {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 4.6rem;
+  max-width: 5.6rem;
+  padding: 0.7rem 0.55rem 0.55rem;
+  border: 1px solid var(--color-border, #dbe3ea);
+  border-radius: 14px;
+  background: var(--color-surface, #fff);
   color: var(--color-text-secondary);
-  padding: 0.45rem 0.95rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(18, 36, 60, 0.04);
   transition:
-    background var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out),
-    box-shadow var(--motion-fast) var(--ease-out);
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
 }
 
-.pos-cat-tabs__chip:hover {
-  background: color-mix(in srgb, var(--color-canvas) 80%, transparent);
+.pos-cats__tile:hover {
+  border-color: color-mix(in srgb, var(--color-brand-600, #12243c) 28%, var(--color-border));
   color: var(--color-text-primary);
+  transform: translateY(-1px);
 }
 
-.pos-cat-tabs__chip:focus-visible {
+.pos-cats__tile:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-focus-ring);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-focus-ring, #e39b2b);
 }
 
-.pos-cat-tabs__chip--skel {
+.pos-cats__tile--skel {
+  width: 4.8rem;
+  height: 5.1rem;
   pointer-events: none;
-  height: 2.15rem;
   border: 0;
 }
 
-.pos-cat-tabs__chip--active {
-  background: var(--color-brand-600);
-  border-color: var(--color-brand-600);
+.pos-cats__tile--active {
+  background: var(--color-brand-600, #12243c);
+  border-color: var(--color-brand-600, #12243c);
   color: #fff;
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--color-brand-600) 28%, transparent);
+  box-shadow: 0 8px 18px rgba(18, 36, 60, 0.18);
+}
+
+.pos-cats__icon {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--color-brand-600, #12243c) 8%, var(--color-canvas, #eef1f5));
+  color: var(--color-brand-600, #12243c);
+}
+
+.pos-cats__tile--active .pos-cats__icon {
+  background: color-mix(in srgb, #fff 18%, transparent);
+  color: #fff;
+}
+
+.pos-cats__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pos-cats__count {
+  font-size: 0.65rem;
+  font-weight: 600;
+  opacity: 0.7;
 }
 </style>

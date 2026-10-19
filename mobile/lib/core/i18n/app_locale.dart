@@ -90,6 +90,7 @@ abstract final class AppCopy {
     'storeNotFound': 'Ce magasin est introuvable.',
     'sessionExpired': 'Session expirée. Reconnectez-vous.',
     'connectionFailed': 'Impossible de joindre le serveur. Vérifiez que l’API tourne sur 127.0.0.1:8001, puis réessayez.',
+    'validationFailed': 'Email, mot de passe ou PIN incorrect.',
     'welcomeTitle': 'Bienvenue sur ITARA POS',
     'welcomeBody': 'La langue est choisie ici. Ensuite, le compte administrateur ouvre la configuration complète du commerce.',
     'createMaster': 'Créer un Master',
@@ -167,6 +168,7 @@ abstract final class AppCopy {
     'storeNotFound': 'This store was not found.',
     'sessionExpired': 'Session expired. Sign in again.',
     'connectionFailed': 'Cannot reach the server. Check that the API is running on 127.0.0.1:8001, then try again.',
+    'validationFailed': 'Email, password or PIN is incorrect.',
     'welcomeTitle': 'Welcome to ITARA POS',
     'welcomeBody': 'Choose the language here. The administrator account then opens the full store configuration.',
     'createMaster': 'Create a Master',
@@ -244,6 +246,7 @@ abstract final class AppCopy {
     'storeNotFound': 'Duka hili halipatikani.',
     'sessionExpired': 'Kipindi kimekwisha. Ingia tena.',
     'connectionFailed': 'Seva haipatikani. Hakikisha API inaendesha kwenye 127.0.0.1:8001, kisha jaribu tena.',
+    'validationFailed': 'Barua pepe, nenosiri au PIN si sahihi.',
     'welcomeTitle': 'Karibu ITARA POS',
     'welcomeBody': 'Chagua lugha hapa. Akaunti ya msimamizi inafungua mipangilio yote ya duka.',
     'createMaster': 'Unda Master',
@@ -296,6 +299,7 @@ String humanizeApiCode(String raw) {
     'errors.store_not_found': 'storeNotFound',
     'errors.store_inactive': 'storeMismatch',
     'errors.unauthenticated': 'sessionExpired',
+    'errors.validation': 'validationFailed',
     'errors.connection': 'connectionFailed',
     'errors.offline': 'connectionFailed',
     'errors.network': 'connectionFailed',
@@ -321,6 +325,33 @@ String humanizeApiCode(String raw) {
     return AppCopy.get('connectionFailed');
   }
   return code;
+}
+
+/// Prefers the first field message from an API error body over the generic code.
+String apiEnvelopeMessage(Object? body, {String fallback = 'Connexion refusée'}) {
+  if (body is Map) {
+    final errors = body['errors'];
+    if (errors is Map) {
+      for (final value in errors.values) {
+        final text = _firstApiErrorText(value);
+        if (text != null) return humanizeApiCode(text);
+      }
+    }
+    final message = body['message']?.toString().trim() ?? '';
+    if (message.isNotEmpty) return humanizeApiCode(message);
+  }
+  return humanizeApiCode(fallback);
+}
+
+String? _firstApiErrorText(Object? value) {
+  if (value is List) {
+    for (final item in value) {
+      final text = item?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    }
+  }
+  if (value is String && value.trim().isNotEmpty) return value.trim();
+  return null;
 }
 
 class LanguagePicker extends StatelessWidget {

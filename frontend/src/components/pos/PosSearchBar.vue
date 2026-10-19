@@ -64,17 +64,19 @@ defineExpose({ focus })
 
 .pos-search__input {
   width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: 0.85rem;
-  padding: 0.78rem 1rem 0.78rem 2.55rem;
-  font-size: 0.95rem;
-  background: var(--color-surface);
+  max-width: 22rem;
+  border: 1px solid var(--color-border, #dbe3ea);
+  border-radius: 999px;
+  padding: 0.7rem 1rem 0.7rem 2.55rem;
+  font-size: 0.88rem;
+  background: var(--color-surface, #fff);
   color: var(--color-text-primary);
-  box-shadow: var(--shadow-xs);}
+  box-shadow: 0 1px 2px rgba(18, 36, 60, 0.04);
+}
 
 .pos-search__input:focus {
-  outline: 2px solid color-mix(in srgb, var(--color-brand-600) 35%, transparent);
-  border-color: var(--color-brand-400, var(--color-brand-600));
+  outline: 2px solid color-mix(in srgb, var(--color-accent, #e39b2b) 45%, transparent);
+  border-color: var(--color-accent, #e39b2b);
 }
 
 .pos-search__input::-webkit-search-cancel-button {

@@ -8,6 +8,8 @@ use App\Models\Category;
 use App\Models\Company;
 use App\Models\Currency;
 use App\Models\CashRegister;
+use App\Models\PosTable;
+use App\Models\PosTableZone;
 use App\Models\Price;
 use App\Models\Product;
 use App\Models\Promotion;
@@ -331,6 +333,46 @@ class DatabaseSeeder extends Seeder
             'code' => 'REG-01',
             'is_active' => true,
         ]);
+
+        foreach ([$store, $storeNord] as $floorStore) {
+            $salle = PosTableZone::query()->create([
+                'tenant_id' => $tenant->id,
+                'store_id' => $floorStore->id,
+                'name' => 'Salle',
+                'description' => 'Salle principale',
+                'sort_order' => 0,
+                'is_active' => true,
+            ]);
+            $terrasse = PosTableZone::query()->create([
+                'tenant_id' => $tenant->id,
+                'store_id' => $floorStore->id,
+                'name' => 'Terrasse',
+                'description' => 'Terrasse',
+                'sort_order' => 1,
+                'is_active' => true,
+            ]);
+            foreach ([
+                ['T1', 'T01', 2, $salle->id],
+                ['T2', 'T02', 2, $salle->id],
+                ['T3', 'T03', 4, $salle->id],
+                ['T4', 'T04', 4, $salle->id],
+                ['T5', 'T05', 6, $salle->id],
+                ['T6', 'T06', 4, $terrasse->id],
+                ['T7', 'T07', 4, $terrasse->id],
+                ['T8', 'T08', 8, $terrasse->id],
+            ] as [$name, $code, $capacity, $zoneId]) {
+                PosTable::query()->create([
+                    'tenant_id' => $tenant->id,
+                    'store_id' => $floorStore->id,
+                    'zone_id' => $zoneId,
+                    'name' => $name,
+                    'code' => $code,
+                    'capacity' => $capacity,
+                    'status' => 'available',
+                    'is_active' => true,
+                ]);
+            }
+        }
 
         $cashier = User::query()->updateOrCreate(
             ['email' => 'cashier@pos.local'],

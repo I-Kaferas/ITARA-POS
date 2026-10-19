@@ -147,10 +147,7 @@ class PinAuthService {
     } catch (_) {}
 
     if (response.statusCode != 200) {
-      final errors = body['errors'] as Map<String, dynamic>?;
-      final pinError = (errors?['pin'] as List?)?.first?.toString();
-      final deviceError = (errors?['device_id'] as List?)?.first?.toString();
-      throw Exception(humanizeApiCode(pinError ?? deviceError ?? body['message']?.toString() ?? 'PIN refusé'));
+      throw Exception(apiEnvelopeMessage(body, fallback: 'PIN refusé'));
     }
 
     final user = body['user'] as Map<String, dynamic>? ?? {};

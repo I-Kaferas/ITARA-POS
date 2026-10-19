@@ -10,15 +10,43 @@ import PosFooterPanel from '../../../components/pos/PosFooterPanel.vue'
 import PosProductGrid from '../../../components/pos/PosProductGrid.vue'
 import PosSearchBar from '../../../components/pos/PosSearchBar.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import { api, extractApiErrorMessage } from '../../../api/client'
 import { printSaleDocument } from '../../../utils/printSaleDocument'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { useContextStore } from '../../../stores/context'
 import { usePosStore } from '../../../stores/pos'
 import AppModal from '../../../components/ui/AppModal.vue'
+import Badge from '../../../components/ui/Badge.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { formatMoney } from '../../../utils/money'
+import { formatDateTime } from '../../../utils/format'
 import type { PosProduct } from '../../../types/pos'
 import { availableStock, needsSaleQuantity } from '../../../utils/product'
+
+type FloorTableStatus = 'available' | 'occupied' | 'reserved' | 'cleaning' | 'inactive'
+interface FloorTableOption {
+  id: string
+  name: string
+  code?: string
+  capacity?: number
+  status: FloorTableStatus
+  is_active?: boolean
+  zone?: { id: string; name: string } | null
+  current_sale_id?: string | null
+  current_sale?: {
+    id: string
+    reference: string
+    total: number
+    item_count: number
+    opened_at?: string | null
+    server?: { id: string; name: string } | null
+  } | null
+  reservation?: {
+    guest_name: string
+    party_size: number
+    reserved_at?: string | null
+  } | null
+}
 
 const { t } = useI18n()
 const route = useRoute()
@@ -43,6 +71,12 @@ const optionQty = ref(1)
 const accompanimentHost = ref<{ product: PosProduct; lineId: string } | null>(null)
 const selectedAccompanimentIds = ref<string[]>([])
 const cartOpen = ref(false)
+const showTablePicker = ref(false)
+const tablePickerLoading = ref(false)
+const tablePickerSaving = ref(false)
+const tablePickerError = ref('')
+const floorTables = ref<FloorTableOption[]>([])
+
 function chooseDelivery() {
   if (pos.activeTable) return
   pos.orderMode = 'delivery'
@@ -75,7 +109,7 @@ const footerLabels = computed(() => ({
   hold: t('pos.hold'),
   retrieve: t('pos.retrieve'),
   cancel: t('pos.cancel'),
-  pay: t('pos.pay'),
+  pay: t('pos.confirmPay'),
   searchCustomer: t('pos.searchCustomer'),
   discountType: t('pos.discountType'),
   fixed: t('pos.fixed'),
@@ -120,6 +154,182 @@ const lineTotalsById = computed(() => {
   }
   return map
 })
+
+const quantitiesByProductId = computed(() => {
+  const map: Record<string, number> = {}
+  for (const line of pos.lines) {
+    if (line.isAccompaniment) continue
+    map[line.product.product_id] = (map[line.product.product_id] ?? 0) + line.quantity
+  }
+  return map
+})
+
+const uiOrderMode = computed<'dine_in' | 'takeaway' | 'delivery'>(() => {
+  if (pos.activeTable) return 'dine_in'
+  return pos.orderMode
+})
+
+function setOrderMode(mode: 'dine_in' | 'takeaway' | 'delivery') {
+  if (mode === 'dine_in') {
+    void openTablePicker()
+    return
+  }
+  if (pos.activeTable) {
+    pos.setActiveTable(null)
+  }
+  if (mode === 'delivery') {
+    chooseDelivery()
+    return
+  }
+  pos.orderMode = 'takeaway'
+}
+
+async function openTablePicker() {
+  showTablePicker.value = true
+  tablePickerError.value = ''
+  await loadFloorTables()
+}
+
+async function loadFloorTables() {
+  const storeId = context.currentStoreId
+  if (!storeId) {
+    floorTables.value = []
+    tablePickerError.value = t('pos.selectStore')
+    return
+  }
+  tablePickerLoading.value = true
+  tablePickerError.value = ''
+  try {
+    const res = await api.get<{
+      data?: { tables?: FloorTableOption[] } | FloorTableOption[]
+      tables?: FloorTableOption[]
+    }>(`/stores/${storeId}/pos/tables`)
+    const raw = res.data
+    const list = Array.isArray(raw)
+      ? raw
+      : (raw?.tables ?? res.tables ?? [])
+    floorTables.value = list.filter(table => table.is_active !== false && table.status !== 'inactive')
+  } catch (e) {
+    floorTables.value = []
+    tablePickerError.value = extractApiErrorMessage(e, t('pointOfSale.tables.loadError'))
+  } finally {
+    tablePickerLoading.value = false
+  }
+}
+
+function tableStatusLabel(status: FloorTableStatus) {
+  const key = `pointOfSale.tables.status.${status}`
+  const label = t(key)
+  return label === key ? status : label
+}
+
+function tableStatusVariant(status: FloorTableStatus): 'success' | 'warning' | 'brand' | 'neutral' {
+  if (status === 'available') return 'success'
+  if (status === 'occupied') return 'warning'
+  if (status === 'reserved') return 'brand'
+  return 'neutral'
+}
+
+function isTableSelectable(table: FloorTableOption) {
+  return table.status === 'available' || table.status === 'reserved'
+}
+
+function formatTableTime(value?: string | null) {
+  if (!value) return '—'
+  return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+}
+
+async function clearSelectedTable() {
+  pos.setActiveTable(null)
+  pos.orderMode = 'takeaway'
+  showTablePicker.value = false
+}
+
+async function pickFloorTable(table: FloorTableOption) {
+  const storeId = context.currentStoreId
+  if (!storeId || tablePickerSaving.value) return
+  if (table.status === 'occupied') {
+    tablePickerError.value = t('pos.tableOccupied')
+    return
+  }
+  if (table.status === 'cleaning' || table.status === 'inactive') {
+    tablePickerError.value = t('pos.tableCleaning')
+    return
+  }
+
+  tablePickerSaving.value = true
+  tablePickerError.value = ''
+  try {
+    if (table.status === 'reserved') {
+      const res = await api.post<{ data: { sale: { id: string } } }>(
+        `/stores/${storeId}/pos/tables/${table.id}/open`,
+        { confirm_reserved: true },
+      )
+      await pos.retrieveSale(res.data.sale.id)
+      pos.setActiveTable({ id: table.id, name: table.name, code: table.code })
+      showTablePicker.value = false
+      return
+    }
+
+    // Available table: open server-side order then attach, or just bind if cart already open
+    if (pos.lines.length > 0 || pos.pendingSaleId) {
+      pos.setActiveTable({ id: table.id, name: table.name, code: table.code })
+      if (pos.pendingSaleId) {
+        await pos.persistTableOrder().catch(() => undefined)
+      }
+      showTablePicker.value = false
+      return
+    }
+
+    const res = await api.post<{ data: { sale: { id: string } } }>(
+      `/stores/${storeId}/pos/tables/${table.id}/open`,
+      { confirm_reserved: false },
+    )
+    await pos.retrieveSale(res.data.sale.id)
+    pos.setActiveTable({ id: table.id, name: table.name, code: table.code })
+    showTablePicker.value = false
+  } catch (e) {
+    tablePickerError.value = extractApiErrorMessage(e, t('pointOfSale.tables.openError'))
+  } finally {
+    tablePickerSaving.value = false
+  }
+}
+
+function onProductIncrement(product: PosProduct) {
+  if (hasComplexOptions(product)) {
+    onAddProduct(product)
+    return
+  }
+  const existing = pos.lines.find(line => line.product.product_id === product.product_id && !line.isAccompaniment)
+  if (existing) {
+    pos.incrementQuantity(existing.lineId)
+    return
+  }
+  onAddProduct(product)
+}
+
+function onProductDecrement(product: PosProduct) {
+  const existing = [...pos.lines]
+    .reverse()
+    .find(line => line.product.product_id === product.product_id && !line.isAccompaniment)
+  if (!existing) return
+  if (existing.quantity <= 1) {
+    pos.removeLine(existing.lineId)
+    return
+  }
+  pos.decrementQuantity(existing.lineId)
+}
+
+function hasComplexOptions(product: PosProduct) {
+  return (product.variants?.length ?? 0) > 0
+    || product.product_type === 'variant'
+    || (product.option_groups?.length ?? 0) > 0
+    || (product.sale_units?.length ?? 0) > 1
+}
+
+function heldItemCount(sale: { lines: { quantity: number }[] }) {
+  return sale.lines.reduce((sum, line) => sum + line.quantity, 0)
+}
 
 const categoryCounts = computed(() => {
   const direct: Record<string, number> = {}
@@ -503,14 +713,6 @@ onUnmounted(() => {
       </div>
 
       <template v-else>
-        <div v-if="pos.activeTable" class="pos-table-banner">
-          <strong>{{ pos.activeTable.name }}</strong>
-          <span>{{ t('pointOfSale.tables.status.occupied') }}</span>
-          <button type="button" class="btn-secondary" @click="router.push({ name: 'pos-tables' })">
-            {{ t('nav.posTables') }}
-          </button>
-        </div>
-
         <div class="pos-workspace" :class="{ 'pos-workspace--cart-open': cartOpen }">
           <button
             v-if="cartOpen"
@@ -521,65 +723,77 @@ onUnmounted(() => {
           />
 
           <section class="pos-main">
-            <div class="pos-toolbar">
-              <PosSearchBar
-                ref="searchRef"
-                v-model="searchQuery"
-                :placeholder="t('pos.searchProducts')"
-                @submit="onSearchSubmit"
-              />
-              <div class="pos-order-mode" role="group" :aria-label="t('pos.orderMode')">
+            <div class="pos-held" v-if="pos.heldSales.length || pos.lines.length">
+              <div class="pos-held__head">
+                <h2>{{ t('pos.currentOrder') }}</h2>
+                <RouterLink class="pos-held__link" :to="{ name: 'pos-orders' }">
+                  {{ t('pos.viewOrders') }}
+                </RouterLink>
+              </div>
+              <div class="pos-held__row">
                 <button
+                  v-if="pos.lines.length"
                   type="button"
-                  class="pos-order-mode__btn"
-                  :class="{ 'pos-order-mode__btn--active': !pos.activeTable && pos.orderMode === 'takeaway' }"
-                  :disabled="Boolean(pos.activeTable)"
-                  @click="pos.orderMode = 'takeaway'"
+                  class="pos-held__card pos-held__card--live"
                 >
-                  {{ t('pos.takeaway') }}
+                  <div class="pos-held__copy">
+                    <strong>{{ pos.customer?.name || t('pos.walkIn') }}</strong>
+                    <span>
+                      {{ pos.activeTable ? pos.activeTable.name : t(`pos.${uiOrderMode === 'dine_in' ? 'dineIn' : uiOrderMode}`) }}
+                      · {{ pos.lines.length }} {{ t('pos.articles') }}
+                    </span>
+                    <em>{{ formatMoney(pos.totals.grand_total, pos.totals.currency) }}</em>
+                  </div>
+                  <span class="pos-held__ring" aria-hidden="true">●</span>
                 </button>
                 <button
+                  v-for="sale in pos.heldSales"
+                  :key="sale.id"
                   type="button"
-                  class="pos-order-mode__btn"
-                  :class="{ 'pos-order-mode__btn--active': !pos.activeTable && pos.orderMode === 'delivery' }"
-                  :disabled="Boolean(pos.activeTable)"
-                  @click="chooseDelivery"
+                  class="pos-held__card"
+                  @click="onRetrieve(sale.id)"
                 >
-                  {{ t('pos.delivery') }}
+                  <div class="pos-held__copy">
+                    <strong>{{ sale.customerName || sale.label || t('pos.walkIn') }}</strong>
+                    <span>{{ heldItemCount(sale) }} {{ t('pos.articles') }} · #{{ sale.id.slice(0, 6) }}</span>
+                    <em>{{ formatMoney(sale.total ?? 0, pos.totals.currency) }}</em>
+                  </div>
+                  <span class="pos-held__ring pos-held__ring--muted" aria-hidden="true">○</span>
                 </button>
               </div>
-              <RouterLink class="pos-service-link" :to="{ name: 'pos-orders' }">
-                {{ t('pos.viewOrders') }}
-              </RouterLink>
-              <button
-                type="button"
-                class="pos-refresh"
-                :title="t('pos.retry')"
-                @click="loadForStore(context.currentStoreId!)"
-              >
-                <AppIcon name="recycle" :size="18" />
-              </button>
-              <button
-                type="button"
-                class="pos-cart-toggle"
-                :class="{ 'pos-cart-toggle--open': cartOpen }"
-                @click="cartOpen = !cartOpen"
-              >
-                <AppIcon name="receipt" :size="18" />
-                <span>{{ t('pos.cart') }}</span>
-                <em>{{ pos.lines.length }}</em>
-              </button>
             </div>
 
-            <div v-if="!pos.activeTable && pos.orderMode === 'delivery'" class="pos-location-card">
-              <DeliveryMapPicker
-                :model-value="pos.deliveryAddress"
-                @update:model-value="(value) => { pos.deliveryAddress = value }"
-              />
+            <div class="pos-catalog-head">
+              <div class="pos-catalog-head__title">
+                <h2>{{ t('pos.categories') }}</h2>
+                <button
+                  type="button"
+                  class="pos-refresh"
+                  :title="t('pos.retry')"
+                  @click="loadForStore(context.currentStoreId!)"
+                >
+                  <AppIcon name="recycle" :size="16" />
+                </button>
+              </div>
+              <div class="pos-catalog-head__tools">
+                <PosSearchBar
+                  ref="searchRef"
+                  v-model="searchQuery"
+                  :placeholder="t('pos.searchProducts')"
+                  @submit="onSearchSubmit"
+                />
+                <button
+                  type="button"
+                  class="pos-cart-toggle"
+                  :class="{ 'pos-cart-toggle--open': cartOpen }"
+                  @click="cartOpen = !cartOpen"
+                >
+                  <AppIcon name="receipt" :size="18" />
+                  <span>{{ t('pos.cart') }}</span>
+                  <em>{{ pos.lines.length }}</em>
+                </button>
+              </div>
             </div>
-            <p v-else-if="!pos.activeTable" class="pos-delivery__hint pos-delivery__hint--alone">
-              {{ t('pos.takeawayHint') }}
-            </p>
 
             <PosCategorySidebar
               v-if="pos.loading || !pos.error"
@@ -591,6 +805,13 @@ onUnmounted(() => {
               :loading="pos.loading"
               @select="selectedCategoryId = $event"
             />
+
+            <div v-if="!pos.activeTable && pos.orderMode === 'delivery'" class="pos-location-card">
+              <DeliveryMapPicker
+                :model-value="pos.deliveryAddress"
+                @update:model-value="(value) => { pos.deliveryAddress = value }"
+              />
+            </div>
 
             <div v-if="pos.error && !pos.loading" class="pos-error">
               <p>{{ pos.error }}</p>
@@ -604,8 +825,11 @@ onUnmounted(() => {
               :currency="pos.totals.currency"
               :empty-label="t('pos.noProducts')"
               :reserved-by-product-id="pos.cartReservedByProductId"
+              :quantities-by-product-id="quantitiesByProductId"
               :loading="pos.loading"
               @select="onAddProduct"
+              @increment="onProductIncrement"
+              @decrement="onProductDecrement"
             />
           </section>
 
@@ -617,6 +841,8 @@ onUnmounted(() => {
               :empty-hint="t('pos.emptyCartHint')"
               :customer="pos.customer"
               :line-totals="lineTotalsById"
+              :table-name="pos.activeTable?.name"
+              :order-mode="uiOrderMode"
               @increment="pos.incrementQuantity"
               @decrement="pos.decrementQuantity"
               @quantity="pos.updateQuantity"
@@ -624,6 +850,8 @@ onUnmounted(() => {
               @close="cartOpen = false"
               @select-customer="pos.setCustomer"
               @add-customer="footerRef?.openCreateCustomer()"
+              @set-order-mode="setOrderMode"
+              @open-tables="openTablePicker"
             />
             <PosFooterPanel
               ref="footerRef"
@@ -767,6 +995,77 @@ onUnmounted(() => {
           </form>
         </AppModal>
 
+        <AppModal
+          :open="showTablePicker"
+          :title="t('pos.pickTable')"
+          icon="tables"
+          tone="brand"
+          size="lg"
+          @close="showTablePicker = false"
+        >
+          <div class="pos-table-picker">
+            <p class="pos-table-picker__hint">{{ t('pos.pickTableHint') }}</p>
+            <p v-if="tablePickerError" class="pos-table-picker__error">{{ tablePickerError }}</p>
+            <div v-if="tablePickerLoading" class="pos-table-picker__loading">{{ t('common.loading') }}</div>
+            <div v-else class="pos-table-picker__grid">
+              <button
+                type="button"
+                class="pos-table-picker__card pos-table-picker__card--clear"
+                :disabled="tablePickerSaving"
+                @click="clearSelectedTable"
+              >
+                <header>
+                  <strong>{{ t('pos.noTable') }}</strong>
+                  <Badge variant="neutral">{{ t('pos.takeaway') }}</Badge>
+                </header>
+                <p class="pos-table-picker__meta">{{ t('pos.takeawayHint') }}</p>
+              </button>
+              <button
+                v-for="table in floorTables"
+                :key="table.id"
+                type="button"
+                class="pos-table-picker__card"
+                :class="[
+                  `pos-table-picker__card--${table.status}`,
+                  {
+                    'pos-table-picker__card--active': pos.activeTable?.id === table.id,
+                    'pos-table-picker__card--locked': !isTableSelectable(table),
+                  },
+                ]"
+                :disabled="tablePickerSaving || !isTableSelectable(table)"
+                :aria-disabled="!isTableSelectable(table)"
+                @click="pickFloorTable(table)"
+              >
+                <header>
+                  <strong>{{ table.name }}</strong>
+                  <Badge :variant="tableStatusVariant(table.status)">{{ tableStatusLabel(table.status) }}</Badge>
+                </header>
+                <p class="pos-table-picker__meta">
+                  {{ t('pointOfSale.tables.seats', { count: table.capacity ?? 0 }) }}
+                  · {{ table.zone?.name || '—' }}
+                </p>
+                <template v-if="table.status === 'occupied' && table.current_sale">
+                  <p class="pos-table-picker__sale">{{ table.current_sale.reference }}</p>
+                  <p>{{ table.current_sale.item_count }} {{ t('pointOfSale.tables.items') }}</p>
+                  <p class="pos-table-picker__total">{{ formatMoney(table.current_sale.total) }}</p>
+                  <p>{{ t('pointOfSale.tables.since') }} {{ formatTableTime(table.current_sale.opened_at) }}</p>
+                </template>
+                <template v-else-if="table.status === 'reserved' && table.reservation">
+                  <p class="pos-table-picker__sale">{{ table.reservation.guest_name }}</p>
+                  <p>{{ formatDateTime(table.reservation.reserved_at) }}</p>
+                  <p>{{ t('pointOfSale.tables.party', { count: table.reservation.party_size }) }}</p>
+                </template>
+              </button>
+            </div>
+            <div v-if="!tablePickerLoading && !floorTables.length && !tablePickerError" class="pos-table-picker__empty">
+              <p>{{ t('pos.noTables') }}</p>
+              <RouterLink class="pos-table-picker__link" :to="{ name: 'pos-tables' }" @click="showTablePicker = false">
+                {{ t('pos.manageTables') }}
+              </RouterLink>
+            </div>
+          </div>
+        </AppModal>
+
         <div v-if="pos.statusMessage" class="pos-toast" :class="{ 'pos-toast--error': pos.statusIsError }">
           {{ pos.statusMessage }}
         </div>
@@ -786,137 +1085,182 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-canvas, #f4f6f9);
-}
-.pos-table-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 8px 12px 0;
-  padding: 8px 12px;
-  min-height: 40px;
-  border-radius: 8px;
-  background: var(--color-surface);
-  border: 1px solid #e2e8f0;
-  font-size: 13px;}
-.pos-table-banner strong {
-  font-size: 14px;
+  background: var(--color-canvas, #eef1f5);
 }
 
 .pos-workspace {
   position: relative;
   flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 23rem);
+  grid-template-columns: minmax(0, 1fr) clamp(20rem, 28vw, 24.5rem);
+  gap: 0.85rem;
   overflow: hidden;
-  margin-top: 0.45rem;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border, #e7edf3);}
+  margin-top: 0.25rem;
+  padding: 0.15rem 0.15rem 0.35rem;
+  background: transparent;
+}
 
 .pos-main {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
-  padding: 0.85rem 1rem 0.5rem;
-  background: var(--color-canvas, #f7f8fb);
+  overflow: hidden;
+  padding: 0.95rem 1.05rem 0.55rem;
+  background: var(--color-canvas, #eef1f5);
+  border: 1px solid var(--color-border, #dbe3ea);
+  border-radius: 18px;
 }
 
-.pos-toolbar {
+.pos-held {
+  flex-shrink: 0;
+  margin-bottom: 0.85rem;
+}
+
+.pos-held__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.pos-held__head h2 {
+  margin: 0;
+  font-family: var(--font-display, var(--font-brand, inherit));
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.pos-held__link {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--color-brand-600, #12243c);
+  text-decoration: none;
+}
+
+.pos-held__row {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  scrollbar-width: thin;
+}
+
+.pos-held__card {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 15.5rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--color-border, #dbe3ea);
+  border-radius: 14px;
+  background: var(--color-surface, #fff);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(18, 36, 60, 0.04);
+}
+
+.pos-held__card--live {
+  border-color: color-mix(in srgb, var(--color-accent, #e39b2b) 45%, var(--color-border));
+  box-shadow: 0 6px 16px rgba(227, 155, 43, 0.12);
+}
+
+.pos-held__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.pos-held__copy strong {
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: var(--color-text-primary);
+}
+
+.pos-held__copy span {
+  font-size: 0.72rem;
+  color: var(--color-text-faint);
+}
+
+.pos-held__copy em {
+  margin-top: 0.15rem;
+  font-style: normal;
+  font-size: 0.92rem;
+  font-weight: 750;
+  color: var(--color-brand-600, #12243c);
+}
+
+.pos-held__ring {
+  width: 2.2rem;
+  height: 2.2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent, #e39b2b) 18%, transparent);
+  color: var(--color-accent, #e39b2b);
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.pos-held__ring--muted {
+  background: var(--color-canvas, #eef1f5);
+  color: #94a3b8;
+}
+
+.pos-catalog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+
+.pos-catalog-head__title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pos-catalog-head__title h2 {
+  margin: 0;
+  font-family: var(--font-display, var(--font-brand, inherit));
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.pos-catalog-head__tools {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  flex-shrink: 0;
-  margin-bottom: 0.7rem;
-  padding: 0.35rem;
-  border: 1px solid color-mix(in srgb, #fff 46%, var(--color-border, #dbe3ea));
-  border-radius: 1rem;
-  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent),
-    0 8px 18px rgba(20, 32, 43, 0.04);
-}
-
-.pos-order-mode {
-  display: inline-flex;
-  flex-shrink: 0;
-  gap: 0.35rem;
-}
-
-.pos-order-mode__btn {
-  border: 1px solid color-mix(in srgb, #fff 40%, var(--color-border, #dbe3ea));
-  border-radius: 0.75rem;
-  padding: 0.7rem 1rem;
-  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
-  color: var(--color-text-secondary, var(--color-text-secondary));
-  font-size: 0.84rem;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 65%, transparent);
-  transition: background-color 220ms var(--ease-emphasized), box-shadow 220ms var(--ease-emphasized), border-color 220ms var(--ease-emphasized), transform 220ms var(--ease-emphasized);
-}
-
-.pos-order-mode__btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 6px 14px rgba(20, 32, 43, 0.06);
-}
-
-.pos-order-mode__btn:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.pos-order-mode__btn--active {
-  background-color: var(--color-inverse);
-  background-image: none;
-  border-color: color-mix(in srgb, #fff 24%, var(--color-inverse));
-  color: #fff;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 32%, transparent);
-}
-
-:global(html[data-theme="dark"]) .pos-toolbar,
-:global(html[data-theme="dark"]) .pos-order-mode__btn {
-  border-color: color-mix(in srgb, #fff 14%, var(--color-border, #2a3a4a));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
-}
-
-:global(html[data-theme="dark"]) .pos-order-mode__btn:hover:not(:disabled) {
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 14%, transparent),
-    0 6px 14px rgba(0, 0, 0, 0.22);
-}
-
-.pos-order-mode__btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.pos-service-link {
-  flex-shrink: 0;
-  color: var(--color-sidebar, #061630);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.pos-service-link:hover {
-  text-decoration: underline;
+  flex: 1 1 18rem;
+  min-width: 0;
+  justify-content: flex-end;
 }
 
 .pos-location-card {
   display: grid;
   gap: 0.55rem;
   width: min(100%, 42rem);
-  margin: -0.15rem 0 0.7rem;
+  margin: 0.55rem 0 0.7rem;
   padding: 0.85rem 0.95rem;
-  border: 1px solid color-mix(in srgb, var(--color-brand-600, #0b6e4f) 28%, var(--color-border, #dbe3ea));
-  border-radius: 1rem;
+  border: 1px solid var(--color-border, #dbe3ea);
+  border-radius: 14px;
   background: var(--color-surface, #fff);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 8px rgba(18, 36, 60, 0.04);
 }
 
 .pos-location-card__head {
@@ -970,15 +1314,16 @@ onUnmounted(() => {
 
 .pos-refresh {
   flex-shrink: 0;
-  width: 2.65rem;
-  height: 2.65rem;
+  width: 2.1rem;
+  height: 2.1rem;
   display: grid;
   place-items: center;
   border: 1px solid var(--color-border, #dbe3ea);
-  border-radius: 0.75rem;
+  border-radius: 999px;
   background: var(--color-surface);
-  color: var(--color-text-secondary, var(--color-text-secondary));
-  cursor: pointer;}
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
 
 .pos-refresh:hover {
   border-color: var(--color-brand-300, #a3b7c8);
@@ -1020,10 +1365,17 @@ onUnmounted(() => {
 .pos-side {
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 2;
+  width: 100%;
   min-width: 0;
   min-height: 0;
-  border-left: 1px solid var(--color-border, #e7edf3);
-  background: var(--color-surface);}
+  overflow: hidden;
+  border: 1px solid var(--color-border, #dbe3ea);
+  border-radius: 18px;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 4px 18px rgba(18, 36, 60, 0.05);
+}
 
 .pos-cart-backdrop {
   display: none;
@@ -1031,11 +1383,7 @@ onUnmounted(() => {
 
 @media (max-width: 1100px) {
   .pos-workspace {
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 20.5rem);
-  }
-  .pos-order-mode__btn {
-    padding: 0.65rem 0.75rem;
-    font-size: 0.78rem;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 21rem);
   }
 }
 
@@ -1158,4 +1506,157 @@ onUnmounted(() => {
 .pos-option-cancel { border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 0.55rem 1rem; background: var(--color-surface);}
 .pos-option-add { border: 0; border-radius: 0.5rem; padding: 0.55rem 1rem; background: var(--color-brand-600); color: #fff; font-weight: 600; }
 .pos-option-add:disabled { opacity: 0.5; }
+
+.pos-table-picker__hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.pos-table-picker__error {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, #dc2626 10%, transparent);
+  color: #b91c1c;
+  font-size: 0.84rem;
+}
+
+.pos-table-picker__loading,
+.pos-table-picker__empty {
+  margin: 0;
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.pos-table-picker__empty p {
+  margin: 0 0 0.75rem;
+}
+
+.pos-table-picker__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.35rem;
+  padding: 0 1rem;
+  border-radius: 10px;
+  background: var(--color-brand-600, #12243c);
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pos-table-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 6px;
+  max-height: min(58vh, 28rem);
+  overflow: auto;
+  padding: 2px;
+}
+
+.pos-table-picker__card {
+  display: grid;
+  gap: 1px;
+  min-height: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: var(--color-surface, #fff);
+  text-align: left;
+  font-size: 10.5px;
+  line-height: 1.2;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.pos-table-picker__card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pos-table-picker__card header strong {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.pos-table-picker__card :deep(.ui-badge) {
+  font-size: 0.62rem;
+  padding: 0.05rem 0.35rem;
+}
+
+.pos-table-picker__card p {
+  margin: 0;
+}
+
+.pos-table-picker__meta {
+  color: var(--color-text-secondary);
+}
+
+.pos-table-picker__sale {
+  margin-top: 2px !important;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.pos-table-picker__total {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.pos-table-picker__card:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(18, 36, 60, 0.08);
+}
+
+.pos-table-picker__card--available {
+  box-shadow: inset 4px 0 0 #059669;
+}
+
+.pos-table-picker__card--occupied {
+  background: #fff7ed;
+  border-color: #fdba74;
+  box-shadow: inset 4px 0 0 #d97706;
+  cursor: not-allowed;
+}
+
+.pos-table-picker__card--reserved {
+  box-shadow: inset 4px 0 0 #2563eb;
+}
+
+.pos-table-picker__card--cleaning,
+.pos-table-picker__card--inactive {
+  background: #f8fafc;
+  box-shadow: inset 4px 0 0 #64748b;
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.pos-table-picker__card--locked:disabled {
+  opacity: 1;
+}
+
+.pos-table-picker__card--occupied:disabled {
+  opacity: 1;
+}
+
+.pos-table-picker__card--clear {
+  border-style: dashed;
+  background: var(--color-canvas, #eef1f5);
+  box-shadow: none;
+}
+
+.pos-table-picker__card--active {
+  border-color: var(--color-accent, #e39b2b);
+  box-shadow:
+    inset 4px 0 0 #059669,
+    0 0 0 2px color-mix(in srgb, var(--color-accent, #e39b2b) 35%, transparent);
+}
 </style>

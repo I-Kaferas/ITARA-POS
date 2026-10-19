@@ -119,7 +119,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
             :class="{ 'is-dim': hoverNode }"
             stroke="currentColor"
             stroke-width="1.5"
-            opacity="0.4"
+            opacity="0.7"
           >
             <path
               class="eco__wire"
@@ -140,7 +140,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
           <g class="eco__packets" aria-hidden="true">
             <circle class="eco__packet eco__packet--m1" r="3.5" fill="var(--brand-accent, #e39b2b)" />
             <circle class="eco__packet eco__packet--m2" r="3.5" fill="var(--brand-accent, #e39b2b)" />
-            <circle class="eco__packet eco__packet--m3" r="3.5" fill="#ffffff" opacity="0.9" />
+            <circle class="eco__packet eco__packet--m3" r="3.5" fill="#12243c" opacity="0.85" />
           </g>
 
           <g transform="translate(180 28)">
@@ -154,10 +154,10 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('cloud')"
               @blur="blurNode('cloud')"
             >
-              <rect width="160" height="60" rx="12" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.28)" />
+              <rect width="160" height="60" rx="12" fill="#12243c" stroke="#0f1f34" />
               <rect x="18" y="16" width="28" height="28" rx="6" fill="var(--brand-accent, #e39b2b)" />
-              <text x="56" y="28" fill="#fff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.backoffice }}</text>
-              <text x="56" y="44" fill="rgba(255,255,255,0.55)" font-size="9" font-family="system-ui,sans-serif">{{ eco.cloudAdmin }}</text>
+              <text x="56" y="28" fill="#ffffff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.backoffice }}</text>
+              <text x="56" y="44" fill="rgba(255,255,255,0.72)" font-size="9" font-family="system-ui,sans-serif">{{ eco.cloudAdmin }}</text>
             </g>
           </g>
 
@@ -172,11 +172,11 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('hub')"
               @blur="blurNode('hub')"
             >
-              <rect width="140" height="56" rx="12" fill="rgba(255,255,255,0.1)" stroke="var(--brand-accent, #e39b2b)" stroke-width="1.5" />
+              <rect width="140" height="56" rx="12" fill="#12243c" stroke="var(--brand-accent, #e39b2b)" stroke-width="2" />
               <circle cx="28" cy="28" r="10" fill="var(--brand-accent, #e39b2b)" />
               <circle class="eco__pulse" cx="28" cy="28" r="10" fill="none" stroke="var(--brand-accent, #e39b2b)" stroke-width="1.5" />
-              <text x="48" y="26" fill="#fff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.masterHub }}</text>
-              <text x="48" y="40" fill="rgba(255,255,255,0.55)" font-size="9" font-family="system-ui,sans-serif">{{ eco.syncLocal }}</text>
+              <text x="48" y="26" fill="#ffffff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.masterHub }}</text>
+              <text x="48" y="40" fill="rgba(255,255,255,0.72)" font-size="9" font-family="system-ui,sans-serif">{{ eco.syncLocal }}</text>
             </g>
           </g>
 
@@ -191,13 +191,13 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('pos-a')"
               @blur="blurNode('pos-a')"
             >
-              <rect width="144" height="72" rx="12" fill="rgba(255,255,255,0.07)" stroke="rgba(255,255,255,0.22)" />
-              <rect x="14" y="14" width="40" height="28" rx="4" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.2)" />
-              <rect x="18" y="18" width="14" height="8" rx="1" fill="rgba(255,255,255,0.35)" />
-              <rect x="34" y="18" width="14" height="8" rx="1" fill="rgba(255,255,255,0.2)" />
+              <rect width="144" height="72" rx="12" fill="#12243c" stroke="#0f1f34" />
+              <rect x="14" y="14" width="40" height="28" rx="4" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.28)" />
+              <rect x="18" y="18" width="14" height="8" rx="1" fill="rgba(255,255,255,0.4)" />
+              <rect x="34" y="18" width="14" height="8" rx="1" fill="rgba(255,255,255,0.28)" />
               <rect x="18" y="29" width="30" height="8" rx="1" fill="var(--brand-accent, #e39b2b)" opacity="0.75" />
-              <text x="64" y="28" fill="#fff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.posSlave }}</text>
-              <text x="64" y="44" fill="rgba(255,255,255,0.5)" font-size="9" font-family="system-ui,sans-serif">{{ eco.windowsLan }}</text>
+              <text x="64" y="28" fill="#ffffff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.posSlave }}</text>
+              <text x="64" y="44" fill="rgba(255,255,255,0.72)" font-size="9" font-family="system-ui,sans-serif">{{ eco.windowsLan }}</text>
             </g>
           </g>
 
@@ -212,12 +212,12 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('pos-b')"
               @blur="blurNode('pos-b')"
             >
-              <rect width="144" height="72" rx="12" fill="rgba(255,255,255,0.07)" stroke="rgba(255,255,255,0.22)" />
-              <rect x="22" y="12" width="24" height="40" rx="5" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.2)" />
-              <rect x="26" y="18" width="16" height="24" rx="2" fill="rgba(255,255,255,0.18)" />
-              <circle cx="34" cy="46" r="2" fill="rgba(255,255,255,0.4)" />
-              <text x="58" y="28" fill="#fff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.posSlave }}</text>
-              <text x="58" y="44" fill="rgba(255,255,255,0.5)" font-size="9" font-family="system-ui,sans-serif">{{ eco.androidLan }}</text>
+              <rect width="144" height="72" rx="12" fill="#12243c" stroke="#0f1f34" />
+              <rect x="22" y="12" width="24" height="40" rx="5" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.28)" />
+              <rect x="26" y="18" width="16" height="24" rx="2" fill="rgba(255,255,255,0.28)" />
+              <circle cx="34" cy="46" r="2" fill="rgba(255,255,255,0.45)" />
+              <text x="58" y="28" fill="#ffffff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.posSlave }}</text>
+              <text x="58" y="44" fill="rgba(255,255,255,0.72)" font-size="9" font-family="system-ui,sans-serif">{{ eco.androidLan }}</text>
             </g>
           </g>
 
@@ -232,8 +232,8 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('stock')"
               @blur="blurNode('stock')"
             >
-              <rect width="200" height="36" rx="8" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)" />
-              <text x="100" y="22" text-anchor="middle" fill="#fff" font-size="10" font-weight="600" font-family="system-ui,sans-serif">{{ eco.stockCatalog }}</text>
+              <rect width="200" height="36" rx="8" fill="#12243c" stroke="#0f1f34" />
+              <text x="100" y="22" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700" font-family="system-ui,sans-serif">{{ eco.stockCatalog }}</text>
             </g>
           </g>
         </svg>
@@ -251,7 +251,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
             :class="{ 'is-dim': hoverNode }"
             stroke="currentColor"
             stroke-width="1.5"
-            opacity="0.4"
+            opacity="0.7"
           >
             <path
               class="eco__wire"
@@ -271,7 +271,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
           </g>
           <g class="eco__packets" aria-hidden="true">
             <circle class="eco__packet eco__packet--s1" r="3.5" fill="var(--brand-accent, #e39b2b)" />
-            <circle class="eco__packet eco__packet--s2" r="3.5" fill="#ffffff" opacity="0.9" />
+            <circle class="eco__packet eco__packet--s2" r="3.5" fill="#12243c" opacity="0.85" />
           </g>
 
           <g transform="translate(28 48)">
@@ -285,9 +285,9 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('cloud')"
               @blur="blurNode('cloud')"
             >
-              <rect width="144" height="52" rx="12" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.22)" />
-              <text x="72" y="22" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.backoffice }}</text>
-              <text x="72" y="38" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="9" font-family="system-ui,sans-serif">{{ eco.viaMaster }}</text>
+              <rect width="144" height="52" rx="12" fill="#12243c" stroke="#0f1f34" />
+              <text x="72" y="22" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.backoffice }}</text>
+              <text x="72" y="38" text-anchor="middle" fill="rgba(255,255,255,0.72)" font-size="9" font-family="system-ui,sans-serif">{{ eco.viaMaster }}</text>
             </g>
           </g>
 
@@ -302,11 +302,11 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('hub')"
               @blur="blurNode('hub')"
             >
-              <rect width="128" height="72" rx="12" fill="rgba(255,255,255,0.1)" stroke="var(--brand-accent, #e39b2b)" stroke-width="1.5" />
+              <rect width="128" height="72" rx="12" fill="#12243c" stroke="var(--brand-accent, #e39b2b)" stroke-width="2" />
               <circle cx="24" cy="36" r="8" fill="var(--brand-accent, #e39b2b)" />
               <circle class="eco__pulse" cx="24" cy="36" r="8" fill="none" stroke="var(--brand-accent, #e39b2b)" stroke-width="1.5" />
-              <text x="42" y="32" fill="#fff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.masterShort }}</text>
-              <text x="42" y="48" fill="rgba(255,255,255,0.55)" font-size="9" font-family="system-ui,sans-serif">{{ eco.lanWifi }}</text>
+              <text x="42" y="32" fill="#ffffff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.masterShort }}</text>
+              <text x="42" y="48" fill="rgba(255,255,255,0.72)" font-size="9" font-family="system-ui,sans-serif">{{ eco.lanWifi }}</text>
             </g>
           </g>
 
@@ -321,14 +321,14 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('pos')"
               @blur="blurNode('pos')"
             >
-              <rect width="152" height="92" rx="12" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.32)" stroke-width="1.5" />
-              <rect x="14" y="16" width="36" height="26" rx="4" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.2)" />
-              <rect x="18" y="20" width="12" height="7" rx="1" fill="rgba(255,255,255,0.35)" />
-              <rect x="32" y="20" width="12" height="7" rx="1" fill="rgba(255,255,255,0.2)" />
+              <rect width="152" height="92" rx="12" fill="#12243c" stroke="var(--brand-accent, #e39b2b)" stroke-width="2" />
+              <rect x="14" y="16" width="36" height="26" rx="4" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.28)" />
+              <rect x="18" y="20" width="12" height="7" rx="1" fill="rgba(255,255,255,0.4)" />
+              <rect x="32" y="20" width="12" height="7" rx="1" fill="rgba(255,255,255,0.28)" />
               <rect x="18" y="30" width="26" height="7" rx="1" fill="var(--brand-accent, #e39b2b)" opacity="0.8" />
-              <text x="62" y="30" fill="#fff" font-size="12" font-weight="700" font-family="system-ui,sans-serif">{{ eco.posSlave }}</text>
-              <text x="62" y="46" fill="rgba(255,255,255,0.55)" font-size="9" font-family="system-ui,sans-serif">{{ eco.salesPay }}</text>
-              <text x="14" y="74" fill="rgba(255,255,255,0.45)" font-size="9" font-family="system-ui,sans-serif">{{ eco.slaveNote }}</text>
+              <text x="62" y="30" fill="#ffffff" font-size="12" font-weight="700" font-family="system-ui,sans-serif">{{ eco.posSlave }}</text>
+              <text x="62" y="46" fill="rgba(255,255,255,0.72)" font-size="9" font-family="system-ui,sans-serif">{{ eco.salesPay }}</text>
+              <text x="14" y="74" fill="rgba(255,255,255,0.62)" font-size="9" font-family="system-ui,sans-serif">{{ eco.slaveNote }}</text>
             </g>
           </g>
 
@@ -343,9 +343,9 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('stock')"
               @blur="blurNode('stock')"
             >
-              <rect width="128" height="44" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)" />
-              <text x="64" y="18" text-anchor="middle" fill="#fff" font-size="10" font-weight="600" font-family="system-ui,sans-serif">{{ eco.sharedStock }}</text>
-              <text x="64" y="34" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="9" font-family="system-ui,sans-serif">{{ eco.realtimeCatalog }}</text>
+              <rect width="128" height="44" rx="10" fill="#12243c" stroke="#0f1f34" />
+              <text x="64" y="18" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700" font-family="system-ui,sans-serif">{{ eco.sharedStock }}</text>
+              <text x="64" y="34" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="9" font-family="system-ui,sans-serif">{{ eco.realtimeCatalog }}</text>
             </g>
           </g>
 
@@ -360,9 +360,9 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('queue')"
               @blur="blurNode('queue')"
             >
-              <rect width="152" height="44" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)" />
-              <text x="76" y="18" text-anchor="middle" fill="#fff" font-size="10" font-weight="600" font-family="system-ui,sans-serif">{{ eco.offlineQueue }}</text>
-              <text x="76" y="34" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="9" font-family="system-ui,sans-serif">{{ eco.syncWhenBack }}</text>
+              <rect width="152" height="44" rx="10" fill="#12243c" stroke="#0f1f34" />
+              <text x="76" y="18" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700" font-family="system-ui,sans-serif">{{ eco.offlineQueue }}</text>
+              <text x="76" y="34" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="9" font-family="system-ui,sans-serif">{{ eco.syncWhenBack }}</text>
             </g>
           </g>
         </svg>
@@ -380,7 +380,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
             :class="{ 'is-dim': hoverNode }"
             stroke="currentColor"
             stroke-width="1.5"
-            opacity="0.4"
+            opacity="0.7"
           >
             <path
               class="eco__wire"
@@ -400,7 +400,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
           </g>
           <g class="eco__packets" aria-hidden="true">
             <circle class="eco__packet eco__packet--a1" r="3.5" fill="var(--brand-accent, #e39b2b)" />
-            <circle class="eco__packet eco__packet--a2" r="3.5" fill="#ffffff" opacity="0.9" />
+            <circle class="eco__packet eco__packet--a2" r="3.5" fill="#12243c" opacity="0.85" />
           </g>
 
           <g transform="translate(180 28)">
@@ -414,10 +414,10 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('cloud')"
               @blur="blurNode('cloud')"
             >
-              <rect width="160" height="60" rx="12" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.28)" />
+              <rect width="160" height="60" rx="12" fill="#12243c" stroke="#0f1f34" />
               <rect x="18" y="16" width="28" height="28" rx="6" fill="var(--brand-accent, #e39b2b)" />
-              <text x="56" y="28" fill="#fff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.backoffice }}</text>
-              <text x="56" y="44" fill="rgba(255,255,255,0.55)" font-size="9" font-family="system-ui,sans-serif">{{ eco.cloudDirect }}</text>
+              <text x="56" y="28" fill="#ffffff" font-size="11" font-weight="700" font-family="system-ui,sans-serif">{{ eco.backoffice }}</text>
+              <text x="56" y="44" fill="rgba(255,255,255,0.72)" font-size="9" font-family="system-ui,sans-serif">{{ eco.cloudDirect }}</text>
             </g>
           </g>
 
@@ -432,15 +432,15 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('pos')"
               @blur="blurNode('pos')"
             >
-              <rect width="220" height="100" rx="14" fill="rgba(255,255,255,0.1)" stroke="var(--brand-accent, #e39b2b)" stroke-width="1.5" />
-              <rect x="22" y="22" width="44" height="32" rx="5" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.22)" />
-              <rect x="28" y="28" width="14" height="8" rx="1" fill="rgba(255,255,255,0.4)" />
-              <rect x="46" y="28" width="14" height="8" rx="1" fill="rgba(255,255,255,0.22)" />
+              <rect width="220" height="100" rx="14" fill="#12243c" stroke="var(--brand-accent, #e39b2b)" stroke-width="2" />
+              <rect x="22" y="22" width="44" height="32" rx="5" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.28)" />
+              <rect x="28" y="28" width="14" height="8" rx="1" fill="rgba(255,255,255,0.45)" />
+              <rect x="46" y="28" width="14" height="8" rx="1" fill="rgba(255,255,255,0.28)" />
               <rect x="28" y="40" width="32" height="8" rx="1" fill="var(--brand-accent, #e39b2b)" opacity="0.8" />
               <circle class="eco__pulse" cx="44" cy="38" r="18" fill="none" stroke="var(--brand-accent, #e39b2b)" stroke-width="1.2" opacity="0.5" />
-              <text x="82" y="38" fill="#fff" font-size="13" font-weight="700" font-family="system-ui,sans-serif">{{ eco.posStandalone }}</text>
-              <text x="82" y="56" fill="rgba(255,255,255,0.55)" font-size="10" font-family="system-ui,sans-serif">{{ eco.winOrAndroid }}</text>
-              <text x="22" y="84" fill="rgba(255,255,255,0.45)" font-size="9" font-family="system-ui,sans-serif">{{ eco.noMaster }}</text>
+              <text x="82" y="38" fill="#ffffff" font-size="13" font-weight="700" font-family="system-ui,sans-serif">{{ eco.posStandalone }}</text>
+              <text x="82" y="56" fill="rgba(255,255,255,0.72)" font-size="10" font-family="system-ui,sans-serif">{{ eco.winOrAndroid }}</text>
+              <text x="22" y="84" fill="rgba(255,255,255,0.62)" font-size="9" font-family="system-ui,sans-serif">{{ eco.noMaster }}</text>
             </g>
           </g>
 
@@ -455,8 +455,8 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('stock')"
               @blur="blurNode('stock')"
             >
-              <rect width="120" height="40" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)" />
-              <text x="60" y="24" text-anchor="middle" fill="#fff" font-size="10" font-weight="600" font-family="system-ui,sans-serif">{{ eco.localStock }}</text>
+              <rect width="120" height="40" rx="10" fill="#12243c" stroke="#0f1f34" />
+              <text x="60" y="24" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700" font-family="system-ui,sans-serif">{{ eco.localStock }}</text>
             </g>
           </g>
 
@@ -471,8 +471,8 @@ onBeforeUnmount(() => window.clearInterval(timer))
               @focus="focusNode('catalog')"
               @blur="blurNode('catalog')"
             >
-              <rect width="120" height="40" rx="10" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)" />
-              <text x="60" y="24" text-anchor="middle" fill="#fff" font-size="10" font-weight="600" font-family="system-ui,sans-serif">{{ eco.catalog }}</text>
+              <rect width="120" height="40" rx="10" fill="#12243c" stroke="#0f1f34" />
+              <text x="60" y="24" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="700" font-family="system-ui,sans-serif">{{ eco.catalog }}</text>
             </g>
           </g>
         </svg>
@@ -485,29 +485,29 @@ onBeforeUnmount(() => window.clearInterval(timer))
 .eco {
   width: min(100%, 34rem);
   margin-inline: auto;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ink, #14202b);
   text-align: center;
 }
 
 .eco__tabs {
   display: inline-flex;
   gap: 0.25rem;
-  padding: 0.25rem;
-  margin-bottom: 0.55rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, #fff 8%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 16%, transparent);
+  padding: 0.3rem;
+  margin-bottom: 0.65rem;
+  border-radius: 8px;
+  background: var(--surface, #eef1f5);
+  border: 1px solid var(--border-strong, #c5ced8);
   box-shadow: none;
 }
 
 .eco__tab {
-  min-height: 2rem;
-  padding: 0.35rem 0.9rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 1rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 0.75rem;
+  color: var(--ink, #14202b);
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -516,22 +516,23 @@ onBeforeUnmount(() => window.clearInterval(timer))
 }
 
 .eco__tab:hover {
-  color: #fff;
-  background: color-mix(in srgb, #fff 8%, transparent);
+  color: var(--ink-strong, #0a1523);
+  background: color-mix(in srgb, var(--ink, #14202b) 6%, var(--surface, #eef1f5));
   transform: translateY(-1px);
 }
 
 .eco__tab.is-active {
-  color: var(--brand-primary-900, #0a1523);
-  background: var(--brand-accent, #e39b2b);
+  color: #fff;
+  background: var(--brand-primary, #12243c);
   box-shadow: none;
 }
 
 .eco__blurb {
-  margin: 0 0 0.65rem;
+  margin: 0 0 0.75rem;
   min-height: 2.4em;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink, #14202b);
   transition: opacity 220ms ease, transform 220ms ease;
 }
 
@@ -539,9 +540,10 @@ onBeforeUnmount(() => window.clearInterval(timer))
   position: relative;
   min-height: 0;
   overflow: visible;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
+  padding: 0.35rem 0.2rem 0.5rem;
+  background: var(--surface, #eef1f5);
+  border: 1px solid var(--border-strong, #c5ced8);
+  border-radius: 12px;
   box-shadow: none;
   touch-action: pan-y;
 }
@@ -568,7 +570,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
   height: 34%;
   right: 6%;
   bottom: 12%;
-  background: color-mix(in srgb, #7eb8ff 35%, transparent);
+  background: color-mix(in srgb, #8494a3 18%, transparent); opacity: 0;
   animation-delay: -3.2s;
 }
 
@@ -613,11 +615,15 @@ onBeforeUnmount(() => window.clearInterval(timer))
 }
 
 .eco__node.is-dim {
-  opacity: 0.38;
+  opacity: 0.45;
+}
+
+.eco__wires {
+  color: #5c6d7c;
 }
 
 .eco__wires.is-dim {
-  opacity: 0.22;
+  opacity: 0.35;
 }
 
 .eco__wire {
@@ -628,7 +634,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
 
 .eco__wire.is-lit {
   stroke: var(--brand-accent, #e39b2b);
-  opacity: 0.9;
+  opacity: 1;
 }
 
 .eco__wire--delay { animation-delay: 0.15s; }

@@ -992,56 +992,75 @@ const discountLabel = () => {
     "actions summary"
     "buttons buttons";
   align-items: center;
-  gap: 0.32rem 0.5rem;
-  padding: 0.4rem 0.55rem 0.42rem;
+  column-gap: 0.65rem;
+  row-gap: 0.4rem;
+  padding: 0.4rem 0.85rem 0.55rem;
+  border-top: 1px solid var(--color-border, #e7edf3);
+  background: var(--color-surface, #fff);
   box-shadow: none;
 }
 .pos-footer--compact .pos-footer__actions {
   grid-area: actions;
-  flex-direction: row;
+  display: flex;
+  flex-direction: column;
   flex-wrap: nowrap;
-  gap: 0.28rem;
+  gap: 0.25rem;
 }
 .pos-footer--compact .pos-chip {
   width: auto;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
-  padding: 0.28rem 0.55rem;
-  border-radius: 0.45rem;
-  font-size: 0.78rem;
+  min-height: 0;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  background: var(--color-canvas, #eef1f5);
 }
 .pos-footer--compact .pos-footer__summary {
   grid-area: summary;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: 0.12rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
   padding: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   line-height: 1.2;
 }
 .pos-footer--compact .pos-footer__row,
 .pos-footer--compact .pos-footer__total {
-  width: auto;
-  gap: 0.28rem;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
   margin: 0;
   padding: 0;
   border: 0;
   line-height: 1.2;
+  font-size: 0.72rem;
+}
+.pos-footer--compact .pos-footer__total {
+  margin-top: 0.1rem;
+  padding-top: 0.2rem;
+  border-top: 1px solid var(--color-border, #e7edf3);
+  font-weight: 750;
   font-size: 0.78rem;
 }
 .pos-footer--compact .pos-footer__total-amount {
-  font-size: 1.02rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-brand-600, #12243c);
 }
 .pos-footer--compact .pos-footer__buttons {
   grid-area: buttons;
-  grid-template-columns: 0.86fr 1.1fr 0.9fr 1.85fr 0.86fr;
-  gap: 0.28rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.3rem;
 }
 .pos-footer--compact .pos-btn {
-  padding: 0.34rem 0.16rem;
-  font-size: 0.72rem;
+  padding: 0.38rem 0.25rem;
+  font-size: 0.7rem;
+  border-radius: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1050,10 +1069,19 @@ const discountLabel = () => {
   grid-column: auto;
 }
 .pos-footer--compact .pos-btn--pay {
-  grid-column: auto;
-  min-height: 0;
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
+  grid-column: 1 / -1;
+  min-height: 2.25rem;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-accent, #e39b2b);
+  color: #12243c;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 6px 14px rgba(227, 155, 43, 0.22);
+}
+.pos-footer--compact .pos-btn--pay:hover:not(:disabled) {
+  background: #d89020;
 }
 .pos-footer__actions {
   display: flex;

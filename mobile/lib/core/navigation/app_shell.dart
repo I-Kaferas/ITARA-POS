@@ -443,6 +443,14 @@ class AppShell extends StatelessWidget {
     return [...base, _prefsItem];
   }
 
+  static bool _lockedUntilConfigured(_NavItem item) {
+    if (TerminalConfigRepository.instance.isConfigured) return false;
+    return item.route == AppRoutes.dashboard ||
+        item.route == AppRoutes.pos ||
+        item.route == AppRoutes.orders ||
+        item.route == AppRoutes.shifts;
+  }
+
   static bool _tabMatches(_NavItem item, String location) {
     if (item.route == AppRoutes.cashierSettings) {
       return location == AppRoutes.cashierSettings;
@@ -668,14 +676,25 @@ class AppShell extends StatelessWidget {
         animationDuration: AppMotion.resolve(context, AppMotion.micro),
         height: AndroidLayout.preferLite(context) ? 64 : 70,
         backgroundColor: AppColors.surface,
-        selectedIndex: phoneTab < 0 ? 0 : phoneTab,
-        onDestinationSelected: (i) => context.go(tabs[i].route),
+        selectedIndex: () {
+          final current = phoneTab < 0 ? 0 : phoneTab;
+          if (current < tabs.length && !_lockedUntilConfigured(tabs[current])) {
+            return current;
+          }
+          final open = tabs.indexWhere((item) => !_lockedUntilConfigured(item));
+          return open < 0 ? 0 : open;
+        }(),
+        onDestinationSelected: (i) {
+          if (_lockedUntilConfigured(tabs[i])) return;
+          context.go(tabs[i].route);
+        },
         destinations: tabs
             .map(
               (item) => NavigationDestination(
                 icon: Icon(item.icon),
                 selectedIcon: Icon(item.selectedIcon),
                 label: item.label,
+                enabled: !_lockedUntilConfigured(item),
               ),
             )
             .toList(),
@@ -841,7 +860,9 @@ class _Sidebar extends StatelessWidget {
                 for (final item in tabs)
                   _SidebarItem(
                     item: item,
-                    selected: AppShell._tabMatches(item, activeRoute),
+                    selected: !AppShell._lockedUntilConfigured(item) &&
+                        AppShell._tabMatches(item, activeRoute),
+                    enabled: !AppShell._lockedUntilConfigured(item),
                     onTap: () => onTab(item),
                   ),
               ],
@@ -1221,35 +1242,41 @@ class _SidebarItem extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.onTap,
+    this.enabled = true,
     this.danger = false,
   });
 
   final _NavItem item;
   final bool selected;
   final VoidCallback onTap;
+  final bool enabled;
   final bool danger;
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = danger
-        ? const Color(0xFFF87171)
-        : selected
-            ? AppColors.accent
-            : AppColors.sidebarText.withValues(alpha: 0.85);
-    final textColor = danger
-        ? const Color(0xFFFCA5A5)
-        : selected
-            ? Colors.white
-            : AppColors.sidebarText.withValues(alpha: 0.88);
+    final iconColor = !enabled
+        ? AppColors.sidebarText.withValues(alpha: 0.28)
+        : danger
+            ? const Color(0xFFF87171)
+            : selected
+                ? AppColors.accent
+                : AppColors.sidebarText.withValues(alpha: 0.85);
+    final textColor = !enabled
+        ? AppColors.sidebarText.withValues(alpha: 0.32)
+        : danger
+            ? const Color(0xFFFCA5A5)
+            : selected
+                ? Colors.white
+                : AppColors.sidebarText.withValues(alpha: 0.88);
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
       child: Material(
         color: selected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          onTap: onTap,
+          onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(12),
-          hoverColor: AppColors.sidebarHover,
+          hoverColor: enabled ? AppColors.sidebarHover : Colors.transparent,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOut,
@@ -1369,11 +1396,14 @@ class _TopBar extends StatelessWidget {
                       label: cashier,
                     ),
                     const SizedBox(width: 8),
-                    _ContextChip(
-                      icon: Icons.schedule_outlined,
-                      label: tr('Shifts'),
-                      tone: AppColors.brandInk,
-                      onTap: () => context.go(AppRoutes.shifts),
+                    Opacity(
+                      opacity: config.isConfigured ? 1 : 0.4,
+                      child: _ContextChip(
+                        icon: Icons.schedule_outlined,
+                        label: tr('Shifts'),
+                        tone: AppColors.brandInk,
+                        onTap: config.isConfigured ? () => context.go(AppRoutes.shifts) : null,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     _RoleChip(role: config.posRole),

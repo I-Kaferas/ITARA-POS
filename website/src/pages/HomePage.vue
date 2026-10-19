@@ -81,34 +81,53 @@ function submitContact() {
   <template v-if="branding">
     <!-- Branding / Hero -->
     <section id="branding" class="hero">
+      <div class="hero__orbs" aria-hidden="true">
+        <span class="hero__orb hero__orb--a" />
+        <span class="hero__orb hero__orb--b" />
+        <span class="hero__orb hero__orb--c" />
+        <span class="hero__orb hero__orb--d" />
+        <span class="hero__orb hero__orb--e" />
+        <span class="hero__orb hero__orb--f" />
+        <span class="hero__orb hero__orb--g" />
+        <span class="hero__orb hero__orb--h" />
+        <span class="hero__orb hero__orb--i" />
+      </div>
       <div class="hero__layout">
         <div class="hero__copy">
-          <p class="hero__badge hero-animate">
-            <strong>{{ productName }}</strong> · {{ t('hero.badgeSuffix') }}
-          </p>
-          <h1 class="hero-animate hero-animate--delay-1">{{ productName }}</h1>
+          <p class="hero__eyebrow hero-animate">{{ t('hero.badgeSuffix') }}</p>
+          <h1 class="hero-animate hero-animate--delay-1">
+            <span class="hero__brand">{{ productName }}</span>
+          </h1>
+          <span class="hero__rule" aria-hidden="true" />
           <p class="hero__tagline hero-animate hero-animate--delay-2">{{ headline }}</p>
           <p class="hero__lede hero-animate hero-animate--delay-3">{{ lede }}</p>
           <div class="hero__actions hero-animate hero-animate--delay-4">
-            <a class="btn btn-accent" :href="ctaHref">{{ t('hero.cta') }}</a>
-            <a class="btn btn-ghost" href="#modules">{{ t('hero.modules') }}</a>
+            <a class="btn btn-accent hero__cta" :href="ctaHref">{{ t('hero.cta') }}</a>
+            <a class="btn btn-primary hero__cta hero__cta--secondary" href="#modules">{{ t('hero.modules') }}</a>
           </div>
         </div>
         <div class="hero__visual hero-animate hero-animate--delay-3">
-          <EcosystemDiagram :brand="productName" />
+          <div class="hero__stage">
+            <div class="hero__stage-body">
+              <EcosystemDiagram :brand="productName" />
+            </div>
+          </div>
         </div>
       </div>
-      <div class="hero__stats">
+    </section>
+
+    <section class="credibility" aria-label="Highlights">
+      <div class="credibility__grid">
         <div
           v-for="stat in stats"
           :key="stat.label"
-          class="hero__stat"
-          :class="`hero__stat--${stat.icon.toLowerCase()}`"
+          class="credibility__item"
+          :class="`credibility__item--${stat.icon.toLowerCase()}`"
         >
-          <div class="hero__stat-icon" aria-hidden="true">
+          <div class="credibility__icon" aria-hidden="true">
             <ModuleIcon :name="stat.icon" />
           </div>
-          <div class="hero__stat-copy">
+          <div>
             <strong>{{ stat.label }}</strong>
             <span>{{ stat.hint }}</span>
           </div>
