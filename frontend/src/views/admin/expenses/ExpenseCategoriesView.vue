@@ -8,6 +8,8 @@ import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type ExpenseCategory = {
   id: string
@@ -45,6 +47,7 @@ const filteredCategories = computed(() =>
     return true
   }),
 )
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredCategories)
 
 onMounted(load)
 
@@ -122,7 +125,7 @@ async function save() {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="category in filteredCategories" :key="category.id" class="hover:bg-slate-50">
+          <tr v-for="category in paged" :key="category.id" class="hover:bg-slate-50">
             <td class="px-4 py-3">
               <span
                 class="inline-block h-5 w-5 rounded-full ring-1 ring-slate-200"
@@ -146,6 +149,7 @@ async function save() {
           </tr>
         </tbody>
       </table>
+      <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       <p v-if="!filteredCategories.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
     </div>
 

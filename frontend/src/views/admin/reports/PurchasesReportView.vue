@@ -4,9 +4,12 @@ import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { PurchasesReport } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type PurchasesTab = 'overview' | 'suppliers' | 'receipts'
 type ReceiptViewMode = 'condensed' | 'detailed'
@@ -127,6 +130,7 @@ const filteredReceipts = computed(() => {
     return haystack.includes(q)
   })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredReceipts)
 
 function qtyLabel(key: string) {
   const path = `reports.purchaseAnalytics.qtyLabels.${key}`
@@ -208,6 +212,7 @@ onMounted(() => {
         </div>
       </div>
 
+      <FilterFold>
       <div class="purchases__filters">
         <div>
           <FieldLabel icon="calendar">{{ t('reports.purchaseAnalytics.from') }}</FieldLabel>
@@ -222,6 +227,7 @@ onMounted(() => {
           {{ t('reports.purchaseAnalytics.apply') }}
         </button>
       </div>
+      </FilterFold>
 
       <template v-if="activeTab === 'overview'">
         <div class="purchases__kpis">
@@ -491,12 +497,14 @@ onMounted(() => {
                 <AppIcon name="import" :size="15" />
                 Excel
               </button>
+              <FilterFold>
               <input
                 v-model="receiptSearch"
                 type="search"
                 class="field field--search"
                 :placeholder="t('reports.purchaseAnalytics.receiptSearch')"
               />
+              </FilterFold>
             </div>
           </header>
 
@@ -518,7 +526,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in filteredReceipts" :key="row.id">
+              <tr v-for="row in paged" :key="row.id">
                 <td class="mono">{{ row.receipt_number }}</td>
                 <td>{{ row.order_number || '—' }}</td>
                 <td>{{ row.supplier || '—' }}</td>
@@ -534,6 +542,14 @@ onMounted(() => {
               </tr>
             </tbody>
           </table>
+          <ListPager
+            v-if="filteredReceipts.length"
+            :page="page"
+            :last-page="lastPage"
+            :total="total"
+            :per-page="perPage"
+            @change="setPage"
+          />
           <p v-else class="panel__empty">{{ t('reports.purchaseAnalytics.noReceipts') }}</p>
         </section>
       </template>

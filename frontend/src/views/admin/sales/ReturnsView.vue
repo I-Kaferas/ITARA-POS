@@ -5,6 +5,8 @@ import { useRouter } from 'vue-router'
 import SalesLayout from '../../../components/sales/SalesLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { SaleReturn } from '../../../types'
@@ -34,6 +36,8 @@ const filteredReturns = computed(() =>
     return true
   }),
 )
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredReturns)
 
 onMounted(async () => {
   if (!context.currentStoreId) return
@@ -72,7 +76,7 @@ onMounted(async () => {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr
-              v-for="row in filteredReturns"
+              v-for="row in paged"
               :key="row.id"
               class="cursor-pointer hover:bg-slate-50"
               @click="row.sale?.id && router.push({ name: 'sale-detail', params: { id: row.sale.id } })"
@@ -88,6 +92,13 @@ onMounted(async () => {
           </tbody>
         </table>
         <p v-if="!filteredReturns.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <ListPager
+          :page="page"
+          :last-page="lastPage"
+          :total="total"
+          :per-page="perPage"
+          @change="setPage"
+        />
       </div>
     </div>
   </SalesLayout>

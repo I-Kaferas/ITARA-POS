@@ -6,11 +6,14 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Device, DeviceCategory, DeviceConnection, DeviceRole } from '../../../types'
+import { formatRelativePast } from '../../../utils/format'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 
 const props = withDefaults(defineProps<{ deviceType?: DeviceCategory | null }>(), {
@@ -38,6 +41,7 @@ const filtered = computed(() => store.devices.filter(device =>
   )
   && matchesActive(device.is_active, filters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 const saveNotice = ref('')
 const copied = ref(false)
 const showFormToken = ref(false)
@@ -221,11 +225,31 @@ function categoryLabel(category: string) {
 }
 
 function categoryIcon(category: string) {
-  return `device-${category}`
+  const map: Record<string, string> = {
+    pos: 'device-pos',
+    printer: 'device-printer',
+    tablet: 'device-tablet',
+    computer: 'device-computer',
+    other: 'device-other',
+    scanner: 'device-other',
+  }
+  return map[category] ?? 'device-other'
 }
 
 function connectionIcon(connection: string) {
   return `conn-${connection}`
+}
+
+function deviceCategory(device: Device) {
+  return device.category ?? device.device_type ?? 'other'
+}
+
+function registrationAt(device: Device) {
+  return device.registered_at || device.last_sync_at || device.last_sync || null
+}
+
+function registrationAgo(device: Device) {
+  return formatRelativePast(registrationAt(device))
 }
 
 function registrationLabel(status?: string) {
@@ -269,41 +293,47 @@ async function revoke(device: Device) {
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
             <tr>
-              <th class="px-4 py-3 text-left font-medium">{{ t('org.deviceCode') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.deviceName') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.deviceCategory') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.deviceRole') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('org.registration') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.syncToken') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('org.registration') }}</th>
               <th class="px-4 py-3 text-right">{{ t('common.edit') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="device in filtered" :key="device.id" class="hover:bg-slate-50">
-              <td class="px-4 py-3 font-mono text-xs">{{ device.code || '—' }}</td>
+            <tr v-for="device in paged" :key="device.id" class="hover:bg-slate-50">
               <td class="px-4 py-3">
-                <p class="m-0 font-medium">{{ device.name }}</p>
-                <p class="m-0 text-xs text-slate-400">
-                  {{ device.user?.name || '—' }} · {{ device.branch?.name || '—' }}
-                  <template v-if="device.app_version"> · {{ device.app_version }}</template>
-                </p>
-                <p v-if="device.connection_type" class="m-0 text-xs text-slate-400">
-                  {{ t(`org.connections.${device.connection_type}`) }}
-                  <template v-if="device.ip_address"> · {{ device.ip_address }}<span v-if="device.port">:{{ device.port }}</span></template>
-                </p>
+                <div class="device-entry">
+                  <span
+                    class="device-entry__icon"
+                    :class="`device-entry__icon--${deviceCategory(device)}`"
+                    aria-hidden="true"
+                  >
+                    <AppIcon :name="categoryIcon(deviceCategory(device))" :size="18" />
+                  </span>
+                  <div class="device-entry__body">
+                    <p class="m-0 font-medium">{{ device.name }}</p>
+                    <p class="m-0 text-xs text-slate-400">
+                      {{ device.user?.name || '—' }} · {{ device.branch?.name || '—' }}
+                      <template v-if="device.app_version"> · {{ device.app_version }}</template>
+                    </p>
+                    <p v-if="device.connection_type" class="device-entry__conn m-0 text-xs text-slate-400">
+                      <AppIcon :name="connectionIcon(device.connection_type)" :size="12" />
+                      {{ t(`org.connections.${device.connection_type}`) }}
+                      <template v-if="device.ip_address"> · {{ device.ip_address }}<span v-if="device.port">:{{ device.port }}</span></template>
+                    </p>
+                  </div>
+                </div>
               </td>
-              <td class="px-4 py-3 text-slate-600">{{ categoryLabel(device.category ?? device.device_type) }}</td>
-              <td class="px-4 py-3 text-slate-600">{{ t(`org.roles.${device.pos_role ?? 'standalone'}`) }}</td>
               <td class="px-4 py-3">
-                <span class="reg-pill" :class="deviceStatus(device) === 'active' ? 'reg-pill--ok' : 'reg-pill--pending'">
-                  {{ registrationLabel(deviceStatus(device)) }}
+                <span class="device-type" :class="`device-type--${deviceCategory(device)}`">
+                  <AppIcon :name="categoryIcon(deviceCategory(device))" :size="14" />
+                  {{ categoryLabel(deviceCategory(device)) }}
                 </span>
-                <p v-if="device.local_server" class="m-0 mt-1 text-xs text-slate-400">{{ device.local_server }}</p>
-                <p v-if="device.last_sync || device.last_sync_at" class="m-0 mt-1 text-xs text-slate-400">
-                  {{ t('org.lastSync') }} · {{ device.last_sync || device.last_sync_at }}
-                </p>
               </td>
+              <td class="px-4 py-3 text-slate-600">{{ t(`org.roles.${device.pos_role ?? 'standalone'}`) }}</td>
               <td class="px-4 py-3">
                 <div v-if="device.sync_token" class="token-cell">
                   <span class="font-mono text-xs text-slate-500">
@@ -316,6 +346,13 @@ async function revoke(device: Device) {
                 <span v-else class="text-xs text-slate-400">—</span>
               </td>
               <td class="px-4 py-3"><StatusBadge :active="device.is_active" /></td>
+              <td class="px-4 py-3">
+                <span class="reg-pill" :class="deviceStatus(device) === 'active' ? 'reg-pill--ok' : 'reg-pill--pending'">
+                  {{ registrationLabel(deviceStatus(device)) }}
+                </span>
+                <p class="m-0 mt-1 text-xs text-slate-500">{{ registrationAgo(device) }}</p>
+                <p v-if="device.local_server" class="m-0 mt-1 text-xs text-slate-400">{{ device.local_server }}</p>
+              </td>
               <td class="px-4 py-3 text-right space-x-2">
                 <button class="text-brand-600" @click="openEdit(device)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
                 <button v-if="deviceStatus(device) !== 'revoked'" class="text-amber-700" @click="revoke(device)">{{ t('org.revokeDevice') }}</button>
@@ -324,6 +361,7 @@ async function revoke(device: Device) {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
@@ -472,6 +510,61 @@ async function revoke(device: Device) {
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.45rem 0.75rem; font-size: 0.8125rem; background: var(--color-surface);}
 .text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
+
+.device-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.device-entry__icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 0.65rem;
+  background: #eef2f6;
+  color: #64748b;
+}
+
+.device-entry__icon--pos { background: color-mix(in srgb, #2563eb 14%, white); color: #2563eb; }
+.device-entry__icon--printer { background: color-mix(in srgb, #d97706 14%, white); color: #d97706; }
+.device-entry__icon--tablet { background: color-mix(in srgb, var(--color-brand-600, #12243c) 14%, white); color: var(--color-brand-600, #12243c); }
+.device-entry__icon--computer { background: color-mix(in srgb, #0f766e 14%, white); color: #0f766e; }
+.device-entry__icon--other,
+.device-entry__icon--scanner { background: color-mix(in srgb, #64748b 14%, white); color: #64748b; }
+
+.device-entry__body {
+  min-width: 0;
+}
+
+.device-entry__conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+}
+
+.device-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem 0.2rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #eef2f6;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.device-type--pos { background: color-mix(in srgb, #2563eb 12%, white); color: #1d4ed8; }
+.device-type--printer { background: color-mix(in srgb, #d97706 12%, white); color: #b45309; }
+.device-type--tablet { background: color-mix(in srgb, var(--color-brand-600, #12243c) 12%, white); color: var(--color-brand-600, #12243c); }
+.device-type--computer { background: color-mix(in srgb, #0f766e 12%, white); color: #0f766e; }
+.device-type--other,
+.device-type--scanner { background: color-mix(in srgb, #64748b 12%, white); color: #475569; }
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

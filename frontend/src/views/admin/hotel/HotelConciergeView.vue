@@ -10,6 +10,8 @@ import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useAuthStore } from '../../../stores/auth'
 import { useContextStore } from '../../../stores/context'
 import HotelChrome from './HotelChrome.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Doc = Record<string, any>
 type Category = 'room_service' | 'transport' | 'activity' | 'maintenance' | 'special' | 'vip'
@@ -134,6 +136,7 @@ const filteredRequests = computed(() => {
     return hay.includes(q)
   })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredRequests)
 
 function categoryLabel(id: string) {
   const key = `hotel.concierge.categories.${id}`
@@ -524,7 +527,7 @@ onMounted(load)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in filteredRequests" :key="row.id">
+            <tr v-for="row in paged" :key="row.id">
               <td><strong class="cg__code">{{ row.request_no || '—' }}</strong></td>
               <td>
                 <div class="cg__client">
@@ -578,6 +581,7 @@ onMounted(load)
         <p v-if="!loading && !filteredRequests.length" class="cg__empty">
           {{ t('hotel.concierge.empty') }}
         </p>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
 

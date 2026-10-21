@@ -53,7 +53,7 @@ class LocalDatabase {
     final path = p.join(dir.path, 'pos_offline.sqlite');
     return openDatabase(
       path,
-      version: 14,
+      version: 15,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -144,6 +144,7 @@ class LocalDatabase {
         await _createPrintSpooler(db);
         await _createDataModelV12(db);
         await _createAppLogs(db);
+        await _createPrintedDocuments(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -188,8 +189,21 @@ class LocalDatabase {
         if (oldVersion < 14) {
           await _createAppLogs(db);
         }
+        if (oldVersion < 15) {
+          await _createPrintedDocuments(db);
+        }
       },
     );
+  }
+
+  /// Documents already sent while the back-office right pos.print.once is on.
+  static Future<void> _createPrintedDocuments(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS printed_documents (
+        doc_key TEXT PRIMARY KEY,
+        printed_at TEXT NOT NULL
+      )
+    ''');
   }
 
   /// Diagnostic / support logs (§57 LOGGING).

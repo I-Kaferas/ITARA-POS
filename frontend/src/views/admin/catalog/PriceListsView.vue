@@ -13,6 +13,8 @@ import { emptyListFilters, matchesSearch, type ListFilters } from '../../../util
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Tier = {
   amount: number
@@ -51,6 +53,7 @@ const filters = ref<ListFilters>(emptyListFilters('all'))
 const filteredRows = computed(() =>
   rows.value.filter(row => matchesSearch(`${row.sku} ${row.name}`, filters.value.search)),
 )
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredRows)
 
 onMounted(async () => {
   await context.loadStores()
@@ -163,7 +166,7 @@ function money(amount: number, currency?: string) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in filteredRows" :key="row.id">
+            <tr v-for="row in paged" :key="row.id">
               <td class="px-4 py-3">
                 <span class="block font-medium">{{ row.name }}</span>
                 <span class="font-mono text-xs text-slate-400">{{ row.sku }}</span>
@@ -193,6 +196,7 @@ function money(amount: number, currency?: string) {
           </tbody>
         </table>
         <p v-if="!filteredRows.length" class="px-4 py-8 text-center text-slate-500">{{ t('products.empty') }}</p>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
   </CatalogLayout>

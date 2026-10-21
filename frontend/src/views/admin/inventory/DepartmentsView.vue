@@ -7,7 +7,10 @@ import Badge from '../../../components/ui/Badge.vue'
 import DataTableShell from '../../../components/ui/DataTableShell.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { useConfirm } from '../../../composables/useConfirm'
+import { useClientPager } from '../../../composables/useClientPager'
+import ListPager from '../../../components/ui/ListPager.vue'
 
 type Department = {
   id: string
@@ -49,9 +52,10 @@ const filtered = computed(() => {
   if (!q) return departments.value
   return departments.value.filter((item) => {
     const parent = parentName(item)
-    return [item.name, item.code, item.description, item.manager, parent].join(' ').toLowerCase().includes(q)
+    return [item.name, item.code, item.description, item.manager, parent].join(' ').toLowerCase()      .includes(q)
   })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 function blankForm() {
   return {
@@ -175,6 +179,7 @@ async function remove(item: Department) {
           <AppIcon name="plus" :size="16" />
           {{ t('orgDepartments.add') }}
         </button>
+        <FilterFold>
         <label class="departments__search">
           <span class="sr-only">{{ t('orgDepartments.search') }}</span>
           <input
@@ -184,6 +189,7 @@ async function remove(item: Department) {
             :placeholder="t('orgDepartments.searchPlaceholder')"
           />
         </label>
+        </FilterFold>
       </div>
 
       <DataTableShell
@@ -203,7 +209,7 @@ async function remove(item: Department) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in filtered" :key="item.id">
+            <tr v-for="item in paged" :key="item.id">
               <td>
                 <div class="departments__name">{{ item.name }}</div>
                 <div class="departments__code">{{ item.code }}</div>
@@ -227,6 +233,7 @@ async function remove(item: Department) {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </DataTableShell>
     </div>
 

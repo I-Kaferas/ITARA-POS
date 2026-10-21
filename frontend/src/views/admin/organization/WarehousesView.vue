@@ -7,7 +7,9 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Branch, Warehouse } from '../../../types'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
@@ -28,6 +30,7 @@ const filtered = computed(() => store.warehouses.filter(wh =>
   matchesSearch(`${wh.name} ${wh.code}`, filters.value.search)
   && matchesActive(wh.is_active, filters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 onMounted(async () => {
   await store.loadCompanies()
@@ -99,7 +102,7 @@ async function remove(wh: Warehouse) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="wh in filtered" :key="wh.id" class="hover:bg-slate-50">
+            <tr v-for="wh in paged" :key="wh.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ wh.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ wh.code }}</td>
               <td class="px-4 py-3"><StatusBadge :active="wh.is_active" /></td>
@@ -110,6 +113,7 @@ async function remove(wh: Warehouse) {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>

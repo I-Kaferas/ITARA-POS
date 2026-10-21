@@ -5,6 +5,9 @@ import OrganizationLayout from '../../../components/organization/OrganizationLay
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Permission, Role } from '../../../types'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type CrudAction = 'create' | 'read' | 'update' | 'delete'
 
@@ -73,6 +76,24 @@ const filteredGroups = computed(() => {
     groups.set(resource.group, list)
   }
 
+  return [...groups.entries()]
+})
+
+const filteredResources = computed(() => {
+  const out: CrudResource[] = []
+  for (const [, items] of filteredGroups.value) {
+    out.push(...items)
+  }
+  return out
+})
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredResources)
+const pagedGroups = computed(() => {
+  const groups = new Map<string, CrudResource[]>()
+  for (const resource of paged.value) {
+    const list = groups.get(resource.group) ?? []
+    list.push(resource)
+    groups.set(resource.group, list)
+  }
   return [...groups.entries()]
 })
 
@@ -341,12 +362,14 @@ function humanize(value: string) {
             </p>
           </div>
           <div class="flex items-center gap-2">
+            <FilterFold>
             <input
               v-model="search"
               type="search"
               class="field w-56"
               :placeholder="t('rbac.searchPermissions')"
             />
+            </FilterFold>
             <button
               type="button"
               class="btn-primary"
@@ -365,7 +388,7 @@ function humanize(value: string) {
 
         <div v-else class="space-y-4">
           <div
-            v-for="[group, items] in filteredGroups"
+            v-for="[group, items] in pagedGroups"
             :key="group"
             class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200"
           >
@@ -462,6 +485,8 @@ function humanize(value: string) {
               </table>
             </div>
           </div>
+
+          <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
 
           <div
             v-if="filteredGroups.length === 0"

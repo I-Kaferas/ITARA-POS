@@ -9,6 +9,8 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Customer } from '../../../types'
 import HotelChrome from './HotelChrome.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Doc = Record<string, any>
 
@@ -144,6 +146,7 @@ const filteredGuests = computed(() => {
     return hay.includes(q)
   })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredGuests)
 
 const stats = computed(() => ({
   total: guests.value.length,
@@ -244,7 +247,7 @@ onMounted(load)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in filteredGuests" :key="row.key">
+            <tr v-for="row in paged" :key="row.key">
               <td>
                 <div class="hg__client">
                   <span class="hg__avatar">{{ initials(row.name) }}</span>
@@ -291,6 +294,7 @@ onMounted(load)
         <p v-if="!loading && !filteredGuests.length" class="hg__empty">
           {{ t('hotel.guests.empty') }}
         </p>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
   </HotelChrome>

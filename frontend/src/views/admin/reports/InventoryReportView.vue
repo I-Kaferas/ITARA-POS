@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { InventoryReport, Warehouse } from '../../../types'
 import { formatDate, formatMoney } from '../../../utils/format'
@@ -179,6 +180,7 @@ onMounted(async () => {
         </div>
       </div>
 
+      <FilterFold>
       <div class="inv__filters">
         <div>
           <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
@@ -200,6 +202,7 @@ onMounted(async () => {
           {{ t('reports.inventoryAnalytics.apply') }}
         </button>
       </div>
+      </FilterFold>
 
       <template v-if="activeTab === 'overview'">
         <div class="inv__kpis">

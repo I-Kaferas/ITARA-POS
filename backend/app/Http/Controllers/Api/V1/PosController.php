@@ -38,13 +38,20 @@ class PosController extends Controller
         return response()->json([
             'data' => [
                 'store_id' => $store->id,
-                'products' => $this->catalogSync->productsForStore($store, $catalogIds),
+                'products' => $this->catalogSync->productsForStore($store, $catalogIds, includeImages: false),
                 'categories' => $this->catalogSync->categoriesForStore($store, $catalogIds),
                 'registers' => $store->cashRegisters()
                     ->where('is_active', true)
                     ->orderBy('name')
                     ->get(['id', 'name', 'code']),
             ],
+        ]);
+    }
+
+    public function images(Store $store): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->catalogSync->imageIndexForStore($store),
         ]);
     }
 

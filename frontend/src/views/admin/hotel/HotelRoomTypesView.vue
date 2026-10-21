@@ -11,6 +11,8 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
 import HotelChrome from './HotelChrome.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type DeskDoc = Record<string, any>
@@ -63,6 +65,7 @@ const roomTypes = computed(() =>
     .slice()
     .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), undefined, { sensitivity: 'base' })),
 )
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(roomTypes)
 const amenities = computed(() => docs.value.filter(doc => doc.kind === 'amenity'))
 const filteredAmenities = computed(() => {
   const q = amenityQuery.value.trim().toLowerCase()
@@ -309,7 +312,7 @@ function spaceLabel(row: DeskDoc) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in roomTypes" :key="row.id">
+              <tr v-for="row in paged" :key="row.id">
                 <td class="font-semibold">{{ row.name }}</td>
                 <td class="font-mono">{{ typeCode(row) }}</td>
                 <td>{{ priceLabel(row) }}</td>
@@ -324,6 +327,7 @@ function spaceLabel(row: DeskDoc) {
             </tbody>
           </table>
           <p v-if="!roomTypes.length" class="rt__muted">{{ t('hotel.roomTypes.empty') }}</p>
+          <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         </div>
       </div>
     </div>

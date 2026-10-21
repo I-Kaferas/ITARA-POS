@@ -98,6 +98,215 @@ class LocalShiftsStore {
 
   Future<SessionSummary> summaryFor(CashRegisterSession session) => _summary(session);
 
+  Future<SessionPerformance> sessionPerformance(
+    CashRegisterSession session, {
+    required String sessionCode,
+    required String registerName,
+  }) async {
+    final db = await LocalDatabase.instance.database;
+    final sales = await db.query(
+      'sales',
+      where: 'cash_session_id = ?',
+      whereArgs: [session.id],
+      orderBy: 'created_at ASC',
+    );
+    final saleIds = sales.map((row) => row['id']?.toString() ?? '').where((id) => id.isNotEmpty).toList();
+    final itemRows = saleIds.isEmpty
+        ? <Map<String, Object?>>[]
+        : await db.query(
+            'sale_items',
+            where: 'sale_id IN (${List.filled(saleIds.length, '?').join(',')})',
+            whereArgs: saleIds,
+          );
+    final payments = saleIds.isEmpty
+        ? <Map<String, Object?>>[]
+        : await db.query(
+            'payments',
+            where: 'sale_id IN (${List.filled(saleIds.length, '?').join(',')})',
+            whereArgs: saleIds,
+          );
+
+    final itemsBySale = <String, List<Map<String, dynamic>>>{};
+    final productIds = <String>{};
+    for (final row in itemRows) {
+      final saleId = row['sale_id']?.toString() ?? '';
+      if (saleId.isEmpty) continue;
+      final item = _itemMap(row);
+      itemsBySale.putIfAbsent(saleId, () => []).add(item);
+      final productId = item['product_id']?.toString() ?? '';
+      if (productId.isNotEmpty) productIds.add(productId);
+    }
+    for (final sale in sales) {
+      final saleId = sale['id']?.toString() ?? '';
+      if (saleId.isEmpty || itemsBySale.containsKey(saleId)) continue;
+      final payloadItems = _payloadItems(sale);
+      if (payloadItems.isEmpty) continue;
+      itemsBySale[saleId] = payloadItems;
+      for (final item in payloadItems) {
+        final productId = item['product_id']?.toString() ?? '';
+        if (productId.isNotEmpty) productIds.add(productId);
+      }
+    }
+
+    final products = <String, Map<String, Object?>>{};
+    if (productIds.isNotEmpty) {
+      final rows = await db.query(
+        'products',
+        where: 'product_id IN (${List.filled(productIds.length, '?').join(',')})',
+        whereArgs: productIds.toList(),
+      );
+      for (final row in rows) {
+        final id = row['product_id']?.toString() ?? '';
+        if (id.isNotEmpty) products[id] = row;
+      }
+    }
+    final categoryIds = products.values
+        .map((row) => row['category_id']?.toString() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final categoryNames = <String, String>{};
+    if (categoryIds.isNotEmpty) {
+      final rows = await db.query(
+        'categories',
+        where: 'id IN (${List.filled(categoryIds.length, '?').join(',')})',
+        whereArgs: categoryIds.toList(),
+      );
+      for (final row in rows) {
+        final id = row['id']?.toString() ?? '';
+        final name = row['name']?.toString().trim() ?? '';
+        if (id.isNotEmpty && name.isNotEmpty) categoryNames[id] = name;
+      }
+    }
+
+    final storeNames = await _storeNames();
+    final fallbackDepartment = registerName.trim().isEmpty ? 'Magasin' : registerName.trim();
+    final departments = <String, _DepartmentAgg>{};
+    final productQty = <String, int>{};
+    final storeIds = <String>{};
+    var gross = 0;
+    var collected = 0;
+    var outstanding = 0;
+    var paidInvoices = 0;
+    var creditInvoices = 0;
+
+    for (final sale in sales) {
+      final saleId = sale['id']?.toString() ?? '';
+      final total = syncAsInt(sale['total']);
+      final paid = syncAsInt(sale['paid_amount']);
+      final due = syncAsInt(sale['outstanding_amount']);
+      final onCredit = _saleOnCredit(sale);
+      gross += total;
+      collected += onCredit ? paid : (paid > 0 ? paid : total);
+      outstanding += onCredit ? (due > 0 ? due : total - paid) : 0;
+      if (onCredit) {
+        creditInvoices++;
+      } else if (total > 0 || paid > 0) {
+        paidInvoices++;
+      }
+      final storeId = sale['store_id']?.toString() ?? '';
+      if (storeId.isNotEmpty) storeIds.add(storeId);
+
+      final buckets = <String, int>{};
+      for (final item in itemsBySale[saleId] ?? const <Map<String, dynamic>>[]) {
+        final sold = syncAsInt(item['quantity']);
+        if (sold <= 0) continue;
+        final productId = item['product_id']?.toString() ?? '';
+        final product = products[productId];
+        final name = _firstText([
+          item['product_name'],
+          item['name'],
+          product?['name'],
+        ], 'Article');
+        productQty[name] = (productQty[name] ?? 0) + sold;
+        final categoryId = product?['category_id']?.toString() ?? item['category_id']?.toString() ?? '';
+        final department = _firstText([
+          categoryNames[categoryId],
+          item['category_name'],
+          storeNames[storeId],
+          fallbackDepartment,
+        ], fallbackDepartment);
+        final lineTotal = syncAsInt(item['line_total']) > 0
+            ? syncAsInt(item['line_total'])
+            : syncAsInt(item['unit_price']) * sold;
+        buckets[department] = (buckets[department] ?? 0) + lineTotal;
+      }
+      if (buckets.isEmpty) {
+        buckets[fallbackDepartment] = total;
+      }
+      final bucketTotal = buckets.values.fold<int>(0, (sum, value) => sum + value);
+      final single = buckets.length == 1;
+      buckets.forEach((name, lineTotal) {
+        final dept = departments.putIfAbsent(name, () => _DepartmentAgg(name));
+        dept.orders++;
+        dept.gross += single ? total : lineTotal;
+        dept.net += single ? total : lineTotal;
+        if (onCredit) {
+          dept.creditInvoices++;
+          final share = bucketTotal <= 0 ? 0 : ((due > 0 ? due : total - paid) * lineTotal / bucketTotal).round();
+          final dueAmount = due > 0 ? due : (total - paid).clamp(0, total).toInt();
+          dept.amountDue += single ? dueAmount : share;
+        } else {
+          dept.paidInvoices++;
+        }
+      });
+    }
+
+    final byMethod = <String, int>{};
+    final paymentRows = payments.isNotEmpty ? payments : sales;
+    for (final row in paymentRows) {
+      final method = row['method']?.toString().trim().isNotEmpty == true ? row['method'].toString() : 'cash';
+      final amount = payments.isNotEmpty ? syncAsInt(row['amount']) : syncAsInt(row['total']);
+      byMethod[method] = (byMethod[method] ?? 0) + amount;
+    }
+
+    final heading = await _companyHeading();
+    final config = TerminalConfigRepository.instance.config;
+    final user = (session.openedByName ?? '').trim().isNotEmpty
+        ? session.openedByName!.trim()
+        : config.cashierName.trim();
+    final top = productQty.entries.toList()
+      ..sort((a, b) {
+        final byQty = b.value.compareTo(a.value);
+        return byQty != 0 ? byQty : a.key.toLowerCase().compareTo(b.key.toLowerCase());
+      });
+
+    return SessionPerformance(
+      companyName: heading.name,
+      website: heading.website,
+      userName: user.isEmpty ? 'Caissier' : user,
+      sessionCode: sessionCode,
+      openedAt: session.openedAt,
+      closedAt: session.closedAt,
+      currency: AppConfig.currencyCode,
+      stores: storeIds.isEmpty ? 1 : storeIds.length,
+      orders: sales.length,
+      gross: gross,
+      paidInvoices: paidInvoices,
+      collected: collected,
+      creditInvoices: creditInvoices,
+      outstanding: outstanding < 0 ? 0 : outstanding,
+      departments: departments.values
+          .map((dept) => SessionDepartmentStats(
+                name: dept.name,
+                orders: dept.orders,
+                gross: dept.gross,
+                paidInvoices: dept.paidInvoices,
+                net: dept.net,
+                creditInvoices: dept.creditInvoices,
+                amountDue: dept.amountDue,
+              ))
+          .toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())),
+      payments: byMethod.entries
+          .map((entry) => SessionPaymentLine(label: _paymentLabel(entry.key), amount: entry.value))
+          .toList()
+        ..sort((a, b) => b.amount.compareTo(a.amount)),
+      topProducts: [
+        for (final entry in top.take(5)) SessionProductQty(name: entry.key, quantity: entry.value),
+      ],
+    );
+  }
+
   Future<CashRegisterSession?> openShiftForCashier(String cashierId) async {
     await _releaseFinishedShifts();
     final visibleIds = (await fetchRegisters()).map((register) => register.id).toSet();
@@ -818,6 +1027,41 @@ class LocalShiftsStore {
     final value = row['is_active'];
     return value == 0 || value == false || value == '0';
   }
+
+  String _paymentLabel(String method) {
+    final words = method.replaceAll('_', ' ').trim();
+    if (words.isEmpty) return 'Cash';
+    return words.split(RegExp(r'\s+')).map((word) {
+      if (word.isEmpty) return word;
+      return '${word[0].toUpperCase()}${word.substring(1)}';
+    }).join(' ');
+  }
+
+  Future<({String name, String website})> _companyHeading() async {
+    final config = TerminalConfigRepository.instance.config;
+    var name = config.brandName.trim();
+    var website = '';
+    try {
+      final db = await LocalDatabase.instance.database;
+      final rows = await db.query('organizations', columns: ['name', 'json'], limit: 1);
+      if (rows.isNotEmpty) {
+        final stored = rows.first['name']?.toString().trim() ?? '';
+        if (name.isEmpty && stored.isNotEmpty) name = stored;
+        final decoded = jsonDecode(rows.first['json']?.toString() ?? '{}');
+        if (decoded is Map) {
+          final trade = _firstText([decoded['trade_name'], decoded['name'], stored], '');
+          final legal = _firstText([decoded['legal_name']], '');
+          if (name.isEmpty) {
+            name = [trade, if (legal.isNotEmpty && legal != trade) legal].where((part) => part.isNotEmpty).join(' ');
+          }
+          website = _firstText([decoded['website'], decoded['website_url'], decoded['url']], '');
+        }
+      }
+    } catch (_) {}
+    if (name.isEmpty) name = 'ITARA POS';
+    if (website.isEmpty) website = 'www.nc-africa.com';
+    return (name: name, website: website);
+  }
 }
 
 class _StoreAgg {
@@ -826,6 +1070,18 @@ class _StoreAgg {
   final String id;
   final String name;
   final lines = <String, _LineAgg>{};
+}
+
+class _DepartmentAgg {
+  _DepartmentAgg(this.name);
+
+  final String name;
+  int orders = 0;
+  int gross = 0;
+  int paidInvoices = 0;
+  int net = 0;
+  int creditInvoices = 0;
+  int amountDue = 0;
 }
 
 class _LineAgg {

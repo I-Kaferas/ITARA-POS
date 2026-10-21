@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -24,6 +26,9 @@ async function load() {
     loading.value = false
   }
 }
+
+const accountRows = computed(() => report.value?.by_account ?? [])
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(accountRows)
 
 onMounted(load)
 watchLiveSearch([from, to], load, 0)
@@ -62,7 +67,7 @@ watchLiveSearch([from, to], load, 0)
           <th class="px-4 py-2 text-right">Net</th>
         </tr></thead>
         <tbody class="divide-y">
-          <tr v-for="row in report?.by_account ?? []" :key="row.account_code ?? 'none'">
+          <tr v-for="row in paged" :key="row.account_code ?? 'none'">
             <td class="px-4 py-2 font-mono">{{ row.account_code ?? '—' }}</td>
             <td class="px-4 py-2 text-right">{{ formatMoney(row.total_debit) }}</td>
             <td class="px-4 py-2 text-right">{{ formatMoney(row.total_credit) }}</td>
@@ -70,6 +75,7 @@ watchLiveSearch([from, to], load, 0)
           </tr>
         </tbody>
       </table>
+      <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
     </div>
   </ReportsLayout>
 </template>

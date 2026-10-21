@@ -1,11 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:barcode_widget/barcode_widget.dart' as bw;
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-import '../../../core/utils/money_formatter.dart';
 import '../../settings/domain/cashier_preferences.dart';
 import '../domain/receipt_models.dart';
 
@@ -38,200 +37,414 @@ class _RollLayout {
 class ThermalReceiptBuilder {
   Future<Uint8List> build(ReceiptPrintPayload payload) async {
     final doc = pw.Document();
-    final layout = _RollLayout.of(payload.format);
-    final pageFormat = PdfPageFormat(
-      payload.format.paperWidthMm * PdfPageFormat.mm,
-      double.infinity,
-      marginAll: layout.marginMm * PdfPageFormat.mm,
-    );
+    final thermal = payload.format.isThermal;
+    final layout = _RollLayout.of(thermal ? payload.format : ReceiptDocumentFormat.thermal80);
+    final pageFormat = thermal
+        ? PdfPageFormat(
+            payload.format.paperWidthMm * PdfPageFormat.mm,
+            double.infinity,
+            marginAll: layout.marginMm * PdfPageFormat.mm,
+          )
+        : PdfPageFormat.a4;
 
+    final logo = await _logoBytes(payload.company.logoUrl);
     doc.addPage(
       pw.Page(
         pageFormat: pageFormat,
-        build: (context) => _content(payload, layout),
+        margin: thermal ? null : const pw.EdgeInsets.fromLTRB(36, 28, 36, 28),
+        build: (context) => payload.isInvoice ? _invoice(payload, layout, logo) : _souche(payload, layout, logo),
       ),
     );
 
     return doc.save();
   }
 
-  pw.Widget _content(ReceiptPrintPayload payload, _RollLayout layout) {
+  Future<Uint8List?> _logoBytes(String? url) async {
+    final raw = (url ?? '').trim();
+    if (raw.isEmpty) return null;
+    try {
+      final response = await http.get(Uri.parse(raw)).timeout(const Duration(seconds: 2));
+      if (response.statusCode != 200 || response.bodyBytes.length < 8) return null;
+      final bytes = response.bodyBytes;
+      final png = bytes[0] == 0x89 && bytes[1] == 0x50;
+      final jpeg = bytes[0] == 0xFF && bytes[1] == 0xD8;
+      if (!png && !jpeg) return null;
+      return bytes;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Customer stub. Layout follows the souche: logo, fiscal identity, lines, totals.
+  pw.Widget _souche(ReceiptPrintPayload payload, _RollLayout layout, Uint8List? logo) {
     final body = CashierPreferences.text(layout.body);
     final small = CashierPreferences.text(layout.small);
     final title = CashierPreferences.text(layout.title);
-    final total = CashierPreferences.text(layout.total);
-    final gap = CashierPreferences.space(1);
-    final qr = CashierPreferences.text(layout.qr).clamp(40.0, layout.qr * 1.35);
-    String money(int amount) => MoneyFormatter.format(amount, currencyCode: payload.currency);
-    final due = payload.total - payload.amountPaid;
-    final address = _address(payload.company.address);
+    final company = payload.company;
+    final currency = payload.currency.trim().isEmpty ? 'BIF' : payload.currency.trim().toUpperCase();
+    final figures = NumberFormat('#,##0', 'en');
+    String plain(int minor) => figures.format((minor / 100).round());
+    String money(int minor) => '${plain(minor)} $currency';
+    final due = (payload.total - payload.amountPaid).clamp(0, payload.total).toInt();
+    final htva = payload.taxTotal <= 0
+        ? payload.subtotal
+        : (payload.subtotal - payload.taxTotal).clamp(0, payload.subtotal).toInt();
+    final address = _soucheAddress(company.address);
+    final brand = (company.tradeName ?? '').trim().isNotEmpty
+        ? company.tradeName!.trim()
+        : (company.name ?? '').trim();
+    final legal = (company.legalName ?? '').trim();
+    final customer = (payload.customer?.name ?? '').trim();
+    final customerNif = (payload.customer?.taxId ?? '').trim();
+    final cashier = (payload.cashier?.name ?? '').trim();
+    final now = DateTime.now();
+    final yesNo = (bool value) => value ? 'Oui' : 'Non';
+
+    pw.Widget center(String text, double size, {bool bold = false}) => pw.Text(
+          text,
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(fontSize: size, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+        );
+    pw.Widget detail(String text) => pw.Text(text, style: pw.TextStyle(fontSize: small));
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        if ((payload.company.name ?? '').isNotEmpty)
-          pw.Text(
-            payload.company.name!.toUpperCase(),
-            style: pw.TextStyle(fontSize: title, fontWeight: pw.FontWeight.bold),
-            textAlign: pw.TextAlign.center,
-          ),
-        if ((payload.company.legalName ?? '').isNotEmpty && payload.company.legalName != payload.company.name)
-          _centered(payload.company.legalName!, small),
-        if (address.isNotEmpty) _centered(address, small),
-        if ((payload.company.taxId ?? '').isNotEmpty) _centered('NIF : ${payload.company.taxId}', small),
-        if ((payload.branch.name ?? '').isNotEmpty) _centered(payload.branch.name!, small),
-        pw.SizedBox(height: 5 * gap),
-        pw.Container(
-          padding: pw.EdgeInsets.symmetric(vertical: 3 * gap),
-          decoration: const pw.BoxDecoration(color: PdfColors.black),
-          child: pw.Text(
-            payload.isInvoice ? 'FACTURE' : 'REÇU DE VENTE',
-            textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(color: PdfColors.white, fontSize: total, fontWeight: pw.FontWeight.bold),
-          ),
-        ),
-        pw.SizedBox(height: 5 * gap),
-        _row('N°', payload.documentNumber, body),
-        if (payload.saleReference.isNotEmpty && payload.saleReference != payload.documentNumber)
-          _row('Vente', payload.saleReference, body),
-        _row('Date', _formatDate(payload.date), body),
-        if ((payload.cashier?.name ?? '').isNotEmpty) _row('Caissier', payload.cashier!.name!, body),
-        if ((payload.customer?.name ?? '').isNotEmpty) _row('Client', payload.customer!.name!, body),
-        if (payload.isInvoice && (payload.customer?.phone ?? '').isNotEmpty)
-          _row('Tél.', payload.customer!.phone!, body),
-        _dashes(gap),
-        if (layout.table)
-          _itemTable(payload.items, money, body, small, gap)
-        else
-          ...payload.items.map((item) => _itemBlock(item, money, body, small, gap)),
-        _dashes(gap),
-        _row('Sous-total', money(payload.subtotal), body),
-        if (payload.discountTotal > 0) _row('Remise', '- ${money(payload.discountTotal)}', body),
-        if (payload.taxTotal > 0) _row('Taxes', money(payload.taxTotal), body),
-        if (payload.feesTotal > 0) _row('Frais', money(payload.feesTotal), body),
-        pw.SizedBox(height: 3 * gap),
-        pw.Container(
-          padding: pw.EdgeInsets.symmetric(vertical: 3 * gap),
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(
-              top: pw.BorderSide(width: 1),
-              bottom: pw.BorderSide(width: 1),
-            ),
-          ),
-          child: _row('TOTAL', money(payload.total), total, bold: true),
-        ),
-        pw.SizedBox(height: 3 * gap),
-        ...payload.payments.map((p) => _row(p.methodLabel.isEmpty ? p.method : p.methodLabel, money(p.amount), body)),
-        if (payload.change > 0) _row('Monnaie rendue', money(payload.change), body, bold: true),
-        if (due > 0) _row('Reste à payer', money(due), body, bold: true),
-        if ((payload.notes ?? '').trim().isNotEmpty) ...[
-          pw.SizedBox(height: 4 * gap),
-          pw.Text(payload.notes!.trim(), style: pw.TextStyle(fontSize: small)),
-        ],
-        pw.SizedBox(height: 8 * gap),
-        pw.Center(
-          child: pw.BarcodeWidget(
-            barcode: bw.Barcode.qrCode(),
-            data: payload.saleReference.isEmpty ? payload.documentNumber : payload.saleReference,
-            width: qr,
-            height: qr,
-          ),
-        ),
-        if ((payload.footer ?? '').trim().isNotEmpty) ...[
-          pw.SizedBox(height: 6 * gap),
-          _centered(payload.footer!.trim(), small),
-        ],
-        pw.SizedBox(height: 4 * gap),
-        _centered('Merci de votre visite', small),
-      ],
-    );
-  }
-
-  /// 58 mm: name on its own line, quantity × price and total underneath.
-  pw.Widget _itemBlock(
-    ReceiptLineItem item,
-    String Function(int) money,
-    double body,
-    double small,
-    double gap,
-  ) {
-    return pw.Padding(
-      padding: pw.EdgeInsets.only(bottom: 3 * gap),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(item.name, style: pw.TextStyle(fontSize: body, fontWeight: pw.FontWeight.bold)),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text('${item.quantity} x ${money(item.unitPrice)}', style: pw.TextStyle(fontSize: small)),
-              pw.Text(money(item.lineTotal), style: pw.TextStyle(fontSize: body)),
-            ],
-          ),
-          if (item.lineDiscount > 0)
-            pw.Text('Remise : -${money(item.lineDiscount)}', style: pw.TextStyle(fontSize: small)),
-        ],
-      ),
-    );
-  }
-
-  /// 80 mm: Article | Qté | P.U. | Total.
-  pw.Widget _itemTable(
-    List<ReceiptLineItem> items,
-    String Function(int) money,
-    double body,
-    double small,
-    double gap,
-  ) {
-    pw.Widget cell(String text, {bool bold = false, pw.TextAlign align = pw.TextAlign.left, double? size}) =>
-        pw.Padding(
-          padding: pw.EdgeInsets.fromLTRB(1, 1.5 * gap, 1, 1.5 * gap),
-          child: pw.Text(
-            text,
-            textAlign: align,
-            style: pw.TextStyle(fontSize: size ?? body, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
-          ),
-        );
-
-    return pw.Table(
-      columnWidths: const {
-        0: pw.FlexColumnWidth(3.2),
-        1: pw.FlexColumnWidth(0.8),
-        2: pw.FlexColumnWidth(2.8),
-        3: pw.FlexColumnWidth(3.1),
-      },
-      children: [
-        pw.TableRow(
-          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(width: 0.6))),
+        center('SOUCHE', small, bold: true),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            cell('Article', bold: true, size: small),
-            cell('Qté', bold: true, size: small, align: pw.TextAlign.center),
-            cell('P.U.', bold: true, size: small, align: pw.TextAlign.right),
-            cell('Total', bold: true, size: small, align: pw.TextAlign.right),
-          ],
-        ),
-        for (final item in items)
-          pw.TableRow(
-            verticalAlignment: pw.TableCellVerticalAlignment.top,
-            children: [
-              pw.Column(
+            if (logo != null)
+              pw.Container(
+                width: 46,
+                height: 46,
+                margin: const pw.EdgeInsets.only(right: 6),
+                child: pw.Image(pw.MemoryImage(logo), fit: pw.BoxFit.contain),
+              ),
+            pw.Expanded(
+              child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  cell(item.name),
-                  if (item.lineDiscount > 0) cell('Remise -${money(item.lineDiscount)}', size: small),
+                  if (brand.isNotEmpty)
+                    pw.Text(
+                      brand.toUpperCase(),
+                      style: pw.TextStyle(fontSize: title, fontWeight: pw.FontWeight.bold),
+                    ),
+                  if (legal.isNotEmpty && legal.toLowerCase() != brand.toLowerCase())
+                    pw.Text(
+                      legal.toUpperCase(),
+                      style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold),
+                    ),
+                  if ((company.fiscalCenter ?? '').trim().isNotEmpty)
+                    detail('C. Fiscal: ${company.fiscalCenter!.trim()}'),
+                  if ((company.activitySector ?? '').trim().isNotEmpty)
+                    detail('Secteur: ${company.activitySector!.trim()}'),
+                  if (address.line1.isNotEmpty) detail('Adresse: ${address.line1}'),
+                  if (address.line2.isNotEmpty) detail(address.line2),
+                  if (address.commune.isNotEmpty) detail('Commune: ${address.commune}'),
+                  if ((company.email ?? '').trim().isNotEmpty) detail('Email: ${company.email!.trim()}'),
                 ],
               ),
-              cell('${item.quantity}', align: pw.TextAlign.center),
-              cell(money(item.unitPrice), align: pw.TextAlign.right, size: small),
-              cell(money(item.lineTotal), align: pw.TextAlign.right),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 4),
+        detail('NIF: ${(company.taxId ?? '').trim().isEmpty ? '-' : company.taxId!.trim()}'),
+        detail('RC: ${(company.registrationNumber ?? '').trim().isEmpty ? '-' : company.registrationNumber!.trim()}'),
+        pw.SizedBox(height: 4),
+        center(
+          'Exo.TVA: ${yesNo(company.vatExempt)} | TVA: ${yesNo(company.vatRegistered)} | TC: ${yesNo(company.subjectToTc)} | PF: ${yesNo(company.subjectToPf)}',
+          small,
+        ),
+        _dashes(1),
+        _row('N°', payload.documentNumber, body),
+        _row('Invoice Date', _soucheDate(payload.date), body),
+        if (payload.saleReference.isNotEmpty) _row('Order Number', payload.saleReference, body),
+        _row('Type', _serviceLabel(payload.serviceMode), body),
+        if (cashier.isNotEmpty) _row('Served by', cashier, body),
+        _dashes(1),
+        pw.Row(
+          children: [
+            pw.Expanded(
+              child: pw.Text(
+                customer.isEmpty ? 'Walk-in Customer' : customer,
+                style: pw.TextStyle(fontSize: body, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.Text('NIF: ${customerNif.isEmpty ? '-' : customerNif}', style: pw.TextStyle(fontSize: body)),
+          ],
+        ),
+        _dashes(1),
+        pw.Row(
+          children: [
+            pw.SizedBox(width: 36, child: pw.Text('QTY', style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+            pw.Expanded(child: pw.Text('DESCRIPTION', style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+            pw.SizedBox(width: 52, child: pw.Text('P.U.', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+            pw.SizedBox(width: 58, child: pw.Text('AMOUNT', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+          ],
+        ),
+        pw.Container(height: 1, color: PdfColors.black),
+        for (final item in payload.items)
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 3),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.SizedBox(width: 36, child: pw.Text('${item.quantity} pcs', style: pw.TextStyle(fontSize: small))),
+                pw.Expanded(child: pw.Text(item.name, style: pw.TextStyle(fontSize: body, fontWeight: pw.FontWeight.bold))),
+                pw.SizedBox(width: 52, child: pw.Text(plain(item.unitPrice), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: small))),
+                pw.SizedBox(width: 58, child: pw.Text(plain(item.lineTotal), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+              ],
+            ),
+          ),
+        _dashes(1),
+        _row('Sous-total', money(payload.subtotal), body),
+        _row('HTVA', money(htva), body),
+        _row('TVA', money(payload.taxTotal), body),
+        pw.SizedBox(height: 3),
+        pw.Container(height: 1.6, color: PdfColors.black),
+        pw.SizedBox(height: 3),
+        _row('TOTAL', money(payload.total), title, bold: true),
+        pw.Padding(
+          padding: pw.EdgeInsets.symmetric(vertical: CashierPreferences.space(1)),
+          child: pw.Row(
+            children: [
+              pw.Text('Amount Due', style: pw.TextStyle(fontSize: body, fontWeight: pw.FontWeight.bold, color: PdfColors.red)),
+              pw.SizedBox(width: 6),
+              pw.Expanded(
+                child: pw.Text(
+                  money(due),
+                  textAlign: pw.TextAlign.right,
+                  style: pw.TextStyle(fontSize: body, fontWeight: pw.FontWeight.bold, color: PdfColors.red),
+                ),
+              ),
             ],
           ),
+        ),
+        _dashes(1),
+        center('Thank You!', body, bold: true),
+        center('Thanks for stopping by. See you soon!', small),
+        pw.SizedBox(height: 2),
+        center('Printed at ${DateFormat('HH:mm:ss').format(now)} on ${DateFormat('dd-MM-yyyy').format(now)}', small),
       ],
     );
   }
 
-  pw.Widget _centered(String text, double size) =>
-      pw.Text(text, style: pw.TextStyle(fontSize: size), textAlign: pw.TextAlign.center);
+  /// Customer invoice. Same identity block as the souche, plus the payment box.
+  pw.Widget _invoice(ReceiptPrintPayload payload, _RollLayout layout, Uint8List? logo) {
+    final body = CashierPreferences.text(layout.body);
+    final small = CashierPreferences.text(layout.small);
+    final title = CashierPreferences.text(layout.title);
+    final company = payload.company;
+    final currency = payload.currency.trim().isEmpty ? 'BIF' : payload.currency.trim().toUpperCase();
+    final figures = NumberFormat('#,##0', 'en');
+    String plain(int minor) => figures.format((minor / 100).round());
+    String money(int minor) => '${plain(minor)} $currency';
+    final htva = payload.taxTotal <= 0
+        ? payload.subtotal
+        : (payload.subtotal - payload.taxTotal).clamp(0, payload.subtotal).toInt();
+    final address = _soucheAddress(company.address);
+    final brand = (company.tradeName ?? '').trim().isNotEmpty
+        ? company.tradeName!.trim()
+        : (company.name ?? '').trim();
+    final legal = (company.legalName ?? '').trim();
+    final customer = (payload.customer?.name ?? '').trim();
+    final customerNif = (payload.customer?.taxId ?? '').trim();
+    final cashier = (payload.cashier?.name ?? '').trim();
+    final now = DateTime.now();
+    final yesNo = (bool value) => value ? 'Oui' : 'Non';
+
+    pw.Widget center(String text, double size, {bool bold = false}) => pw.Text(
+          text,
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(fontSize: size, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+        );
+    pw.Widget detail(String text) => pw.Text(text, style: pw.TextStyle(fontSize: small));
+
+    String paymentName(ReceiptPaymentLine payment) {
+      final label = payment.methodLabel.trim();
+      final code = payment.method.trim().toLowerCase();
+      if (label.isNotEmpty && label.toLowerCase() != code) return label;
+      return switch (code) {
+        'cash' => 'Cash',
+        'card' => 'Card',
+        'mobile_money' => 'Mobile Money',
+        'bank_transfer' => 'Bank',
+        'credit' => 'Credit',
+        'wallet' => 'Wallet',
+        'room' => 'Séjour',
+        _ => label.isEmpty ? '-' : label,
+      };
+    }
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        center('INVOICE', title, bold: true),
+        pw.SizedBox(height: 8),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            if (logo != null)
+              pw.Container(
+                width: 52,
+                height: 52,
+                margin: const pw.EdgeInsets.only(right: 8),
+                child: pw.Image(pw.MemoryImage(logo), fit: pw.BoxFit.contain),
+              ),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (brand.isNotEmpty)
+                    pw.Text(
+                      brand.toUpperCase(),
+                      style: pw.TextStyle(fontSize: title, fontWeight: pw.FontWeight.bold),
+                    ),
+                  if (legal.isNotEmpty && legal.toLowerCase() != brand.toLowerCase())
+                    pw.Text(
+                      legal.toUpperCase(),
+                      style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold),
+                    ),
+                  if ((company.fiscalCenter ?? '').trim().isNotEmpty)
+                    detail('C. Fiscal: ${company.fiscalCenter!.trim()}'),
+                  if ((company.activitySector ?? '').trim().isNotEmpty)
+                    detail('Secteur: ${company.activitySector!.trim()}'),
+                  if (address.line1.isNotEmpty) detail('Adresse: ${address.line1}'),
+                  if (address.line2.isNotEmpty) detail(address.line2),
+                  if (address.commune.isNotEmpty) detail('Commune: ${address.commune}'),
+                  if ((company.email ?? '').trim().isNotEmpty) detail('Email: ${company.email!.trim()}'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 4),
+        detail('NIF: ${(company.taxId ?? '').trim().isEmpty ? '-' : company.taxId!.trim()}'),
+        detail('RC: ${(company.registrationNumber ?? '').trim().isEmpty ? '-' : company.registrationNumber!.trim()}'),
+        pw.SizedBox(height: 4),
+        center(
+          'Exo.TVA: ${yesNo(company.vatExempt)} | TVA: ${yesNo(company.vatRegistered)} | TC: ${yesNo(company.subjectToTc)} | PF: ${yesNo(company.subjectToPf)}',
+          small,
+        ),
+        _dashes(1),
+        _row('N°', payload.documentNumber, body),
+        _row('Invoice Date', _soucheDate(payload.date), body),
+        _row('Type', _serviceLabel(payload.serviceMode), body),
+        _row('Served by', cashier.isEmpty ? '-' : cashier, body),
+        _row('Cashier', cashier.isEmpty ? '-' : cashier, body),
+        _dashes(1),
+        pw.Row(
+          children: [
+            pw.Expanded(
+              child: pw.Text(
+                customer.isEmpty ? 'Walk-in Customer' : customer,
+                style: pw.TextStyle(fontSize: body, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.Text('NIF: ${customerNif.isEmpty ? '-' : customerNif}', style: pw.TextStyle(fontSize: body)),
+          ],
+        ),
+        _dashes(1),
+        pw.Row(
+          children: [
+            pw.SizedBox(width: 36, child: pw.Text('QTY', style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+            pw.Expanded(child: pw.Text('DESCRIPTION', style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+            pw.SizedBox(width: 52, child: pw.Text('P.U.', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+            pw.SizedBox(width: 58, child: pw.Text('AMOUNT', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+          ],
+        ),
+        pw.Container(height: 1, color: PdfColors.black),
+        for (final item in payload.items)
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 3),
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.SizedBox(width: 36, child: pw.Text('${item.quantity} pcs', style: pw.TextStyle(fontSize: small))),
+                pw.Expanded(child: pw.Text(item.name, style: pw.TextStyle(fontSize: body, fontWeight: pw.FontWeight.bold))),
+                pw.SizedBox(width: 52, child: pw.Text(plain(item.unitPrice), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: small))),
+                pw.SizedBox(width: 58, child: pw.Text(plain(item.lineTotal), textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: small, fontWeight: pw.FontWeight.bold))),
+              ],
+            ),
+          ),
+        _dashes(1),
+        _row('Sous-total', money(payload.subtotal), body),
+        _row('HTVA', money(htva), body),
+        _row('TVA', money(payload.taxTotal), body),
+        pw.SizedBox(height: 3),
+        pw.Container(height: 1.6, color: PdfColors.black),
+        pw.SizedBox(height: 3),
+        _row('TOTAL', money(payload.total), title, bold: true),
+        pw.SizedBox(height: 6),
+        pw.Container(
+          padding: const pw.EdgeInsets.fromLTRB(8, 6, 8, 6),
+          decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              pw.Text('PAYMENT SUMMARY', style: pw.TextStyle(fontSize: body, fontWeight: pw.FontWeight.bold)),
+              if (payload.payments.isEmpty) _row('-', money(0), body),
+              for (final payment in payload.payments) _row(paymentName(payment), money(payment.amount), body),
+            ],
+          ),
+        ),
+        _dashes(1),
+        center('Thank You!', body, bold: true),
+        center('Thanks for stopping by. See you soon!', small),
+        pw.SizedBox(height: 2),
+        center('Printed at ${DateFormat('HH:mm:ss').format(now)} on ${DateFormat('dd-MM-yyyy').format(now)}', small),
+      ],
+    );
+  }
+
+  ({String line1, String line2, String commune}) _soucheAddress(dynamic address) {
+    if (address is Map) {
+      String field(String key) => address[key]?.toString().trim() ?? '';
+      final quarter = field('quarter');
+      final avenue = field('avenue');
+      final number = field('number');
+      final street = field('street');
+      final line1 = [
+        if (quarter.isNotEmpty) 'Q. $quarter',
+        if (avenue.isNotEmpty) 'Av. $avenue',
+      ].join(',');
+      final line2 = [number, street].where((part) => part.isNotEmpty).join(' ');
+      final commune = field('commune');
+      if (line1.isNotEmpty || line2.isNotEmpty || commune.isNotEmpty) {
+        return (line1: line1, line2: line2, commune: commune);
+      }
+    }
+    final text = _address(address);
+    return (line1: text, line2: '', commune: '');
+  }
+
+  String _soucheDate(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    return DateFormat('dd/MM/yyyy HH:mm').format(parsed.toLocal());
+  }
+
+  String _serviceLabel(String mode) {
+    switch (mode.trim().toLowerCase()) {
+      case 'takeaway':
+      case 'take_away':
+      case 'emporter':
+        return 'Takeaway';
+      case 'delivery':
+      case 'livraison':
+        return 'Delivery';
+      case 'dine_in':
+      case 'dine-in':
+      case 'dine in':
+      case '':
+        return 'Dine In';
+      default:
+        return mode;
+    }
+  }
+
 
   pw.Widget _dashes(double gap) => pw.Padding(
         padding: pw.EdgeInsets.symmetric(vertical: 4 * gap),
@@ -265,11 +478,4 @@ class ThermalReceiptBuilder {
     ].map((part) => part?.toString().trim() ?? '').where((part) => part.isNotEmpty).join(', ');
   }
 
-  String _formatDate(String iso) {
-    try {
-      return DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(iso).toLocal());
-    } catch (_) {
-      return iso;
-    }
-  }
 }

@@ -377,6 +377,22 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     }
   }
 
+  Future<void> _printSessionReport(CashRegister register, CashRegisterSession session) async {
+    try {
+      final day = DateFormat('yyyyMMdd').format(session.openedAt.toLocal());
+      final compact = session.id.replaceAll('-', '');
+      final tail = compact.length <= 4 ? compact : compact.substring(compact.length - 4);
+      final report = await _api.sessionPerformance(
+        session,
+        sessionCode: 'SH-$day-$tail',
+        registerName: register.name,
+      );
+      await ShiftZReportPrinter().printSessionReport(report);
+    } catch (error) {
+      _showMessage(error.toString());
+    }
+  }
+
   Future<void> _showSessionDetail(CashRegister register, CashRegisterSession session) async {
     try {
       final summary = _summaries[session.id] ?? await _api.summaryFor(session);
@@ -701,6 +717,9 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                                                               onMovement: items[i].session.isOpen
                                                                   ? () => _recordMovement(items[i].register)
                                                                   : null,
+                                                              onPrintReport: items[i].session.isOpen
+                                                                  ? null
+                                                                  : () => _printSessionReport(items[i].register, items[i].session),
                                                             )
                                                           : const SizedBox.shrink(),
                                                     ),
@@ -1127,6 +1146,7 @@ class _WorkShiftCard extends StatelessWidget {
     this.summary,
     this.onClose,
     this.onMovement,
+    this.onPrintReport,
     this.compact = false,
   });
 
@@ -1136,6 +1156,7 @@ class _WorkShiftCard extends StatelessWidget {
   final VoidCallback onDetail;
   final VoidCallback? onClose;
   final VoidCallback? onMovement;
+  final VoidCallback? onPrintReport;
   final bool compact;
 
   String get _code {
@@ -1147,11 +1168,12 @@ class _WorkShiftCard extends StatelessWidget {
 
   String get _duration {
     final end = session.closedAt ?? DateTime.now();
-    final mins = end.difference(session.openedAt).inMinutes.clamp(0, 99999);
-    if (mins < 60) return '${mins}m';
-    final hours = mins ~/ 60;
-    final rest = mins % 60;
-    return rest == 0 ? '${hours}h' : '${hours}h ${rest}m';
+    final minutes = end.difference(session.openedAt).inMinutes.abs();
+    if (minutes < 60) return '${minutes}min';
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    if (rest == 0) return '${hours}h';
+    return '${hours}h ${rest}min';
   }
 
   @override
@@ -1207,13 +1229,15 @@ class _WorkShiftCard extends StatelessWidget {
       icon: Icon(Icons.more_horiz, color: PosUi.deskMuted),
       color: PosUi.deskPanel,
       padding: compact ? EdgeInsets.zero : const EdgeInsets.all(8),
-      constraints: const BoxConstraints(minWidth: 160),
+      constraints: const BoxConstraints(minWidth: 220),
       onSelected: (value) {
         switch (value) {
           case 'detail':
             onDetail();
           case 'movement':
             onMovement?.call();
+          case 'report':
+            onPrintReport?.call();
           case 'close':
             onClose?.call();
         }
@@ -1221,21 +1245,17 @@ class _WorkShiftCard extends StatelessWidget {
       itemBuilder: (context) => [
         PopupMenuItem(value: 'detail', child: Text(tr('Details'))),
         if (onMovement != null) PopupMenuItem(value: 'movement', child: Text(tr('Cash movement'))),
+        if (onPrintReport != null) PopupMenuItem(value: 'report', child: Text(tr('Imprimer le rapport de session'))),
         if (onClose != null) PopupMenuItem(value: 'close', child: Text(tr('Close shift'))),
       ],
     );
 
     return Material(
       color: PosUi.deskCard,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: open ? PosUi.deskPay : PosUi.deskLine, width: open ? 1.4 : 1),
-      ),
-      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onDetail,
         child: Padding(
-          padding: compact ? const EdgeInsets.fromLTRB(12, 6, 2, 12) : const EdgeInsets.fromLTRB(16, 14, 8, 14),
+          padding: EdgeInsets.fromLTRB(compact ? 12 : 16, 14, compact ? 8 : 12, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

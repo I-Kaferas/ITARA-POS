@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-/// Draws the whole app 10% smaller while still filling the window.
+/// Draws the whole app a little smaller while still filling the window.
 ///
-/// Layout runs on a canvas 1/0.9 times larger, then that canvas is fitted
-/// back into the real window. Text, buttons and spacing all shrink together.
+/// Layout runs on a larger canvas, then that canvas is fitted back into the
+/// real window. Text, buttons and spacing all shrink together.
 class AppViewportScale extends StatelessWidget {
   const AppViewportScale({required this.child, super.key});
 
-  static const scale = 0.9;
+  static const scale = 0.84;
 
   final Widget child;
 

@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../i18n/app_locale.dart';
 import '../config/terminal_config.dart';
@@ -13,13 +14,12 @@ import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_radius.dart';
-import '../theme/app_spacing.dart';
 import '../theme/theme_controller.dart';
-import '../widgets/app_buttons.dart';
 import '../../features/auth/data/pin_auth_service.dart';
 import '../../features/auth/presentation/logout_profile_dialog.dart';
 import '../../features/pos/presentation/widgets/pos_ui.dart';
 import '../../features/settings/domain/cashier_preferences.dart';
+import '../../features/settings/presentation/close_period_dialog.dart';
 import '../widgets/app_calculator.dart';
 import '../../features/sync/presentation/sync_status_bar.dart';
 import '../../sync/local_master_server.dart';
@@ -55,136 +55,228 @@ class _SyncStockDialog extends StatefulWidget {
 }
 
 class _SyncStockDialogState extends State<_SyncStockDialog> {
-  bool _running = false;
+  Timer? _tick;
+  String? _busy;
   SyncReport? _report;
 
-  Future<void> _run(String action) async {
-    if (_running) return;
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _run(String id, Future<SyncReport> Function() action) async {
+    if (_busy != null) return;
     setState(() {
-      _running = true;
+      _busy = id;
       _report = null;
     });
-    final report = action == 'send'
-        ? await SyncEngine.instance.sendStock()
-        : await SyncEngine.instance.downloadStock();
-    if (!mounted) return;
-    setState(() {
-      _running = false;
-      _report = report;
-    });
+    try {
+      final report = await action();
+      if (!mounted) return;
+      setState(() => _report = report);
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
+  Future<void> _closePeriod() async {
+    if (_busy != null) return;
+    final config = TerminalConfigRepository.instance.config;
+    final report = await showClosePeriodDialog(context, toMaster: config.isSlave);
+    if (!mounted || report == null) return;
+    setState(() => _report = report);
+  }
+
+  String _ago(DateTime? at) {
+    if (at == null) return 'jamais';
+    final diff = DateTime.now().difference(at);
+    if (diff.inSeconds < 60) return 'il y a ${diff.inSeconds.clamp(0, 59)} s';
+    if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'il y a ${diff.inHours} h';
+    String two(int n) => n.toString().padLeft(2, '0');
+    final local = at.toLocal();
+    return 'le ${two(local.day)}/${two(local.month)} à ${two(local.hour)}:${two(local.minute)}';
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final config = TerminalConfigRepository.instance.config;
+    final brand = AppColors.brandInk;
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 400, maxHeight: size.height * 0.86),
+        constraints: BoxConstraints(maxWidth: 560, maxHeight: size.height * 0.9),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: AppRadius.borderXl,
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: AppColors.border),
             boxShadow: AppColors.elevationMd,
           ),
           child: ClipRRect(
-            borderRadius: AppRadius.borderXl,
+            borderRadius: BorderRadius.circular(22),
             child: ListenableBuilder(
               listenable: SyncEngine.instance,
               builder: (context, _) {
-                final live = SyncEngine.instance.snapshot;
-                final waiting = live.pending + live.failed;
-                final last = live.lastSyncAt == null
-                    ? 'Jamais'
-                    : DateFormat('dd/MM · HH:mm').format(live.lastSyncAt!);
-                final online = live.connectivity == ConnectivityState.online ||
-                    live.connectivity == ConnectivityState.cloudAvailable ||
-                    live.connectivity == ConnectivityState.localAvailable;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(20, 28, 20, 18),
-                      color: AppColors.brand600,
-                      child: Column(
+                final engine = SyncEngine.instance;
+                final live = engine.snapshot;
+                final last = engine.lastSyncAt ?? live.lastSyncAt;
+                final error = engine.lastError;
+                final idle = _busy == null;
+                final (statusIcon, statusColor) = error != null
+                    ? (Icons.cloud_off_rounded, AppColors.danger)
+                    : engine.pending > 0
+                        ? (Icons.cloud_upload_rounded, AppColors.warning)
+                        : (Icons.cloud_done_rounded, AppColors.success);
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
                         children: [
                           Container(
-                            width: 92,
-                            height: 92,
+                            width: 44,
+                            height: 44,
                             alignment: Alignment.center,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.accent,
-                            ),
-                            child: const Icon(Icons.sync_rounded, size: 40, color: AppColors.brand900),
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            AppCopy.get('syncTitle'),
-                            textAlign: TextAlign.center,
-                            style: AppTypography.text(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             decoration: BoxDecoration(
-                              color: online ? AppColors.success : AppColors.warning,
-                              borderRadius: AppRadius.borderPill,
+                              color: AppColors.brand600,
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            child: const Icon(Icons.sync_rounded, size: 24, color: Colors.white),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
                             child: Text(
-                              tr(live.label),
+                              tr('Synchroniser les données'),
                               style: AppTypography.text(
-                                color: Colors.white,
-                                fontSize: 12,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          Material(
+                            color: AppColors.fieldFill,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => Navigator.pop(context),
+                              child: SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: Icon(Icons.close_rounded, size: 18, color: AppColors.textMuted),
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-                        child: Column(
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: brand.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(statusIcon, size: 24, color: statusColor),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tr('État de la synchro'),
+                                  style: AppTypography.text(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  trf('Dernière synchro : {0}{1}', [
+                                    _ago(last),
+                                    engine.pending > 0 ? ' · ${engine.pending} en attente' : '',
+                                  ]),
+                                  style: AppTypography.text(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                if (error != null)
+                                  Text(
+                                    tr(error),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.text(fontSize: 12, color: AppColors.danger),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_report != null) ...[
+                        const SizedBox(height: 14),
+                        _SyncResultBanner(
+                          report: _report!,
+                          onDismiss: () => setState(() => _report = null),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: AppColors.fieldFill,
-                                borderRadius: AppRadius.borderLg,
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: Column(
-                                children: [
-                                  _SyncInfoRow(icon: Icons.cloud_queue, label: tr('Connexion'), value: live.label),
-                                  const SizedBox(height: 10),
-                                  _SyncInfoRow(icon: Icons.hourglass_bottom, label: tr('En attente'), value: '$waiting'),
-                                  const SizedBox(height: 10),
-                                  _SyncInfoRow(icon: Icons.schedule, label: tr('Dernière'), value: last),
-                                ],
+                            Expanded(
+                              child: _SyncModalActionTile(
+                                icon: Icons.cloud_upload_rounded,
+                                color: brand,
+                                title: tr('Envoyer'),
+                                subtitle: config.isSlave
+                                    ? tr('Pousser les changements locaux vers le Master')
+                                    : tr('Pousser les changements locaux vers le cloud'),
+                                busy: _busy == 'upload',
+                                onTap: idle ? () => _run('upload', engine.sendStock) : null,
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            if (_running)
-                              _busy()
-                            else if (_report != null)
-                              _resultCard(_report!)
-                            else
-                              _actions(waiting),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: _SyncModalActionTile(
+                                icon: Icons.sync_rounded,
+                                color: AppColors.info,
+                                title: tr('Synchro complète'),
+                                subtitle: tr('Envoyer et télécharger toutes les données'),
+                                busy: _busy == 'full',
+                                onTap: idle ? () => _run('full', engine.syncNow) : null,
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+                      _SyncModalClosePeriodTile(
+                        busy: _busy == 'close',
+                        onTap: idle ? _closePeriod : null,
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -193,168 +285,182 @@ class _SyncStockDialogState extends State<_SyncStockDialog> {
       ),
     );
   }
+}
 
-  Widget _actions(int waiting) {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: AppButton.secondary(
-            label: waiting == 0 ? AppCopy.get('syncSend') : '${AppCopy.get('syncSend')} ($waiting)',
-            icon: Icons.upload_outlined,
-            expanded: true,
-            onPressed: () => _run('send'),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        SizedBox(
-          width: double.infinity,
-          child: AppButton.primary(
-            label: AppCopy.get('syncDownload'),
-            icon: Icons.download_outlined,
-            expanded: true,
-            onPressed: () => _run('download'),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        SizedBox(
-          width: double.infinity,
-          child: AppButton.secondary(
-            label: AppCopy.get('cancel'),
-            expanded: true,
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-      ],
-    );
-  }
+class _SyncResultBanner extends StatelessWidget {
+  const _SyncResultBanner({required this.report, required this.onDismiss});
 
-  Widget _busy() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
+  final SyncReport report;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = report.ok ? AppColors.success : AppColors.danger;
+    final bg = report.ok ? AppColors.successBg : AppColors.dangerBg;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: AppRadius.borderLg,
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.brandInk),
+          Icon(report.ok ? Icons.check_circle : Icons.error_outline, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tr(
+                report.message.isNotEmpty
+                    ? report.message
+                    : (report.ok ? AppCopy.get('syncDone') : AppCopy.get('syncFailed')),
+              ),
+              style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: color),
+            ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            AppCopy.get('syncBusy'),
-            style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+          InkWell(
+            onTap: onDismiss,
+            child: Icon(Icons.close, size: 16, color: color),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _resultCard(SyncReport report) {
-    final color = report.ok ? AppColors.success : AppColors.danger;
-    final bg = report.ok ? AppColors.successBg : AppColors.dangerBg;
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
+class _SyncModalActionTile extends StatelessWidget {
+  const _SyncModalActionTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final bool busy;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
           decoration: BoxDecoration(
-            color: bg,
-            borderRadius: AppRadius.borderLg,
-            border: Border.all(color: color.withValues(alpha: 0.25)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withValues(alpha: 0.45)),
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(report.ok ? Icons.check_circle : Icons.error_outline, color: color, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      tr(report.message.isNotEmpty ? report.message : (report.ok ? AppCopy.get('syncDone') : AppCopy.get('syncFailed'))),
-                      style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: color),
-                    ),
-                  ),
-                ],
-              ),
-              if (report.ok) ...[
-                const SizedBox(height: 12),
-                ...report.lines.map(
-                  (line) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, size: 16, color: AppColors.success),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(tr(line.label), style: AppTypography.text(fontSize: 14, color: AppColors.textPrimary)),
-                        ),
-                        Text(
-                          '${line.count}',
-                          style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                        ),
-                      ],
-                    ),
-                  ),
+              SizedBox(
+                height: 28,
+                child: Center(
+                  child: busy
+                      ? SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.4, color: color),
+                        )
+                      : Icon(icon, size: 26, color: color),
                 ),
-              ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                tr(title),
+                textAlign: TextAlign.center,
+                style: AppTypography.text(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tr(subtitle),
+                textAlign: TextAlign.center,
+                style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        Row(
-          children: [
-            Expanded(
-              child: AppButton.secondary(
-                label: tr('Autre action'),
-                expanded: true,
-                onPressed: () => setState(() => _report = null),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: AppButton.primary(
-                label: tr('Fermer'),
-                expanded: true,
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _SyncInfoRow extends StatelessWidget {
-  const _SyncInfoRow({required this.icon, required this.label, required this.value});
+class _SyncModalClosePeriodTile extends StatelessWidget {
+  const _SyncModalClosePeriodTile({required this.busy, required this.onTap});
 
-  final IconData icon;
-  final String label;
-  final String value;
+  final bool busy;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: AppColors.textMuted),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Material(
+      color: AppColors.danger.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.danger.withValues(alpha: 0.45)),
+          ),
+          child: Row(
             children: [
-              Text(tr(label), style: AppTypography.text(fontSize: 11, color: AppColors.textMuted)),
-              Text(
-                tr(value),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              SizedBox(
+                width: 26,
+                height: 26,
+                child: Center(
+                  child: busy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.danger),
+                        )
+                      : const Icon(Icons.storefront_rounded, size: 24, color: AppColors.danger),
+                ),
               ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tr('Clôturer la période'),
+                      style: AppTypography.text(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.danger,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      tr('Envoyer, vérifier et nettoyer les mouvements locaux'),
+                      style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: AppColors.textMuted),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -443,12 +549,17 @@ class AppShell extends StatelessWidget {
     return [...base, _prefsItem];
   }
 
+  /// Overview / POS / Orders / Shifts stay off until the company is linked.
   static bool _lockedUntilConfigured(_NavItem item) {
-    if (TerminalConfigRepository.instance.isConfigured) return false;
+    if (TerminalConfigRepository.instance.isCompanyConfigured) return false;
     return item.route == AppRoutes.dashboard ||
         item.route == AppRoutes.pos ||
         item.route == AppRoutes.orders ||
         item.route == AppRoutes.shifts;
+  }
+
+  static void _openCompanySetup(BuildContext context) {
+    context.go(AppRoutes.cashierSettings);
   }
 
   static bool _tabMatches(_NavItem item, String location) {
@@ -582,7 +693,13 @@ class AppShell extends StatelessWidget {
                 activeRoute: location,
                 config: config,
                 tabs: tabs,
-                onTab: (item) => context.go(item.route),
+                onTab: (item) {
+                  if (_lockedUntilConfigured(item)) {
+                    _openCompanySetup(context);
+                    return;
+                  }
+                  context.go(item.route);
+                },
               ),
             Expanded(
               child: Column(
@@ -591,9 +708,9 @@ class AppShell extends StatelessWidget {
                     ConfigTopBar(
                       onHome: exitConfiguration,
                       onFeatures: () => context.go(
-                        TerminalConfigRepository.instance.isConfigured
+                        TerminalConfigRepository.instance.isCompanyConfigured
                             ? AppRoutes.menu
-                            : '${AppRoutes.configuration}?section=0',
+                            : AppRoutes.cashierSettings,
                       ),
                       onLogout: () => _confirmLogout(context),
                     )
@@ -685,17 +802,26 @@ class AppShell extends StatelessWidget {
           return open < 0 ? 0 : open;
         }(),
         onDestinationSelected: (i) {
-          if (_lockedUntilConfigured(tabs[i])) return;
+          if (_lockedUntilConfigured(tabs[i])) {
+            _openCompanySetup(context);
+            return;
+          }
           context.go(tabs[i].route);
         },
         destinations: tabs
             .map(
-              (item) => NavigationDestination(
-                icon: Icon(item.icon),
-                selectedIcon: Icon(item.selectedIcon),
-                label: item.label,
-                enabled: !_lockedUntilConfigured(item),
-              ),
+              (item) {
+                final locked = _lockedUntilConfigured(item);
+                return NavigationDestination(
+                  icon: Icon(item.icon),
+                  selectedIcon: Icon(item.selectedIcon),
+                  label: item.label,
+                  enabled: !locked,
+                  tooltip: locked
+                      ? tr('Configurez l’entreprise pour activer ce menu')
+                      : item.label,
+                );
+              },
             )
             .toList(),
         ),
@@ -780,7 +906,7 @@ class _Sidebar extends StatelessWidget {
                       Text(
                         tr('Point of Sale'),
                         style: AppTypography.caption(
-                          color: AppColors.sidebarText.withValues(alpha: 0.72),
+                          color: Colors.white.withValues(alpha: 0.92),
                         ),
                       ),
                     ],
@@ -846,10 +972,10 @@ class _Sidebar extends StatelessWidget {
             child: Text(
               tr('NAVIGATION').toUpperCase(),
               style: AppTypography.text(
-                color: AppColors.sidebarText.withValues(alpha: 0.45),
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.1,
+                color: Colors.white.withValues(alpha: 0.82),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
               ),
             ),
           ),
@@ -863,6 +989,9 @@ class _Sidebar extends StatelessWidget {
                     selected: !AppShell._lockedUntilConfigured(item) &&
                         AppShell._tabMatches(item, activeRoute),
                     enabled: !AppShell._lockedUntilConfigured(item),
+                    lockedHint: AppShell._lockedUntilConfigured(item)
+                        ? tr('Configurez l’entreprise pour activer ce menu')
+                        : null,
                     onTap: () => onTab(item),
                   ),
               ],
@@ -880,22 +1009,30 @@ class _Sidebar extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: syncing ? null : () => _syncStock(context),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: AppColors.brand900,
-                      disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.45),
-                      disabledForegroundColor: AppColors.brand900.withValues(alpha: 0.7),
+                      backgroundColor: AppColors.accent.withValues(alpha: 0.22),
+                      foregroundColor: Colors.white.withValues(alpha: 0.95),
+                      disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.12),
+                      disabledForegroundColor: Colors.white.withValues(alpha: 0.55),
                       elevation: 0,
+                      side: BorderSide(color: AppColors.accent.withValues(alpha: 0.28)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       textStyle: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w700),
                     ),
                     icon: syncing
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 15,
                             height: 15,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brand900),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white.withValues(alpha: 0.85),
+                            ),
                           )
-                        : const Icon(Icons.sync_rounded, size: 17),
-                    label: Text(tr(syncing ? 'Synchronisationâ€¦' : 'Synchroniser')),
+                        : Icon(
+                            Icons.sync_rounded,
+                            size: 17,
+                            color: AppColors.accent.withValues(alpha: 0.9),
+                          ),
+                    label: Text(tr(syncing ? 'Synchronisation…' : 'Synchroniser')),
                   ),
                 );
               },
@@ -1137,18 +1274,18 @@ class _ConnectionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = on ? const Color(0xFF34D399) : AppColors.sidebarText.withValues(alpha: 0.55);
+    final color = on ? const Color(0xFF6EE7B7) : Colors.white.withValues(alpha: 0.72);
     if (compact) {
       return Row(
         children: [
           Container(
-            width: 7,
-            height: 7,
+            width: 8,
+            height: 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: color,
               boxShadow: on
-                  ? [BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 6)]
+                  ? [BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 6)]
                   : null,
             ),
           ),
@@ -1159,9 +1296,9 @@ class _ConnectionPill extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.text(
-                color: Colors.white.withValues(alpha: on ? 0.92 : 0.55),
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -1244,6 +1381,7 @@ class _SidebarItem extends StatelessWidget {
     required this.onTap,
     this.enabled = true,
     this.danger = false,
+    this.lockedHint,
   });
 
   final _NavItem item;
@@ -1251,77 +1389,90 @@ class _SidebarItem extends StatelessWidget {
   final VoidCallback onTap;
   final bool enabled;
   final bool danger;
+  final String? lockedHint;
 
   @override
   Widget build(BuildContext context) {
     final iconColor = !enabled
-        ? AppColors.sidebarText.withValues(alpha: 0.28)
-        : danger
-            ? const Color(0xFFF87171)
-            : selected
-                ? AppColors.accent
-                : AppColors.sidebarText.withValues(alpha: 0.85);
-    final textColor = !enabled
-        ? AppColors.sidebarText.withValues(alpha: 0.32)
+        ? Colors.white.withValues(alpha: 0.38)
         : danger
             ? const Color(0xFFFCA5A5)
             : selected
-                ? Colors.white
-                : AppColors.sidebarText.withValues(alpha: 0.88);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
+                ? AppColors.accent.withValues(alpha: 0.9)
+                : Colors.white;
+    final textColor = !enabled
+        ? Colors.white.withValues(alpha: 0.42)
+        : danger
+            ? const Color(0xFFFECACA)
+            : selected
+                ? Colors.white.withValues(alpha: 0.95)
+                : Colors.white;
+    final tile = Padding(
+      padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: selected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+        color: selected ? AppColors.accent.withValues(alpha: 0.22) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          onTap: enabled ? onTap : null,
+          // Keep tap when locked so we can route to company setup.
+          onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          hoverColor: enabled ? AppColors.sidebarHover : Colors.transparent,
+          hoverColor: enabled
+              ? (selected ? AppColors.accent.withValues(alpha: 0.32) : AppColors.sidebarHover)
+              : Colors.transparent,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: selected
-                  ? Border(left: BorderSide(color: AppColors.accent, width: 3))
+                  ? Border.all(color: AppColors.accent.withValues(alpha: 0.28))
                   : null,
             ),
             child: Row(
               children: [
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 34,
+                  height: 34,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: selected
-                        ? AppColors.accent.withValues(alpha: 0.16)
-                        : Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(9),
+                        ? AppColors.accent.withValues(alpha: 0.18)
+                        : Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     selected ? item.selectedIcon : item.icon,
                     color: iconColor,
-                    size: 17,
+                    size: 18,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     tr(item.label),
                     style: AppTypography.text(
                       color: textColor,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
                     ),
                   ),
                 ),
+                if (!enabled)
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 14,
+                    color: AppColors.sidebarText.withValues(alpha: 0.35),
+                  ),
               ],
             ),
           ),
         ),
       ),
     );
+    final hint = lockedHint?.trim() ?? '';
+    if (hint.isEmpty) return tile;
+    return Tooltip(message: hint, child: tile);
   }
 }
 
@@ -1397,12 +1548,14 @@ class _TopBar extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Opacity(
-                      opacity: config.isConfigured ? 1 : 0.4,
+                      opacity: config.isCompanyConfigured ? 1 : 0.4,
                       child: _ContextChip(
                         icon: Icons.schedule_outlined,
                         label: tr('Shifts'),
                         tone: AppColors.brandInk,
-                        onTap: config.isConfigured ? () => context.go(AppRoutes.shifts) : null,
+                        onTap: config.isCompanyConfigured
+                            ? () => context.go(AppRoutes.shifts)
+                            : () => AppShell._openCompanySetup(context),
                       ),
                     ),
                     const SizedBox(width: 8),

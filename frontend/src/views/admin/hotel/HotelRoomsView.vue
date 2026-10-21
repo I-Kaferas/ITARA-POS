@@ -14,6 +14,8 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
 import HotelChrome from './HotelChrome.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Doc = Record<string, any>
 type SpaceKind = 'guest_room' | 'conference' | 'reception'
@@ -176,6 +178,7 @@ const filteredRooms = computed(() => {
     return String(a.number ?? '').localeCompare(String(b.number ?? ''), undefined, { numeric: true, sensitivity: 'base' })
   })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredRooms)
 
 const selectedCategory = computed(() =>
   categories.value.find(item => item.id === selectedCategoryId.value) ?? null,
@@ -585,7 +588,7 @@ function selectCategory(id: string | null) {
             </div>
 
             <div v-else class="rooms__cards">
-              <article v-for="row in filteredRooms" :key="row.id" class="room-card">
+              <article v-for="row in paged" :key="row.id" class="room-card">
                 <div class="room-card__media">
                   <img v-if="roomPhotos(row)[0]" :src="roomPhotos(row)[0]" :alt="roomTitle(row)" />
                   <div v-else class="room-card__nophoto">
@@ -695,6 +698,7 @@ function selectCategory(id: string | null) {
                 </div>
               </article>
               <p v-if="!filteredRooms.length" class="rooms__empty">{{ t('hotel.rooms.emptyCategory') }}</p>
+              <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
             </div>
           </div>
         </template>

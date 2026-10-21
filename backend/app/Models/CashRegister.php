@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Services\Platform\SaasLimitGuard;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -79,6 +80,8 @@ class CashRegister extends Model
             return $existing;
         }
 
+        static::assertWithinPlan($store);
+
         $base = 'C-'.strtoupper((string) ($store->code ?: 'POS'));
         $code = $base;
         $suffix = 2;
@@ -106,5 +109,13 @@ class CashRegister extends Model
             ->where('store_id', $store->id)
             ->whereKey($id)
             ->first();
+    }
+
+    public static function assertWithinPlan(Store $store): void
+    {
+        $tenant = Tenant::query()->find($store->tenant_id);
+        if ($tenant) {
+            app(SaasLimitGuard::class)->assertWithin($tenant, 'pos');
+        }
     }
 }

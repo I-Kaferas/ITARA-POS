@@ -328,6 +328,7 @@ return [
         'pos.print.invoice' => ['Print an invoice', 'pos'],
         'pos.print.stub' => ['Print a stub', 'pos'],
         'pos.print.kitchen' => ['Print a kitchen ticket', 'pos'],
+        'pos.print.once' => ['Print the receipt and the kitchen ticket only once', 'pos'],
         'crm.view' => ['View CRM', 'crm'],
         'crm.manage' => ['Manage CRM', 'crm'],
         'hr.view' => ['View HR', 'hr'],

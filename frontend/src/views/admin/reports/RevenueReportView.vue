@@ -4,11 +4,14 @@ import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { RevenueReport } from '../../../types'
 import { formatMoney, toDateTimeLocal } from '../../../utils/format'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type ProductTab = 'all' | 'sales' | 'accompaniments'
 
@@ -116,6 +119,7 @@ const filteredProducts = computed(() => {
   }
   return rows
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredProducts)
 
 const totals = computed(() => {
   const rows = filteredProducts.value
@@ -158,6 +162,7 @@ onMounted(() => {
           <AppIcon name="recycle" :size="15" />
           {{ t('common.refresh') }}
         </button>
+        <FilterFold>
         <div class="rev__filters">
           <div>
             <FieldLabel icon="calendar">{{ t('reports.revenueReport.from') }}</FieldLabel>
@@ -178,6 +183,7 @@ onMounted(() => {
             {{ t('reports.revenueReport.generate') }}
           </button>
         </div>
+        </FilterFold>
       </div>
 
       <p v-if="report" class="rev__meta">
@@ -300,12 +306,14 @@ onMounted(() => {
               <AppIcon name="import" :size="15" />
               {{ t('reports.salesAnalytics.exportExcel') }}
             </button>
+            <FilterFold>
             <input
               v-model="search"
               type="search"
               class="field field--search"
               :placeholder="t('reports.revenueReport.searchProducts')"
             >
+            </FilterFold>
           </div>
         </div>
 
@@ -327,8 +335,8 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(row, index) in filteredProducts" :key="`${row.sku}-${row.label}-${index}`">
-                <td>{{ index + 1 }}</td>
+              <tr v-for="(row, index) in paged" :key="`${row.sku}-${row.label}-${index}`">
+                <td>{{ (page - 1) * perPage + index + 1 }}</td>
                 <td>
                   <div class="product-cell">
                     <strong>{{ row.label }}</strong>
@@ -363,6 +371,7 @@ onMounted(() => {
               </tr>
             </tfoot>
           </table>
+          <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         </div>
       </section>
 

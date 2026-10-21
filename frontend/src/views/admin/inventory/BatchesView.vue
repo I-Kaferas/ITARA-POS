@@ -5,6 +5,8 @@ import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
@@ -24,6 +26,9 @@ const filters = ref<ListFilters>(emptyListFilters('all'))
 const filtered = computed(() => store.productBatches.filter(row =>
   matchesSearch(`${row.batch_number} ${row.expires_at ?? ''} ${row.unit_cost ?? ''}`, filters.value.search),
 ))
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
+
 const form = ref({
   batch_number: '',
   quantity: 1,
@@ -97,7 +102,7 @@ async function save() {
           </tr>
         </thead>
         <tbody class="divide-y">
-          <tr v-for="row in filtered" :key="row.id">
+          <tr v-for="row in paged" :key="row.id">
             <td class="px-4 py-3 font-mono">{{ row.batch_number }}</td>
             <td class="px-4 py-3">{{ formatDate(row.expires_at) }}</td>
             <td class="px-4 py-3 text-right">{{ row.unit_cost != null ? formatMoney(row.unit_cost) : '—' }}</td>
@@ -106,6 +111,13 @@ async function save() {
         </tbody>
       </table>
       <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="page"
+        :last-page="lastPage"
+        :total="total"
+        :per-page="perPage"
+        @change="setPage"
+      />
     </div>
 
     <AppModal

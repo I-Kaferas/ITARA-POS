@@ -201,6 +201,7 @@ export interface Store {
   code: string
   kind?: 'store' | 'boutique'
   is_active: boolean
+  is_main?: boolean
   branch?: Branch & { company?: Company }
 }
 
@@ -244,6 +245,7 @@ export interface Device {
   platform?: string | null
   is_active: boolean
   last_sync_at?: string | null
+  registered_at?: string | null
   warehouse_ids?: string[]
   warehouses?: Array<Pick<Warehouse, 'id' | 'name' | 'code'>>
 }

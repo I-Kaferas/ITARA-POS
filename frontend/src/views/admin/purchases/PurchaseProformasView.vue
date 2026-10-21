@@ -8,6 +8,8 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, PurchaseProforma, Supplier, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
@@ -51,6 +53,8 @@ const filteredRows = computed(() =>
     return true
   }),
 )
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredRows)
 
 function emptyForm() {
   return {
@@ -210,9 +214,12 @@ async function submitConvert() {
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('purchases.hub.proformas') }}</h3>
-        <button class="btn-primary-sm" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('purchases.hub.newProforma') }}</button>
+      <div class="pur-toolbar">
+        <h3 class="pur-toolbar__title">{{ t('purchases.hub.proformas') }}</h3>
+        <button type="button" class="btn-primary" @click="openCreate">
+          <AppIcon name="plus" :size="16" />
+          {{ t('purchases.hub.newProforma') }}
+        </button>
       </div>
 
       <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -229,7 +236,7 @@ async function submitConvert() {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in filteredRows" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in paged" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 font-mono">
               {{ row.number }}
               <span v-if="row.requisition" class="ml-1 text-xs text-slate-400">{{ row.requisition.number }}</span>
@@ -262,6 +269,13 @@ async function submitConvert() {
         </tbody>
       </table>
       <p v-if="!filteredRows.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="page"
+        :last-page="lastPage"
+        :total="total"
+        :per-page="perPage"
+        @change="setPage"
+      />
     </div>
 
     <AppModal :open="showCreate" :title="t('purchases.hub.newProforma')" icon="receipt" @close="showCreate = false">
@@ -330,6 +344,28 @@ async function submitConvert() {
 </template>
 
 <style scoped>
+.pur-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+
+.pur-toolbar__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.pur-toolbar .btn-primary {
+  min-height: 2.35rem;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.8125rem;
+}
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .link { color: var(--color-ink-brand, var(--color-brand-600)); font-size: 0.8rem; font-weight: 600;}

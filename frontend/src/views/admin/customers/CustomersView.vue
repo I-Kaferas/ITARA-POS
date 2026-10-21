@@ -7,7 +7,10 @@ import PageFrame from '../../../components/layout/PageFrame.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Customer } from '../../../types'
@@ -74,6 +77,8 @@ async function applySearch() {
 }
 
 watchLiveSearch(search, applySearch)
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(() => store.customers)
 
 function openCreate() {
   editing.value = null
@@ -186,7 +191,9 @@ async function remove(item: Customer) {
 
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
+        <FilterFold>
+          <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
+        </FilterFold>
         <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('customers.add') }}</button>
       </div>
 
@@ -203,7 +210,7 @@ async function remove(item: Customer) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="item in store.customers" :key="item.id" class="hover:bg-slate-50 cursor-pointer" @click="$router.push({ name: 'customer-detail', params: { id: item.id } })">
+            <tr v-for="item in paged" :key="item.id" class="hover:bg-slate-50 cursor-pointer" @click="$router.push({ name: 'customer-detail', params: { id: item.id } })">
               <td class="px-4 py-3 font-mono text-slate-500">{{ item.code ?? '—' }}</td>
               <td class="px-4 py-3 font-medium">{{ item.name }}</td>
               <td class="px-4 py-3 text-slate-600">{{ item.phone || '—' }}</td>
@@ -217,6 +224,13 @@ async function remove(item: Customer) {
           </tbody>
         </table>
         <p v-if="!store.customers.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <ListPager
+          :page="page"
+          :last-page="lastPage"
+          :total="total"
+          :per-page="perPage"
+          @change="setPage"
+        />
       </div>
     </div>
 

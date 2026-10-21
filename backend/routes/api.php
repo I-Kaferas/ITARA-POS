@@ -1264,6 +1264,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:sales.view');
         Route::get('stores/{store}/pos/catalog', [PosController::class, 'catalog'])
             ->middleware('permission:sales.view');
+        Route::get('stores/{store}/pos/images', [PosController::class, 'images'])
+            ->middleware('permission:sales.view');
         Route::get('stores/{store}/pos/categories', [PosController::class, 'categories'])
             ->middleware('permission:sales.view');
         Route::get('stores/{store}/pos/products', [PosController::class, 'products'])

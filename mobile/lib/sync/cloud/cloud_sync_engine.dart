@@ -132,17 +132,35 @@ class CloudSyncEngine extends ChangeNotifier {
       }
 
       if (pull) {
-        final pullResult = await _pullInbound();
-        pulled.addAll(pullResult);
+        try {
+          final pullResult = await _pullInbound();
+          pulled.addAll(pullResult);
+        } catch (error) {
+          failed++;
+          await OfflineStore.instance.log(
+            'error',
+            'Pull cloud: ${error.toString().replaceFirst('Exception: ', '')}',
+          );
+          lastError = error.toString().replaceFirst('Exception: ', '');
+        }
       }
 
       await _heartbeat();
 
       lastSyncAt = DateTime.now();
-      lastError = failed > 0 ? '$failed opération(s) en échec' : null;
+      final productsPulled = pulled[CloudSyncEntity.products] ?? 0;
+      if (failed > 0) {
+        lastError ??= '$failed opération(s) en échec';
+      } else {
+        lastError = null;
+      }
       final message = failed > 0
-          ? 'Cloud sync partiel · $failed échec(s)'
-          : 'Master → Cloud synchronisé';
+          ? (productsPulled == 0 && pull
+              ? 'Cloud sync partiel · $failed échec(s) · produits non téléchargés'
+              : 'Cloud sync partiel · $failed échec(s)')
+          : (productsPulled == 0 && pull
+              ? 'Cloud sync OK · 0 produit (vérifiez l’assortiment du magasin)'
+              : 'Master → Cloud synchronisé');
       return lastReport = CloudSyncReport(
         ok: failed == 0,
         message: message,
@@ -784,31 +802,68 @@ class CloudSyncEngine extends ChangeNotifier {
   }
 
   Future<int> _pullCatalog() async {
-    final since =
-        await OfflineStore.instance.checkpoint('cloud_last_server_sequence') ??
-            '0';
-    final uri = Uri.parse('$_cloudBase/sync/pull')
-        .replace(queryParameters: {'since': since});
-    final response = await _client
-        .get(uri, headers: _headers)
-        .timeout(const Duration(seconds: 30));
-    if (response.statusCode != 200) return 0;
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final data = body['data'] as Map<String, dynamic>? ?? body;
-    final catalog = PosCatalog.fromJson(data);
-    if (catalog.products.isNotEmpty || catalog.categories.isNotEmpty) {
-      await OfflineStore.instance.mergeCatalog(catalog);
+    final storeId = TerminalConfigRepository.instance.config.storeId.trim();
+    if (storeId.isEmpty) {
+      throw Exception('Magasin non configuré — impossible de télécharger les produits');
     }
-    final sequence = data['server_sequence']?.toString();
-    if (sequence != null) {
-      await OfflineStore.instance
-          .setCheckpoint('cloud_last_server_sequence', sequence);
+
+    // Prefer the dedicated POS catalog endpoint (same as live POS), then sync/pull.
+    http.Response? response;
+    Object? lastError;
+    final catalogUri = Uri.parse('$_cloudBase/stores/$storeId/pos/catalog');
+    try {
+      response = await _authorized(
+        () => _client.get(catalogUri, headers: _headers).timeout(const Duration(seconds: 30)),
+      );
+      if (response.statusCode != 200) {
+        lastError = Exception('Catalogue POS HTTP ${response.statusCode}');
+        response = null;
+      }
+    } catch (error) {
+      lastError = error;
+      response = null;
+    }
+
+    if (response == null) {
+      final since =
+          await OfflineStore.instance.checkpoint('cloud_last_server_sequence') ?? '0';
+      final uri = Uri.parse('$_cloudBase/sync/pull').replace(queryParameters: {'since': since});
+      response = await _authorized(
+        () => _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30)),
+      );
+      if (response.statusCode != 200) {
+        final code = response.statusCode;
+        throw Exception(
+          code == 401 || code == 403
+              ? 'Session expirée ou droits insuffisants pour télécharger les produits.'
+              : 'Téléchargement catalogue refusé (HTTP $code)'
+                  '${lastError != null ? ' · $lastError' : ''}',
+        );
+      }
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>? ?? body;
+      final catalog = PosCatalog.fromJson(data);
+      await _persistPulledCatalog(catalog, data['server_sequence']?.toString());
+      return catalog.products.length;
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final catalog = PosCatalog.fromJson(body);
+    await _persistPulledCatalog(catalog, null);
+    return catalog.products.length;
+  }
+
+  Future<void> _persistPulledCatalog(PosCatalog catalog, String? sequence) async {
+    if (catalog.products.isNotEmpty || catalog.categories.isNotEmpty) {
+      await OfflineStore.instance.cacheCatalog(catalog);
+    }
+    if (sequence != null && sequence.isNotEmpty) {
+      await OfflineStore.instance.setCheckpoint('cloud_last_server_sequence', sequence);
     }
     await OfflineStore.instance.setCheckpoint(
       'cloud_catalog_synced_at',
       DateTime.now().toIso8601String(),
     );
-    return catalog.products.length;
   }
 
   Future<int> _pullCustomers() async {
@@ -821,10 +876,15 @@ class CloudSyncEngine extends ChangeNotifier {
         'per_page': '100',
         'page': '$page',
       });
-      final response = await _client
-          .get(uri, headers: _headers)
-          .timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) break;
+      final response = await _authorized(
+        () => _client.get(uri, headers: _headers).timeout(const Duration(seconds: 20)),
+      );
+      if (response.statusCode != 200) {
+        if (page == 1 && (response.statusCode == 401 || response.statusCode == 403)) {
+          throw Exception('Session expirée ou droits insuffisants pour les clients.');
+        }
+        break;
+      }
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       final raw = body['data'];
       final List<dynamic> data;
@@ -853,10 +913,15 @@ class CloudSyncEngine extends ChangeNotifier {
   }
 
   Future<({int users, int paymentMethods})> _pullReferences() async {
-    final response = await _client
-        .get(Uri.parse('$_cloudBase/sync/references'), headers: _headers)
-        .timeout(const Duration(seconds: 30));
+    final response = await _authorized(
+      () => _client
+          .get(Uri.parse('$_cloudBase/sync/references'), headers: _headers)
+          .timeout(const Duration(seconds: 30)),
+    );
     if (response.statusCode != 200) {
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        throw Exception('Session expirée ou droits insuffisants pour les références.');
+      }
       return (users: 0, paymentMethods: 0);
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;

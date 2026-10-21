@@ -2,7 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { CompanyPaymentMethod } from '../../../types'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
@@ -21,6 +23,7 @@ const methods = computed(() => store.paymentMethods)
 const filtered = computed(() => methods.value.filter(row =>
   matchesSearch(`${row.code} ${methodLabel(row)} ${row.label} ${row.label_fr ?? ''}`, filters.value.search),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 function methodLabel(row: CompanyPaymentMethod) {
   return locale.value === 'fr' ? (row.label_fr || row.label) : row.label
@@ -105,7 +108,7 @@ async function move(row: CompanyPaymentMethod, direction: -1 | 1) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in filtered" :key="row.id" class="hover:bg-slate-50">
+            <tr v-for="row in paged" :key="row.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs uppercase text-slate-600">{{ row.code }}</td>
               <td class="px-4 py-3">
                 <input
@@ -143,6 +146,7 @@ async function move(row: CompanyPaymentMethod, direction: -1 | 1) {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         <p v-if="!methods.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>

@@ -13,6 +13,8 @@ import type { Tax, TaxClass, TaxGroup, TaxRegisterRow, TaxReportRow, TaxRule } f
 import { formatDateTime } from '../../../utils/format'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Tab = 'report' | 'register' | 'groups' | 'classes' | 'rules' | 'calculator'
 
@@ -81,6 +83,7 @@ const filteredTaxes = computed(() => store.taxes.filter(tax =>
   matchesSearch(`${tax.name} ${tax.code}`, registerFilters.value.search)
   && matchesActive(tax.is_active, registerFilters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredTaxes)
 
 function today() {
   const now = new Date()
@@ -430,7 +433,7 @@ function toggleCalcTax(id: string, checked: boolean) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="tax in filteredTaxes" :key="tax.id">
+              <tr v-for="tax in paged" :key="tax.id">
                 <td class="font-medium">{{ tax.name }}</td>
                 <td class="font-mono">{{ tax.code }}</td>
                 <td>{{ t(`catalog.tax.kinds.${tax.kind || 'vat'}`) }}</td>
@@ -451,6 +454,7 @@ function toggleCalcTax(id: string, checked: boolean) {
             </tbody>
           </table>
           <p v-if="!filteredTaxes.length" class="empty">{{ t('org.empty') }}</p>
+          <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         </div>
         <div class="panel">
           <h3 class="px-4 py-3 text-sm font-medium">{{ t('catalog.tax.journal') }}</h3>

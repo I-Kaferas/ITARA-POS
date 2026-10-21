@@ -196,64 +196,52 @@ async function submit() {
         alt=""
         aria-hidden="true"
       />
-      <div class="login__brand-veil" aria-hidden="true" />
-      <img
-        class="login__watermark"
-        :src="loginLogoUrl"
-        alt=""
-        aria-hidden="true"
-      />
-      <div class="login__brand-inner">
-        <div class="login__brand-mid">
-          <img
-            class="login__brand-mark"
-            :src="loginLogoUrl"
-            :alt="PRODUCT_NAME"
-          />
-          <span class="login__eyebrow">Business CORE</span>
+      <div class="login__veil" aria-hidden="true" />
+      <div class="login__brand-copy">
+        <div class="login__brand-top">
+          <p class="login__eyebrow">Business CORE</p>
           <h1 class="login__visually-hidden">{{ PRODUCT_NAME }}</h1>
           <p class="login__trade">{{ t('auth.brandTitle') }}</p>
-          <p>{{ t('auth.brandSubtitle') }}</p>
+          <p class="login__brand-lead">{{ t('auth.brandSubtitle') }}</p>
         </div>
-
         <div class="login__brand-bottom">
-          <ul class="login__points">
-            <li>
-              <span class="login__point-icon" aria-hidden="true"><AppIcon name="device-pos" :size="15" /></span>
-              <span class="login__point-title">{{ t('auth.featureCatalog') }}</span>
-            </li>
-            <li>
-              <span class="login__point-icon" aria-hidden="true"><AppIcon name="bed" :size="15" /></span>
-              <span class="login__point-title">{{ t('auth.featureStores') }}</span>
-            </li>
-            <li>
-              <span class="login__point-icon" aria-hidden="true"><AppIcon name="inventory" :size="15" /></span>
-              <span class="login__point-title">{{ t('auth.featureSaas') }}</span>
-            </li>
-          </ul>
-          <p class="login__foot">© {{ new Date().getFullYear() }} {{ PRODUCT_NAME }}</p>
+        <ul class="login__points">
+          <li>
+            <span class="login__point-icon" aria-hidden="true"><AppIcon name="device-pos" :size="16" /></span>
+            <span class="login__point-title">{{ t('auth.featureCatalog') }}</span>
+            <span class="login__point-desc">{{ t('auth.featureCatalogDesc') }}</span>
+          </li>
+          <li>
+            <span class="login__point-icon" aria-hidden="true"><AppIcon name="bed" :size="16" /></span>
+            <span class="login__point-title">{{ t('auth.featureStores') }}</span>
+            <span class="login__point-desc">{{ t('auth.featureStoresDesc') }}</span>
+          </li>
+          <li>
+            <span class="login__point-icon" aria-hidden="true"><AppIcon name="inventory" :size="16" /></span>
+            <span class="login__point-title">{{ t('auth.featureSaas') }}</span>
+            <span class="login__point-desc">{{ t('auth.featureSaasDesc') }}</span>
+          </li>
+        </ul>
+        <p class="login__foot">© {{ new Date().getFullYear() }} {{ PRODUCT_NAME }}</p>
         </div>
       </div>
     </aside>
 
     <main class="login__panel">
-      <div class="login__panel-frame" aria-hidden="true" />
+      <div class="login__tools">
+        <LanguageSwitcher />
+      </div>
 
       <form class="login__form" @submit.prevent="submit">
-        <div class="login__form-top">
-          <div class="login__form-brand">
-            <img
-              v-if="loginLogoUrl && !logoFailed"
-              class="login__logo"
-              :src="loginLogoUrl"
-              alt="ITARA NEXUS Business CORE"
-              @error="logoFailed = true"
-            />
-            <span v-else class="login__mark">{{ initial }}</span>
-          </div>
-          <div class="login__tools">
-            <LanguageSwitcher />
-          </div>
+        <div class="login__form-brand">
+          <img
+            v-if="loginLogoUrl && !logoFailed"
+            class="login__logo"
+            :src="loginLogoUrl"
+            alt="ITARA NEXUS Business CORE"
+            @error="logoFailed = true"
+          />
+          <span v-else class="login__mark">{{ initial }}</span>
         </div>
 
         <div class="login__form-head">
@@ -378,27 +366,30 @@ async function submit() {
 
 .login {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(22rem, 0.95fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(24rem, 0.8fr);
   width: 100%;
   max-width: 100%;
-  margin-inline: auto;
+  margin: 0;
+  /* html zoom shrinks 100dvh, so fill the app shell instead. */
   height: 100%;
-  min-height: 100dvh;
+  max-height: none;
+  min-height: 100%;
   overflow: hidden;
-  background: #f4f6f8;
+  background: #e7edf3;
   font-family: var(--font-sans, "IBM Plex Sans", "Segoe UI", sans-serif);
 }
 
 .login__brand {
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  justify-content: stretch;
   min-width: 0;
   min-height: 0;
-  padding: clamp(2rem, 5vh, 3.5rem) clamp(1.75rem, 4vw, 3.25rem);
+  height: 100%;
+  padding: 0;
   overflow: hidden;
-  background: #0a1523;
+  background: #071018;
   border-right: 0;
   color: #fff;
   isolation: isolate;
@@ -407,58 +398,59 @@ async function submit() {
 
 .login__scene {
   position: absolute;
-  /* Crop past the baked-in logo in login-background.png */
-  inset: -14% -10% -10%;
+  inset: 0;
   z-index: 0;
-  width: auto;
-  height: auto;
-  min-width: 122%;
-  min-height: 122%;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  object-position: 62% 12%;
-  filter: brightness(0.94) contrast(1.05) saturate(1.05) blur(3.5px);
-  transform: scale(1.04);
+  object-position: center bottom;
+  filter: brightness(0.6) contrast(1.05);
   pointer-events: none;
   user-select: none;
-  animation: login-fade 900ms var(--ease-out, ease) both;
+  animation: login-fade 700ms var(--ease-out, ease) both;
 }
 
-.login__brand-veil {
+.login__veil {
   position: absolute;
   inset: 0;
-  z-index: 1;
-  /* Stronger dark glass so copy stays readable over the photo */
+  z-index: 0;
   background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, #071018 68%, transparent) 0%,
-      color-mix(in srgb, #071018 48%, transparent) 34%,
-      color-mix(in srgb, #071018 55%, transparent) 62%,
-      color-mix(in srgb, #071018 82%, transparent) 100%
-    );
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+    linear-gradient(180deg, rgba(7, 16, 24, 0.62) 0%, rgba(7, 16, 24, 0.46) 32%, rgba(7, 16, 24, 0.46) 58%, rgba(7, 16, 24, 0.74) 78%, rgba(7, 16, 24, 0.94) 100%);
   pointer-events: none;
 }
 
-.login__watermark {
-  display: none;
-}
-
-.login__brand-inner {
+.login__brand-copy {
   position: relative;
-  z-index: 3;
+  z-index: 1;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(1.25rem, 2.8vh, 2rem);
-  flex-shrink: 0;
-  width: min(100%, 34rem);
-  margin: auto;
-  padding-block: 0.35rem;
+  justify-content: space-between;
+  min-height: 0;
+  width: auto;
+  height: 100%;
+  margin: 0;
+  padding: 0 2.25rem;
+  box-sizing: border-box;
+  background: transparent;
   text-align: center;
   animation: login-rise 520ms var(--ease-out, ease) both;
+}
+
+.login__brand-top,
+.login__brand-bottom {
+  width: min(100%, 40rem);
+  margin-inline: auto;
+}
+
+.login__brand-top {
+  padding-top: 2.75rem;
+  padding-bottom: 1.5rem;
+}
+
+.login__brand-bottom {
+  padding-top: 1.5rem;
+  padding-bottom: 2.5rem;
 }
 
 .login__identity {
@@ -504,15 +496,13 @@ async function submit() {
 
 .login__kicker,
 .login__eyebrow {
-  margin: 0 0 0.85rem;
-  max-width: 28rem;
-  font-size: clamp(0.88rem, 1.35vw, 1.05rem);
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  line-height: 1.4;
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.3;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--login-accent, #e39b2b) 92%, #fff);
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
+  color: var(--login-accent, #e39b2b);
 }
 
 .login__brand-mid {
@@ -537,28 +527,27 @@ async function submit() {
 }
 
 .login__trade {
-  margin: 0.75rem 0 0;
+  margin: 0;
+  max-width: 16ch;
   font-family: inherit;
-  font-size: clamp(1.15rem, 2vw, 1.45rem);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.35;
+  font-size: clamp(2rem, 2.8vw, 2.65rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
   color: #fff;
   text-align: center;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
+  margin-inline: auto;
 }
 
-.login__brand-mid > p:not(.login__trade):not(.login__eyebrow) {
-  margin: 1.1rem 0 0;
-  max-width: 38ch;
-  font-family: inherit;
-  font-size: clamp(1rem, 1.5vw, 1.15rem);
+.login__brand-lead {
+  margin: 0.35rem 0 0;
+  max-width: 48ch;
+  font-size: 0.84rem;
   font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.74);
   text-align: center;
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
+  margin-inline: auto;
 }
 
 .login__eyebrow,
@@ -567,61 +556,59 @@ async function submit() {
   font-family: inherit;
 }
 
-.login__brand-bottom {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.5rem;
-  width: 100%;
-}
-
 .login__points {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.55rem 1.35rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.7rem;
   width: 100%;
   margin: 0;
-  padding: 1.15rem 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 0;
   list-style: none;
 }
 
 .login__points li {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.35rem;
   min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  text-align: left;
+  padding: 0.85rem 0.85rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(8, 16, 26, 0.38);
+  backdrop-filter: blur(10px);
+  text-align: center;
 }
 
 .login__point-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  flex-shrink: 0;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--login-accent, #e39b2b) 28%, transparent);
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  background: rgba(227, 155, 43, 0.16);
   color: var(--login-accent, #e39b2b);
 }
 
 .login__point-title {
-  font-size: clamp(0.92rem, 1.2vw, 1.05rem);
-  font-weight: 600;
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.3;
+  color: #fff;
+}
+
+.login__point-desc {
+  font-size: 0.8rem;
   line-height: 1.35;
-  color: rgba(255, 255, 255, 0.95);
+  color: rgba(255, 255, 255, 0.66);
 }
 
 .login__foot {
-  margin: 0;
-  font-size: 0.85rem;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.62);
+  margin: 0.85rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.48);
   text-align: center;
 }
 
@@ -636,11 +623,7 @@ async function submit() {
   justify-content: stretch;
   padding: 0;
   overflow: auto;
-  background: #f4f6f8;
-}
-
-.login__panel-frame {
-  display: none;
+  background: #fff;
 }
 
 .login__form {
@@ -655,7 +638,7 @@ async function submit() {
   height: 100%;
   min-height: 100%;
   margin: 0;
-  padding: clamp(1.5rem, 4vh, 2.25rem) clamp(1.5rem, 4vw, 2.75rem) 1.65rem;
+  padding: 4.5rem 2.25rem 1.75rem;
   background: #fff;
   border: 0;
   border-radius: 0;
@@ -663,22 +646,16 @@ async function submit() {
   animation: login-rise 640ms 60ms var(--ease-out, ease) both;
 }
 
-.login__form-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+.login__form-brand {
+  min-width: 0;
   margin-bottom: 1.15rem;
 }
 
-.login__form-brand {
-  min-width: 0;
-}
-
 .login__tools {
-  position: relative;
+  position: absolute;
+  top: 1.15rem;
+  right: 1.25rem;
   z-index: 2;
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -727,12 +704,12 @@ async function submit() {
   flex-direction: column;
   justify-content: center;
   min-height: 0;
-  padding: 1.35rem 0 0;
+  padding: 1.15rem 0 0;
 }
 
 .login__form-foot {
-  margin-top: auto;
-  padding: 1.25rem 0 0;
+  margin-top: 1.25rem;
+  padding: 0.95rem 0 0;
   border-top: 1px solid var(--color-border, #e3e7eb);
   background: transparent;
 }
@@ -942,58 +919,48 @@ async function submit() {
   color: var(--color-ink-brand, var(--login-primary));
 }
 
+@media (max-width: 1100px) {
+  .login__trade {
+    font-size: 1.85rem;
+  }
+}
+
 @media (max-width: 900px) {
   .login {
     display: flex;
     flex-direction: column;
     height: auto;
-    min-height: 100dvh;
+    max-height: none;
+    min-height: 100%;
     overflow: visible;
   }
 
   .login__brand {
-    padding: 1.5rem 1.25rem 1.4rem;
-    min-height: 12.5rem;
+    height: 18rem;
+    min-height: 18rem;
+    flex: 0 0 auto;
   }
 
   .login__scene {
-    inset: -10% -6% -6%;
-    min-width: 112%;
-    min-height: 112%;
-    object-position: 55% 20%;
+    object-position: center 58%;
   }
 
-  .login__brand-veil {
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, #071018 48%, transparent) 0%,
-        color-mix(in srgb, #071018 16%, transparent) 40%,
-        color-mix(in srgb, #071018 68%, transparent) 100%
-      );
+  .login__brand-copy {
+    width: auto;
+    height: 100%;
+    margin: 0;
+    padding: 1.15rem 1rem;
   }
 
-  .login__brand-mark {
-    height: 2.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .login__rule {
+  .login__points,
+  .login__brand-lead,
+  .login__foot {
     display: none;
   }
 
-  .login__brand-inner {
-    gap: 0.75rem;
-    width: 100%;
-    height: auto;
-    min-height: 0;
-  }
-
-  .login__brand-bottom,
-  .login__brand-mid > p:not(.login__trade):not(.login__eyebrow),
-  .login__rule,
-  .login__eyebrow {
-    display: none;
+  .login__trade {
+    max-width: none;
+    font-size: 1.35rem;
   }
 
   .login__brand,
@@ -1003,21 +970,13 @@ async function submit() {
     max-width: 100%;
   }
 
-  .login__brand-mid h1 {
-    max-width: 22ch;
-    font-size: 1.55rem;
-  }
-
-  .login__trade {
-    font-size: 0.9rem;
-  }
-
   .login__panel {
-    flex: 1;
+    flex: 1 1 auto;
     align-items: stretch;
     justify-content: stretch;
     padding: 0;
     min-height: 0;
+    width: 100%;
   }
 
   .login__form {
@@ -1025,11 +984,7 @@ async function submit() {
     max-width: none;
     min-height: 100%;
     margin: 0;
-    padding: 1.25rem 1.15rem 1.2rem;
-  }
-
-  .login__form-top {
-    margin-bottom: 0.95rem;
+    padding: 3.5rem 1.25rem 1.25rem;
   }
 
   .login__label-row {

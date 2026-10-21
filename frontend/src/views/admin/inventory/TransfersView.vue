@@ -8,6 +8,8 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, StockTransferDetail, Warehouse } from '../../../types'
@@ -51,6 +53,9 @@ const filtered = computed(() => store.stockTransfers.filter(row =>
     || row.source_warehouse_id === filters.value.warehouse_id
     || row.destination_warehouse_id === filters.value.warehouse_id),
 ))
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
+
 const form = ref({
   source_warehouse_id: '',
   destination_warehouse_id: '',
@@ -262,7 +267,7 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in filtered" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in paged" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 font-mono">{{ row.transfer_number }}</td>
             <td class="px-4 py-3">{{ row.source_warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ row.destination_warehouse?.name ?? '—' }}</td>
@@ -278,6 +283,13 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
         </tbody>
       </table>
       <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="page"
+        :last-page="lastPage"
+        :total="total"
+        :per-page="perPage"
+        @change="setPage"
+      />
     </div>
 
     <AppModal

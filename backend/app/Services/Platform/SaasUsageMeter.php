@@ -4,7 +4,7 @@ namespace App\Services\Platform;
 
 use App\Enums\SaleStatus;
 use App\Models\Branch;
-use App\Models\Device;
+use App\Models\CashRegister;
 use App\Models\GalleryImage;
 use App\Models\Product;
 use App\Models\ProductImage;
@@ -22,7 +22,7 @@ class SaasUsageMeter
         return [
             'users' => $this->count(User::class, $tenant),
             'branches' => $this->count(Branch::class, $tenant),
-            'pos' => Device::query()
+            'pos' => CashRegister::query()
                 ->withoutGlobalScope(TenantScope::class)
                 ->where('tenant_id', $tenant->id)
                 ->where('is_active', true)

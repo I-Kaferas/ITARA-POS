@@ -10,6 +10,8 @@ import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import HotelChrome from './HotelChrome.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Doc = Record<string, any>
 type BoardTab = 'rooms' | 'tasks'
@@ -31,8 +33,6 @@ const boardTab = ref<BoardTab>('rooms')
 const search = ref('')
 const conditionFilter = ref<HkStatus | 'all'>('all')
 const occupancyFilter = ref<Occupancy | 'all'>('all')
-const page = ref(1)
-const pageSize = 10
 const formOpen = ref(false)
 const draggingId = ref<string | null>(null)
 const selectedMemberId = ref<string | null>(null)
@@ -144,15 +144,14 @@ const filteredRooms = computed(() => {
   })
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRooms.value.length / pageSize)))
-
-const pagedRooms = computed(() => {
-  const start = (page.value - 1) * pageSize
-  return filteredRooms.value.slice(start, start + pageSize)
-})
-
-const pageStart = computed(() => (filteredRooms.value.length ? (page.value - 1) * pageSize + 1 : 0))
-const pageEnd = computed(() => Math.min(page.value * pageSize, filteredRooms.value.length))
+const {
+  page,
+  lastPage,
+  total,
+  perPage,
+  paged: pagedRooms,
+  setPage,
+} = useClientPager(filteredRooms, 10)
 
 const visibleTasks = computed(() => {
   const member = selectedMemberId.value
@@ -210,8 +209,6 @@ function taskTypeLabel(id: string) {
 function columnLabel(id: TaskStatus) {
   return t(`hotel.housekeeping.taskStatuses.${id}`)
 }
-
-watch([search, conditionFilter, occupancyFilter], () => { page.value = 1 })
 
 function selectTab(tab: BoardTab) {
   boardTab.value = tab
@@ -512,27 +509,13 @@ onMounted(load)
                 <td>{{ room.hk_assignee_name || '—' }}</td>
                 <td class="hk__notes">{{ room.notes || '—' }}</td>
               </tr>
-              <tr v-if="!pagedRooms.length">
+              <tr v-if="!filteredRooms.length">
                 <td colspan="8" class="hk__muted">{{ t('hotel.housekeeping.emptyRooms') }}</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p class="hk__pager">
-          {{ t('hotel.housekeeping.showing', { from: pageStart, to: pageEnd, total: filteredRooms.length }) }}
-          <span class="hk__pages">
-            <button type="button" class="hk__page" :disabled="page <= 1" @click="page -= 1">‹</button>
-            <button
-              v-for="n in totalPages"
-              :key="n"
-              type="button"
-              class="hk__page"
-              :class="{ 'hk__page--on': page === n }"
-              @click="page = n"
-            >{{ n }}</button>
-            <button type="button" class="hk__page" :disabled="page >= totalPages" @click="page += 1">›</button>
-          </span>
-        </p>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </template>
 
       <div v-else class="hk-board" :class="{ 'hk-board--dragging': Boolean(draggingId) }">

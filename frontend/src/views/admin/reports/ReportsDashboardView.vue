@@ -392,10 +392,12 @@ onMounted(load)
 }
 
 .kpi {
-  border: 1px solid #e2e8f0;
-  border-radius: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
   background: var(--color-surface);
-  padding: 1rem 1.05rem;}
+  padding: 0.7rem 0.85rem;
+  box-shadow: var(--shadow-xs);
+}
 
 .kpi--compact {
   padding: 0.85rem 1rem;
@@ -411,7 +413,7 @@ onMounted(load)
 
 .kpi__value {
   margin: 0.45rem 0 0;
-  font-size: 1.35rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--color-text-primary);
   line-height: 1.2;}
@@ -441,8 +443,8 @@ onMounted(load)
   border: 1px solid #e2e8f0;
   border-radius: 0.85rem;
   background: var(--color-surface);
-  padding: 1rem 1.1rem 1.15rem;
-  min-height: 240px;}
+  padding: 0.85rem 0.95rem;
+  min-height: 0;}
 
 .panel__header {
   margin-bottom: 0.85rem;
@@ -551,22 +553,23 @@ onMounted(load)
 .explore-card {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.3rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 14px;
   background: var(--color-surface);
-  padding: 1.05rem 1.1rem 1.15rem;
+  padding: 0.7rem 0.85rem;
+  box-shadow: var(--shadow-xs);
 }
 
 .explore-card__icon {
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: var(--radius-md);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-ink-brand, var(--color-brand-700));
-  background: var(--color-brand-50);}
+  color: var(--color-text-primary);
+  background: var(--color-canvas);}
 
 .explore-card__title {
   margin: 0;

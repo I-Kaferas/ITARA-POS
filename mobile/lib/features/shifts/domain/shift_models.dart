@@ -376,3 +376,78 @@ class MovementType {
   final String labelFr;
   final String direction;
 }
+
+class SessionDepartmentStats {
+  const SessionDepartmentStats({
+    required this.name,
+    required this.orders,
+    required this.gross,
+    required this.paidInvoices,
+    required this.net,
+    required this.creditInvoices,
+    required this.amountDue,
+  });
+
+  final String name;
+  final int orders;
+  final int gross;
+  final int paidInvoices;
+  final int net;
+  final int creditInvoices;
+  final int amountDue;
+}
+
+class SessionProductQty {
+  const SessionProductQty({required this.name, required this.quantity});
+
+  final String name;
+  final int quantity;
+}
+
+class SessionPaymentLine {
+  const SessionPaymentLine({required this.label, required this.amount});
+
+  final String label;
+  final int amount;
+}
+
+/// Figures for the closed-shift session performance report.
+class SessionPerformance {
+  const SessionPerformance({
+    required this.companyName,
+    required this.website,
+    required this.userName,
+    required this.sessionCode,
+    required this.openedAt,
+    required this.closedAt,
+    required this.currency,
+    required this.stores,
+    required this.orders,
+    required this.gross,
+    required this.paidInvoices,
+    required this.collected,
+    required this.creditInvoices,
+    required this.outstanding,
+    required this.departments,
+    required this.payments,
+    required this.topProducts,
+  });
+
+  final String companyName;
+  final String website;
+  final String userName;
+  final String sessionCode;
+  final DateTime openedAt;
+  final DateTime? closedAt;
+  final String currency;
+  final int stores;
+  final int orders;
+  final int gross;
+  final int paidInvoices;
+  final int collected;
+  final int creditInvoices;
+  final int outstanding;
+  final List<SessionDepartmentStats> departments;
+  final List<SessionPaymentLine> payments;
+  final List<SessionProductQty> topProducts;
+}

@@ -6,7 +6,9 @@ import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
+import ListPager from '../../components/ui/ListPager.vue'
 import ModuleFilters from '../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../composables/useClientPager'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useContextStore } from '../../stores/context'
 import type { Promotion, PromotionType } from '../../types'
@@ -60,6 +62,7 @@ const filtered = computed(() => store.promotions.filter(promotion =>
   && matchesActive(promotion.is_active, filters.value.active)
   && (!filters.value.status || promotion.type === filters.value.status),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 const weekDays = [
   { value: 1, label: t('promotions.days.mon') },
@@ -261,7 +264,7 @@ function formatDate(value?: string | null) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="promotion in filtered" :key="promotion.id" class="hover:bg-slate-50">
+            <tr v-for="promotion in paged" :key="promotion.id" class="hover:bg-slate-50">
               <td class="px-4 py-3">
                 <div class="font-medium">{{ promotion.name }}</div>
                 <div v-if="promotion.code" class="text-xs text-slate-500 font-mono">{{ promotion.code }}</div>
@@ -282,6 +285,7 @@ function formatDate(value?: string | null) {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>

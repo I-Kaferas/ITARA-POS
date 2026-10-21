@@ -13,6 +13,8 @@ import type { Product, PurchaseOrderDetail, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -32,6 +34,8 @@ const form = ref({
   notes: '',
   items: [{ product_id: '', quantity: 1 }],
 })
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(() => store.purchaseOrders)
 
 onMounted(async () => {
   try {
@@ -206,7 +210,7 @@ async function confirm(id: string, status: string) {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in store.purchaseOrders" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in paged" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 font-mono">{{ row.order_number }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ row.supplier?.name ?? '—' }}</td>
@@ -224,6 +228,13 @@ async function confirm(id: string, status: string) {
         </tbody>
       </table>
       <p v-if="!store.purchaseOrders.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="page"
+        :last-page="lastPage"
+        :total="total"
+        :per-page="perPage"
+        @change="setPage"
+      />
     </div>
 
     <AppModal

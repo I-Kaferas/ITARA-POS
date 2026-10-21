@@ -5,10 +5,13 @@ import { useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { api, extractApiErrorMessage } from '../../../api/client'
@@ -56,6 +59,7 @@ const actionId = ref<string | null>(null)
 const error = ref('')
 const notice = ref('')
 const reservations = ref<PosReservation[]>([])
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(reservations)
 const tables = ref<PosTableOption[]>([])
 const showForm = ref(false)
 const editingId = ref<string | null>(null)
@@ -337,7 +341,8 @@ watch(
         </div>
       </div>
 
-      <div class="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+      <FilterFold class="mb-4">
+      <div class="rounded-xl border border-slate-200 bg-white p-4">
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div class="xl:col-span-2">
             <FieldLabel icon="search">{{ t('common.search') }}</FieldLabel>
@@ -376,6 +381,7 @@ watch(
           </button>
         </div>
       </div>
+      </FilterFold>
 
       <p v-if="error" class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
       <p v-if="notice" class="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ notice }}</p>
@@ -387,7 +393,8 @@ watch(
 
         <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
 
-        <table v-else-if="reservations.length" class="min-w-full divide-y divide-slate-200 text-sm">
+        <template v-else-if="reservations.length">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
             <tr>
               <th class="px-4 py-3 text-left font-medium">{{ t('pointOfSale.reservations.reference') }}</th>
@@ -400,7 +407,7 @@ watch(
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="item in reservations" :key="item.id" class="hover:bg-slate-50">
+            <tr v-for="item in paged" :key="item.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ item.reference }}</td>
               <td class="px-4 py-3">
                 <div>{{ item.guest_name }}</div>
@@ -470,6 +477,8 @@ watch(
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
+        </template>
 
         <EmptyState
           v-else

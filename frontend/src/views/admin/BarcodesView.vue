@@ -6,6 +6,7 @@ import { api, extractApiErrorMessage, getStoreId } from '../../api/client'
 import PageFrame from '../../components/layout/PageFrame.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
+import FilterFold from '../../components/ui/FilterFold.vue'
 
 type Hit = { id?: string; barcode: string; type?: string; product_id?: string; label?: string }
 const { t } = useI18n()
@@ -98,9 +99,9 @@ function printCode(value: string, label = '') {
       </section>
 
       <section class="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
-        <div class="flex gap-2">
+        <FilterFold>
           <input v-model="query" type="search" class="field" :placeholder="t('desk.searchCodes')" />
-        </div>
+        </FilterFold>
         <table class="mt-3 min-w-full text-sm">
           <tbody>
             <tr v-for="item in (results.length ? results : catalog)" :key="item.barcode">

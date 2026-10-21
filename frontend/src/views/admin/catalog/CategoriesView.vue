@@ -14,6 +14,8 @@ import { useContextStore } from '../../../stores/context'
 import type { Category } from '../../../types'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -82,6 +84,8 @@ const filteredCategories = computed(() => flatCategories.value.filter(cat =>
   matchesSearch(`${cat.name} ${cat.slug}`, filters.value.search)
   && matchesActive(cat.is_active, filters.value.active),
 ))
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredCategories)
 
 function openCreate() {
   editing.value = null
@@ -159,7 +163,7 @@ async function remove(category: Category) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="cat in filteredCategories" :key="cat.id" class="hover:bg-slate-50">
+            <tr v-for="cat in paged" :key="cat.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium" :style="{ paddingLeft: `${1 + cat.depth}rem` }">
                 {{ cat.depth ? '↳ ' : '' }}{{ cat.name }}
               </td>
@@ -173,6 +177,13 @@ async function remove(category: Category) {
           </tbody>
         </table>
         <p v-if="!filteredCategories.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <ListPager
+          :page="page"
+          :last-page="lastPage"
+          :total="total"
+          :per-page="perPage"
+          @change="setPage"
+        />
       </div>
     </div>
 

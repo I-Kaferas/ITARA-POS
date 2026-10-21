@@ -11,6 +11,8 @@ import { emptyListFilters, listFilterParams, type ListFilters } from '../../../u
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { parseMoneyInput } from '../../../utils/money'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Category = { id: string; code: string; name: string }
 type ExpenseRow = {
@@ -29,6 +31,7 @@ const { t } = useI18n()
 const store = useBackofficeStore()
 
 const rows = ref<ExpenseRow[]>([])
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(rows)
 const categories = ref<Category[]>([])
 const sessions = ref<OpenSession[]>([])
 const filters = ref<ListFilters>(emptyListFilters('month'))
@@ -145,7 +148,7 @@ async function save() {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in rows" :key="row.id">
+          <tr v-for="row in paged" :key="row.id">
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.occurred_on) }}</td>
             <td class="px-4 py-3">{{ row.expense_category?.name ?? '—' }}</td>
             <td class="px-4 py-3 font-medium">{{ row.description }}</td>
@@ -156,6 +159,7 @@ async function save() {
           </tr>
         </tbody>
       </table>
+      <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       <p v-if="!rows.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
     </div>
 

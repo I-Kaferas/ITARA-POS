@@ -108,7 +108,20 @@ class AppRouter {
           return AppRoutes.pos;
         }
         if (!signedIn && !isPin && !isAdminLogin) return AppRoutes.pin;
-        if (signedIn && AppRoutes.isConfiguration(location) && !repo.config.isAdmin) {
+        // Operational menus require a linked company (tenant + brand/profile).
+        final onOperationalMenu = location == AppRoutes.dashboard ||
+            location == AppRoutes.pos ||
+            (location.startsWith('${AppRoutes.dashboard}/') &&
+                !location.startsWith(AppRoutes.kitchen)) ||
+            location.startsWith(AppRoutes.orders) ||
+            location.startsWith(AppRoutes.shifts);
+        if (signedIn && !repo.isCompanyConfigured && onOperationalMenu) {
+          return AppRoutes.cashierSettings;
+        }
+        if (signedIn &&
+            AppRoutes.isConfiguration(location) &&
+            !repo.config.isAdmin &&
+            repo.isCompanyConfigured) {
           return AppRoutes.pos;
         }
         if (signedIn && repo.isConfigured && AuthNavigation.openSettings) {
@@ -119,7 +132,7 @@ class AppRouter {
           return AppRoutes.cashierSettings;
         }
         if (signedIn && (isSetup || isPin || isAdminLogin)) {
-          return AppRoutes.pos;
+          return repo.isCompanyConfigured ? AppRoutes.pos : AppRoutes.cashierSettings;
         }
         return null;
       },

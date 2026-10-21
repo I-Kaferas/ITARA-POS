@@ -230,6 +230,38 @@ class PosProduct {
     return barcodes.any((b) => b.barcode == normalized);
   }
 
+  PosProduct withPrimaryImage(String url) {
+    return PosProduct(
+      storeProductId: storeProductId,
+      productId: productId,
+      sku: sku,
+      name: name,
+      price: price,
+      categoryId: categoryId,
+      barcode: barcode,
+      barcodes: barcodes,
+      taxRate: taxRate,
+      taxInclusive: taxInclusive,
+      primaryImageUrl: url,
+      isAvailable: isAvailable,
+      unit: unit,
+      productType: productType,
+      variants: variants,
+      quantityOnHand: quantityOnHand,
+      stockDisplay: stockDisplay,
+      stockVersion: stockVersion,
+      bundleItems: bundleItems,
+      categoryName: categoryName,
+      lowStockThreshold: lowStockThreshold,
+      costPrice: costPrice,
+      trackExpiration: trackExpiration,
+      expiresAt: expiresAt,
+      accompanimentEnabled: accompanimentEnabled,
+      accompaniments: accompaniments,
+      saleUnits: saleUnits,
+    );
+  }
+
   static String _text(dynamic value, {String fallback = ''}) {
     if (value == null) return fallback;
     final text = value.toString().trim();

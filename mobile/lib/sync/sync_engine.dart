@@ -14,6 +14,7 @@ import '../features/backup/data/backup_service.dart';
 import '../features/pos/data/pos_api_service.dart';
 import '../features/pos/domain/pos_models.dart';
 import 'cloud/cloud_sync_engine.dart';
+import 'cloud/cloud_sync_entity.dart';
 import 'local_master_server.dart';
 import 'local_realtime.dart';
 import 'master_config_store.dart';
@@ -502,7 +503,8 @@ class SyncEngine extends ChangeNotifier {
         lastError = cloud.ok ? null : cloud.message;
         connectivity = cloud.ok ? _connectivityForIdle() : ConnectivityState.syncError;
         lastReport = cloud.toSyncReport();
-        if (cloud.totalPulled > 0) catalogRevision++;
+        final productsPulled = cloud.pulled[CloudSyncEntity.products] ?? 0;
+        if (cloud.totalPulled > 0 || productsPulled > 0) catalogRevision++;
         if (showBusy || !cloud.ok || cloud.totalPushed > 0 || cloud.totalPulled > 0) {
           notifyListeners();
         }

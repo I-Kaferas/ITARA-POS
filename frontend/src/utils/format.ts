@@ -28,6 +28,25 @@ export function formatDateTime(value?: string | null): string {
   }).format(new Date(value))
 }
 
+/** Past timestamps as hours or days (minutes under 1h). */
+export function formatRelativePast(value?: string | null): string {
+  if (!value) return '—'
+  const then = new Date(value).getTime()
+  if (Number.isNaN(then)) return '—'
+  const diffSec = Math.max(0, Math.round((Date.now() - then) / 1000))
+  const rtf = new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'always' })
+  if (diffSec < 3600) {
+    const minutes = Math.max(1, Math.round(diffSec / 60))
+    return rtf.format(-minutes, 'minute')
+  }
+  if (diffSec < 86_400) {
+    const hours = Math.max(1, Math.round(diffSec / 3600))
+    return rtf.format(-hours, 'hour')
+  }
+  const days = Math.max(1, Math.round(diffSec / 86_400))
+  return rtf.format(-days, 'day')
+}
+
 export function toDateTimeLocal(value: Date = new Date()): string {
   const pad = (part: number) => String(part).padStart(2, '0')
   return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`

@@ -52,6 +52,10 @@ class CashRegisterController extends Controller
             'is_active' => ['boolean'],
         ]);
 
+        if (($data['is_active'] ?? true) !== false) {
+            CashRegister::assertWithinPlan($store);
+        }
+
         $register = $store->cashRegisters()->create([
             ...$data,
             'tenant_id' => app('tenant.id'),
@@ -76,6 +80,13 @@ class CashRegisterController extends Controller
             'device_id' => ['nullable', 'uuid', 'exists:devices,id'],
             'is_active' => ['boolean'],
         ]);
+
+        if (($data['is_active'] ?? false) && ! $cashRegister->is_active) {
+            $store = $cashRegister->store;
+            if ($store) {
+                CashRegister::assertWithinPlan($store);
+            }
+        }
 
         $cashRegister->update($data);
 

@@ -4,7 +4,6 @@ import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
-import DataTableShell from '../../../components/ui/DataTableShell.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 
 type Platform = 'android' | 'desktop'
@@ -259,46 +258,76 @@ function refresh() {
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--color-text-secondary);
-}
-
-.versions__field .field,
-.versions__search .field {
-  min-width: 14rem;
-}
-
-.versions__search {
-  flex: 1;
-}
-
-.versions__search .field {
+  align-items: flex-start;
+  gap: var(--space-4);
   width: 100%;
-  min-width: 16rem;
+  min-height: calc(100vh - 11rem);
 }
 
-.versions__count {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
+.versions__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.versions__tab {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
   color: var(--color-text-secondary);
-}
-
-.versions__table td {
-  height: auto;
-  padding-top: var(--space-3);
-  padding-bottom: var(--space-3);
-}
-
-.versions__name {
+  font-size: 0.875rem;
   font-weight: 600;
+  cursor: pointer;
+}
+
+.versions__tab:hover {
   color: var(--color-text-primary);
 }
 
-.versions__build {
-  margin-top: 2px;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+.versions__tab.is-on {
+  background: #12243c;
+  border-color: #12243c;
+  color: #fff;
 }
 
+.versions__tab:focus-visible {
+  outline: 2px solid #12243c;
+  outline-offset: 2px;
+}
+
+.versions__search {
+  position: relative;
+  width: min(100%, 22rem);
+}
+
+.versions__search-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  color: var(--color-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.versions__search-input {
+  width: 100%;
+  padding-left: 2.15rem;
+}
+
+.versions__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.versions__empty {
+  padding: 2.5rem 1rem !important;
+  text-align: center;
+  color: var(--color-text-muted);
 .versions__view {
   min-height: var(--control-md);
   padding-inline: var(--space-3);

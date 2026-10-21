@@ -7,7 +7,9 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Branch } from '../../../types'
 import { formatMoney } from '../../../utils/format'
@@ -31,6 +33,7 @@ const filtered = computed(() => store.branches.filter(branch =>
   matchesSearch(`${branch.name} ${branch.code}`, filters.value.search)
   && matchesActive(branch.is_active, filters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 onMounted(async () => {
   await store.loadCompanies()
@@ -118,7 +121,7 @@ async function remove(branch: Branch) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="branch in filtered" :key="branch.id" class="cursor-pointer hover:bg-slate-50" @click="openProfile(branch)">
+            <tr v-for="branch in paged" :key="branch.id" class="cursor-pointer hover:bg-slate-50" @click="openProfile(branch)">
               <td class="px-4 py-3 font-medium">{{ branch.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ branch.code }}</td>
               <td class="px-4 py-3"><StatusBadge :active="branch.is_active" /></td>
@@ -129,6 +132,7 @@ async function remove(branch: Branch) {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
 

@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -368,6 +369,7 @@ function openAssign(user: TenantUser) {
 
       <div class="users__layout" :class="{ 'is-single': !loading && !store.users.length && !listedUser }">
         <section class="users__directory">
+          <FilterFold>
           <div class="users__filters">
             <label class="users__search">
               <AppIcon name="search" :size="16" />
@@ -383,6 +385,7 @@ function openAssign(user: TenantUser) {
               <option v-for="role in store.roles" :key="role.id" :value="role.id">{{ role.name }}</option>
             </select>
           </div>
+          </FilterFold>
 
           <div v-if="loading && !store.users.length" class="users__loading" aria-hidden="true">
             <span /><span /><span />

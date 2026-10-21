@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../components/layout/PageFrame.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
+import FilterFold from '../../components/ui/FilterFold.vue'
+import ListPager from '../../components/ui/ListPager.vue'
+import { useClientPager } from '../../composables/useClientPager'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { formatDate, formatMoney } from '../../utils/format'
 
@@ -12,6 +15,9 @@ const store = useBackofficeStore()
 const action = ref('')
 const from = ref('')
 const to = ref('')
+
+const auditRows = computed(() => store.auditLogs)
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(auditRows)
 
 async function load() {
   const params: Record<string, string> = {}
@@ -35,7 +41,8 @@ watchLiveSearch([from, to], load, 0)
     <template #title>{{ t('nav.audit') }}</template>
     <template #subtitle>{{ t('audit.subtitle') }}</template>
 
-    <div class="mb-4 flex flex-wrap items-end gap-3">
+    <FilterFold class="mb-4">
+    <div class="flex flex-wrap items-end gap-3">
       <div>
         <FieldLabel icon="filter">Action</FieldLabel>
         <input v-model="action" type="search" class="field" placeholder="sale.completed" />
@@ -49,6 +56,7 @@ watchLiveSearch([from, to], load, 0)
         <input v-model="to" type="date" class="field" />
       </div>
     </div>
+    </FilterFold>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
       <table class="min-w-full divide-y text-sm">
@@ -64,7 +72,7 @@ watchLiveSearch([from, to], load, 0)
           </tr>
         </thead>
         <tbody class="divide-y">
-          <tr v-for="row in store.auditLogs" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in paged" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3">{{ row.user?.name ?? row.payload?.user ?? '—' }}</td>
             <td class="px-4 py-3 font-mono text-xs">{{ row.action }}</td>
             <td class="px-4 py-3">{{ row.payload?.product ?? row.entity_type }}</td>
@@ -75,6 +83,7 @@ watchLiveSearch([from, to], load, 0)
           </tr>
         </tbody>
       </table>
+      <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       <p v-if="!store.auditLogs.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
     </div>
   </PageFrame>

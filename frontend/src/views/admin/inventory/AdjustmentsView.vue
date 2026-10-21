@@ -9,6 +9,8 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, StockAdjustmentDetail, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
@@ -57,6 +59,8 @@ const filtered = computed(() => store.stockAdjustments.filter(row =>
   && inPeriod(row.created_at, filters.value)
   && (!filters.value.warehouse_id || row.warehouse_id === filters.value.warehouse_id),
 ))
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 onMounted(async () => {
   await store.loadStockAdjustments()
@@ -203,7 +207,7 @@ async function complete(id: string) {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in filtered" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in paged" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 font-mono">{{ row.adjustment_number }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3 text-slate-600">{{ row.reason ?? '—' }}</td>
@@ -218,6 +222,13 @@ async function complete(id: string) {
         </tbody>
       </table>
       <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="page"
+        :last-page="lastPage"
+        :total="total"
+        :per-page="perPage"
+        @change="setPage"
+      />
     </div>
 
     <AppModal

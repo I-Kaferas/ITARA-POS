@@ -785,8 +785,8 @@ const router = createRouter({
         {
               path: 'customer-hub/linked-users',
               name: 'customer-hub-linked-users',
-              component: () => import('../views/admin/settings/SettingsSectionView.vue'),
-              meta: { requiresAuth: true, titleKey: 'nav.customerHubItems.linkedUsers' },
+              component: () => import('../views/admin/customer-hub/LinkedUsersView.vue'),
+              meta: { requiresAuth: true, titleKey: 'linkedUsersPage.title' },
             },
         {
               path: 'customer-hub/mobile-orders',
@@ -797,8 +797,8 @@ const router = createRouter({
         {
               path: 'customer-hub/payments',
               name: 'customer-hub-payments',
-              component: () => import('../views/admin/settings/SettingsSectionView.vue'),
-              meta: { requiresAuth: true, titleKey: 'nav.customerHubItems.payments' },
+              component: () => import('../views/admin/customer-hub/CustomerPaymentsView.vue'),
+              meta: { requiresAuth: true, titleKey: 'customerPaymentsPage.title' },
             },
         {
               path: 'settings/modules',
@@ -824,17 +824,23 @@ const router = createRouter({
               component: () => import('../views/admin/settings/SettingsSectionView.vue'),
               meta: { requiresAuth: true, titleKey: 'nav.settingsItems.spaceOrders' },
             },
-        {
+            {
+              path: 'help/:section(guide|tutorials|faqs|support|about)',
+              name: 'help-center',
+              component: () => import('../views/admin/help/HelpCenterView.vue'),
+              meta: { requiresAuth: true, titleKey: 'helpCenter.title' },
+            },
+            {
               path: 'settings/orders',
               name: 'settings-orders',
-              component: () => import('../views/admin/settings/SettingsSectionView.vue'),
-              meta: { requiresAuth: true, titleKey: 'nav.settingsItems.orders' },
+              component: () => import('../views/admin/settings/ExternalAppOrdersView.vue'),
+              meta: { requiresAuth: true, titleKey: 'externalAppOrdersPage.title' },
             },
         {
               path: 'settings/analytics',
               name: 'settings-analytics',
-              component: () => import('../views/admin/settings/SettingsSectionView.vue'),
-              meta: { requiresAuth: true, titleKey: 'nav.settingsItems.analytics' },
+              component: () => import('../views/admin/settings/ExternalAppAnalyticsView.vue'),
+              meta: { requiresAuth: true, titleKey: 'externalAnalytics.title' },
             },
             {
               path: 'notifications',

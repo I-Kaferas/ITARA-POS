@@ -36,6 +36,8 @@ import '../../barcode/presentation/widgets/hid_scanner_field.dart';
 import '../../barcode/services/hid_scanner_controller.dart';
 import '../../receipt/domain/receipt_models.dart';
 import '../../receipt/services/cash_drawer_service.dart';
+import '../../receipt/services/kitchen_ticket_service.dart';
+import '../../receipt/services/print_once.dart';
 import '../../receipt/services/receipt_print_service.dart';
 import '../../shifts/data/local_shifts_store.dart';
 import '../data/pos_api_service.dart';
@@ -45,6 +47,7 @@ import '../services/pos_cart_engine.dart';
 import '../services/pos_favorites_store.dart';
 import '../services/pos_pending_intent.dart';
 import 'widgets/delivery_map_card.dart';
+import 'widgets/hold_order_dialog.dart';
 import 'widgets/pos_cart_panel.dart';
 import 'customer_display_launcher.dart';
 import 'widgets/pos_category_sidebar.dart';
@@ -134,6 +137,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   int _catalogRevision = -1;
   String _activeStoreId = '';
   bool _suppressHoldPersist = false;
+  bool _holdPromptOpen = false;
   Map<String, int> _categoryCounts = const {};
   List<PosProduct> _filteredCache = const [];
   String? _filteredCategoryId;
@@ -259,7 +263,13 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   }
 
   Future<void> _shortcutHold() async {
+    if (_cart.isEmpty || _holdPromptOpen) return;
+    _holdPromptOpen = true;
+    var printKitchen = false;
     try {
+      final choice = await showHoldOrderDialog(context);
+      if (choice == null || !mounted) return;
+      printKitchen = choice;
       final snapshot = _cart.lines.map((l) => l.copy()).toList();
       final customer = _cart.customer;
       final note = _cart.note;
@@ -268,6 +278,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       final tableId = _cart.tableId;
       final label = _cart.holdSale();
       await _persistHolds();
+      unawaited(_refreshRegister());
       unawaited(_syncHoldToServer(
         label: label,
         lines: snapshot,
@@ -277,7 +288,33 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         discountPercent: discountPercent,
         tableId: tableId,
       ));
-      _showStatus('Commande en attente: $label');
+      if (printKitchen) {
+        try {
+          final held = _cart.heldSales.where((sale) => sale.label == label).firstOrNull;
+          await KitchenTicketService().printHeldSale(
+            held ??
+                PosHeldSale(
+                  id: label,
+                  label: label,
+                  lines: snapshot,
+                  heldAt: DateTime.now(),
+                  customer: customer,
+                  note: note,
+                  discountAmount: discountAmount,
+                  discountPercent: discountPercent,
+                  tableId: tableId,
+                ),
+          );
+        } on PrintAlreadyDone {
+          if (mounted) _showStatus('Déjà imprimé');
+        } catch (_) {
+          if (mounted) {
+            _showStatus('Impression cuisine échouée — la commande reste en attente');
+          }
+          return;
+        }
+      }
+      if (mounted) _showStatus('Commande en attente: $label');
     } catch (e) {
       _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
     }
@@ -329,6 +366,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         return;
       }
       await _persistHolds();
+      unawaited(_refreshRegister());
       _showStatus('Commande mise en attente ($label) — nouvelle commande prête');
     } catch (e) {
       _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
@@ -603,6 +641,27 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     _scheduleRecalc();
   }
 
+  /// Puts the register back to a clean sale: search, category, cart panel, and stock.
+  Future<void> _refreshRegister() async {
+    if (!mounted) return;
+    _searchController.clear();
+    final products = context.read<ProductBloc>();
+    products.add(const ProductSearchChanged(''));
+    products.add(const ProductCategoryFilterChanged(null));
+    setState(() {
+      _searchQuery = '';
+      _selectedCategoryId = null;
+      _filteredCategoryId = null;
+      _filteredQuery = '';
+      _filteredCache = const [];
+      _cartOpen = false;
+    });
+    await _loadCatalog(forceNetwork: true);
+    if (!mounted) return;
+    await _loadPendingOrders();
+    if (mounted) setState(() {});
+  }
+
   Future<void> _loadCatalog({bool forceNetwork = false}) async {
     context.read<ProductBloc>().add(
           ProductCatalogLoadRequested(forceNetwork: forceNetwork),
@@ -766,6 +825,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         : '';
     _showStatus('${result.message}$change$balance$loyalty');
     _cart.cancel();
+    unawaited(_refreshRegister());
     // Refresh grid quantities from the stock rows written by commitSale.
     SyncEngine.instance.markCatalogChanged(stock: result.stockUpdates);
     if (CashDrawerService.shouldOpenForPayment(

@@ -6,8 +6,11 @@ import { useConfirm } from '../../../composables/useConfirm'
 import { useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { PayableSupplierRow, Supplier } from '../../../types'
 import { formatMoney } from '../../../utils/format'
@@ -45,6 +48,8 @@ async function applySearch() {
 }
 
 watchLiveSearch(search, applySearch)
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(() => store.suppliers)
 
 function openDetail(item: Supplier) {
   router.push({ name: 'supplier-detail', params: { id: item.id } })
@@ -109,7 +114,9 @@ async function remove(item: Supplier) {
 
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
+        <FilterFold>
+          <input v-model="search" type="search" :placeholder="t('common.search')" class="field max-w-xs" />
+        </FilterFold>
         <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('suppliers.add') }}</button>
       </div>
 
@@ -127,7 +134,7 @@ async function remove(item: Supplier) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="item in store.suppliers" :key="item.id" class="hover:bg-slate-50">
+            <tr v-for="item in paged" :key="item.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-slate-500">{{ item.code }}</td>
               <td class="px-4 py-3">
                 <button class="font-medium text-brand-600" @click="openDetail(item)">{{ item.name }}</button>
@@ -146,6 +153,13 @@ async function remove(item: Supplier) {
           </tbody>
         </table>
         <p v-if="!store.suppliers.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <ListPager
+          :page="page"
+          :last-page="lastPage"
+          :total="total"
+          :per-page="perPage"
+          @change="setPage"
+        />
       </div>
     </div>
 

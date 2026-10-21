@@ -5,9 +5,12 @@ import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import Badge from '../../../components/ui/Badge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Branch, Store } from '../../../types'
@@ -25,11 +28,19 @@ const showModal = ref(false)
 const editing = ref<Store | null>(null)
 const saving = ref(false)
 const filters = ref<ListFilters>(emptyListFilters('all'))
-const filtered = computed(() => store.stores.filter(s =>
-  matchesSearch(`${s.name} ${s.code}`, filters.value.search)
-  && matchesActive(s.is_active, filters.value.active),
-))
-const form = ref({ name: '', code: '', is_active: true })
+const filtered = computed(() => store.stores
+  .filter(s =>
+    matchesSearch(`${s.name} ${s.code}`, filters.value.search)
+    && matchesActive(s.is_active, filters.value.active),
+  )
+  .slice()
+  .sort((a, b) => Number(Boolean(b.is_main)) - Number(Boolean(a.is_main)) || a.name.localeCompare(b.name)),
+)
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
+const mainStore = computed(() =>
+  context.stores.find(s => s.is_main) ?? store.stores.find(s => s.is_main) ?? null,
+)
+const form = ref({ name: '', code: '', is_active: true, is_main: false })
 
 onMounted(async () => {
   await store.loadCompanies()
@@ -46,13 +57,13 @@ watch(branchId, (id) => { if (id) store.loadStores(id) })
 
 function openCreate() {
   editing.value = null
-  form.value = { name: '', code: '', is_active: true }
+  form.value = { name: '', code: '', is_active: true, is_main: !mainStore.value }
   showModal.value = true
 }
 
 function openEdit(s: Store) {
   editing.value = s
-  form.value = { name: s.name, code: s.code, is_active: s.is_active }
+  form.value = { name: s.name, code: s.code, is_active: s.is_active, is_main: Boolean(s.is_main) }
   showModal.value = true
 }
 
@@ -90,6 +101,12 @@ async function remove(s: Store) {
         <button class="btn-primary ml-auto" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('org.addStore') }}</button>
       </div>
 
+      <p v-if="mainStore" class="m-0 text-sm text-slate-600">
+        {{ t('org.mainStore') }} :
+        <strong>{{ mainStore.name }}</strong>
+        <span class="font-mono text-slate-400"> {{ mainStore.code }}</span>
+      </p>
+
       <ModuleFilters v-model="filters" :show-period="false" show-search show-active />
 
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -98,14 +115,19 @@ async function remove(s: Store) {
             <tr>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.name') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.code') }}</th>
+              <th class="px-4 py-3 text-left font-medium">{{ t('org.mainStore') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
               <th class="px-4 py-3 text-right">{{ t('common.edit') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="s in filtered" :key="s.id" class="hover:bg-slate-50">
+            <tr v-for="s in paged" :key="s.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ s.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ s.code }}</td>
+              <td class="px-4 py-3">
+                <Badge v-if="s.is_main" variant="brand">{{ t('org.mainStore') }}</Badge>
+                <span v-else class="text-slate-300">—</span>
+              </td>
               <td class="px-4 py-3"><StatusBadge :active="s.is_active" /></td>
               <td class="px-4 py-3 text-right space-x-2">
                 <button class="text-brand-600" @click="openEdit(s)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
@@ -114,6 +136,7 @@ async function remove(s: Store) {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>
@@ -129,6 +152,12 @@ async function remove(s: Store) {
         <div><FieldLabel icon="account">{{ t('org.name') }}</FieldLabel><input v-model="form.name" required class="field w-full" /></div>
         <div><FieldLabel icon="tag">{{ t('org.code') }}</FieldLabel><input v-model="form.code" required class="field w-full" /></div>
         <label class="flex items-center gap-2 text-sm"><span class="field-icon"><AppIcon name="check" :size="14" /></span><input v-model="form.is_active" type="checkbox" class="rounded" />{{ t('products.active') }}</label>
+        <label class="flex items-center gap-2 text-sm">
+          <span class="field-icon"><AppIcon name="stores" :size="14" /></span>
+          <input v-model="form.is_main" type="checkbox" class="rounded" :disabled="Boolean(editing?.is_main)" />
+          {{ t('org.mainStore') }}
+        </label>
+        <p class="m-0 text-xs text-slate-500">{{ t('org.mainStoreHint') }}</p>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
           <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>

@@ -9,6 +9,8 @@ import { useContextStore } from '../../../stores/context'
 import type { Product } from '../../../types'
 import { formatMoney } from '../../../utils/format'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type OptionGroup = { name: string; values: string[]; draft: string }
 
@@ -24,6 +26,7 @@ const groups = ref<OptionGroup[]>([{ name: '', values: [], draft: '' }])
 
 const eligible = computed(() => products.value.filter(product => !['service', 'digital', 'bundle'].includes(product.product_type ?? '')))
 const transformed = computed(() => products.value.filter(product => (product.metadata?.option_groups?.length ?? 0) > 0 || product.product_type === 'variant'))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(transformed)
 const selectedProduct = computed(() => products.value.find(product => product.id === productId.value) ?? null)
 
 const preview = computed(() => {
@@ -184,7 +187,7 @@ function priceLabel(product: Product) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="product in transformed" :key="product.id" class="hover:bg-slate-50">
+            <tr v-for="product in paged" :key="product.id" class="hover:bg-slate-50">
               <td class="px-4 py-3">
                 <span class="block font-medium">{{ product.name }}</span>
                 <span class="font-mono text-xs text-slate-500">{{ product.sku }}</span>
@@ -199,6 +202,7 @@ function priceLabel(product: Product) {
           </tbody>
         </table>
         <p v-if="!transformed.length" class="px-4 py-8 text-center text-slate-500">{{ t('catalog.options.empty') }}</p>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
 

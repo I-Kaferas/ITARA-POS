@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { SalesReport } from '../../../types'
@@ -230,6 +231,7 @@ onMounted(() => {
         </div>
       </div>
 
+      <FilterFold>
       <div class="sales__filters">
         <div>
           <FieldLabel icon="stores">{{ t('nav.stores') }}</FieldLabel>
@@ -251,6 +253,7 @@ onMounted(() => {
           {{ t('reports.salesAnalytics.apply') }}
         </button>
       </div>
+      </FilterFold>
 
       <template v-if="activeTab === 'overview'">
         <div class="sales__kpis">

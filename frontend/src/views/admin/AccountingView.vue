@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import ListPager from '../../components/ui/ListPager.vue'
+import { useClientPager } from '../../composables/useClientPager'
 import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../components/layout/PageFrame.vue'
@@ -70,6 +72,9 @@ async function closePeriod() {
   await api.post('/accounting/periods/close', { starts_on: periodFrom.value, ends_on: periodTo.value })
 }
 
+const accountingEntries = computed(() => store.accountingEntries)
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(accountingEntries)
+
 onMounted(load)
 watchLiveSearch([from, to], load, 0)
 </script>
@@ -131,7 +136,7 @@ watchLiveSearch([from, to], load, 0)
           </tr>
         </thead>
         <tbody class="divide-y">
-          <tr v-for="row in store.accountingEntries" :key="row.id">
+          <tr v-for="row in paged" :key="row.id">
             <td class="px-4 py-3"><input type="checkbox" :value="row.id" v-model="selected" /></td>
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.occurred_at) }}</td>
             <td class="px-4 py-3 font-mono text-xs">{{ row.entry_type }}</td>
@@ -143,6 +148,7 @@ watchLiveSearch([from, to], load, 0)
         </tbody>
       </table>
       <p v-if="!store.accountingEntries.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
     </div>
 
     <AppModal

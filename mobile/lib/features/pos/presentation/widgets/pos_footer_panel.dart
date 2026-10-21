@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../hospitality/data/hospitality_api.dart';
 import '../../../receipt/services/kitchen_ticket_service.dart';
+import '../../../receipt/services/print_once.dart';
 import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_cart_engine.dart';
@@ -586,6 +587,12 @@ class PosFooterPanel extends StatelessWidget {
     }
     try {
       await KitchenTicketService().printHeldSale(ticket);
+    } on PrintAlreadyDone {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('Déjà imprimé'))),
+        );
+      }
     } catch (_) {
       // §41 — kitchen print failure must not cancel the sale / hold.
       if (context.mounted) {

@@ -10,6 +10,8 @@ import { api, extractApiErrorMessage, type ApiItemResponse, type ApiListResponse
 import { useConfirm } from '../../../composables/useConfirm'
 import { useContextStore } from '../../../stores/context'
 import { formatDate } from '../../../utils/format'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type QrType = 'table' | 'pdf_menu' | 'external_link' | 'merchant' | 'payment' | 'company'
 type ScanMode = 'browser' | 'app'
@@ -165,6 +167,7 @@ const filtered = computed(() => {
     return haystack.includes(q)
   })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 const filteredTables = computed(() => {
   const q = tableQuery.value.trim().toLowerCase()
@@ -697,7 +700,7 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in filtered" :key="item.id" class="merchant-qr__row" @click="viewing = item">
+            <tr v-for="item in paged" :key="item.id" class="merchant-qr__row" @click="viewing = item">
               <td>
                 <button type="button" class="merchant-qr__label" @click.stop="openSaved(item)">
                   {{ item.label }}
@@ -747,6 +750,7 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </DataTableShell>
     </div>
 

@@ -23,6 +23,8 @@ class TerminalConfigRepository extends ChangeNotifier {
 
   bool get isConfigured => _config.isConfigured;
 
+  bool get isCompanyConfigured => _config.isCompanyConfigured;
+
   Future<void> ensureLoaded() {
     return _loading ??= _load();
   }

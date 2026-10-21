@@ -8,6 +8,8 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, PurchaseRequisition, Supplier, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
@@ -59,6 +61,8 @@ const filteredRows = computed(() =>
     return true
   }),
 )
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredRows)
 
 function emptyForm() {
   return {
@@ -239,9 +243,12 @@ function openOrder(row: PurchaseRequisition) {
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('purchases.hub.requisitions') }}</h3>
-        <button class="btn-primary-sm" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('purchases.hub.newRequisition') }}</button>
+      <div class="req-toolbar">
+        <h3 class="req-toolbar__title">{{ t('purchases.hub.requisitions') }}</h3>
+        <button type="button" class="btn-primary" @click="openCreate">
+          <AppIcon name="plus" :size="16" />
+          {{ t('purchases.hub.newRequisition') }}
+        </button>
       </div>
 
       <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -258,7 +265,7 @@ function openOrder(row: PurchaseRequisition) {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in filteredRows" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in paged" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 font-mono">{{ row.number }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ t(`purchases.hub.priorities.${row.priority}`) }}</td>
@@ -281,6 +288,13 @@ function openOrder(row: PurchaseRequisition) {
         </tbody>
       </table>
       <p v-if="!filteredRows.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="page"
+        :last-page="lastPage"
+        :total="total"
+        :per-page="perPage"
+        @change="setPage"
+      />
     </div>
 
     <AppModal
@@ -380,6 +394,28 @@ function openOrder(row: PurchaseRequisition) {
 </template>
 
 <style scoped>
+.req-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+
+.req-toolbar__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.req-toolbar .btn-primary {
+  min-height: 2.35rem;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.8125rem;
+}
 
 .line-head,
 .line-row {

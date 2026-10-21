@@ -5,6 +5,7 @@ import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -17,6 +18,8 @@ import type {
 } from '../../../types'
 import { getAppCurrency } from '../../../utils/currency'
 import { formatDateTime, formatMoney, toDateTimeLocal } from '../../../utils/format'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type MainTab = 'users' | 'sessions'
 type DetailTab = 'invoices' | 'orders' | 'pos' | 'products' | 'customers'
@@ -83,6 +86,22 @@ const filteredSessions = computed(() => {
     || (s.register_code || '').toLowerCase().includes(q),
   )
 })
+const {
+  page: usersPage,
+  lastPage: usersLastPage,
+  total: usersTotal,
+  perPage: usersPerPage,
+  paged: pagedUsers,
+  setPage: setUsersPage,
+} = useClientPager(filteredUsers)
+const {
+  page: sessionsPage,
+  lastPage: sessionsLastPage,
+  total: sessionsTotal,
+  perPage: sessionsPerPage,
+  paged: pagedSessions,
+  setPage: setSessionsPage,
+} = useClientPager(filteredSessions)
 
 const contributors = computed(() => users.value.filter((u) => u.invoiced_total > 0))
 const topPerformers = computed(() => contributors.value.slice(0, 8))
@@ -424,6 +443,7 @@ onMounted(() => {
           <AppIcon name="recycle" :size="15" />
           {{ t('common.refresh') }}
         </button>
+        <FilterFold>
         <div class="up__filters">
           <div>
             <FieldLabel icon="calendar">{{ t('reports.userPerformanceAnalytics.from') }}</FieldLabel>
@@ -456,6 +476,7 @@ onMounted(() => {
               : t('reports.userPerformanceAnalytics.searchUsers')"
           >
         </div>
+        </FilterFold>
       </div>
 
       <div class="up__tabs" role="tablist">
@@ -597,7 +618,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="user in filteredUsers" :key="user.user_id">
+              <tr v-for="user in pagedUsers" :key="user.user_id">
                 <td>
                   <div class="user-cell">
                     <span class="avatar">{{ initials(user.name) }}</span>
@@ -623,6 +644,13 @@ onMounted(() => {
             </tbody>
           </table>
           <p v-if="!filteredUsers.length" class="panel__empty">{{ t('reports.userPerformanceAnalytics.noUsers') }}</p>
+          <ListPager
+            :page="usersPage"
+            :last-page="usersLastPage"
+            :total="usersTotal"
+            :per-page="usersPerPage"
+            @change="setUsersPage"
+          />
         </div>
       </section>
 
@@ -655,7 +683,7 @@ onMounted(() => {
             </thead>
             <tbody>
               <tr
-                v-for="session in filteredSessions"
+                v-for="session in pagedSessions"
                 :key="session.id"
                 class="row-click"
                 @click="openSessionDetail(session)"
@@ -685,6 +713,13 @@ onMounted(() => {
             </tbody>
           </table>
           <p v-if="!filteredSessions.length" class="panel__empty">{{ t('reports.userPerformanceAnalytics.noSessions') }}</p>
+          <ListPager
+            :page="sessionsPage"
+            :last-page="sessionsLastPage"
+            :total="sessionsTotal"
+            :per-page="sessionsPerPage"
+            @change="setSessionsPage"
+          />
         </div>
       </section>
 

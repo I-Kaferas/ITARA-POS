@@ -271,18 +271,38 @@ class PrinterService extends ChangeNotifier {
         mode: ReceiptPrintMode.dialog,
         resolvePreferred: false,
         keepFormat: true,
+        once: false,
       );
       return;
     }
     final printers = await printing.Printing.listPrinters();
     final match = printers.where((item) => item.name == name).toList();
     if (match.isEmpty) {
-      throw StateError('Imprimante système introuvable: $name');
+      await _receiptPrinter.print(
+        payload,
+        mode: ReceiptPrintMode.dialog,
+        resolvePreferred: false,
+        keepFormat: true,
+        once: false,
+      );
+      return;
     }
-    await printing.Printing.directPrintPdf(
+    final done = await printing.Printing.directPrintPdf(
       printer: match.first,
       onLayout: (_) async => bytes,
+      name: '${payload.documentType}-${payload.documentNumber}',
+      dynamicLayout: false,
+      usePrinterSettings: true,
     );
+    if (!done) {
+      await _receiptPrinter.print(
+        payload,
+        mode: ReceiptPrintMode.dialog,
+        resolvePreferred: false,
+        keepFormat: true,
+        once: false,
+      );
+    }
   }
 
   Future<void> _printViaBluetooth(

@@ -253,22 +253,18 @@ function qtyLabel(quantity: number) {
       <LoadingBlock v-else-if="loading && !inventory" variant="cards" :rows="6" :label="t('common.loading')" />
 
       <template v-else>
-        <section class="sd-kpis stagger-in">
+        <section class="sd-kpis stagger-in kpi-plain">
           <KpiCard :label="t('hotel.stock.productsInStock')" :value="productsInStock" icon="products" />
           <KpiCard :label="t('hotel.stock.catalogueItems')" :value="catalogueCount" icon="layers" />
           <KpiCard
             :label="t('hotel.stock.stockValue')"
             :value="compactMoney(stockValue)"
             icon="receipt"
-            accent="var(--color-info)"
-            icon-bg="var(--color-info-bg)"
           />
           <KpiCard
             :label="t('hotel.stock.lowStockAlerts')"
             :value="lowCount"
             icon="bell"
-            accent="var(--color-warning)"
-            icon-bg="var(--color-warning-bg)"
           />
           <KpiCard
             :label="t('hotel.stock.monthlySales')"

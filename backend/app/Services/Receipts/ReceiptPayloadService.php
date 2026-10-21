@@ -66,6 +66,12 @@ class ReceiptPayloadService
                 'currency_code' => $company?->currency_code ?? $sale->currency,
                 'receipt_footer' => $settings['receipt_footer'] ?? null,
                 'legal_mentions' => $settings['legal_mentions'] ?? null,
+                'fiscal_center' => $settings['fiscal_center'] ?? $settings['dpmc'] ?? null,
+                'activity_sector' => $settings['activity_sector'] ?? null,
+                'vat_registered' => (bool) ($settings['vat_registered'] ?? false),
+                'vat_exempt' => ($settings['vat_status'] ?? '') === 'exempt',
+                'subject_to_tc' => (bool) ($settings['subject_to_tc'] ?? false),
+                'subject_to_pf' => (bool) ($settings['subject_to_pf'] ?? false),
             ],
             'branch' => [
                 'name' => $branch?->name,
@@ -83,7 +89,14 @@ class ReceiptPayloadService
             'sale_id' => $sale->id,
             'date' => ($sale->completed_at ?? $sale->created_at)?->toIso8601String(),
             'cashier' => $sale->processedBy?->only(['id', 'name']),
-            'customer' => $sale->customer?->only(['id', 'name', 'email', 'phone']),
+            'customer' => $sale->customer === null ? null : [
+                'id' => $sale->customer->id,
+                'name' => $sale->customer->name,
+                'email' => $sale->customer->email,
+                'phone' => $sale->customer->phone,
+                'tax_id' => $sale->customer->tax_id,
+            ],
+            'service_mode' => $sale->service_mode,
             'items' => $sale->items->map(fn ($item) => [
                 'id' => $item->id,
                 'product_id' => $item->product_id,

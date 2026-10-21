@@ -10,6 +10,8 @@ import KpiCard from '../../../components/ui/KpiCard.vue'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { formatMoney } from '../../../utils/format'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Party = { id: string; name: string; code?: string; email?: string | null; phone?: string | null; crm_role?: string; job_title?: string | null; account?: { name: string } | null }
 type Account = { id: string; name: string; legal_name?: string | null; email?: string | null; phone?: string | null; contacts_count?: number }
@@ -173,6 +175,52 @@ async function openDossier(party: Party) {
 const prospects = computed(() => parties.value.filter(party => party.crm_role === 'prospect'))
 const clients = computed(() => parties.value.filter(party => party.crm_role !== 'prospect'))
 const contacts = computed(() => parties.value.filter(party => party.account))
+const partyTableRows = computed(() => {
+  if (tab.value === 'prospects') return prospects.value
+  if (tab.value === 'clients') return clients.value
+  if (tab.value === 'contacts') return contacts.value
+  return []
+})
+const {
+  page: partyPage,
+  lastPage: partyLastPage,
+  total: partyTotal,
+  perPage: partyPerPage,
+  paged: pagedParties,
+  setPage: setPartyPage,
+} = useClientPager(partyTableRows)
+const {
+  page: accountsPage,
+  lastPage: accountsLastPage,
+  total: accountsTotal,
+  perPage: accountsPerPage,
+  paged: pagedAccounts,
+  setPage: setAccountsPage,
+} = useClientPager(accounts)
+const {
+  page: leadsPage,
+  lastPage: leadsLastPage,
+  total: leadsTotal,
+  perPage: leadsPerPage,
+  paged: pagedLeads,
+  setPage: setLeadsPage,
+} = useClientPager(leads)
+const {
+  page: activitiesPage,
+  lastPage: activitiesLastPage,
+  total: activitiesTotal,
+  perPage: activitiesPerPage,
+  paged: pagedActivities,
+  setPage: setActivitiesPage,
+} = useClientPager(activities)
+const {
+  page: campaignsPage,
+  lastPage: campaignsLastPage,
+  total: campaignsTotal,
+  perPage: campaignsPerPage,
+  paged: pagedCampaigns,
+  setPage: setCampaignsPage,
+} = useClientPager(campaigns)
 
 onMounted(() => { void load() })
 </script>
@@ -245,7 +293,7 @@ onMounted(() => { void load() })
             </tr>
           </thead>
           <tbody>
-            <tr v-for="party in (tab === 'prospects' ? prospects : tab === 'clients' ? clients : contacts)" :key="party.id">
+            <tr v-for="party in pagedParties" :key="party.id">
               <td class="font-medium">{{ party.name }}</td>
               <td>{{ party.email || '—' }}</td>
               <td>{{ party.phone || '—' }}</td>
@@ -254,26 +302,28 @@ onMounted(() => { void load() })
             </tr>
           </tbody>
         </table>
+        <ListPager :page="partyPage" :last-page="partyLastPage" :total="partyTotal" :per-page="partyPerPage" @change="setPartyPage" />
       </DataTableShell>
 
       <DataTableShell v-else-if="tab === 'accounts'" :title="t('crm.tabs.accounts')" :loading="loading" :empty="!accounts.length" :empty-title="t('crm.empty')">
         <table class="ui-table min-w-full">
           <thead><tr><th>{{ t('crm.name') }}</th><th>{{ t('crm.email') }}</th><th>{{ t('crm.phone') }}</th></tr></thead>
           <tbody>
-            <tr v-for="account in accounts" :key="account.id">
+            <tr v-for="account in pagedAccounts" :key="account.id">
               <td class="font-medium">{{ account.name }}</td>
               <td>{{ account.email || '—' }}</td>
               <td>{{ account.phone || '—' }}</td>
             </tr>
           </tbody>
         </table>
+        <ListPager :page="accountsPage" :last-page="accountsLastPage" :total="accountsTotal" :per-page="accountsPerPage" @change="setAccountsPage" />
       </DataTableShell>
 
       <DataTableShell v-else-if="tab === 'leads'" :title="t('crm.tabs.leads')" :loading="loading" :empty="!leads.length" :empty-title="t('crm.empty')">
         <table class="ui-table min-w-full">
           <thead><tr><th>{{ t('crm.name') }}</th><th>{{ t('crm.source') }}</th><th>{{ t('crm.status') }}</th><th></th></tr></thead>
           <tbody>
-            <tr v-for="lead in leads" :key="lead.id">
+            <tr v-for="lead in pagedLeads" :key="lead.id">
               <td class="font-medium">{{ lead.name }}</td>
               <td>{{ lead.source || '—' }}</td>
               <td><Badge :variant="lead.status === 'converted' ? 'success' : 'info'">{{ lead.status }}</Badge></td>
@@ -283,13 +333,14 @@ onMounted(() => { void load() })
             </tr>
           </tbody>
         </table>
+        <ListPager :page="leadsPage" :last-page="leadsLastPage" :total="leadsTotal" :per-page="leadsPerPage" @change="setLeadsPage" />
       </DataTableShell>
 
       <DataTableShell v-else-if="tab === 'activities'" :title="t('crm.tabs.activities')" :loading="loading" :empty="!activities.length" :empty-title="t('crm.empty')">
         <table class="ui-table min-w-full">
           <thead><tr><th>{{ t('crm.type') }}</th><th>{{ t('crm.subject') }}</th><th>{{ t('crm.name') }}</th><th>{{ t('crm.status') }}</th><th></th></tr></thead>
           <tbody>
-            <tr v-for="activity in activities" :key="activity.id">
+            <tr v-for="activity in pagedActivities" :key="activity.id">
               <td>{{ t(`crm.activityTypes.${activity.type}`) }}</td>
               <td class="font-medium">{{ activity.subject }}</td>
               <td>{{ activity.customer?.name || '—' }}</td>
@@ -300,19 +351,21 @@ onMounted(() => { void load() })
             </tr>
           </tbody>
         </table>
+        <ListPager :page="activitiesPage" :last-page="activitiesLastPage" :total="activitiesTotal" :per-page="activitiesPerPage" @change="setActivitiesPage" />
       </DataTableShell>
 
       <DataTableShell v-else :title="t('crm.tabs.campaigns')" :loading="loading" :empty="!campaigns.length" :empty-title="t('crm.empty')">
         <table class="ui-table min-w-full">
           <thead><tr><th>{{ t('crm.name') }}</th><th>{{ t('crm.channel') }}</th><th>{{ t('crm.status') }}</th></tr></thead>
           <tbody>
-            <tr v-for="campaign in campaigns" :key="campaign.id">
+            <tr v-for="campaign in pagedCampaigns" :key="campaign.id">
               <td class="font-medium">{{ campaign.name }}</td>
               <td>{{ campaign.channel }}</td>
               <td><Badge variant="info">{{ campaign.status }}</Badge></td>
             </tr>
           </tbody>
         </table>
+        <ListPager :page="campaignsPage" :last-page="campaignsLastPage" :total="campaignsTotal" :per-page="campaignsPerPage" @change="setCampaignsPage" />
       </DataTableShell>
     </div>
 

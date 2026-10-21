@@ -6,7 +6,10 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { useConfirm } from '../../../composables/useConfirm'
+import { useClientPager } from '../../../composables/useClientPager'
+import ListPager from '../../../components/ui/ListPager.vue'
 
 type Manufacturer = {
   id: string
@@ -44,6 +47,7 @@ const filtered = computed(() => {
       .includes(q),
   )
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 function blankForm() {
   return {
@@ -147,6 +151,7 @@ async function remove(item: Manufacturer) {
           <AppIcon name="plus" :size="16" />
           {{ t('orgManufacturers.add') }}
         </button>
+        <FilterFold>
         <label class="manufacturers__search">
           <span class="sr-only">{{ t('orgManufacturers.search') }}</span>
           <input
@@ -156,6 +161,7 @@ async function remove(item: Manufacturer) {
             :placeholder="t('orgManufacturers.searchPlaceholder')"
           />
         </label>
+        </FilterFold>
       </div>
 
       <div class="ui-table-wrap">
@@ -174,7 +180,7 @@ async function remove(item: Manufacturer) {
               <tr v-if="!filtered.length">
                 <td colspan="5" class="manufacturers__empty">{{ t('orgManufacturers.empty') }}</td>
               </tr>
-              <tr v-for="item in filtered" :key="item.id">
+              <tr v-for="item in paged" :key="item.id">
                 <td class="manufacturers__name">{{ item.name }}</td>
                 <td :class="{ 'manufacturers__muted': !contactLabel(item) }">{{ contactLabel(item) || '—' }}</td>
                 <td :class="{ 'manufacturers__muted': !locationLabel(item) }">{{ locationLabel(item) || '—' }}</td>
@@ -194,6 +200,7 @@ async function remove(item: Manufacturer) {
               </tr>
             </tbody>
           </table>
+          <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         </div>
       </div>
     </div>

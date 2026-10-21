@@ -13,6 +13,8 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { CatalogAttribute } from '../../../types'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -26,6 +28,7 @@ const filtered = computed(() => store.catalogAttributes.filter(attribute =>
   matchesSearch(`${attribute.name} ${attribute.code} ${(attribute.values ?? []).join(' ')}`, filters.value.search)
   && matchesActive(attribute.is_active, filters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 const form = ref({ name: '', code: '', valuesText: '', is_active: true })
 const storeIds = ref<string[]>([])
 
@@ -114,7 +117,7 @@ async function remove(attribute: CatalogAttribute) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="attribute in filtered" :key="attribute.id" class="hover:bg-slate-50">
+            <tr v-for="attribute in paged" :key="attribute.id" class="hover:bg-slate-50">
               <td class="px-4 py-3">
                 <span class="block font-medium">{{ attribute.name }}</span>
                 <span class="font-mono text-xs text-slate-400">{{ attribute.code }}</span>
@@ -129,6 +132,7 @@ async function remove(attribute: CatalogAttribute) {
           </tbody>
         </table>
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
 

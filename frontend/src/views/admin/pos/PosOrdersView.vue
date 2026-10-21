@@ -7,7 +7,10 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import DataTableShell from '../../../components/ui/DataTableShell.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { watchLiveSearch } from '../../../composables/useLiveSearch'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { extractApiErrorMessage } from '../../../api/client'
@@ -60,6 +63,9 @@ const paymentOptions = computed(() => [
   { value: 'partial', label: t('pointOfSale.orders.payment.partial') },
   { value: 'on_credit', label: t('pointOfSale.orders.payment.on_credit') },
 ])
+
+const salesRows = computed(() => store.sales)
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(salesRows)
 
 const filterPayload = computed(() => ({
   q: filters.value.q.trim() || undefined,
@@ -209,6 +215,7 @@ watch(
     </div>
 
     <template v-else>
+      <FilterFold>
       <div class="ui-toolbar">
         <div class="grid w-full gap-3 md:grid-cols-2 xl:grid-cols-6">
           <div class="xl:col-span-2">
@@ -271,6 +278,7 @@ watch(
           </span>
         </div>
       </div>
+      </FilterFold>
 
       <p v-if="error" class="ui-toast ui-toast--danger mb-4">{{ error }}</p>
 
@@ -298,7 +306,7 @@ watch(
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in store.sales" :key="row.id">
+            <tr v-for="row in paged" :key="row.id">
               <td class="font-mono cursor-pointer" @click="router.push({ name: 'sale-detail', params: { id: row.id } })">
                 {{ row.reference }}
               </td>
@@ -376,6 +384,7 @@ watch(
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </DataTableShell>
     </template>
 

@@ -11,6 +11,7 @@ import '../../pos/domain/pos_models.dart';
 import '../../printers/domain/print_group.dart';
 import '../../printers/services/printer_router.dart';
 import '../../printers/services/printer_service.dart';
+import 'print_once.dart';
 
 /// Builds kitchen / bar tickets and routes them per §40.
 class KitchenTicketService {
@@ -42,10 +43,19 @@ class KitchenTicketService {
     );
 
     final printed = <PrintGroup, int>{};
+    var stations = 0;
+    var alreadySent = 0;
     for (final entry in buckets.entries) {
       final group = entry.key;
       final lines = entry.value;
       if (lines.isEmpty) continue;
+      stations++;
+
+      final keys = PrintOnce.kitchenKeys(sale, group.name);
+      if (!await PrintOnce.claimAll(keys)) {
+        alreadySent++;
+        continue;
+      }
 
       final documentType = switch (group) {
         PrintGroup.bar => 'bar',
@@ -54,51 +64,63 @@ class KitchenTicketService {
         _ => 'kitchen',
       };
 
-      final bytes = await _buildTicketPdf(
-        sale: sale,
-        lines: lines,
-        group: group,
-      );
-
-      // Queue for failover / Master spooler (§41 / §42).
-      await _printerService.enqueue(
-        group: group.name,
-        documentType: documentType,
-        categoryId: lines.first.product.categoryId ?? '',
-        productId: lines.length == 1 ? lines.first.product.productId : '',
-        payload: {
-          'pdf_base64': base64Encode(bytes),
-          'document_type': documentType,
-          'sale_id': sale.id,
-          'label': sale.label,
-          'station': group.name,
-          'lines': lines
-              .map((l) => {
-                    'name': l.displayName,
-                    'qty': l.quantity,
-                    'product_id': l.product.productId,
-                    'category_id': l.product.categoryId,
-                  })
-              .toList(),
-        },
-      );
-
-      // Immediate local dialog when no station printer is configured yet.
-      final decision = await _router.resolveContext(
-        documentType: documentType,
-        categoryId: lines.first.product.categoryId ?? '',
-        productId: lines.length == 1 ? lines.first.product.productId : '',
-        categoryKey: _categorySlug(lines.first.product.categoryName ?? lines.first.product.categoryId),
-        fallbackGroup: group,
-      );
-      if (decision.primary == null) {
-        await Printing.layoutPdf(
-          onLayout: (_) async => Uint8List.fromList(bytes),
-          name: 'bon-${group.name}-${sale.id}',
+      try {
+        final bytes = await _buildTicketPdf(
+          sale: sale,
+          lines: lines,
+          group: group,
         );
-      }
 
-      printed[group] = lines.length;
+        final decision = await _router.resolveContext(
+          documentType: documentType,
+          categoryId: lines.first.product.categoryId ?? '',
+          productId: lines.length == 1 ? lines.first.product.productId : '',
+          categoryKey: _categorySlug(lines.first.product.categoryName ?? lines.first.product.categoryId),
+          fallbackGroup: group,
+        );
+
+        // One channel only: a configured station printer, or the system dialog.
+        if (decision.primary == null) {
+          final shown = await Printing.layoutPdf(
+            onLayout: (_) async => Uint8List.fromList(bytes),
+            name: 'bon-${group.name}-${sale.id}',
+            dynamicLayout: false,
+          );
+          if (!shown) {
+            await PrintOnce.releaseAll(keys);
+            continue;
+          }
+        } else {
+          await _printerService.enqueue(
+            group: group.name,
+            documentType: documentType,
+            categoryId: lines.first.product.categoryId ?? '',
+            productId: lines.length == 1 ? lines.first.product.productId : '',
+            payload: {
+              'pdf_base64': base64Encode(bytes),
+              'document_type': documentType,
+              'sale_id': sale.id,
+              'label': sale.label,
+              'station': group.name,
+              'lines': lines
+                  .map((l) => {
+                        'name': l.displayName,
+                        'qty': l.quantity,
+                        'product_id': l.product.productId,
+                        'category_id': l.product.categoryId,
+                      })
+                  .toList(),
+            },
+          );
+        }
+        printed[group] = lines.length;
+      } catch (error) {
+        await PrintOnce.releaseAll(keys);
+        rethrow;
+      }
+    }
+    if (stations > 0 && alreadySent == stations) {
+      throw const PrintAlreadyDone();
     }
     return printed;
   }

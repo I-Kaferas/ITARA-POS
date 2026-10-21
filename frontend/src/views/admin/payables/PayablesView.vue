@@ -3,7 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { emptyListFilters, inPeriod, listFilterParams, matchesSearch, type ListFilters } from '../../../utils/listFilters'
@@ -58,6 +60,30 @@ const filteredPayments = computed(() =>
     return true
   }),
 )
+const {
+  page: accountsPage,
+  lastPage: accountsLastPage,
+  total: accountsTotal,
+  perPage: accountsPerPage,
+  paged: pagedAccounts,
+  setPage: setAccountsPage,
+} = useClientPager(filteredAccounts)
+const {
+  page: schedulePage,
+  lastPage: scheduleLastPage,
+  total: scheduleTotal,
+  perPage: schedulePerPage,
+  paged: pagedSchedule,
+  setPage: setSchedulePage,
+} = useClientPager(filteredSchedule)
+const {
+  page: paymentsPage,
+  lastPage: paymentsLastPage,
+  total: paymentsTotal,
+  perPage: paymentsPerPage,
+  paged: pagedPayments,
+  setPage: setPaymentsPage,
+} = useClientPager(filteredPayments)
 
 watch(activeTab, () => {
   filters.value = { ...filters.value, status: '', payment_method: '' }
@@ -157,7 +183,7 @@ function paymentMethodLabel(method: string): string {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr
-              v-for="row in filteredAccounts"
+              v-for="row in pagedAccounts"
               :key="row.supplier_id"
               class="cursor-pointer hover:bg-slate-50"
               @click="openSupplier(row.supplier_id)"
@@ -172,6 +198,7 @@ function paymentMethodLabel(method: string): string {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="accountsPage" :last-page="accountsLastPage" :total="accountsTotal" :per-page="accountsPerPage" @change="setAccountsPage" />
         <p v-if="!filteredAccounts.length" class="px-4 py-8 text-center text-slate-500">{{ t('payables.noDebt') }}</p>
       </div>
 
@@ -188,7 +215,7 @@ function paymentMethodLabel(method: string): string {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr
-              v-for="item in filteredSchedule"
+              v-for="item in pagedSchedule"
               :key="item.id"
               class="cursor-pointer hover:bg-slate-50"
               @click="openSupplier(item.supplier_id)"
@@ -204,6 +231,7 @@ function paymentMethodLabel(method: string): string {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="schedulePage" :last-page="scheduleLastPage" :total="scheduleTotal" :per-page="schedulePerPage" @change="setSchedulePage" />
         <p v-if="!filteredSchedule.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
 
@@ -219,7 +247,7 @@ function paymentMethodLabel(method: string): string {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="payment in filteredPayments" :key="payment.id" class="hover:bg-slate-50">
+            <tr v-for="payment in pagedPayments" :key="payment.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono">{{ payment.payment_number }}</td>
               <td class="px-4 py-3">{{ payment.supplier?.name ?? '—' }}</td>
               <td class="px-4 py-3 text-slate-600">{{ paymentMethodLabel(payment.payment_method) }}</td>
@@ -228,6 +256,7 @@ function paymentMethodLabel(method: string): string {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="paymentsPage" :last-page="paymentsLastPage" :total="paymentsTotal" :per-page="paymentsPerPage" @change="setPaymentsPage" />
         <p v-if="!filteredPayments.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>

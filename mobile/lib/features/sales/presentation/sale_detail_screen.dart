@@ -99,7 +99,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
   Future<void> _printReceipt() {
     return _issueDocument(
       create: () => _api.createReceipt(widget.saleId),
-      successLabel: 'Reçu',
+      successLabel: 'Souche',
     );
   }
 
@@ -388,7 +388,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                               FilledButton.icon(
                                 onPressed: _busy ? null : _printReceipt,
                                 icon: const Icon(Icons.receipt_long),
-                                label: Text(tr('Reçu')),
+                                label: Text(tr('Souche')),
                                 style: FilledButton.styleFrom(backgroundColor: AppColors.brand600),
                               ),
                               OutlinedButton.icon(

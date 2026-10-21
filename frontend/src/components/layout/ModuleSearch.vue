@@ -121,11 +121,16 @@ const modules = computed<ModuleItem[]>(() => [
   { to: '/admin/customer-hub/link-requests', label: t('nav.customerHubItems.linkRequests'), group: t('nav.customerHub'), keywords: 'link requests liaison clients' },
   { to: '/admin/customer-hub/linked-users', label: t('nav.customerHubItems.linkedUsers'), group: t('nav.customerHub'), keywords: 'linked users utilisateurs lies' },
   { to: '/admin/customer-hub/mobile-orders', label: t('nav.customerHubItems.mobileOrders'), group: t('nav.customerHub'), keywords: 'mobile orders commandes mobiles' },
-  { to: '/admin/customer-hub/payments', label: t('nav.customerHubItems.payments'), group: t('nav.customerHub'), keywords: 'payments paiements customer hub' },
-  { to: '/admin/settings/orders', label: t('nav.settingsItems.orders'), group: t('nav.spaceOrdersHub'), keywords: 'itara space commandes orders' },
-  { to: '/admin/settings/analytics', label: t('nav.settingsItems.analytics'), group: t('nav.spaceOrdersHub'), keywords: 'itara space analytics analytique' },
+  { to: '/admin/customer-hub/payments', label: t('nav.customerHubItems.payments'), group: t('nav.customerHub'), keywords: 'customer payments paiements clients mobile app hub' },
+  { to: '/admin/help/guide', label: t('nav.helpItems.guide'), group: t('nav.helpHub'), keywords: 'help support guide utilisateur user manual' },
+  { to: '/admin/help/tutorials', label: t('nav.helpItems.tutorials'), group: t('nav.helpHub'), keywords: 'help video tutorials tutoriels' },
+  { to: '/admin/help/faqs', label: t('nav.helpItems.faqs'), group: t('nav.helpHub'), keywords: 'help faq questions' },
+  { to: '/admin/help/support', label: t('nav.helpItems.support'), group: t('nav.helpHub'), keywords: 'help support helpdesk assistance' },
+  { to: '/admin/help/about', label: t('nav.helpItems.about'), group: t('nav.helpHub'), keywords: 'help about a propos' },
+  { to: '/admin/settings/orders', label: t('nav.settingsItems.orders'), group: t('nav.spaceOrdersHub'), keywords: 'commandes app externe external app orders qr livraison' },
+  { to: '/admin/settings/analytics', label: t('nav.settingsItems.analytics'), group: t('nav.spaceOrdersHub'), keywords: 'analytics analytique app externe' },
   { to: '/admin/notifications', label: t('nav.notifications'), group: t('nav.settingsHub'), keywords: 'notifications centre alertes email sms whatsapp push' },
-  { to: '/admin/settings/merchant-qr', label: t('nav.settingsItems.merchantQr'), group: t('nav.settingsHub'), keywords: 'qr marchand merchant settings parametres' },
+  { to: '/admin/settings/merchant-qr', label: t('nav.settingsItems.merchantQr'), group: t('nav.spaceOrdersHub'), keywords: 'qr marchand merchant analytics space orders' },
   { to: '/admin/settings/app-versions', label: t('nav.settingsItems.appVersions'), group: t('nav.settingsHub'), keywords: 'versions application app' },
   { to: '/admin/organization/registers', label: t('org.tabs.registers'), group: t('nav.group.posHardware'), keywords: 'caisses' },
   { to: '/admin/organization/users', label: t('org.tabs.users'), group: t('nav.group.access'), keywords: 'utilisateurs' },
@@ -184,6 +189,11 @@ watch(activeIndex, async () => {
 
 function iconFor(to: string): string {
   if (to === '/admin') return 'dashboard'
+  if (to.includes('/help/tutorials')) return 'tv'
+  if (to.includes('/help/faqs')) return 'search'
+  if (to.includes('/help/support')) return 'mail'
+  if (to.includes('/help/about')) return 'building'
+  if (to.startsWith('/admin/help')) return 'note'
   if (to.includes('/pos/shifts')) return 'shift'
   if (to.includes('/pos/reservations')) return 'calendar'
   if (to.includes('/pos/orders') || to.includes('/sales/returns')) return 'sales'

@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { extractApiErrorMessage } from '../../../api/client'
 import PageFrame from '../../../components/layout/PageFrame.vue'
+import SubNav from '../../../components/ui/SubNav.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
@@ -164,6 +165,12 @@ async function uploadTo(productId: string, files: File[]) {
   <PageFrame>
     <template #title>{{ t('nav.catalogGallery') }}</template>
     <template #subtitle>{{ t('catalog.gallerySubtitle') }}</template>
+
+    <SubNav :tabs="[
+      { to: '/admin/products', label: t('nav.products'), icon: 'products', active: false },
+      { to: '/admin/catalog/prices', label: t('products.tabs.pricing'), icon: 'coins', active: false },
+      { to: '/admin/catalog/gallery', label: t('products.gallery'), icon: 'catalog', active: true },
+    ]" />
 
     <div class="ui-toolbar">
       <div class="ui-field min-w-[10rem]">

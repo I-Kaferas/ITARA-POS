@@ -5,6 +5,8 @@ import { useRouter } from 'vue-router'
 import SalesLayout from '../../../components/sales/SalesLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
@@ -65,6 +67,8 @@ function paymentStatusLabel(status: string): string {
 function paymentStatusActive(status: string): boolean {
   return status === 'paid'
 }
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(() => store.sales)
 </script>
 
 <template>
@@ -105,7 +109,7 @@ function paymentStatusActive(status: string): boolean {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr
-              v-for="row in store.sales"
+              v-for="row in paged"
               :key="row.id"
               class="cursor-pointer hover:bg-slate-50"
               @click="router.push({ name: 'sale-detail', params: { id: row.id } })"
@@ -125,6 +129,13 @@ function paymentStatusActive(status: string): boolean {
           {{ t('org.empty') }}
           <span class="mt-1 block text-xs">{{ t('sales.storeHint') }}</span>
         </p>
+        <ListPager
+          :page="page"
+          :last-page="lastPage"
+          :total="total"
+          :per-page="perPage"
+          @change="setPage"
+        />
       </div>
     </div>
   </SalesLayout>

@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { CondensedReport } from '../../../types'
 import { formatMoney } from '../../../utils/format'
@@ -219,6 +220,7 @@ onMounted(() => {
         </button>
       </div>
 
+      <FilterFold>
       <div class="condensed__filters">
         <div>
           <FieldLabel icon="calendar">{{ t('reports.condensedAnalytics.from') }}</FieldLabel>
@@ -232,6 +234,7 @@ onMounted(() => {
           {{ t('reports.condensedAnalytics.generate') }}
         </button>
       </div>
+      </FilterFold>
 
       <p class="condensed__period">
         {{ t('reports.condensedAnalytics.period') }}: {{ periodLabel }}

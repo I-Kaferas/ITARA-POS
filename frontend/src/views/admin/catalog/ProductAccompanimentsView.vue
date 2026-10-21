@@ -7,15 +7,18 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
-import type { Product, ProductAccompanimentHost } from '../../../types'
+import type { Product, ProductAccompanimentHost, ProductAccompanimentItem } from '../../../types'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
 
 const rows = ref<ProductAccompanimentHost[]>([])
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(rows)
 const products = ref<Product[]>([])
-const candidates = ref<Product[]>([])
+const candidates = ref<ProductAccompanimentItem[]>([])
 const showModal = ref(false)
 const saving = ref(false)
 const error = ref('')
@@ -106,7 +109,7 @@ async function submit() {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in rows" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in paged" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3">
               <span class="block font-medium">{{ row.product.name }}</span>
               <span class="font-mono text-xs text-slate-500">{{ row.product.sku }}</span>
@@ -134,6 +137,7 @@ async function submit() {
         :title="t('accompaniments.empty')"
         :description="t('accompaniments.emptyHint')"
       />
+      <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
     </div>
 
     <AppModal

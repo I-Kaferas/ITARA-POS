@@ -182,6 +182,38 @@ class SaasBillingTest extends TestCase
         $this->assertContains('hotel', $tenant->fresh()->settings['saas']['modules']);
     }
 
+    public function test_starter_caisse_quota_matches_the_plan_card(): void
+    {
+        $fixture = $this->createTenantFixture('saas-pos', 'saas-pos@test.local');
+        $headers = $this->tenantHeaders($fixture['token'], $fixture['tenant']);
+        app(SaasSubscriptionService::class)->startTrial($fixture['tenant'], 'starter');
+
+        $store = $fixture['store'];
+        $this->postJson("/api/v1/stores/{$store->id}/cash-registers", [
+            'name' => 'Caisse 1',
+            'code' => 'C1',
+        ], $headers)->assertCreated();
+        $this->postJson("/api/v1/stores/{$store->id}/cash-registers", [
+            'name' => 'Caisse 2',
+            'code' => 'C2',
+        ], $headers)->assertCreated();
+        $this->postJson("/api/v1/stores/{$store->id}/cash-registers", [
+            'name' => 'Caisse 3',
+            'code' => 'C3',
+        ], $headers)->assertStatus(422)->assertJsonPath('errors.pos.0', 'saas.limit_pos');
+
+        $this->getJson('/api/v1/tenant/subscription', $headers)
+            ->assertOk()
+            ->assertJsonPath('data.limits.users', 5)
+            ->assertJsonPath('data.limits.branches', 1)
+            ->assertJsonPath('data.limits.pos', 2)
+            ->assertJsonPath('data.limits.products', 1000)
+            ->assertJsonPath('data.limits.storage_mb', 10240)
+            ->assertJsonPath('data.limits.transactions', 2000)
+            ->assertJsonPath('data.limits.modules', ['pos', 'inventory'])
+            ->assertJsonPath('data.usage.pos', 2);
+    }
+
     /** @return array<string, string> */
     private function platformHeaders(): array
     {

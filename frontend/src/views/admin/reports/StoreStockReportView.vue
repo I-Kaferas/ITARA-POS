@@ -4,10 +4,13 @@ import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { StoreStockReport } from '../../../types'
 import { formatDate, formatDateTime, formatMoney } from '../../../utils/format'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type StockTab = 'summary' | 'stock' | 'movements' | 'alerts' | 'performance' | 'comparison' | 'recommendations'
 type Frequency = 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -112,6 +115,55 @@ function healthShare(count: number) {
 }
 
 const byCategory = computed(() => report.value?.by_category ?? [])
+const stockRows = computed(() =>
+  byCategory.value.flatMap(group =>
+    (group.items ?? []).map(item => ({ ...item, categoryLabel: group.label })),
+  ),
+)
+const inboundRows = computed(() => report.value?.movements.inbound ?? [])
+const outboundRows = computed(() => report.value?.movements.outbound ?? [])
+const transferRows = computed(() => report.value?.movements.transfers ?? [])
+const adjustmentRows = computed(() => report.value?.movements.adjustments ?? [])
+const {
+  page: stockPage,
+  lastPage: stockLastPage,
+  total: stockTotal,
+  perPage: stockPerPage,
+  paged: pagedStockRows,
+  setPage: setStockPage,
+} = useClientPager(stockRows)
+const {
+  page: inboundPage,
+  lastPage: inboundLastPage,
+  total: inboundTotal,
+  perPage: inboundPerPage,
+  paged: pagedInboundRows,
+  setPage: setInboundPage,
+} = useClientPager(inboundRows)
+const {
+  page: outboundPage,
+  lastPage: outboundLastPage,
+  total: outboundTotal,
+  perPage: outboundPerPage,
+  paged: pagedOutboundRows,
+  setPage: setOutboundPage,
+} = useClientPager(outboundRows)
+const {
+  page: transferPage,
+  lastPage: transferLastPage,
+  total: transferTotal,
+  perPage: transferPerPage,
+  paged: pagedTransferRows,
+  setPage: setTransferPage,
+} = useClientPager(transferRows)
+const {
+  page: adjustmentPage,
+  lastPage: adjustmentLastPage,
+  total: adjustmentTotal,
+  perPage: adjustmentPerPage,
+  paged: pagedAdjustmentRows,
+  setPage: setAdjustmentPage,
+} = useClientPager(adjustmentRows)
 const categoryMax = computed(() => Math.max(1, ...byCategory.value.map(r => r.value)))
 const topSold = computed(() => report.value?.performance.top_sold ?? [])
 const topSoldMax = computed(() => Math.max(1, ...topSold.value.map(r => r.quantity)))
@@ -208,6 +260,7 @@ onMounted(async () => {
         </div>
       </div>
 
+      <FilterFold>
       <div class="ss__filters">
         <div>
           <FieldLabel icon="stores">{{ t('reports.storeStock.store') }}</FieldLabel>
@@ -252,6 +305,7 @@ onMounted(async () => {
           {{ t('reports.storeStock.apply') }}
         </button>
       </div>
+      </FilterFold>
 
       <section class="header-card">
         <div>
@@ -343,14 +397,14 @@ onMounted(async () => {
       </template>
 
       <template v-else-if="activeTab === 'stock'">
-        <section v-for="group in byCategory" :key="group.label" class="panel panel--table">
+        <section class="panel panel--table">
           <header class="panel__header">
-            <h3 class="panel__title">{{ group.label }}</h3>
-            <strong class="panel__meta">{{ safeMoney(group.value) }}</strong>
+            <h3 class="panel__title">{{ t('reports.storeStock.tabs.stock') }}</h3>
           </header>
           <table class="table">
             <thead>
               <tr>
+                <th>{{ t('products.category') }}</th>
                 <th>{{ t('reports.storeStock.sku') }}</th>
                 <th>{{ t('products.name') }}</th>
                 <th>{{ t('reports.storeStock.unit') }}</th>
@@ -364,7 +418,8 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in group.items" :key="row.product_id">
+              <tr v-for="row in pagedStockRows" :key="row.product_id">
+                <td>{{ row.categoryLabel }}</td>
                 <td class="mono">{{ row.sku || '—' }}</td>
                 <td>{{ row.name || '—' }}</td>
                 <td>{{ row.unit || '—' }}</td>
@@ -380,8 +435,15 @@ onMounted(async () => {
               </tr>
             </tbody>
           </table>
+          <p v-if="!stockRows.length" class="panel__empty">{{ t('org.empty') }}</p>
+          <ListPager
+            :page="stockPage"
+            :last-page="stockLastPage"
+            :total="stockTotal"
+            :per-page="stockPerPage"
+            @change="setStockPage"
+          />
         </section>
-        <p v-if="!byCategory.length" class="panel__empty">{{ t('org.empty') }}</p>
       </template>
 
       <template v-else-if="activeTab === 'movements'">
@@ -401,7 +463,7 @@ onMounted(async () => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(row, index) in report?.movements.inbound ?? []" :key="`in-${index}`">
+                <tr v-for="(row, index) in pagedInboundRows" :key="`in-${index}`">
                   <td>{{ row.occurred_at ? formatDate(row.occurred_at) : '—' }}</td>
                   <td>
                     <div class="product">
@@ -415,7 +477,14 @@ onMounted(async () => {
                 </tr>
               </tbody>
             </table>
-            <p v-if="!report?.movements.inbound.length" class="panel__empty">{{ t('org.empty') }}</p>
+            <p v-if="!inboundRows.length" class="panel__empty">{{ t('org.empty') }}</p>
+            <ListPager
+              :page="inboundPage"
+              :last-page="inboundLastPage"
+              :total="inboundTotal"
+              :per-page="inboundPerPage"
+              @change="setInboundPage"
+            />
           </section>
 
           <section class="panel panel--table">
@@ -433,7 +502,7 @@ onMounted(async () => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(row, index) in report?.movements.outbound ?? []" :key="`out-${index}`">
+                <tr v-for="(row, index) in pagedOutboundRows" :key="`out-${index}`">
                   <td>{{ row.occurred_at ? formatDate(row.occurred_at) : '—' }}</td>
                   <td>
                     <div class="product">
@@ -447,7 +516,14 @@ onMounted(async () => {
                 </tr>
               </tbody>
             </table>
-            <p v-if="!report?.movements.outbound.length" class="panel__empty">{{ t('org.empty') }}</p>
+            <p v-if="!outboundRows.length" class="panel__empty">{{ t('org.empty') }}</p>
+            <ListPager
+              :page="outboundPage"
+              :last-page="outboundLastPage"
+              :total="outboundTotal"
+              :per-page="outboundPerPage"
+              @change="setOutboundPage"
+            />
           </section>
         </div>
 
@@ -466,7 +542,7 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(row, index) in report?.movements.transfers ?? []" :key="`tr-${index}`">
+                <tr v-for="(row, index) in pagedTransferRows" :key="`tr-${index}`">
                 <td>{{ row.occurred_at ? formatDate(row.occurred_at) : '—' }}</td>
                 <td>{{ row.name }} <span class="mono">{{ row.sku }}</span></td>
                 <td>{{ row.origin || '—' }}</td>
@@ -475,7 +551,14 @@ onMounted(async () => {
               </tr>
             </tbody>
           </table>
-          <p v-if="!report?.movements.transfers.length" class="panel__empty">{{ t('org.empty') }}</p>
+          <p v-if="!transferRows.length" class="panel__empty">{{ t('org.empty') }}</p>
+          <ListPager
+            :page="transferPage"
+            :last-page="transferLastPage"
+            :total="transferTotal"
+            :per-page="transferPerPage"
+            @change="setTransferPage"
+          />
         </section>
 
         <section class="panel panel--table">
@@ -493,7 +576,7 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(row, index) in report?.movements.adjustments ?? []" :key="`adj-${index}`">
+                <tr v-for="(row, index) in pagedAdjustmentRows" :key="`adj-${index}`">
                 <td>{{ row.occurred_at ? formatDate(row.occurred_at) : '—' }}</td>
                 <td>{{ row.name }}</td>
                 <td>{{ movementLabel(row.type) }}</td>
@@ -502,7 +585,14 @@ onMounted(async () => {
               </tr>
             </tbody>
           </table>
-          <p v-if="!report?.movements.adjustments.length" class="panel__empty">{{ t('org.empty') }}</p>
+          <p v-if="!adjustmentRows.length" class="panel__empty">{{ t('org.empty') }}</p>
+          <ListPager
+            :page="adjustmentPage"
+            :last-page="adjustmentLastPage"
+            :total="adjustmentTotal"
+            :per-page="adjustmentPerPage"
+            @change="setAdjustmentPage"
+          />
         </section>
       </template>
 

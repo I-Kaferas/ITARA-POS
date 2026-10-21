@@ -9,7 +9,6 @@ use App\Models\Store;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Platform\SaasLimitGuard;
 use App\Services\Realtime\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,10 +34,6 @@ class DeviceController extends Controller
     public function store(Request $request, Store $store): JsonResponse
     {
         $data = $this->validated($request, $store);
-        $tenant = Tenant::query()->find($store->tenant_id);
-        if ($tenant) {
-            app(SaasLimitGuard::class)->assertWithin($tenant, 'pos');
-        }
         $token = Device::issueSyncToken();
 
         $device = $store->devices()->create([
@@ -95,13 +90,6 @@ class DeviceController extends Controller
         }
 
         $category = $data['category'] ?? $data['device_type'] ?? 'pos';
-        $existingDevice = $store->devices()->where('identifier', $data['identifier'])->exists();
-        if (! $existingDevice) {
-            $tenant = Tenant::query()->find($store->tenant_id);
-            if ($tenant) {
-                app(SaasLimitGuard::class)->assertWithin($tenant, 'pos');
-            }
-        }
 
         $device = $store->devices()->updateOrCreate(
             [

@@ -6,7 +6,9 @@ import OrganizationLayout from '../../../components/organization/OrganizationLay
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Currency, CurrencyExchangeRate } from '../../../types'
@@ -29,6 +31,7 @@ const filtered = computed(() => store.currencies.filter(currency =>
   matchesSearch(`${currency.code} ${currency.name} ${currency.symbol}`, filters.value.search)
   && matchesActive(currency.is_active, filters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 const showHistory = ref(false)
 const historyCurrency = ref<Currency | null>(null)
 const rateHistory = ref<CurrencyExchangeRate[]>([])
@@ -258,7 +261,7 @@ function closeModal() {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="currency in filtered" :key="currency.id" class="hover:bg-slate-50">
+            <tr v-for="currency in paged" :key="currency.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono font-medium">{{ currency.code }}</td>
               <td class="px-4 py-3">{{ currency.name }}</td>
               <td class="px-4 py-3">{{ currency.symbol }}</td>
@@ -274,6 +277,7 @@ function closeModal() {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>

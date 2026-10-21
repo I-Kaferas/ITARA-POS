@@ -4,7 +4,6 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import PageFrame from '../../components/layout/PageFrame.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
-import KpiCard from '../../components/ui/KpiCard.vue'
 import LoadingBlock from '../../components/ui/LoadingBlock.vue'
 import { api, type ApiItemResponse } from '../../api/client'
 import { moduleEnabled, type ModuleWidget } from '../../modules/registry'
@@ -36,14 +35,6 @@ const greeting = computed(() => {
   return t(key, { name: firstName.value })
 })
 
-const hourSpark = computed(() => {
-  const decoration = [18, 28, 22, 40, 55, 48, 62, 35, 44, 30, 52, 38, 46, 24]
-  const hours = (overview.value?.sales_by_hour ?? []).filter(h => h.hour >= 8 && h.hour <= 21)
-  const max = Math.max(0, ...hours.map(h => h.revenue))
-  if (!hours.length || max <= 0) return decoration
-  return hours.map(h => Math.round((h.revenue / max) * 100))
-})
-
 const openShifts = ref(0)
 const alertCount = ref(0)
 const openAlerts = ref<InventoryAlert[]>([])
@@ -59,21 +50,35 @@ const topProducts = computed(() => (overview.value?.best_selling_products ?? [])
 const nowClock = computed(() =>
   new Intl.DateTimeFormat(locale.value || undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date()),
 )
-const serviceHours = computed(() => {
-  const hourNow = new Date().getHours()
-  return Array.from({ length: 14 }, (_, index) => {
+const todayLabel = computed(() =>
+  new Intl.DateTimeFormat(locale.value || undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()),
+)
+const hourSlots = computed(() => {
+  const byHour = new Map((overview.value?.sales_by_hour ?? []).map(row => [row.hour, row]))
+  const rows = Array.from({ length: 14 }, (_, index) => {
     const hour = index + 8
-    return { hour, label: String(hour), now: hour === hourNow, past: hour < hourNow }
+    const hit = byHour.get(hour)
+    return { hour, revenue: hit?.revenue ?? 0 }
   })
+  const max = Math.max(0, ...rows.map(row => row.revenue))
+  return rows.map(row => ({
+    ...row,
+    label: String(row.hour),
+    pct: max > 0 ? Math.round((row.revenue / max) * 100) : 0,
+    peak: max > 0 && row.revenue === max,
+    empty: row.revenue <= 0,
+    showLabel: row.hour % 2 === 0,
+  }))
 })
+const payments = computed(() => (overview.value?.payment_methods ?? []).slice(0, 4))
+const recentOrders = computed(() => (overview.value?.recent_orders ?? []).slice(0, 4))
+const sellerMax = computed(() => Math.max(1, ...topProducts.value.map(item => item.revenue)))
 const spotlightShare = computed(() => {
   const revenue = overview.value?.kpis.revenue ?? 0
   const part = spotlight.value?.revenue ?? 0
   if (!revenue || !part) return 0
   return Math.round((part / revenue) * 100)
 })
-
-const tones = ['green', 'amber', 'violet', 'blue'] as const
 
 const stats = computed(() => [
   ...(posOn.value ? [{
@@ -82,8 +87,6 @@ const stats = computed(() => [
     value: formatMoney(overview.value?.kpis.revenue ?? 0),
     icon: 'receipt',
     tone: 'green',
-    accent: 'var(--color-success)',
-    iconBg: 'var(--color-success-bg)',
     delta: t('dashboard.avgTicket', { amount: formatMoney(overview.value?.kpis.average_ticket ?? 0) }),
     deltaTone: 'up' as const,
   },
@@ -93,8 +96,6 @@ const stats = computed(() => [
     value: overview.value?.kpis.sales_count ?? 0,
     icon: 'sales',
     tone: 'amber',
-    accent: 'var(--color-warning)',
-    iconBg: 'var(--color-warning-bg)',
     delta: peak.value ? t('dashboard.peakHour', { hour: peak.value.label }) : t('dashboard.quiet'),
     deltaTone: peak.value ? 'up' as const : 'flat' as const,
   },
@@ -104,8 +105,6 @@ const stats = computed(() => [
     value: openShifts.value,
     icon: 'shift',
     tone: 'violet',
-    accent: 'var(--color-brand-600)',
-    iconBg: 'var(--color-brand-50)',
     delta: openShifts.value > 0 ? t('dashboard.shiftsLive') : t('dashboard.shiftsIdle'),
     deltaTone: openShifts.value > 0 ? 'up' as const : 'flat' as const,
   }] : []),
@@ -115,8 +114,6 @@ const stats = computed(() => [
     value: alertCount.value,
     icon: 'bell',
     tone: 'blue',
-    accent: 'var(--color-info)',
-    iconBg: 'var(--color-info-bg)',
     delta: alertCount.value > 0 ? t('dashboard.alertsOpen') : t('dashboard.alertsClear'),
     deltaTone: alertCount.value > 0 ? 'down' as const : 'up' as const,
   }] : []),
@@ -140,18 +137,19 @@ const checklist = computed(() => [
 
 const completedSteps = computed(() => checklist.value.filter(c => c.done).length)
 const setupDone = computed(() => completedSteps.value === checklist.value.length)
-
-function monogram(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase() ?? '')
-    .join('') || '•'
-}
+const contextPanel = computed<'alerts' | 'setup' | 'orders'>(() => {
+  if (inventoryOn.value && openAlerts.value.length) return 'alerts'
+  if (!setupDone.value || !posOn.value) return 'setup'
+  return 'orders'
+})
 
 function productLink(productId?: string | null) {
   return productId ? `/admin/products/${productId}` : '/admin/pos/orders'
+}
+
+function orderWhen(value?: string | null) {
+  if (!value) return ''
+  return new Intl.DateTimeFormat(locale.value || undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 }
 
 async function loadWidgets() {
@@ -201,203 +199,227 @@ watch(storeId, () => loadDashboard())
     <template #title>{{ t('nav.dashboard') }}</template>
     <template #subtitle>{{ t('dashboard.subtitle') }}</template>
 
-    <div class="dash">
-      <header class="greet">
-        <h2 class="greet__title">{{ greeting }}</h2>
-        <p class="greet__prompt">{{ t('dashboard.prompt') }}</p>
+    <div class="db-root">
+      <header class="db-head">
+        <div class="db-brand">
+          <span class="db-mark" aria-hidden="true">
+            <AppIcon name="dashboard" :size="22" />
+          </span>
+          <div>
+            <p v-if="context.currentStore?.name" class="db-where">{{ context.currentStore.name }}</p>
+            <h2>{{ greeting }}</h2>
+            <p>{{ t('dashboard.prompt') }}</p>
+          </div>
+        </div>
+        <div class="db-meta">
+          <RouterLink v-if="posOn" class="db-go" to="/admin/pos/terminal">
+            <AppIcon name="device-pos" :size="16" />
+            {{ t('dashboard.openPos') }}
+          </RouterLink>
+          <div class="db-clock">
+            <AppIcon name="clock" :size="16" />
+            <div>
+              <strong>{{ nowClock }}</strong>
+              <small>{{ todayLabel }}</small>
+            </div>
+          </div>
+        </div>
       </header>
 
-      <section v-if="widgets.length" class="module-widgets" :aria-label="t('modules.widgetsTitle')">
-        <RouterLink v-for="widget in widgets" :key="widget.code" :to="widget.to" class="module-widget">
-          <AppIcon :name="widget.icon" :size="18" />
+      <nav v-if="widgets.length" class="db-mods" :aria-label="t('modules.widgetsTitle')">
+        <RouterLink v-for="widget in widgets" :key="widget.code" :to="widget.to">
+          <AppIcon :name="widget.icon" :size="16" />
           <span>{{ t(widget.label_key) }}</span>
         </RouterLink>
-      </section>
+      </nav>
 
       <section
         v-if="loading || stats.length"
-        class="dash-kpis hub-strip"
+        class="db-kpis"
         :aria-label="t('dashboard.todayActivity')"
       >
         <LoadingBlock v-if="loading" variant="cards" :rows="4" :label="t('common.loading')" />
-        <template v-else>
-          <KpiCard
-            v-for="card in stats"
-            :key="card.key"
-            :label="card.label"
-            :value="card.value"
-            :icon="card.icon"
-            :accent="card.accent"
-            :icon-bg="card.iconBg"
-            :delta="card.delta"
-            :delta-tone="card.deltaTone"
-          />
-        </template>
+        <article v-for="card in stats" v-else :key="card.key">
+          <span class="db-kpi-icon" :class="`is-${card.tone}`" aria-hidden="true">
+            <AppIcon :name="card.icon" :size="16" />
+          </span>
+          <div>
+            <span>{{ card.label }}</span>
+            <strong>{{ card.value }}</strong>
+            <p :class="`is-${card.deltaTone}`">{{ card.delta }}</p>
+          </div>
+        </article>
       </section>
 
-      <div class="stage">
-        <article v-if="posOn" class="hero" :class="{ 'hero--quiet': !spotlight }">
-          <div class="hero__copy">
-            <p class="hero__kicker">{{ t('dashboard.spotlight') }}</p>
-            <h3 class="hero__title">{{ spotlight?.product_name ?? t('dashboard.spotlightEmpty') }}</h3>
-            <p class="hero__text">
-              {{
-                spotlight
-                  ? t('dashboard.spotlightHint', {
-                      qty: spotlight.quantity,
-                      amount: formatMoney(spotlight.revenue),
-                    })
-                  : t('dashboard.spotlightEmptyHint')
-              }}
-            </p>
-            <div v-if="spotlight" class="hero__meta">
-              <span class="hero__chip">
-                <AppIcon name="products" :size="14" />
-                {{ t('dashboard.soldCount', { count: spotlight.quantity }) }}
-              </span>
-              <span class="hero__chip">
-                <AppIcon name="receipt" :size="14" />
-                {{ formatMoney(spotlight.revenue) }}
-              </span>
-              <span v-if="spotlightShare" class="hero__chip">
-                <AppIcon name="sparkles" :size="14" />
-                {{ t('dashboard.shareOfToday', { percent: spotlightShare }) }}
-              </span>
+      <div class="db-board">
+        <article v-if="posOn" class="db-panel db-activity">
+          <header class="db-panel__head">
+            <div>
+              <h3>{{ t('pointOfSale.overview.salesByHour') }}</h3>
+              <p>{{ peak ? t('dashboard.peakHour', { hour: peak.label }) : t('dashboard.quiet') }}</p>
             </div>
-            <RouterLink v-if="spotlight" class="hero__link" to="/admin/pos/orders">
-              {{ t('dashboard.viewSales') }}
-              <AppIcon name="chevron-right" :size="14" />
-            </RouterLink>
-          </div>
-          <div class="hero__visual" :aria-hidden="spotlight ? true : undefined">
-            <template v-if="spotlight">
-              <span class="hero__mark">{{ monogram(spotlight.product_name) }}</span>
-              <div class="hero__bars">
+            <RouterLink to="/admin/pos/orders">{{ t('dashboard.viewSales') }}</RouterLink>
+          </header>
+          <div class="db-chart" role="img" :aria-label="t('pointOfSale.overview.salesByHour')">
+            <div v-for="slot in hourSlots" :key="slot.hour" class="db-chart__col">
+              <div class="db-chart__track">
                 <span
-                  v-for="(n, i) in hourSpark"
-                  :key="i"
-                  :style="{ height: `${Math.max(18, Math.min(100, n))}%`, animationDelay: `${i * 40}ms` }"
+                  :class="{ 'is-peak': slot.peak, 'is-empty': slot.empty }"
+                  :style="slot.empty ? undefined : { height: `${Math.max(slot.pct, 8)}%` }"
                 />
               </div>
-            </template>
-            <div v-else class="hero__clock">
-              <AppIcon name="clock" :size="18" />
-              <strong>{{ nowClock }}</strong>
-              <small>{{ t('dashboard.spotlightNow') }}</small>
+              <small :class="{ 'is-on': slot.showLabel }">{{ slot.showLabel ? slot.label : '' }}</small>
             </div>
           </div>
-          <ol
-            v-if="!spotlight"
-            class="hero__hours"
-            :aria-label="t('dashboard.serviceHours', { time: nowClock })"
-          >
-            <li
-              v-for="slot in serviceHours"
-              :key="slot.hour"
-              :class="{ 'is-now': slot.now, 'is-past': slot.past }"
-            >
-              <span class="hero__hour-bar" />
-              <span class="hero__hour-label">{{ slot.label }}</span>
-            </li>
-          </ol>
+          <RouterLink v-if="spotlight" class="db-focus" :to="productLink(spotlight.product_id)">
+            <span class="db-focus__mark" aria-hidden="true">1</span>
+            <span class="db-focus__copy">
+              <strong>{{ spotlight.product_name }}</strong>
+              <small>
+                {{ t('dashboard.spotlightHint', { qty: spotlight.quantity, amount: formatMoney(spotlight.revenue) }) }}
+              </small>
+            </span>
+            <em v-if="spotlightShare">{{ t('dashboard.shareOfToday', { percent: spotlightShare }) }}</em>
+          </RouterLink>
+          <p v-else class="db-quiet">
+            <strong>{{ t('dashboard.spotlightEmpty') }}</strong>
+            {{ t('dashboard.spotlightEmptyHint') }}
+          </p>
         </article>
 
-        <section class="ui-card">
-          <div class="ui-card__header">
-            <h3 class="ui-card__title">{{ t('dashboard.areas') }}</h3>
-            <RouterLink class="dash-link" to="/admin/pos/overview">{{ t('dashboard.viewAll') }}</RouterLink>
-          </div>
-          <div class="ui-card__body area-list">
-            <RouterLink v-for="area in areas" :key="area.to" :to="area.to" class="area" :class="`tone-${area.tone}`">
-              <span class="area__icon">
+        <section class="db-panel">
+          <header class="db-panel__head">
+            <h3>{{ t('dashboard.areas') }}</h3>
+            <RouterLink :to="posOn ? '/admin/pos/overview' : '/admin/products'">{{ t('dashboard.viewAll') }}</RouterLink>
+          </header>
+          <div class="db-tiles">
+            <RouterLink v-for="area in areas" :key="area.to" :to="area.to" class="db-tile">
+              <span class="db-tile__icon" aria-hidden="true">
                 <AppIcon :name="area.icon" :size="16" />
               </span>
-              <span class="min-w-0">
-                <span class="area__label">{{ area.label }}</span>
-                <span class="area__count">{{ area.count }}</span>
-              </span>
+              <span class="db-tile__label">{{ area.label }}</span>
+              <strong>{{ area.count }}</strong>
             </RouterLink>
           </div>
         </section>
       </div>
 
-      <div class="stage">
-        <section v-if="posOn" class="ui-card">
-          <div class="ui-card__header">
-            <h3 class="ui-card__title">{{ t('dashboard.topForYou') }}</h3>
-            <RouterLink class="dash-link" to="/admin/pos/orders">{{ t('dashboard.viewAll') }}</RouterLink>
-          </div>
-          <div class="ui-card__body">
-            <div v-if="topProducts.length" class="picks">
-              <RouterLink
-                v-for="(item, index) in topProducts"
-                :key="item.product_id ?? item.product_sku ?? index"
-                :to="productLink(item.product_id)"
-                class="pick"
-                :class="`tone-${tones[index % tones.length]}`"
-              >
-                <span class="pick__art">
-                  <span class="pick__rank">{{ index + 1 }}</span>
-                  {{ monogram(item.product_name) }}
+      <div class="db-lower" :class="{ 'is-solo': !posOn }">
+        <section v-if="posOn" class="db-panel">
+          <header class="db-panel__head">
+            <h3>{{ t('dashboard.topForYou') }}</h3>
+            <RouterLink to="/admin/pos/orders">{{ t('dashboard.viewAll') }}</RouterLink>
+          </header>
+          <div v-if="topProducts.length" class="db-stack">
+            <RouterLink
+              v-for="(item, index) in topProducts"
+              :key="item.product_id ?? item.product_sku ?? index"
+              :to="productLink(item.product_id)"
+              class="db-seller"
+            >
+              <span class="db-rank">{{ index + 1 }}</span>
+              <span class="db-seller__body">
+                <span class="db-seller__top">
+                  <span class="db-row__label">{{ item.product_name }}</span>
+                  <strong>{{ formatMoney(item.revenue) }}</strong>
                 </span>
-                <span class="pick__body">
-                  <span class="pick__name">{{ item.product_name }}</span>
-                  <span class="pick__meta">{{ t('dashboard.soldCount', { count: item.quantity }) }}</span>
-                  <span class="pick__price">{{ formatMoney(item.revenue) }}</span>
+                <span class="db-meter" aria-hidden="true">
+                  <span :style="{ width: `${Math.max(8, Math.round((item.revenue / sellerMax) * 100))}%` }" />
                 </span>
-              </RouterLink>
-            </div>
-            <p v-else class="empty-copy">{{ t('dashboard.noTop') }}</p>
+                <small>{{ t('dashboard.soldCount', { count: item.quantity }) }}</small>
+              </span>
+            </RouterLink>
           </div>
+          <p v-else class="db-empty">{{ t('dashboard.noTop') }}</p>
         </section>
 
-        <section class="ui-card">
-          <div class="ui-card__header">
+        <section v-if="posOn" class="db-panel">
+          <header class="db-panel__head">
+            <h3>{{ t('pointOfSale.overview.paymentMethods') }}</h3>
+          </header>
+          <div v-if="payments.length" class="db-stack">
+            <div v-for="row in payments" :key="row.payment_method" class="db-pay">
+              <span class="db-seller__top">
+                <span class="db-row__label">{{ row.label }}</span>
+                <strong>{{ formatMoney(row.amount) }}</strong>
+              </span>
+              <span class="db-meter" aria-hidden="true">
+                <span class="is-pay" :style="{ width: `${Math.max(row.share, 6)}%` }" />
+              </span>
+              <small>{{ row.share }}% · {{ row.count }} {{ t('pointOfSale.overview.transactions') }}</small>
+            </div>
+          </div>
+          <p v-else class="db-empty">{{ t('pointOfSale.overview.noPayments') }}</p>
+        </section>
+
+        <section class="db-panel">
+          <header class="db-panel__head">
             <div>
-              <h3 class="ui-card__title">{{ openAlerts.length ? t('dashboard.watchlist') : t('dashboard.gettingStarted') }}</h3>
-              <p v-if="!openAlerts.length" class="text-caption">
-                {{ completedSteps }}/{{ checklist.length }} {{ t('dashboard.stepsDone') }}
-              </p>
+              <h3>
+                {{
+                  contextPanel === 'alerts'
+                    ? t('dashboard.watchlist')
+                    : contextPanel === 'orders'
+                      ? t('pointOfSale.overview.recentOrders')
+                      : t('dashboard.gettingStarted')
+                }}
+              </h3>
+              <p v-if="contextPanel === 'setup'">{{ completedSteps }}/{{ checklist.length }} {{ t('dashboard.stepsDone') }}</p>
             </div>
             <RouterLink
-              class="dash-link"
-              :to="openAlerts.length && inventoryOn ? '/admin/inventory/alerts' : '/admin/organization/company'"
+              :to="contextPanel === 'alerts' ? '/admin/inventory/alerts' : contextPanel === 'orders' ? '/admin/pos/orders' : '/admin/organization/company'"
             >
               {{ t('dashboard.viewAll') }}
             </RouterLink>
+          </header>
+
+          <div v-if="contextPanel === 'alerts'" class="db-list">
+            <RouterLink
+              v-for="alert in openAlerts.slice(0, 5)"
+              :key="alert.id"
+              to="/admin/inventory/alerts"
+              class="db-row"
+            >
+              <span class="db-alert-dot" aria-hidden="true" />
+              <span class="db-row__copy">
+                <span class="db-row__label">{{ alert.product?.name ?? alert.message }}</span>
+                <small v-if="alert.product?.sku">{{ alert.product.sku }}</small>
+              </span>
+              <strong v-if="alert.quantity_on_hand != null">
+                {{ t('dashboard.onHand', { count: alert.quantity_on_hand }) }}
+              </strong>
+            </RouterLink>
+            <div v-if="!setupDone" class="db-setup">
+              <div class="ui-progress">
+                <div class="ui-progress__bar" :style="{ width: `${(completedSteps / checklist.length) * 100}%` }" />
+              </div>
+              <span>{{ completedSteps }}/{{ checklist.length }} {{ t('dashboard.stepsDone') }}</span>
+            </div>
           </div>
-          <div class="ui-card__body watch-list">
-            <template v-if="inventoryOn && openAlerts.length">
-              <RouterLink
-                v-for="alert in openAlerts.slice(0, 6)"
-                :key="alert.id"
-                to="/admin/inventory/alerts"
-                class="watch"
-              >
-                <span class="watch__box" aria-hidden="true" />
-                <span class="min-w-0">
-                  <span class="watch__name">{{ alert.product?.name ?? alert.message }}</span>
-                  <span v-if="alert.product?.sku" class="watch__sku">{{ alert.product.sku }}</span>
-                </span>
-                <span v-if="alert.quantity_on_hand != null" class="watch__qty">
-                  {{ t('dashboard.onHand', { count: alert.quantity_on_hand }) }}
-                </span>
-              </RouterLink>
-              <div v-if="!setupDone" class="setup-note">
-                <div class="ui-progress">
-                  <div class="ui-progress__bar" :style="{ width: `${(completedSteps / checklist.length) * 100}%` }" />
-                </div>
-                <span>{{ completedSteps }}/{{ checklist.length }} {{ t('dashboard.stepsDone') }}</span>
-              </div>
-            </template>
-            <template v-else>
-              <div v-for="(item, i) in checklist" :key="i" class="watch">
-                <span class="watch__box" :class="{ 'watch__box--done': item.done }" aria-hidden="true">
-                  <AppIcon v-if="item.done" name="check" :size="12" />
-                </span>
-                <span class="watch__name" :class="{ 'watch__name--done': item.done }">{{ item.label }}</span>
-              </div>
-            </template>
+
+          <div v-else-if="contextPanel === 'orders'" class="db-list">
+            <RouterLink
+              v-for="order in recentOrders"
+              :key="order.id"
+              to="/admin/pos/orders"
+              class="db-row"
+            >
+              <span class="db-row__copy">
+                <span class="db-row__label">{{ order.reference }}</span>
+                <small>{{ [order.customer?.name, orderWhen(order.completed_at || order.created_at)].filter(Boolean).join(' · ') }}</small>
+              </span>
+              <strong>{{ formatMoney(order.total) }}</strong>
+            </RouterLink>
+            <p v-if="!recentOrders.length" class="db-empty">{{ t('pointOfSale.overview.noRecentOrders') }}</p>
+          </div>
+
+          <div v-else class="db-list">
+            <div v-for="(item, i) in checklist" :key="i" class="db-row">
+              <span class="db-box" :class="{ 'is-done': item.done }" aria-hidden="true">
+                <AppIcon v-if="item.done" name="check" :size="12" />
+              </span>
+              <span class="db-row__label" :class="{ 'is-done': item.done }">{{ item.label }}</span>
+            </div>
           </div>
         </section>
       </div>
@@ -406,587 +428,745 @@ watch(storeId, () => loadDashboard())
 </template>
 
 <style scoped>
-.module-widgets {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
-  gap: 0.6rem;
-}
-.module-widget {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  white-space: nowrap;
-  padding: 0.75rem 0.85rem;
-  border-radius: 0.8rem;
-  background: var(--color-surface, white);
-  color: var(--color-text);
-  text-decoration: none;
-  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
-}
-.dash {
+.db-root {
+  --db-bg: var(--color-canvas);
+  --db-card: var(--color-surface);
+  --db-line: var(--color-border);
+  --db-title: var(--color-text-primary);
+  --db-text: var(--color-text);
+  --db-muted: var(--color-text-muted);
+  --db-primary: var(--color-brand-600);
+  --db-done: var(--color-success);
+  --db-down: var(--color-danger);
+  --db-warn: var(--color-warning);
+  --db-info: var(--color-info);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  align-self: stretch;
+  width: 100%;
+  padding: 22px 24px 28px;
+  background: var(--db-bg);
+  color: var(--db-text);
 }
 
-.greet__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.5rem, 2vw, 1.85rem);
-  font-weight: 650;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-  color: var(--color-text-primary);
+:global([data-theme='dark']) .db-root {
+  --db-bg: #070b16;
+  --db-card: #151c2c;
+  --db-line: #2a3448;
+  --db-title: #f4f7ff;
+  --db-text: #e8eefc;
+  --db-muted: #9aa6bf;
+  --db-primary: #7c5cff;
+  --db-done: #3ddc97;
+  --db-down: #ffb4b4;
+  --db-warn: #f5a524;
+  --db-info: #7eb6ff;
 }
 
-.greet__prompt {
-  margin: 6px 0 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
-.dash-kpis.hub-strip {
-  margin-bottom: 0;
-}
-
-.dash-kpis :deep(.ui-skeleton-block) {
-  grid-column: 1 / -1;
-}
-
-.area__icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  border-radius: 12px;
-  background: var(--tone-bg);
-  color: var(--tone);
-}
-
-.area__label,
-.area__count,
-.pick__name,
-.pick__meta,
-.pick__price,
-.watch__name,
-.watch__sku {
+.db-root h2,
+.db-root h3,
+.db-root h4,
+.db-root p {
   margin: 0;
 }
 
-.stage {
-  display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(0, 0.85fr);
-  gap: var(--space-4);
-  align-items: stretch;
-}
-
-.hero {
-  position: relative;
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  min-height: 280px;
-  border-radius: 16px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-xs);
-  color: var(--color-text-primary);
-}
-
-.hero__copy {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 24px 26px;
-}
-
-.hero__kicker {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
-.hero__title {
-  margin: 0;
-  max-width: 16ch;
-  font-size: clamp(1.45rem, 2vw, 1.85rem);
-  font-weight: 650;
+.db-root h2 {
+  color: var(--db-title);
+  font-size: 1.45rem;
+  font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.15;
 }
 
-.hero__text {
-  margin: 0;
-  max-width: 36ch;
-  font-size: var(--text-sm);
-  line-height: 1.45;
-  color: var(--color-text-secondary);
-}
-
-.hero__meta {
+.db-head {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.db-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.db-brand > div {
+  min-width: 0;
+}
+
+.db-where {
+  color: var(--db-muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.db-brand p:last-child {
+  margin-top: 2px;
+  color: var(--db-muted);
+  font-size: 13px;
+}
+
+.db-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  background: var(--db-primary);
+  color: #fff;
+}
+
+.db-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
-.hero__chip {
+.db-go {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: var(--color-canvas);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.hero__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: auto;
-  color: var(--color-ink-brand, var(--color-brand-600));
-  font-size: var(--text-sm);
-  font-weight: 650;
+  gap: 8px;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--db-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 750;
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-  padding-bottom: 1px;
 }
 
-.hero__link:hover {
-  border-bottom-color: currentColor;
+.db-go:hover {
+  filter: brightness(1.08);
 }
 
-.hero--quiet {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(108px, 1fr);
+.db-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--db-line);
+  border-radius: 12px;
+  background: var(--db-card);
+  color: var(--db-title);
 }
 
-.hero--quiet .hero__copy {
-  grid-column: 1;
-  grid-row: 1;
-  padding-bottom: 8px;
+.db-clock strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
-.hero--quiet .hero__visual {
-  grid-column: 2;
-  grid-row: 1;
-  min-height: 0;
+.db-clock small {
+  display: block;
+  color: var(--db-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.db-mods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.db-mods a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--db-line);
+  border-radius: 12px;
+  background: var(--db-card);
+  color: var(--db-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.db-mods a:hover {
+  border-color: color-mix(in srgb, var(--db-primary) 45%, var(--db-line));
+  color: var(--db-title);
+}
+
+.db-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.db-kpis article {
   display: flex;
   align-items: flex-start;
-  justify-content: flex-end;
-  padding: 22px 22px 0 0;
-}
-
-.hero__clock {
-  display: grid;
-  grid-template-columns: auto auto;
-  grid-template-rows: auto auto;
-  column-gap: 8px;
-  align-items: center;
-  padding: 14px 16px 12px;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--db-line);
   border-radius: 16px;
-  background: var(--color-canvas);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
+  background: var(--db-card);
 }
 
-.hero__clock svg {
-  grid-row: 1 / span 2;
-  align-self: center;
-  color: var(--color-text-muted);
+.db-kpi-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--db-primary) 16%, transparent);
+  color: var(--db-primary);
 }
 
-.hero__clock strong {
-  font-size: 1.55rem;
+.db-kpi-icon.is-green {
+  background: color-mix(in srgb, var(--db-done) 16%, transparent);
+  color: var(--db-done);
+}
+
+.db-kpi-icon.is-amber {
+  background: color-mix(in srgb, var(--db-warn) 18%, transparent);
+  color: var(--db-warn);
+}
+
+.db-kpi-icon.is-violet {
+  background: color-mix(in srgb, var(--db-primary) 16%, transparent);
+  color: var(--db-primary);
+}
+
+.db-kpi-icon.is-blue {
+  background: color-mix(in srgb, var(--db-info) 16%, transparent);
+  color: var(--db-info);
+}
+
+.db-kpis article > div {
+  min-width: 0;
+}
+
+.db-kpis article span {
+  display: block;
+  color: var(--db-muted);
+  font-size: 12px;
   font-weight: 650;
-  letter-spacing: -0.04em;
+}
+
+.db-kpis strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--db-title);
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.db-kpis p {
+  margin-top: 6px;
+  color: var(--db-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.db-kpis p.is-up { color: var(--db-done); }
+.db-kpis p.is-down { color: var(--db-down); }
+
+.db-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.9fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-top: 16px;
+}
+
+.db-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 0.95fr);
+  gap: 12px;
+  margin-top: 12px;
+  align-items: start;
+}
+
+.db-lower.is-solo {
+  grid-template-columns: minmax(0, 420px);
+}
+
+.db-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px 16px 12px;
+  border: 1px solid var(--db-line);
+  border-radius: 18px;
+  background: var(--db-card);
+}
+
+.db-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.db-panel__head h3 {
+  color: var(--db-title);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.db-panel__head p {
+  margin-top: 2px;
+  color: var(--db-muted);
+  font-size: 12px;
+}
+
+.db-panel__head a {
+  flex: 0 0 auto;
+  color: var(--db-primary);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.db-panel__head a:hover {
+  text-decoration: underline;
+}
+
+.db-activity {
+  min-height: 0;
+}
+
+.db-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  flex: 1 1 auto;
+  height: 196px;
+  margin-top: 14px;
+}
+
+.db-chart__col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+  gap: 6px;
+}
+
+.db-chart__track {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  width: 100%;
+  min-height: 0;
+  border-bottom: 1px solid var(--db-line);
+}
+
+.db-chart__track span {
+  width: 68%;
+  margin-inline: auto;
+  min-height: 4px;
+  border-radius: 5px 5px 2px 2px;
+  background: var(--db-primary);
+}
+
+.db-chart__track span.is-peak {
+  background: var(--color-accent);
+}
+
+.db-chart__track span.is-empty {
+  height: 4px;
+  background: var(--db-line);
+}
+
+.db-chart small {
+  height: 12px;
+  color: transparent;
+  font-size: 10px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
-.hero__clock small {
-  grid-column: 2;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
+.db-chart small.is-on {
+  color: var(--db-muted);
 }
 
-.hero__hours {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  display: flex;
-  align-items: stretch;
-  gap: 6px;
-  height: 100%;
-  margin: 0;
-  padding: 8px 22px 16px;
-  list-style: none;
-}
-
-.hero__hours li {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
-  min-height: 0;
-}
-
-.hero__hour-bar {
-  width: 100%;
-  max-width: 18px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--color-border);
-}
-
-.hero__hours .is-past .hero__hour-bar {
-  height: 32%;
-  border-radius: 6px 6px 3px 3px;
-  background: color-mix(in srgb, var(--color-brand-400) 35%, var(--color-border));
-}
-
-.hero__hours .is-now .hero__hour-bar {
-  height: 82%;
-  max-width: 22px;
-  border-radius: 8px 8px 3px 3px;
-  background: var(--color-accent);
-}
-
-.hero__hour-label {
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.hero__hours .is-now .hero__hour-label {
-  color: var(--color-text-primary);
-}
-
-.hero__visual {
-  position: relative;
-  min-height: 200px;
-}
-
-.hero__mark {
-  position: absolute;
-  top: 28px;
-  right: 28px;
-  display: grid;
-  place-items: center;
-  width: 112px;
-  height: 112px;
-  border-radius: 28px;
-  background: var(--color-canvas);
-  border: 1px solid var(--color-border);
-  font-size: 2.4rem;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  color: var(--color-ink-brand, var(--color-brand-600));
-}
-
-.hero__bars {
-  position: absolute;
-  left: 18px;
-  right: 22px;
-  bottom: 18px;
-  display: flex;
-  align-items: flex-end;
-  gap: 5px;
-  height: 72px;
-}
-
-.hero__bars span {
-  flex: 1;
-  border-radius: 5px 5px 2px 2px;
-  background: color-mix(in srgb, var(--color-brand-600) 55%, var(--color-border));
-  transform-origin: bottom;
-  animation: bar-rise 700ms var(--ease-out) both;
-}
-
-.dash-link {
-  color: var(--color-success);
-  font-size: 13px;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.dash-link:hover {
-  text-decoration: underline;
-}
-
-.area-list,
-.watch-list {
-  display: flex;
-  flex-direction: column;
-  padding-top: 8px;
-  padding-bottom: 8px;
-}
-
-.area,
-.watch {
+.db-focus,
+.db-quiet {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 52px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--color-border);
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--db-bg);
   color: inherit;
   text-decoration: none;
 }
 
-.area:last-child,
-.watch:last-child {
-  border-bottom: 0;
-}
-
-.area__icon {
+.db-focus__mark {
+  display: grid;
+  place-items: center;
   width: 36px;
   height: 36px;
+  flex: 0 0 auto;
   border-radius: 10px;
+  background: var(--db-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
 }
 
-.area__label,
-.watch__name {
-  display: block;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.area__count,
-.watch__sku {
-  display: block;
-  margin-top: 1px;
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.area:hover .area__label,
-.pick:hover .pick__name,
-.watch:hover .watch__name {
-  color: var(--color-ink-brand, var(--color-brand-600));}
-
-.picks {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.pick {
+.db-focus__copy {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+.db-focus strong,
+.db-quiet strong {
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: var(--color-surface);
-  color: inherit;
-  text-decoration: none;
-  transition: transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
-}
-
-.pick:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.pick__art {
-  position: relative;
-  display: grid;
-  place-items: center;
-  height: 96px;
-  background: var(--tone-bg);
-  color: var(--tone);
-  font-size: 1.7rem;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-}
-
-.pick__rank {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.pick__body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px 12px;
-}
-
-.pick__name {
-  overflow: hidden;
-  font-size: 13.5px;
-  font-weight: 650;
-  line-height: 1.3;
+  color: var(--db-title);
+  font-size: 14px;
+  font-weight: 750;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pick__meta {
+.db-focus small,
+.db-quiet {
+  color: var(--db-muted);
   font-size: 12px;
-  color: var(--color-text-muted);
 }
 
-.pick__price {
-  margin-top: 4px;
-  font-size: 13px;
+.db-quiet {
+  display: block;
+}
+
+.db-quiet strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.db-focus em {
+  margin-left: auto;
+  color: var(--db-primary);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.db-focus:hover strong {
+  color: var(--db-primary);
+}
+
+.db-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.db-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  min-height: 88px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--db-bg);
+  color: inherit;
+  text-decoration: none;
+}
+
+.db-tile:hover {
+  background: color-mix(in srgb, var(--db-primary) 8%, var(--db-bg));
+}
+
+.db-tile__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--db-card);
+  color: var(--db-title);
+}
+
+.db-tile__label {
+  max-width: 100%;
+  color: var(--db-muted);
+  font-size: 12px;
   font-weight: 650;
-  color: var(--tone);
+  line-height: 1.3;
 }
 
-.watch__box {
+.db-tile strong {
+  color: var(--db-title);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.db-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.db-seller,
+.db-pay {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.db-seller__body,
+.db-pay {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
+}
+
+.db-seller__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.db-seller__top strong {
+  color: var(--db-title);
+  font-size: 13px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.db-seller small,
+.db-pay small {
+  color: var(--db-muted);
+  font-size: 12px;
+}
+
+.db-seller:hover .db-row__label {
+  color: var(--db-primary);
+}
+
+.db-meter {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--db-line) 85%, transparent);
+}
+
+.db-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--db-primary);
+}
+
+.db-meter > span.is-pay {
+  background: var(--color-accent);
+}
+
+.db-alert-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--db-down);
+}
+
+.db-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 8px;
+  overflow: auto;
+}
+
+.db-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--db-line);
+  color: inherit;
+  text-decoration: none;
+}
+
+.db-row:last-child {
+  border-bottom: 0;
+}
+
+.db-row:hover .db-row__label {
+  color: var(--db-primary);
+}
+
+.db-row__icon,
+.db-rank {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: var(--db-bg);
+  color: var(--db-title);
+}
+
+.db-row__icon {
+  width: 36px;
+  height: 36px;
+}
+
+.db-rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.db-row__copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.db-row__label {
+  overflow: hidden;
+  color: var(--db-title);
+  font-size: 13.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-row__label.is-done {
+  color: var(--db-muted);
+  text-decoration: line-through;
+}
+
+.db-row small {
+  overflow: hidden;
+  max-width: 28ch;
+  color: var(--db-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-row strong {
+  margin-left: auto;
+  color: var(--db-title);
+  font-size: 13px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.db-box {
   display: grid;
   place-items: center;
   width: 18px;
   height: 18px;
-  flex-shrink: 0;
-  border: 1.5px solid var(--color-border-strong);
+  flex: 0 0 auto;
+  border: 1.5px solid var(--db-line);
   border-radius: 5px;
-  color: var(--color-success);
+  color: #fff;
 }
 
-.watch__box--done {
-  border-color: var(--color-success);
-  background: var(--color-success-bg);
+.db-box.is-done {
+  border-color: var(--db-done);
+  background: var(--db-done);
 }
 
-.watch__name--done {
-  color: var(--color-text-muted);
-  text-decoration: line-through;
-}
-
-.watch__qty {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.setup-note {
+.db-setup {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-top: 8px;
   padding-top: 12px;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--db-line);
+  color: var(--db-muted);
   font-size: 12px;
-  color: var(--color-text-muted);
 }
 
-.setup-note .ui-progress {
+.db-setup .ui-progress {
   flex: 1;
 }
 
-.empty-copy {
+.db-empty {
+  display: grid;
+  flex: 1;
+  place-items: center;
   margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
+  padding: 24px 8px;
+  color: var(--db-muted);
+  font-size: 13px;
+  text-align: center;
 }
 
-.tone-green {
-  --tone: var(--color-success);
-  --tone-bg: var(--color-success-bg);
-}
-.tone-amber {
-  --tone: var(--color-warning);
-  --tone-bg: var(--color-warning-bg);
-}
-.tone-violet {
-  --tone: var(--color-brand-600);
-  --tone-bg: var(--color-brand-50);
-}
-.tone-blue {
-  --tone: var(--color-info);
-  --tone-bg: var(--color-info-bg);
-}
-
-@keyframes bar-rise {
-  from { transform: scaleY(0.35); opacity: 0.35; }
-  to { transform: scaleY(1); opacity: 1; }
-}
-
-@media (max-width: 1180px) {
-  .picks {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 1100px) {
+  .db-kpis,
+  .db-lower {
+    grid-template-columns: 1fr 1fr;
   }
-}
 
-@media (max-width: 980px) {
-  .stage,
-  .hero {
+  .db-board,
+  .db-lower.is-solo {
     grid-template-columns: 1fr;
   }
 
-  .hero__visual {
-    min-height: 148px;
-  }
-
-  .hero--quiet {
-    grid-template-rows: auto auto minmax(120px, 1fr);
-  }
-
-  .hero--quiet .hero__visual {
-    grid-column: 1;
-    grid-row: 2;
-    min-height: 0;
-    justify-content: flex-start;
-    padding: 0 22px 4px;
-  }
-
-  .hero__hours {
-    grid-row: 3;
-  }
-
-  .hero__clock {
-    grid-template-columns: auto auto auto;
-    grid-template-rows: auto;
-    align-items: center;
-  }
-
-  .hero__clock svg {
-    grid-row: auto;
-  }
-
-  .hero__clock small {
-    grid-column: auto;
-  }
-
-  .hero__mark {
-    inset: 8px 12px 64px;
-    font-size: 3rem;
+  .db-lower .db-panel:last-child {
+    grid-column: 1 / -1;
   }
 }
 
-@media (max-width: 640px) {
-  .picks {
+@media (max-width: 720px) {
+  .db-root {
+    padding: 16px;
+  }
+
+  .db-kpis,
+  .db-lower,
+  .db-tiles {
     grid-template-columns: 1fr;
+  }
+
+  .db-chart {
+    min-height: 140px;
   }
 }
 </style>

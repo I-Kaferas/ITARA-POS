@@ -19,6 +19,8 @@ import PlatformBackupsPanel from './PlatformBackupsPanel.vue'
 import PlatformPlansPanel from './PlatformPlansPanel.vue'
 import { formatDateTime, formatMoney } from '../../../utils/format'
 import { goToMarketing } from '../../../utils/marketing'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Company = {
   id: string
@@ -170,6 +172,38 @@ const filteredUsers = computed(() => {
 const filteredTickets = computed(() => {
   return tickets.value.filter(ticket => ticketFilter.value === 'all' || ticket.status === ticketFilter.value)
 })
+const {
+  page: companiesPage,
+  lastPage: companiesLastPage,
+  total: companiesTotal,
+  perPage: companiesPerPage,
+  paged: pagedCompanies,
+  setPage: setCompaniesPage,
+} = useClientPager(filteredCompanies)
+const {
+  page: devicesPage,
+  lastPage: devicesLastPage,
+  total: devicesTotal,
+  perPage: devicesPerPage,
+  paged: pagedDevices,
+  setPage: setDevicesPage,
+} = useClientPager(filteredDevices)
+const {
+  page: usersPage,
+  lastPage: usersLastPage,
+  total: usersTotal,
+  perPage: usersPerPage,
+  paged: pagedUsers,
+  setPage: setUsersPage,
+} = useClientPager(filteredUsers)
+const {
+  page: ticketsPage,
+  lastPage: ticketsLastPage,
+  total: ticketsTotal,
+  perPage: ticketsPerPage,
+  paged: pagedTickets,
+  setPage: setTicketsPage,
+} = useClientPager(filteredTickets)
 
 const legacyPlans: Record<string, string> = {
   pos_stock: 'starter',
@@ -574,7 +608,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="company in filteredCompanies" :key="company.id">
+            <tr v-for="company in pagedCompanies" :key="company.id">
               <td>
                 <p class="font-medium">{{ company.name }}</p>
                 <p class="platform-muted">{{ company.slug }}</p>
@@ -598,6 +632,13 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+        <ListPager
+          :page="companiesPage"
+          :last-page="companiesLastPage"
+          :total="companiesTotal"
+          :per-page="companiesPerPage"
+          @change="setCompaniesPage"
+        />
       </DataTableShell>
 
       <DataTableShell
@@ -624,7 +665,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="company in filteredCompanies" :key="company.id">
+            <tr v-for="company in pagedCompanies" :key="company.id">
               <td class="font-medium">{{ company.name }}</td>
               <td class="font-mono text-xs">{{ company.license.key || '—' }}</td>
               <td><Badge :variant="statusVariant(company.license.status)" dot>{{ statusLabel(company.license.status) }}</Badge></td>
@@ -636,6 +677,13 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+        <ListPager
+          :page="companiesPage"
+          :last-page="companiesLastPage"
+          :total="companiesTotal"
+          :per-page="companiesPerPage"
+          @change="setCompaniesPage"
+        />
       </DataTableShell>
 
       <div v-else-if="tab === 'subscriptions'" class="platform-billing">
@@ -662,7 +710,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="company in filteredCompanies" :key="company.id">
+            <tr v-for="company in pagedCompanies" :key="company.id">
               <td class="font-medium">{{ company.name }}</td>
               <td>
                 {{ planLabel(commercialPlan(company)) }}
@@ -679,6 +727,13 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+        <ListPager
+          :page="companiesPage"
+          :last-page="companiesLastPage"
+          :total="companiesTotal"
+          :per-page="companiesPerPage"
+          @change="setCompaniesPage"
+        />
       </DataTableShell>
       </div>
 
@@ -704,7 +759,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="company in filteredCompanies" :key="company.id">
+            <tr v-for="company in pagedCompanies" :key="company.id">
               <td class="font-medium">{{ company.name }}</td>
               <td v-for="code in moduleCodes" :key="code">
                 <Badge :variant="company.modules.includes(code) ? 'success' : 'neutral'" dot>
@@ -717,6 +772,13 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+        <ListPager
+          :page="companiesPage"
+          :last-page="companiesLastPage"
+          :total="companiesTotal"
+          :per-page="companiesPerPage"
+          @change="setCompaniesPage"
+        />
       </DataTableShell>
 
       <DataTableShell
@@ -743,7 +805,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="device in filteredDevices" :key="device.id">
+            <tr v-for="device in pagedDevices" :key="device.id">
               <td class="font-medium">{{ device.name || device.code }}</td>
               <td>{{ device.company || '—' }}</td>
               <td>{{ device.platform || '—' }}</td>
@@ -756,6 +818,13 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+        <ListPager
+          :page="devicesPage"
+          :last-page="devicesLastPage"
+          :total="devicesTotal"
+          :per-page="devicesPerPage"
+          @change="setDevicesPage"
+        />
       </DataTableShell>
 
       <DataTableShell
@@ -780,7 +849,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="user in filteredUsers" :key="user.id">
+            <tr v-for="user in pagedUsers" :key="user.id">
               <td class="font-medium">{{ user.name }}</td>
               <td>{{ user.company || '—' }}</td>
               <td>{{ user.email }}</td>
@@ -788,6 +857,13 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+        <ListPager
+          :page="usersPage"
+          :last-page="usersLastPage"
+          :total="usersTotal"
+          :per-page="usersPerPage"
+          @change="setUsersPage"
+        />
       </DataTableShell>
 
       <section v-else-if="tab === 'stats'" class="platform-stats-wrap">
@@ -888,7 +964,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="ticket in filteredTickets" :key="ticket.id">
+              <tr v-for="ticket in pagedTickets" :key="ticket.id">
                 <td class="font-medium">{{ ticket.subject }}</td>
                 <td>{{ ticket.company }}</td>
                 <td><Badge :variant="ticket.status === 'open' ? 'warning' : 'neutral'" dot>{{ ticket.status === 'open' ? t('platform.ticketOpen') : t('platform.ticketClosed') }}</Badge></td>
@@ -899,6 +975,13 @@ onMounted(() => {
               </tr>
             </tbody>
           </table>
+          <ListPager
+            :page="ticketsPage"
+            :last-page="ticketsLastPage"
+            :total="ticketsTotal"
+            :per-page="ticketsPerPage"
+            @change="setTicketsPage"
+          />
         </DataTableShell>
       </div>
     </div>

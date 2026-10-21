@@ -16,6 +16,8 @@ import { isStockableProduct } from '../../../utils/product'
 import { formatDate } from '../../../utils/format'
 import { formatMoney } from '../../../utils/money'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -80,6 +82,8 @@ const rows = computed(() => {
 
   return [...store.stockBalances, ...extras]
 })
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(rows)
 
 const stockableRows = computed(() =>
   rows.value.filter(row => !row.product || isStockableProduct({ product_type: row.product.product_type as Product['product_type'] })),
@@ -277,7 +281,7 @@ function clearHistoryDates() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in rows" :key="row.id" class="cursor-pointer" @click="openHistory(row)">
+            <tr v-for="row in paged" :key="row.id" class="cursor-pointer" @click="openHistory(row)">
               <td class="font-mono text-slate-500">{{ row.product?.sku ?? '—' }}</td>
               <td class="font-medium">{{ row.product?.name ?? '—' }}</td>
               <td>{{ row.product?.category?.name ?? '—' }}</td>
@@ -298,6 +302,13 @@ function clearHistoryDates() {
             </tr>
           </tbody>
         </table>
+        <ListPager
+          :page="page"
+          :last-page="lastPage"
+          :total="total"
+          :per-page="perPage"
+          @change="setPage"
+        />
       </DataTableShell>
     </div>
 

@@ -10,6 +10,8 @@ import { useBackofficeStore } from '../../stores/backoffice'
 import { formatDate, formatMoney } from '../../utils/format'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../utils/listFilters'
 import AppIcon from '../../components/ui/AppIcon.vue'
+import ListPager from '../../components/ui/ListPager.vue'
+import { useClientPager } from '../../composables/useClientPager'
 
 type Offering = { id: string; name: string; category: string; price: number; duration_minutes: number }
 type Appointment = {
@@ -46,6 +48,7 @@ const filtered = computed(() => rows.value.filter(row =>
   && (!filters.value.status || row.status === filters.value.status)
   && inPeriod(row.scheduled_at, filters.value),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 onMounted(load)
 
@@ -123,7 +126,7 @@ function statusLabel(status: string) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in filtered" :key="row.id" class="border-t border-slate-100">
+          <tr v-for="row in paged" :key="row.id" class="border-t border-slate-100">
             <td class="px-4 py-3">
               <div class="font-medium">{{ row.offering?.name }}</div>
               <div class="text-xs text-slate-500">{{ row.offering?.category }} · {{ formatMoney(row.offering?.price ?? 0) }}</div>
@@ -149,6 +152,7 @@ function statusLabel(status: string) {
           </tr>
         </tbody>
       </table>
+      <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('services.empty') }}</p>
     </div>
 

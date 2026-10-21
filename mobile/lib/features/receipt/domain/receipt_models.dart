@@ -1,3 +1,9 @@
+int _asInt(dynamic value, [int fallback = 0]) {
+  if (value is int) return value;
+  if (value is num) return value.round();
+  return int.tryParse('$value') ?? fallback;
+}
+
 enum ReceiptDocumentFormat {
   thermal58('thermal_58'),
   thermal80('thermal_80'),
@@ -28,35 +34,76 @@ enum ReceiptDocumentFormat {
 class ReceiptCompany {
   const ReceiptCompany({
     this.name,
+    this.tradeName,
     this.legalName,
     this.taxId,
+    this.registrationNumber,
+    this.email,
+    this.logoUrl,
     this.address,
     this.currencyCode,
+    this.fiscalCenter,
+    this.activitySector,
+    this.vatRegistered = false,
+    this.vatExempt = false,
+    this.subjectToTc = false,
+    this.subjectToPf = false,
   });
 
   factory ReceiptCompany.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const ReceiptCompany();
+    final status = json['vat_status']?.toString().trim().toLowerCase();
     return ReceiptCompany(
       name: json['name'] as String?,
+      tradeName: json['trade_name'] as String?,
       legalName: json['legal_name'] as String?,
       taxId: json['tax_id'] as String?,
+      registrationNumber: json['registration_number'] as String?,
+      email: json['email'] as String?,
+      logoUrl: json['logo_url'] as String?,
       address: json['address'],
       currencyCode: json['currency_code'] as String?,
+      fiscalCenter: (json['fiscal_center'] ?? json['dpmc']) as String?,
+      activitySector: json['activity_sector'] as String?,
+      vatRegistered: json['vat_registered'] == true,
+      vatExempt: json['vat_exempt'] == true || status == 'exempt' || status == 'exo',
+      subjectToTc: json['subject_to_tc'] == true,
+      subjectToPf: json['subject_to_pf'] == true,
     );
   }
 
   final String? name;
+  final String? tradeName;
   final String? legalName;
   final String? taxId;
+  final String? registrationNumber;
+  final String? email;
+  final String? logoUrl;
   final dynamic address;
   final String? currencyCode;
+  final String? fiscalCenter;
+  final String? activitySector;
+  final bool vatRegistered;
+  final bool vatExempt;
+  final bool subjectToTc;
+  final bool subjectToPf;
 
   Map<String, dynamic> toJson() => {
         'name': name,
+        'trade_name': tradeName,
         'legal_name': legalName,
         'tax_id': taxId,
+        'registration_number': registrationNumber,
+        'email': email,
+        'logo_url': logoUrl,
         'address': address,
         'currency_code': currencyCode,
+        'fiscal_center': fiscalCenter,
+        'activity_sector': activitySector,
+        'vat_registered': vatRegistered,
+        'vat_exempt': vatExempt,
+        'subject_to_tc': subjectToTc,
+        'subject_to_pf': subjectToPf,
       };
 }
 
@@ -84,7 +131,7 @@ class ReceiptBranch {
 }
 
 class ReceiptPerson {
-  const ReceiptPerson({this.id, this.name, this.email, this.phone});
+  const ReceiptPerson({this.id, this.name, this.email, this.phone, this.taxId});
 
   factory ReceiptPerson.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const ReceiptPerson();
@@ -93,6 +140,7 @@ class ReceiptPerson {
       name: json['name'] as String?,
       email: json['email'] as String?,
       phone: json['phone'] as String?,
+      taxId: json['tax_id'] as String?,
     );
   }
 
@@ -100,12 +148,14 @@ class ReceiptPerson {
   final String? name;
   final String? email;
   final String? phone;
+  final String? taxId;
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'email': email,
         'phone': phone,
+        'tax_id': taxId,
       };
 }
 
@@ -124,11 +174,11 @@ class ReceiptLineItem {
     return ReceiptLineItem(
       name: json['name'] as String? ?? '',
       sku: json['sku'] as String?,
-      quantity: json['quantity'] as int? ?? 0,
-      unitPrice: json['unit_price'] as int? ?? 0,
-      lineDiscount: json['line_discount'] as int? ?? 0,
-      lineTax: json['line_tax'] as int? ?? 0,
-      lineTotal: json['line_total'] as int? ?? 0,
+      quantity: _asInt(json['quantity']),
+      unitPrice: _asInt(json['unit_price']),
+      lineDiscount: _asInt(json['line_discount']),
+      lineTax: _asInt(json['line_tax']),
+      lineTotal: _asInt(json['line_total']),
     );
   }
 
@@ -164,9 +214,9 @@ class ReceiptPaymentLine {
     return ReceiptPaymentLine(
       method: json['method'] as String? ?? '',
       methodLabel: json['method_label'] as String? ?? '',
-      amount: json['amount'] as int? ?? 0,
-      tendered: json['tendered'] as int?,
-      change: json['change'] as int?,
+      amount: _asInt(json['amount']),
+      tendered: json['tendered'] == null ? null : _asInt(json['tendered']),
+      change: json['change'] == null ? null : _asInt(json['change']),
     );
   }
 
@@ -211,6 +261,7 @@ class ReceiptPrintPayload {
     required this.change,
     this.footer,
     this.notes,
+    this.serviceMode = '',
   });
 
   factory ReceiptPrintPayload.fromJson(Map<String, dynamic> json) {
@@ -235,17 +286,18 @@ class ReceiptPrintPayload {
       cashier: ReceiptPerson.fromJson(json['cashier'] as Map<String, dynamic>?),
       customer: ReceiptPerson.fromJson(json['customer'] as Map<String, dynamic>?),
       items: items,
-      subtotal: json['subtotal'] as int? ?? 0,
-      discountTotal: json['discount_total'] as int? ?? 0,
-      taxTotal: json['tax_total'] as int? ?? 0,
-      feesTotal: json['fees_total'] as int? ?? 0,
-      total: json['total'] as int? ?? 0,
+      subtotal: _asInt(json['subtotal']),
+      discountTotal: _asInt(json['discount_total']),
+      taxTotal: _asInt(json['tax_total']),
+      feesTotal: _asInt(json['fees_total']),
+      total: _asInt(json['total']),
       currency: json['currency'] as String? ?? 'USD',
       payments: payments,
-      amountPaid: json['amount_paid'] as int? ?? 0,
-      change: json['change'] as int? ?? 0,
+      amountPaid: _asInt(json['amount_paid']),
+      change: _asInt(json['change']),
       footer: json['footer'] as String?,
       notes: json['notes'] as String?,
+      serviceMode: json['service_mode'] as String? ?? '',
     );
   }
 
@@ -273,6 +325,7 @@ class ReceiptPrintPayload {
   final int change;
   final String? footer;
   final String? notes;
+  final String serviceMode;
 
   Map<String, dynamic> toJson() => {
         'document_type': documentType,
@@ -299,6 +352,7 @@ class ReceiptPrintPayload {
         'change': change,
         'footer': footer,
         'notes': notes,
+        'service_mode': serviceMode,
       };
 
   ReceiptPrintPayload copyWith({ReceiptDocumentFormat? format}) {
@@ -327,6 +381,7 @@ class ReceiptPrintPayload {
       change: change,
       footer: footer,
       notes: notes,
+      serviceMode: serviceMode,
     );
   }
 

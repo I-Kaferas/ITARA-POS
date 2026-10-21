@@ -23,13 +23,28 @@ class Store extends Model
         'code',
         'kind',
         'is_active',
+        'is_main',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'is_main' => 'boolean',
         ];
+    }
+
+    public function makeMain(): void
+    {
+        static::query()
+            ->where('tenant_id', $this->tenant_id)
+            ->where('id', '!=', $this->id)
+            ->where('is_main', true)
+            ->update(['is_main' => false]);
+
+        if (! $this->is_main) {
+            $this->forceFill(['is_main' => true])->save();
+        }
     }
 
     public function branch(): BelongsTo

@@ -29,7 +29,7 @@ class ReceiptPreviewSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            tr(payload.isInvoice ? 'Facture' : 'Reçu'),
+            tr(payload.isInvoice ? 'Facture' : 'Souche'),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
@@ -172,6 +172,7 @@ class ReceiptPreviewSheet extends StatelessWidget {
       change: source.change,
       footer: source.footer,
       notes: source.notes,
+      serviceMode: source.serviceMode,
     );
   }
 }

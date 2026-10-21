@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatDate } from '../../../utils/format'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
@@ -25,6 +27,8 @@ const filtered = computed(() => store.inventoryAlerts.filter(row =>
   )
   && (!filters.value.status || row.status === filters.value.status),
 ))
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 onMounted(() => store.loadInventoryAlerts())
 
@@ -79,7 +83,7 @@ async function resolve(id: string) {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in filtered" :key="row.id" class="hover:bg-slate-50">
+          <tr v-for="row in paged" :key="row.id" class="hover:bg-slate-50">
             <td class="px-4 py-3">{{ row.alert_type }}</td>
             <td class="px-4 py-3 font-medium">{{ row.product?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
@@ -97,6 +101,13 @@ async function resolve(id: string) {
         </tbody>
       </table>
       <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="page"
+        :last-page="lastPage"
+        :total="total"
+        :per-page="perPage"
+        @change="setPage"
+      />
     </div>
   </InventoryLayout>
 </template>

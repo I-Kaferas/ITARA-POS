@@ -7,6 +7,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_cart_engine.dart';
+import '../customer_display_launcher.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
@@ -142,10 +143,15 @@ class PosCartPanel extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      IconButton(
-                        tooltip: tr('Preview Customer display'),
-                        onPressed: onCustomerDisplay,
-                        icon: Icon(Icons.monitor_outlined, size: 18, color: PosUi.deskMuted),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: CustomerDisplayLauncher.busy,
+                        builder: (context, busy, _) {
+                          return IconButton(
+                            tooltip: tr('Preview Customer display'),
+                            onPressed: busy ? null : onCustomerDisplay,
+                            icon: Icon(Icons.monitor_outlined, size: 18, color: PosUi.deskMuted),
+                          );
+                        },
                       ),
                     ],
                   ),

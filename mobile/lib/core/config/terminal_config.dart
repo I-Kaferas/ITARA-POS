@@ -241,6 +241,14 @@ class TerminalConfig {
   bool get isMaster => posRole == PosRole.master;
   bool get isSlave => posRole == PosRole.slave;
 
+  /// Device role is set AND a company/tenant is linked (Hub / company pairing).
+  /// Until then Overview, POS, Orders and Shifts stay disabled.
+  bool get isCompanyConfigured {
+    if (!isConfigured) return false;
+    if (tenantId.trim().isEmpty) return false;
+    return brandName.trim().isNotEmpty || companyProfile.trim().isNotEmpty;
+  }
+
   /// Business role (RBAC), not Master/Slave terminal role.
   bool get isCashier => roles.any((role) {
         final value = role.toLowerCase();

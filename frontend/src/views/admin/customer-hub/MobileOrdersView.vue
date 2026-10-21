@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import { intlLocale } from '../../../i18n/locales'
 import { useContextStore } from '../../../stores/context'
@@ -14,6 +15,8 @@ import {
   type OrderStatus,
   type PaymentStatus,
 } from './mobileOrdersData'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 const statusKeys: OrderStatus[] = ['new', 'processing', 'completed', 'cancelled']
 const paymentKeys: PaymentStatus[] = ['paid', 'unpaid', 'partial']
@@ -75,6 +78,7 @@ const visible = computed(() => {
     )
   })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(visible)
 
 const selectedActions = computed(() =>
   selected.value ? nextStatuses(selected.value.status) : [],
@@ -175,6 +179,7 @@ onMounted(loadOrders)
         </button>
       </section>
 
+      <FilterFold>
       <div class="orders__filters">
         <label class="orders__search">
           <span class="sr-only">{{ t('mobileOrdersPage.search') }}</span>
@@ -200,6 +205,7 @@ onMounted(loadOrders)
           </select>
         </label>
       </div>
+      </FilterFold>
 
       <div class="orders__table-wrap">
         <table class="ui-table">
@@ -219,7 +225,7 @@ onMounted(loadOrders)
             <tr v-if="loaded && !visible.length">
               <td class="orders__empty" colspan="8">{{ t('mobileOrdersPage.empty') }}</td>
             </tr>
-            <tr v-for="order in visible" :key="order.id">
+            <tr v-for="order in paged" :key="order.id">
               <td class="orders__id">{{ order.reference }}</td>
               <td>
                 <p class="orders__name">{{ order.customer }}</p>
@@ -243,6 +249,7 @@ onMounted(loadOrders)
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
 

@@ -12,10 +12,11 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
-import type { Category, InventoryCountDetail, Product, StockBalance, StockLedgerRow, Warehouse } from '../../../types'
-import { formatMoney } from '../../../utils/money'
+import type { Category, InventoryCountDetail, Product, StockBalance, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
@@ -40,8 +41,6 @@ const showOpening = ref(false)
 const showFullCount = ref(false)
 const fullCountId = ref<string | null>(null)
 const showCycle = ref(false)
-const ledgerWarehouseId = ref('')
-const ledger = ref<StockLedgerRow[]>([])
 const showPreview = ref(false)
 const preview = ref<InventoryCountDetail | null>(null)
 const previewItems = ref<{ product_id: string; name: string; sku: string; quantity: number; system_quantity: number | null }[]>([])
@@ -64,6 +63,8 @@ const filteredCounts = computed(() => store.inventoryCounts.filter(row =>
   && (!listFilters.value.status || row.status === listFilters.value.status)
   && inPeriod(row.counted_at ?? row.created_at, listFilters.value),
 ))
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredCounts)
 
 const form = ref({
   warehouse_id: '',
@@ -122,8 +123,6 @@ onMounted(async () => {
   await store.loadInventoryCounts()
   warehouses.value = await store.loadAllWarehouses()
   if (!store.users.length) await store.loadUsers()
-  ledgerWarehouseId.value = warehouses.value[0]?.id ?? ''
-  await refreshLedger()
   await store.loadCompanies()
   const companyId = store.companies[0]?.id
   if (companyId) {
@@ -144,17 +143,8 @@ watch(() => form.value.count_type, () => {
   applyTypeSelection()
 })
 
-async function refreshLedger() {
-  if (!ledgerWarehouseId.value) {
-    ledger.value = []
-    return
-  }
-  ledger.value = await store.loadStockLedger(ledgerWarehouseId.value)
-}
-
 async function onOpeningCreated() {
   await store.loadInventoryCounts()
-  await refreshLedger()
 }
 
 async function openCreate() {
@@ -374,53 +364,6 @@ async function completeFromPreview() {
       <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.newInventory') }}</button>
     </div>
 
-    <div class="mb-6 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <div>
-          <h2 class="m-0 text-sm font-semibold text-slate-800">{{ t('inventory.ledgerTitle') }}</h2>
-          <p class="m-0 text-xs text-slate-500">{{ t('inventory.ledgerHint') }}</p>
-        </div>
-        <select v-model="ledgerWarehouseId" class="field max-w-xs" @change="refreshLedger">
-          <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">{{ warehouse.name }}</option>
-        </select>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
-            <tr>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.product') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.openingShort') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.entries') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.sales') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.losses') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.availableStock') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.averageCost') }}</th>
-              <th class="px-4 py-3 text-left font-medium">{{ t('inventory.stockValue') }}</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in ledger" :key="row.product_id" class="hover:bg-slate-50">
-              <td class="px-4 py-3">
-                <span class="block font-medium">{{ row.name }}</span>
-                <span class="text-xs text-slate-500">{{ row.category || row.sku }}</span>
-              </td>
-              <td class="px-4 py-3">{{ row.opening }}</td>
-              <td class="px-4 py-3">{{ row.entries }}</td>
-              <td class="px-4 py-3">{{ row.sales }}</td>
-              <td class="px-4 py-3">{{ row.losses }}</td>
-              <td class="px-4 py-3">
-                <span class="block">{{ row.display }}</span>
-                <span v-if="row.low_stock" class="text-xs text-red-600">{{ t('inventory.lowStock') }}</span>
-              </td>
-              <td class="px-4 py-3">{{ formatMoney(row.average_cost) }}</td>
-              <td class="px-4 py-3">{{ formatMoney(row.stock_value) }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-if="!ledger.length" class="px-4 py-6 text-center text-sm text-slate-500">{{ t('inventory.ledgerEmpty') }}</p>
-      </div>
-    </div>
-
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
       <div class="border-b border-slate-100 p-4">
         <ModuleFilters
@@ -444,7 +387,7 @@ async function completeFromPreview() {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="row in filteredCounts" :key="row.id" class="cursor-pointer hover:bg-slate-50" @click="openRow(row)">
+          <tr v-for="row in paged" :key="row.id" class="cursor-pointer hover:bg-slate-50" @click="openRow(row)">
             <td class="px-4 py-3 font-mono">{{ row.count_number }}</td>
             <td class="px-4 py-3">{{ row.count_type ? t(`inventory.countTypes.${row.count_type}.label`) : '—' }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
@@ -460,6 +403,13 @@ async function completeFromPreview() {
         </tbody>
       </table>
       <p v-if="!filteredCounts.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="page"
+        :last-page="lastPage"
+        :total="total"
+        :per-page="perPage"
+        @change="setPage"
+      />
     </div>
 
     <CycleCountModal

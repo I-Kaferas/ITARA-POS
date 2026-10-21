@@ -92,13 +92,15 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
       if (_api.storeId != storeId) return;
       await _offline.cacheCatalog(catalog);
       _loadedStoreId = storeId;
+      final visible = catalog.products.where((p) => p.isAvailable).toList();
       emit(state.copyWith(
         status: ProductStatus.ready,
-        products: catalog.products.where((p) => p.isAvailable).toList(),
+        products: visible,
         categories: catalog.categories,
         clearError: true,
         clearStatusMessage: true,
       ));
+      await _paintImages(storeId, catalog, visible, emit);
     } catch (error) {
       if (_api.storeId != storeId) return;
       if (cached != null) {
@@ -113,6 +115,53 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
         errorMessage: error.toString().replaceFirst('Exception: ', ''),
       ));
     }
+  }
+
+  Future<void> _paintImages(
+    String storeId,
+    PosCatalog catalog,
+    List<PosProduct> visible,
+    Emitter<ProductState> emit,
+  ) async {
+    Map<String, String> urls;
+    try {
+      urls = await _api.fetchPosImages();
+    } catch (_) {
+      return;
+    }
+    if (urls.isEmpty || _api.storeId != storeId || isClosed) return;
+
+    final ids = urls.keys.toList();
+    var products = visible;
+    const chunk = 12;
+    for (var index = 0; index < ids.length; index += chunk) {
+      if (_api.storeId != storeId || isClosed) return;
+      final end = index + chunk > ids.length ? ids.length : index + chunk;
+      final slice = ids.sublist(index, end);
+      products = [
+        for (final product in products)
+          if (slice.contains(product.productId) && urls[product.productId] != null)
+            product.withPrimaryImage(urls[product.productId]!)
+          else
+            product,
+      ];
+      emit(state.copyWith(
+        status: ProductStatus.ready,
+        products: products,
+        categories: catalog.categories,
+      ));
+      if (end < ids.length) {
+        await Future<void>.delayed(const Duration(milliseconds: 70));
+      }
+    }
+
+    try {
+      await _offline.cacheCatalog(PosCatalog(
+        storeId: catalog.storeId,
+        products: products,
+        categories: catalog.categories,
+      ));
+    } catch (_) {}
   }
 
   void _onSearch(

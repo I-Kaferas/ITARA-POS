@@ -54,6 +54,7 @@ const barcodes = ref<Partial<Barcode>[]>([])
 const prices = ref<Partial<Price>[]>([])
 const product = ref<Product | null>(null)
 const images = ref<ProductImage[]>([])
+const pendingPhoto = ref<{ source: 'gallery' | 'product'; id: string } | null>(null)
 const allProducts = ref<Product[]>([])
 const taxOptions = ref<Tax[]>([])
 
@@ -80,12 +81,12 @@ function setNature(kind: 'quantifiable' | 'service') {
 const tabs = computed(() => {
   const base = [
     { id: 'general', label: t('products.tabs.general'), icon: 'tag' },
-    { id: 'pricing', label: t('products.tabs.pricing'), icon: 'coins' },
+    { id: 'pricing', label: t('products.tabs.prices'), icon: 'coins' },
+    { id: 'gallery', label: t('products.gallery'), icon: 'catalog' },
     { id: 'barcodes', label: t('products.tabs.barcodes'), icon: 'tag' },
   ]
   if (form.value.product_type === 'variant') base.push({ id: 'variants', label: t('products.tabs.variants'), icon: 'layers' })
   if (form.value.product_type === 'bundle') base.push({ id: 'bundle', label: t('products.tabs.bundle'), icon: 'package' })
-  if (isEdit.value) base.push({ id: 'gallery', label: t('products.gallery'), icon: 'catalog' })
   return base
 })
 
@@ -262,6 +263,17 @@ async function save() {
     barcodes.value = saved.barcodes ?? []
     product.value = saved
     images.value = saved.images ?? []
+    const chosen = pendingPhoto.value
+    pendingPhoto.value = null
+    if (chosen) {
+      if (chosen.source === 'gallery') {
+        await store.attachProductImageFromGallery(saved.id, chosen.id, true)
+      } else {
+        await store.attachProductImageFromProduct(saved.id, chosen.id)
+      }
+      product.value = await store.loadProduct(saved.id)
+      images.value = product.value.images ?? []
+    }
     saveNotice.value = t('common.saved')
 
     if (!isEdit.value) {
@@ -284,7 +296,7 @@ const catalogPhotos = computed(() => {
   const gallery = store.galleryImages.map((image) => ({
     key: `gallery-${image.id}`,
     url: image.cdn_url,
-    selected: image.product_id === currentId,
+    selected: product.value ? image.product_id === currentId : pendingPhoto.value?.source === 'gallery' && pendingPhoto.value.id === image.id,
     source: 'gallery' as const,
     id: image.id,
   }))
@@ -296,7 +308,7 @@ const catalogPhotos = computed(() => {
     return [{
       key: `product-${image.id}`,
       url: image.cdn_url,
-      selected: false,
+      selected: !product.value && pendingPhoto.value?.source === 'product' && pendingPhoto.value.id === image.id,
       source: 'product' as const,
       id: image.id,
     }]
@@ -305,17 +317,18 @@ const catalogPhotos = computed(() => {
 })
 
 async function loadCatalogGallery() {
-  if (!product.value) return
+  const catalog = catalogId.value || product.value?.catalog_id
+  if (!catalog) return
   galleryError.value = ''
   galleryLoading.value = true
   try {
     await Promise.all([
-      store.loadGalleryImages(catalogId.value || product.value.catalog_id),
-      store.loadProducts(catalogId.value || product.value.catalog_id).then((rows) => {
+      store.loadGalleryImages(catalog),
+      store.loadProducts(catalog).then((rows) => {
         allProducts.value = rows
       }),
     ])
-    await claimMatchingPhoto()
+    if (product.value) await claimMatchingPhoto()
   } catch (error) {
     galleryError.value = extractApiErrorMessage(error, t('products.galleryImportFailed'))
   } finally {
@@ -335,7 +348,11 @@ async function claimMatchingPhoto() {
 }
 
 async function pickCatalogPhoto(photo: { source: 'gallery' | 'product'; id: string; selected: boolean }) {
-  if (!product.value || uploading.value || photo.selected) return
+  if (uploading.value || photo.selected) return
+  if (!product.value) {
+    pendingPhoto.value = { source: photo.source, id: photo.id }
+    return
+  }
   uploading.value = true
   galleryError.value = ''
   try {
@@ -373,7 +390,7 @@ async function removeImage() {
   <PageFrame>
     <template #title>{{ isEdit ? t('products.edit') : t('products.new') }}</template>
 
-    <nav class="form-tabs" role="tablist">
+    <nav class="form-tabs product-form-tabs" role="tablist">
       <button
         v-for="tab in tabs"
         :key="tab.id"
@@ -389,7 +406,7 @@ async function removeImage() {
       </button>
     </nav>
 
-    <form class="space-y-6" novalidate @submit.prevent="save">
+    <form class="product-form space-y-6" novalidate @submit.prevent="save">
       <!-- General -->
       <section v-show="activeTab === 'general'" class="form-section">
         <header class="form-section__head">
@@ -592,7 +609,7 @@ async function removeImage() {
 
       <!-- Gallery -->
       <section v-show="activeTab === 'gallery'" class="form-section">
-        <p v-if="!product" class="form-section__hint">{{ t('products.galleryAfterSave') }}</p>
+        <p v-if="!product && !catalogId" class="form-section__hint">{{ t('products.galleryAfterSave') }}</p>
         <template v-else>
           <div class="gallery-block">
             <h3>{{ t('products.pickFromGallery') }}</h3>
@@ -617,6 +634,7 @@ async function removeImage() {
               <RouterLink to="/admin/catalog/gallery">{{ t('products.openCatalogGallery') }}</RouterLink>
             </p>
           </div>
+          <p v-if="!product && pendingPhoto" class="form-section__hint">{{ t('products.photoOnSave') }}</p>
           <div class="gallery-block">
             <h3>{{ t('products.productPhotos') }}</h3>
             <p v-if="!productPhoto" class="gallery-pick__empty">{{ t('products.noProductPhotos') }}</p>
@@ -648,6 +666,38 @@ async function removeImage() {
 
 
 .text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
+
+.product-form-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  flex: 0 0 auto;
+  min-height: 56px;
+  margin-bottom: 1rem;
+  padding: 0.45rem;
+  background: #d9e4f0;
+  border: 1px solid #12243c;
+}
+
+.product-form {
+  flex: 0 0 auto;
+}
+
+.product-form-tabs :deep(.form-tabs__btn) {
+  min-height: 46px;
+  padding: 0 1rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #12243c;
+  background: #fff;
+  border: 1px solid #8ea4bb;
+}
+
+.product-form-tabs :deep(.form-tabs__btn--active) {
+  color: #fff;
+  background: #12243c;
+  border-color: #12243c;
+}
 
 .product-type-grid {
   display: flex;

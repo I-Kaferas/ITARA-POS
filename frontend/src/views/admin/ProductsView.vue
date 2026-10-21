@@ -6,6 +6,7 @@ import { useConfirm } from '../../composables/useConfirm'
 import { useRouter } from 'vue-router'
 import CatalogLayout from '../../components/catalog/CatalogLayout.vue'
 import AppIcon from '../../components/ui/AppIcon.vue'
+import FilterFold from '../../components/ui/FilterFold.vue'
 import Badge from '../../components/ui/Badge.vue'
 import DataTableShell from '../../components/ui/DataTableShell.vue'
 import { extractApiErrorMessage } from '../../api/client'
@@ -176,6 +177,7 @@ async function exportPdf() {
           <option v-for="c in catalogOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </div>
+      <FilterFold>
       <div class="ui-field flex-1 min-w-[12rem]">
         <label class="ui-label">{{ t('common.search') }}</label>
         <div class="relative">
@@ -188,6 +190,7 @@ async function exportPdf() {
           />
         </div>
       </div>
+      </FilterFold>
       <div class="products-actions">
         <button type="button" class="btn-secondary" :disabled="!selectedCatalog || importing" @click="fileInput?.click()">
           <AppIcon name="upload" :size="16" />

@@ -8,7 +8,9 @@ import AppIcon from '../../../components/ui/AppIcon.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import { intlLocale } from '../../../i18n/locales'
@@ -38,6 +40,7 @@ const filtered = computed(() => store.cashRegisters.filter(register =>
   matchesSearch(`${register.name} ${register.code}`, filters.value.search)
   && matchesActive(register.is_active, filters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 const saving = ref(false)
 const sessionBusy = ref(false)
 
@@ -335,7 +338,7 @@ const varianceClass = computed(() => {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="register in filtered" :key="register.id" class="hover:bg-slate-50">
+            <tr v-for="register in paged" :key="register.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ register.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ register.code }}</td>
               <td class="px-4 py-3">
@@ -356,6 +359,7 @@ const varianceClass = computed(() => {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
       </div>
     </div>

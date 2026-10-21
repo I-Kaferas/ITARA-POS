@@ -5,6 +5,118 @@
     "tagline": "ITARA NEXUS Business CORE",
     "welcome": "Bienvenue dans le système POS professionnel"
   },
+  "helpCenter": {
+    "guideTitle": "Guide utilisateur",
+    "guideSubtitle": "Documentation pas à pas pour bien démarrer",
+    "centerTitle": "Centre d'aide",
+    "searchPlaceholder": "Rechercher des articles...",
+    "noArticles": "Aucun article ne correspond à cette recherche.",
+    "tutorialsTitle": "Tutoriels vidéo",
+    "tutorialsSubtitle": "Regardez des guides vidéo pour des parcours visuels",
+    "videoBadge": "Vidéo",
+    "watchVideo": "Regarder la vidéo",
+    "faqsTitle": "FAQ",
+    "faqsSubtitle": "Les questions que les équipes posent le plus",
+    "supportTitle": "Support et assistance",
+    "supportSubtitle": "Joindre quelqu'un quand le magasin est bloqué",
+    "aboutTitle": "Annonces",
+    "aboutSubtitle": "Dernières mises à jour et actualités",
+    "kinds": {
+      "update": "Mise à jour",
+      "new": "Nouveau"
+    },
+    "title": "Aide et support",
+    "tutorialNote": "Ces leçons suivent les parcours de l'application. Les fichiers vidéo ne sont pas encore joints.",
+    "articles": {
+      "start": {
+        "title": "Premiers pas sur la plateforme",
+        "body": "Une introduction rapide pour naviguer dans le tableau de bord et les fonctions principales."
+      },
+      "roles": {
+        "title": "Rôles et permissions des utilisateurs",
+        "body": "Comprendre qui peut voir et faire quoi dans le système."
+      },
+      "reports": {
+        "title": "Rapports et analyses",
+        "body": "Comment générer, personnaliser et exporter les rapports."
+      }
+    },
+    "videos": {
+      "dashboard": {
+        "title": "Naviguer dans le tableau de bord",
+        "body": "Une visite rapide du tableau de bord et de la façon de le personnaliser."
+      },
+      "account": {
+        "title": "Gérer votre compte et votre profil",
+        "body": "Mettez à jour vos informations personnelles, votre mot de passe et vos préférences de notification."
+      }
+    },
+    "announcements": {
+      "performance": {
+        "title": "Mise à jour de la plateforme : performances plus rapides",
+        "body": "Améliorations majeures des performances sur tous les modules."
+      },
+      "language": {
+        "title": "Nouveau : prise en charge multilingue",
+        "body": "La plateforme est maintenant disponible en anglais, français et swahili."
+      }
+    },
+    "guide": {
+      "shiftTitle": "Ouvrir la journée avec un shift",
+      "shiftBody": "Un caissier ouvre un shift sur une caisse libre et saisit le fond de caisse. Les ventes restent sur ce shift jusqu'à la clôture.",
+      "sellTitle": "Vendre au point de vente",
+      "sellBody": "Choisissez le magasin, ajoutez les produits, puis encaissez. Le ticket, la taxe et le mouvement de stock sont enregistrés avec le shift ouvert.",
+      "stockTitle": "Tenir le stock et le catalogue à jour",
+      "stockBody": "Produits, catégories, prix et quantités sont dans le catalogue et l'inventaire. Réceptionnez et comptez avant que la quantité en rayon ne dérive.",
+      "closeTitle": "Clôturer le shift et lire la journée",
+      "closeBody": "Comptez la caisse, saisissez le montant réel, puis clôturez le shift. Les rapports montrent ensuite le chiffre, les commandes et le stock.",
+      "hubTitle": "Commandes externes et hub clients",
+      "hubBody": "Commandes App Externe suit les commandes mobiles. Le hub clients couvre les comptes liés, les demandes de liaison et les paiements."
+    },
+    "lessons": {
+      "shift": "Ouvrir et clôturer un shift",
+      "shiftMeta": "Caisse, fond de caisse et écart",
+      "pay": "Encaisser un paiement",
+      "payMeta": "Espèces, carte et monnaie",
+      "stock": "Réceptionner le stock",
+      "stockMeta": "Approvisionnements, comptages et alertes",
+      "hub": "Hub clients",
+      "hubMeta": "Demandes de liaison et commandes mobiles",
+      "report": "Lire le rapport du jour",
+      "reportMeta": "Chiffre, tickets et stock"
+    },
+    "faq": {
+      "q1": "Pourquoi je ne peux pas ouvrir un shift ?",
+      "a1": "L'utilisateur connecté doit être caissier, avoir un magasin sélectionné et une caisse qui n'est pas déjà ouverte.",
+      "q2": "Où apparaissent les commandes de l'application mobile ?",
+      "a2": "Ouvrez Commandes App Externe. Les chiffres de ces commandes sont dans Analyses App Externe.",
+      "q3": "Comment changer de magasin ?",
+      "a3": "Utilisez le sélecteur de magasin dans la barre du haut. Stock, ventes et shifts suivent le magasin choisi.",
+      "q4": "Qui peut ouvrir le hub clients ?",
+      "a4": "Toute personne connectée au panneau admin peut ouvrir les demandes de liaison, les utilisateurs liés, les commandes mobiles et les paiements.",
+      "q5": "Comment expliquer un écart de caisse ?",
+      "a5": "À la clôture, saisissez le cash compté et un motif si le tiroir ne correspond pas au montant attendu.",
+      "q6": "Comment changer la langue ?",
+      "a6": "Utilisez le sélecteur de langue dans la barre du haut. L'espace est disponible en français, anglais et swahili."
+    },
+    "support": {
+      "intro": "Décrivez ce qui vous bloque. Le bouton ouvre votre messagerie avec l'objet et le message déjà remplis.",
+      "subject": "Objet",
+      "message": "Message",
+      "send": "Ouvrir dans l'e-mail",
+      "subjectPh": "Le shift ne se clôture pas",
+      "messagePh": "Ce que vous faisiez, le magasin, et ce que vous attendiez.",
+      "channelTitle": "Quoi indiquer",
+      "channelBody": "Le nom du magasin, la page, et l'heure. Cela suffit pour reproduire le problème."
+    },
+    "about": {
+      "lead": "L'espace pour la vente, le stock, les achats et les comptes clients.",
+      "point1": "Point de vente, shifts et commandes",
+      "point2": "Catalogue, inventaire et achats",
+      "point3": "Hub clients et commandes application externe",
+      "point4": "Rapports du magasin et de la société"
+    }
+  },
   "filters": {
     "search": "Rechercher",
     "apply": "Filtrer",
@@ -72,22 +184,30 @@
     "expenseTrackerHub": "Suivi des dépenses",
     "syncDevicesHub": "Sync et appareils",
     "settingsHub": "Paramètres",
-    "spaceOrdersHub": "Commandes ITARA Space",
+    "spaceOrdersHub": "Commandes App Externe",
     "customerHub": "Hub clients",
+    "helpHub": "Aide et support",
+    "helpItems": {
+      "guide": "Guide utilisateur",
+      "tutorials": "Tutoriels vidéo",
+      "faqs": "FAQ",
+      "support": "Support et assistance",
+      "about": "À propos"
+    },
     "customerHubItems": {
       "dashboard": "Tableau de bord",
       "linkRequests": "Demandes de liaison",
       "linkedUsers": "Utilisateurs liés",
       "mobileOrders": "Commandes mobiles",
-      "payments": "Paiements"
+      "payments": "Paiements clients"
     },
     "settingsItems": {
       "subscription": "Abonnement",
       "company": "Company Settings",
       "currency": "Devise",
-      "spaceOrders": "Commandes ITARA Space",
-      "orders": "Commandes",
-      "analytics": "Analytique",
+      "spaceOrders": "Commandes App Externe",
+      "orders": "Commandes App Externe",
+      "analytics": "Analyses App Externe",
       "merchantQr": "QR marchand",
       "appVersions": "Versions de l'application",
       "design": "Système de design"
@@ -496,6 +616,8 @@
     "editBranch": "Modifier la succursale",
     "addStore": "Ajouter un magasin",
     "editStore": "Modifier le magasin",
+    "mainStore": "Magasin principal",
+    "mainStoreHint": "Un seul magasin peut être principal. Le désigner remplace l’actuel.",
     "addWarehouse": "Ajouter un entrepôt",
     "editWarehouse": "Modifier l'entrepôt",
     "addDevice": "Ajouter un appareil",
@@ -1467,6 +1589,7 @@
       "check_out": "Check-out",
       "sign": "Signer",
       "print": "Imprimer",
+      "once": "Bon et bon de cuisine une seule fois",
       "respond": "Répondre",
       "assign": "Assigner",
       "update_condition": "Mettre à jour l'état",
@@ -1606,6 +1729,7 @@
     "image": "Photo",
     "gallery": "Galerie photos",
     "galleryAfterSave": "Enregistrez le produit pour ajouter des photos.",
+    "photoOnSave": "Cette photo sera enregistrée avec le produit.",
     "uploadImage": "Importer une photo",
     "pickFromGallery": "Galerie du catalogue",
     "galleryPickHint": "Toutes les photos du catalogue. Choisissez-en une seule pour cet article.",
@@ -2460,6 +2584,7 @@
     "refresh": "Actualiser",
     "platform": "Plateforme",
     "allPlatforms": "Toutes les plateformes",
+    "all": "Toutes",
     "search": "Rechercher des versions",
     "searchPlaceholder": "Rechercher des versions...",
     "count": "{n} versions",
@@ -2475,8 +2600,8 @@
     "files": "Fichiers",
     "versionLine": "Version {version} · Build {build}",
     "platforms": {
-      "android": "android",
-      "desktop": "desktop"
+      "android": "Android",
+      "desktop": "Desktop"
     },
     "columns": {
       "version": "Version",
@@ -2712,15 +2837,79 @@
     "recentOrders": "Commandes récentes",
     "recentPayments": "Paiements récents",
     "empty": "Aucune activité récente",
+    "calm": "Rien n'attend de vous pour l'instant.",
+    "calmHint": "La première commande mobile prendra cette place.",
+    "roomRequests": "Traiter une demande",
+    "roomRequestsHint": "Acceptez ou refusez une liaison avec un client.",
+    "roomLinks": "Clients déjà liés",
+    "roomLinksHint": "Retrouvez les personnes connectées à la boutique.",
+    "roomOrders": "Commandes de l'application",
+    "roomOrdersHint": "Suivez ce qui a été commandé depuis le mobile.",
+    "roomPayments": "Paiements reçus",
+    "roomPaymentsHint": "Vérifiez ce qui est déjà encaissé.",
+    "open": "Ouvrir",
     "reference": "Référence",
     "counterparty": "Contrepartie",
     "amount": "Montant",
     "status": "Statut",
     "date": "Date"
   },
+  "customerPaymentsPage": {
+    "title": "Paiements clients",
+    "subtitle": "Suivez tous les paiements reçus depuis l'application mobile",
+    "refresh": "Actualiser",
+    "kpis": "Indicateurs",
+    "totalReceived": "Total reçu",
+    "transactions": "{n} transactions",
+    "refunds": "Remboursements",
+    "refundsHint": "Total remboursé",
+    "fees": "Frais",
+    "feesHint": "Total frais prélevés",
+    "pending": "En attente",
+    "pendingHint": "Pas encore confirmés",
+    "trend": "Tendance des paiements",
+    "search": "Rechercher par référence, client...",
+    "status": "Statut",
+    "type": "Type",
+    "allStatuses": "Tous les statuts",
+    "allTypes": "Tous les types",
+    "statusCompleted": "Réglé",
+    "statusPending": "En attente",
+    "statusFailed": "Échoué",
+    "typeOrder": "Commande",
+    "typeTip": "Pourboire",
+    "typeRefund": "Remboursement",
+    "typeDirect": "Paiement direct",
+    "empty": "Aucun paiement trouvé"
+  },
+  "externalAnalytics": {
+    "title": "Analyses App Externe",
+    "subtitle": "Données réelles des commandes application mobile (POS / comptes clients)",
+    "period7": "7 derniers jours",
+    "period30": "30 derniers jours",
+    "period90": "90 derniers jours",
+    "refresh": "Actualiser",
+    "revenue": "Chiffre d'affaires",
+    "totalOrders": "Total commandes",
+    "uniqueCustomers": "Clients uniques",
+    "averageBasket": "Panier moyen",
+    "vsPrevious": "vs période précédente",
+    "uniqueShare": "{pct}% du volume en clients distincts",
+    "averageHint": "Montant moyen par commande",
+    "topLocations": "Top localisations",
+    "noLocations": "Aucune localisation agrégée sur cette période.",
+    "orderTypes": "Types de commandes",
+    "noOrders": "Aucune commande sur cette période.",
+    "paymentMethods": "Méthodes de paiement",
+    "noPayments": "Aucune information de paiement sur cette période.",
+    "dailyTrend": "Tendance quotidienne",
+    "noTrend": "Pas encore de série journalière sur cette période.",
+    "ordersCount": "{n} commandes"
+  },
   "linkRequestsPage": {
     "title": "Demandes de liaison",
     "subtitle": "Gérez les demandes de liaison des clients de l'application mobile",
+    "all": "Toutes",
     "matching": "Correspondances",
     "pending": "Demandes en attente",
     "linked": "Utilisateurs liés",
@@ -2736,6 +2925,70 @@
     "date": "Date",
     "empty": "Aucune demande de liaison",
     "allStatuses": "Tous les statuts"
+  },
+  "linkedUsersPage": {
+    "title": "Utilisateurs liés",
+    "subtitle": "Consultez tous les utilisateurs connectés à votre société",
+    "refresh": "Actualiser",
+    "all": "Tous",
+    "employee": "Employé",
+    "supplier": "Fournisseur",
+    "customer": "Client",
+    "search": "Rechercher par nom, e-mail...",
+    "empty": "Aucun utilisateur lié",
+    "name": "Nom",
+    "email": "E-mail",
+    "type": "Type"
+  },
+  "externalAppOrdersPage": {
+    "title": "Commandes App Externe",
+    "subtitle": "Validation des commandes clients, suivi et livraison avec confirmation par QR.",
+    "refresh": "Actualiser",
+    "export": "Exporter",
+    "kpis": "Indicateurs",
+    "totalOrders": "Total Commandes",
+    "filteredPeriod": "{n} sur période filtrée",
+    "completionRate": "Taux complétés (paiement)",
+    "completedCount": "{n} complétées",
+    "typeFilter": "Type de commande",
+    "all": "Toutes",
+    "delivery": "Livraison",
+    "dineIn": "Sur place",
+    "takeaway": "À emporter",
+    "search": "Rechercher par numéro, nom, téléphone...",
+    "filters": "Filtres",
+    "allStatuses": "Tous les statuts",
+    "allSources": "Toutes les sources",
+    "empty": "Aucune commande trouvée",
+    "view": "Voir",
+    "qrConfirmed": "Confirmé par QR",
+    "proximityKm": "{km} km",
+    "col": {
+      "reference": "N° Commande",
+      "customer": "Client",
+      "store": "Magasin",
+      "source": "Source",
+      "type": "Type",
+      "delivery": "Livraison",
+      "amount": "Montant",
+      "status": "Statut",
+      "date": "Date",
+      "proximity": "Proximité",
+      "actions": "Actions"
+    },
+    "source": {
+      "android": "Android",
+      "ios": "iOS",
+      "web": "Web"
+    },
+    "status": {
+      "pending": "En attente",
+      "validated": "Validée",
+      "preparing": "En préparation",
+      "out_for_delivery": "En livraison",
+      "delivered": "Livrée",
+      "cancelled": "Annulée"
+    }
   },
   "mobileOrdersPage": {
     "title": "Commandes mobiles",
@@ -4422,7 +4675,11 @@
     "unsavedMessage": "Des modifications ne sont pas enregistrées. Les abandonner ?",
     "discard": "Abandonner",
     "keepEditing": "Continuer la modification",
-    "reset": "Réinitialiser"
+    "reset": "Réinitialiser",
+    "pagination": "Pagination",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "showing": "{from}–{to} sur {total}"
   },
   "realtime": {
     "connected": "Mises à jour en direct connectées",

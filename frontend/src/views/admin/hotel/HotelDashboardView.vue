@@ -307,7 +307,7 @@ function compactNumber(value: number) {
       <LoadingBlock v-else-if="loading && !docs.length" variant="cards" :rows="4" :label="t('common.loading')" />
 
       <template v-else>
-        <section class="hd-kpis stagger-in">
+        <section class="hd-kpis stagger-in kpi-plain">
           <KpiCard
             v-for="card in kpis"
             :key="card.key"

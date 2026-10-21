@@ -16,6 +16,8 @@ import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
 import { computeStayTaxes, findHotelSettings, moneyFromSettingsCents } from '../../../utils/hotelSettings'
 import HotelChrome from './HotelChrome.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Doc = Record<string, any>
 type SpaceKind = 'guest_room' | 'conference' | 'reception'
@@ -122,6 +124,7 @@ const filteredReservations = computed(() => {
     return hay.includes(q)
   })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredReservations)
 
 const activeFilterCount = computed(() => {
   let n = 0
@@ -680,7 +683,7 @@ async function remove(row: Doc) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in filteredReservations" :key="row.id">
+              <tr v-for="row in paged" :key="row.id">
                 <td>
                   <div class="rsv__ref">
                     <strong>{{ bookingCode(row) }}</strong>
@@ -729,6 +732,7 @@ async function remove(row: Doc) {
             </tbody>
           </table>
           <p v-if="!filteredReservations.length" class="rsv__empty">{{ t('hotel.reservations.empty') }}</p>
+          <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         </div>
       </div>
     </div>

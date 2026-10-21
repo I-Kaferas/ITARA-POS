@@ -13,6 +13,8 @@ import { useContextStore } from '../../../stores/context'
 import type { Unit } from '../../../types'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
@@ -25,6 +27,7 @@ const filtered = computed(() => store.units.filter(unit =>
   matchesSearch(`${unit.code} ${unit.name} ${unit.symbol ?? ''}`, filters.value.search)
   && matchesActive(unit.is_active, filters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 const form = ref({ code: '', name: '', symbol: '', is_fractional: false, is_active: true })
 const storeIds = ref<string[]>([])
 
@@ -102,7 +105,7 @@ async function remove(unit: Unit) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="unit in filtered" :key="unit.id" class="hover:bg-slate-50">
+            <tr v-for="unit in paged" :key="unit.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono">{{ unit.code }}</td>
               <td class="px-4 py-3 font-medium">{{ unit.name }}</td>
               <td class="px-4 py-3">{{ unit.symbol || '—' }}</td>
@@ -116,6 +119,7 @@ async function remove(unit: Unit) {
           </tbody>
         </table>
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
 

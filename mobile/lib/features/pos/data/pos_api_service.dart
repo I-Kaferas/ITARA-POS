@@ -6,7 +6,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/config/terminal_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../data/local/document_dao.dart';
 import '../../../data/local/local_database.dart';
 import '../../../sync/local_master_server.dart';
 import '../../../sync/offline_store.dart';
@@ -108,6 +110,36 @@ class PosApiService {
       }
     }
     throw lastError ?? Exception('Catalog fetch failed');
+  }
+
+  Future<Map<String, String>> fetchPosImages() async {
+    if (_storeId.isEmpty) return const {};
+    Object? lastError;
+    for (final base in _bases) {
+      try {
+        final response = await _client
+            .get(Uri.parse('$base/stores/$_storeId/pos/images'), headers: _headers)
+            .timeout(const Duration(seconds: 8));
+        if (response.statusCode != 200) {
+          lastError = Exception('Image index failed: HTTP ${response.statusCode}');
+          continue;
+        }
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final rows = body['data'] as List<dynamic>? ?? const [];
+        final urls = <String, String>{};
+        for (final row in rows.whereType<Map>()) {
+          final id = row['product_id']?.toString().trim() ?? '';
+          final url = row['cdn_url']?.toString().trim() ?? '';
+          if (id.isEmpty || url.isEmpty) continue;
+          urls[id] = url;
+        }
+        return urls;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (lastError != null) throw lastError;
+    return const {};
   }
 
   Future<List<PosCustomer>> searchCustomers(String query) {
@@ -632,6 +664,43 @@ class PosApiService {
     return int.tryParse('$value') ?? 0;
   }
 
+  Future<Map<String, dynamic>> _localCompany(TerminalConfig config) async {
+    final fallback = <String, dynamic>{
+      'name': config.brandName.trim().isEmpty ? 'ITARA' : config.brandName.trim(),
+      'currency_code': config.currencyCode,
+    };
+    try {
+      final rows = await DataModelDaos.organizations.list(limit: 1);
+      if (rows.isEmpty) return fallback;
+      final org = rows.first;
+      final settings = org['settings'] is Map
+          ? Map<String, dynamic>.from(org['settings'] as Map)
+          : <String, dynamic>{};
+      final name = org['name']?.toString().trim();
+      return {
+        'name': name == null || name.isEmpty ? fallback['name'] : name,
+        'trade_name': org['trade_name'],
+        'legal_name': org['legal_name'],
+        'tax_id': org['tax_id'],
+        'registration_number': org['registration_number'],
+        'email': org['email'],
+        'logo_url': (settings['invoice_logo_url']?.toString().trim().isNotEmpty ?? false)
+            ? settings['invoice_logo_url']
+            : org['logo_url'],
+        'address': org['address'],
+        'currency_code': org['currency_code'] ?? config.currencyCode,
+        'fiscal_center': settings['fiscal_center'] ?? settings['dpmc'],
+        'activity_sector': settings['activity_sector'],
+        'vat_registered': settings['vat_registered'] == true,
+        'vat_exempt': settings['vat_status']?.toString() == 'exempt',
+        'subject_to_tc': settings['subject_to_tc'] == true,
+        'subject_to_pf': settings['subject_to_pf'] == true,
+      };
+    } catch (_) {
+      return fallback;
+    }
+  }
+
   Future<Map<String, dynamic>?> _localDocument(String saleId, {required String documentType}) async {
     final sale = await OfflineStore.instance.localSaleById(saleId);
     if (sale == null) return null;
@@ -667,17 +736,18 @@ class PosApiService {
     final payload = {
       'document_type': documentType,
       'format': config.printerFormat,
-      'company': {
-        'name': config.brandName.trim().isEmpty ? 'ITARA' : config.brandName.trim(),
-        'currency_code': config.currencyCode,
-      },
+      'company': await _localCompany(config),
+      'service_mode': sale['service_mode']?.toString() ?? '',
       'branch': {'name': config.deviceName},
       'document_number': reference,
       'sale_reference': reference,
       'sale_id': sale['id']?.toString() ?? saleId,
       'date': sale['created_at']?.toString() ?? '',
       'cashier': {'name': sale['cashier_name']?.toString() ?? config.cashierName},
-      'customer': {'name': sale['customer_name']?.toString()},
+      'customer': {
+        'name': sale['customer_name']?.toString(),
+        'tax_id': sale['customer_tax_id']?.toString(),
+      },
       'items': items,
       'subtotal': _money(sale['subtotal'] ?? total),
       'discount_total': _money(sale['discount_total']),

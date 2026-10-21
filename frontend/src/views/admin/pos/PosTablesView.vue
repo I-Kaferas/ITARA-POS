@@ -8,6 +8,8 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import Badge from '../../../components/ui/Badge.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { useConfirm } from '../../../composables/useConfirm'
@@ -133,6 +135,7 @@ const visibleTables = computed(() => {
   if (!zoneFilter.value) return tables.value
   return tables.value.filter(table => table.zone_id === zoneFilter.value)
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(visibleTables)
 
 const transferTargets = computed(() =>
   tables.value.filter(table => table.id !== selected.value?.id && table.is_active && table.status !== 'occupied' && table.status !== 'inactive'),
@@ -518,7 +521,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
 
       <div v-else class="tables-grid">
         <button
-          v-for="table in visibleTables"
+          v-for="table in paged"
           :key="table.id"
           type="button"
           class="table-card"
@@ -544,6 +547,7 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
           </template>
         </button>
       </div>
+      <ListPager v-if="visibleTables.length" :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
 
       <aside v-if="selected && selected.status !== 'available'" class="table-drawer">
         <header>

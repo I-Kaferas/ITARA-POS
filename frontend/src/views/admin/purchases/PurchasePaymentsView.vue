@@ -5,6 +5,8 @@ import PurchasingLayout from '../../../components/purchasing/PurchasingLayout.vu
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { PurchaseInvoice } from '../../../types'
@@ -65,6 +67,24 @@ const filteredPayments = computed(() =>
     return true
   }),
 )
+
+const {
+  page: outstandingPage,
+  lastPage: outstandingLastPage,
+  total: outstandingTotal,
+  perPage: outstandingPerPage,
+  paged: pagedOutstanding,
+  setPage: setOutstandingPage,
+} = useClientPager(filteredOutstanding)
+
+const {
+  page: paymentsPage,
+  lastPage: paymentsLastPage,
+  total: paymentsTotal,
+  perPage: paymentsPerPage,
+  paged: pagedPayments,
+  setPage: setPaymentsPage,
+} = useClientPager(filteredPayments)
 
 onMounted(load)
 
@@ -129,7 +149,7 @@ async function submitPay() {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="invoice in filteredOutstanding" :key="invoice.id">
+            <tr v-for="invoice in pagedOutstanding" :key="invoice.id">
               <td class="px-4 py-3 font-mono">{{ invoice.invoice_number }}</td>
               <td class="px-4 py-3">{{ invoice.supplier?.name ?? '—' }}</td>
               <td class="px-4 py-3 text-right">{{ formatMoney(invoice.total - invoice.paid_amount) }}</td>
@@ -140,6 +160,13 @@ async function submitPay() {
           </tbody>
         </table>
         <p v-if="!filteredOutstanding.length" class="px-4 py-6 text-center text-sm text-slate-500">{{ t('org.empty') }}</p>
+        <ListPager
+          :page="outstandingPage"
+          :last-page="outstandingLastPage"
+          :total="outstandingTotal"
+          :per-page="outstandingPerPage"
+          @change="setOutstandingPage"
+        />
       </div>
 
       <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -158,7 +185,7 @@ async function submitPay() {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in filteredPayments" :key="row.id">
+            <tr v-for="row in pagedPayments" :key="row.id">
               <td class="px-4 py-3 font-mono">{{ row.payment_number }}</td>
               <td class="px-4 py-3 font-mono">{{ row.invoice?.invoice_number ?? '—' }}</td>
               <td class="px-4 py-3">{{ row.invoice?.supplier?.name ?? '—' }}</td>
@@ -169,6 +196,13 @@ async function submitPay() {
           </tbody>
         </table>
         <p v-if="!filteredPayments.length" class="px-4 py-6 text-center text-sm text-slate-500">{{ t('org.empty') }}</p>
+        <ListPager
+          :page="paymentsPage"
+          :last-page="paymentsLastPage"
+          :total="paymentsTotal"
+          :per-page="paymentsPerPage"
+          @change="setPaymentsPage"
+        />
       </div>
     </div>
 

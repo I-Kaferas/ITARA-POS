@@ -5,6 +5,118 @@
     "tagline": "ITARA NEXUS Business CORE",
     "welcome": "Welcome to the professional POS system"
   },
+  "helpCenter": {
+    "guideTitle": "User Guide",
+    "guideSubtitle": "Step-by-step documentation to help you get started",
+    "centerTitle": "Help Center",
+    "searchPlaceholder": "Search articles...",
+    "noArticles": "No articles match this search.",
+    "tutorialsTitle": "Video Tutorials",
+    "tutorialsSubtitle": "Watch video guides for visual walkthroughs",
+    "videoBadge": "Video",
+    "watchVideo": "Watch Video",
+    "faqsTitle": "FAQs",
+    "faqsSubtitle": "Answers to the questions teams ask most",
+    "supportTitle": "Support & Helpdesk",
+    "supportSubtitle": "Reach someone when the store is blocked",
+    "aboutTitle": "Announcements",
+    "aboutSubtitle": "Latest updates and news",
+    "kinds": {
+      "update": "Update",
+      "new": "New"
+    },
+    "title": "Help & Support",
+    "tutorialNote": "These lessons follow the flows in the app. Video files are not attached yet.",
+    "articles": {
+      "start": {
+        "title": "Getting Started with the Platform",
+        "body": "A quick introduction to navigating the dashboard and key features."
+      },
+      "roles": {
+        "title": "User Roles and Permissions",
+        "body": "Understanding who can see and do what in the system."
+      },
+      "reports": {
+        "title": "Reports and Analytics",
+        "body": "How to generate, customize, and export business reports."
+      }
+    },
+    "videos": {
+      "dashboard": {
+        "title": "Navigating the Dashboard",
+        "body": "A quick tour of the main dashboard and how to customize it."
+      },
+      "account": {
+        "title": "Managing Your Account and Profile",
+        "body": "Update your personal information, password, and notification preferences."
+      }
+    },
+    "announcements": {
+      "performance": {
+        "title": "Platform Update: Faster Performance",
+        "body": "Major performance improvements across all modules."
+      },
+      "language": {
+        "title": "New: Multi-Language Support",
+        "body": "The platform is now available in English, French, and Swahili."
+      }
+    },
+    "guide": {
+      "shiftTitle": "Open the day on a shift",
+      "shiftBody": "A cashier opens a shift on a free register and enters the opening cash. Sales stay on that shift until it is closed.",
+      "sellTitle": "Sell at the point of sale",
+      "sellBody": "Choose the store, add products, then take payment. The ticket, tax, and stock movement are recorded with the open shift.",
+      "stockTitle": "Keep stock and the catalog current",
+      "stockBody": "Products, categories, prices, and quantities live in the catalog and inventory menus. Receive goods and count stock before the shelf quantity drifts.",
+      "closeTitle": "Close the shift and read the day",
+      "closeBody": "Count the cash, enter the actual amount, and close the shift. Reports then show revenue, orders, and stock for that day.",
+      "hubTitle": "External orders and the customer hub",
+      "hubBody": "External App Orders tracks mobile orders. Customer Hub covers linked accounts, link requests, and customer payments."
+    },
+    "lessons": {
+      "shift": "Opening and closing a shift",
+      "shiftMeta": "Cash drawer, register, and variance",
+      "pay": "Taking a payment",
+      "payMeta": "Cash, card, and change",
+      "stock": "Receiving stock",
+      "stockMeta": "Supplies, counts, and alerts",
+      "hub": "Customer hub",
+      "hubMeta": "Link requests and mobile orders",
+      "report": "Reading the daily report",
+      "reportMeta": "Revenue, tickets, and stock"
+    },
+    "faq": {
+      "q1": "Why can't I open a shift?",
+      "a1": "The signed-in user needs a cashier role, a selected store, and a register that is not already open.",
+      "q2": "Where do mobile app orders appear?",
+      "a2": "Open External App Orders. Figures for those orders are on External app analytics.",
+      "q3": "How do I switch store?",
+      "a3": "Use the store control in the top bar. Stock, sales, and shifts follow the store you select.",
+      "q4": "Who can open Customer Hub?",
+      "a4": "Anyone signed into the admin panel can open link requests, linked users, mobile orders, and customer payments.",
+      "q5": "How is a shift variance explained?",
+      "a5": "When you close a shift, enter the counted cash and a reason if the drawer does not match the expected amount.",
+      "q6": "How do I change the language?",
+      "a6": "Use the language control in the top bar. The workspace is available in French, English, and Swahili."
+    },
+    "support": {
+      "intro": "Describe what blocked you. The button opens your email app with the subject and message filled in.",
+      "subject": "Subject",
+      "message": "Message",
+      "send": "Open in email",
+      "subjectPh": "Shift will not close",
+      "messagePh": "What you were doing, the store, and what you expected.",
+      "channelTitle": "What to include",
+      "channelBody": "Store name, the page you were on, and the time. That is enough to reproduce the issue."
+    },
+    "about": {
+      "lead": "The workspace for selling, stock, purchasing, and customer accounts.",
+      "point1": "Point of sale, shifts, and orders",
+      "point2": "Catalog, inventory, and purchasing",
+      "point3": "Customer Hub and external app orders",
+      "point4": "Reports for the store and the company"
+    }
+  },
   "filters": {
     "search": "Search",
     "apply": "Filter",
@@ -72,22 +184,30 @@
     "expenseTrackerHub": "Expense Tracker",
     "syncDevicesHub": "Sync & Devices",
     "settingsHub": "Settings",
-    "spaceOrdersHub": "ITARA Space Orders",
+    "spaceOrdersHub": "External App Orders",
     "customerHub": "Customer Hub",
+    "helpHub": "Help & Support",
+    "helpItems": {
+      "guide": "User Guide",
+      "tutorials": "Video Tutorials",
+      "faqs": "FAQs",
+      "support": "Support & Helpdesk",
+      "about": "About"
+    },
     "customerHubItems": {
       "dashboard": "Dashboard",
       "linkRequests": "Link Requests",
       "linkedUsers": "Linked Users",
       "mobileOrders": "Mobile Orders",
-      "payments": "Payments"
+      "payments": "Customer Payments"
     },
     "settingsItems": {
       "subscription": "Subscription",
       "company": "Company Settings",
       "currency": "Currency",
-      "spaceOrders": "ITARA Space Orders",
-      "orders": "Orders",
-      "analytics": "Analytics",
+      "spaceOrders": "External App Orders",
+      "orders": "External App Orders",
+      "analytics": "External app analytics",
       "merchantQr": "Merchant QR",
       "appVersions": "App Versions",
       "design": "Design system"
@@ -485,6 +605,8 @@
     "editBranch": "Edit branch",
     "addStore": "Add store",
     "editStore": "Edit store",
+    "mainStore": "Main store",
+    "mainStoreHint": "Only one store can be the main store. Choosing it replaces the current one.",
     "addWarehouse": "Add warehouse",
     "editWarehouse": "Edit warehouse",
     "addDevice": "Add device",
@@ -1464,6 +1586,7 @@
       "check_out": "Check out",
       "sign": "Sign",
       "print": "Print",
+      "once": "Receipt and kitchen ticket once only",
       "respond": "Respond",
       "assign": "Assign",
       "update_condition": "Update condition",
@@ -1603,6 +1726,7 @@
     "image": "Photo",
     "gallery": "Photo gallery",
     "galleryAfterSave": "Save the product to add photos.",
+    "photoOnSave": "This photo will be saved with the product.",
     "uploadImage": "Upload a photo",
     "pickFromGallery": "Catalog gallery",
     "galleryPickHint": "Every photo in the catalog. Choose one for this item.",
@@ -2457,6 +2581,7 @@
     "refresh": "Refresh",
     "platform": "Platform",
     "allPlatforms": "All Platforms",
+    "all": "All",
     "search": "Search versions",
     "searchPlaceholder": "Search versions...",
     "count": "{n} versions",
@@ -2472,8 +2597,8 @@
     "files": "Files",
     "versionLine": "Version {version} · Build {build}",
     "platforms": {
-      "android": "android",
-      "desktop": "desktop"
+      "android": "Android",
+      "desktop": "Desktop"
     },
     "columns": {
       "version": "Version",
@@ -2709,15 +2834,79 @@
     "recentOrders": "Recent Orders",
     "recentPayments": "Recent Payments",
     "empty": "No recent activity",
+    "calm": "Nothing is waiting on you right now.",
+    "calmHint": "The first mobile order will take this place.",
+    "roomRequests": "Review a request",
+    "roomRequestsHint": "Accept or decline a customer link.",
+    "roomLinks": "Linked customers",
+    "roomLinksHint": "See who is already connected to the store.",
+    "roomOrders": "App orders",
+    "roomOrdersHint": "Follow what was ordered from the mobile app.",
+    "roomPayments": "Payments received",
+    "roomPaymentsHint": "Check what has already been collected.",
+    "open": "Open",
     "reference": "Reference",
     "counterparty": "Counterparty",
     "amount": "Amount",
     "status": "Status",
     "date": "Date"
   },
+  "customerPaymentsPage": {
+    "title": "Customer Payments",
+    "subtitle": "Track all payments received from the mobile app",
+    "refresh": "Refresh",
+    "kpis": "Indicators",
+    "totalReceived": "Total received",
+    "transactions": "{n} transactions",
+    "refunds": "Refunds",
+    "refundsHint": "Total refunded",
+    "fees": "Fees",
+    "feesHint": "Total fees collected",
+    "pending": "Pending",
+    "pendingHint": "Awaiting",
+    "trend": "Payment trend",
+    "search": "Search by reference, customer...",
+    "status": "Status",
+    "type": "Type",
+    "allStatuses": "All statuses",
+    "allTypes": "All types",
+    "statusCompleted": "Completed",
+    "statusPending": "Pending",
+    "statusFailed": "Failed",
+    "typeOrder": "Order",
+    "typeTip": "Tip",
+    "typeRefund": "Refund",
+    "typeDirect": "Direct payment",
+    "empty": "No payments found"
+  },
+  "externalAnalytics": {
+    "title": "External app analytics",
+    "subtitle": "Live figures from mobile app orders (POS / customer accounts)",
+    "period7": "Last 7 days",
+    "period30": "Last 30 days",
+    "period90": "Last 90 days",
+    "refresh": "Refresh",
+    "revenue": "Revenue",
+    "totalOrders": "Total orders",
+    "uniqueCustomers": "Unique customers",
+    "averageBasket": "Average basket",
+    "vsPrevious": "vs previous period",
+    "uniqueShare": "{pct}% of volume from distinct customers",
+    "averageHint": "Average amount per order",
+    "topLocations": "Top locations",
+    "noLocations": "No aggregated location for this period.",
+    "orderTypes": "Order types",
+    "noOrders": "No orders in this period.",
+    "paymentMethods": "Payment methods",
+    "noPayments": "No payment information for this period.",
+    "dailyTrend": "Daily trend",
+    "noTrend": "No daily series for this period yet.",
+    "ordersCount": "{n} orders"
+  },
   "linkRequestsPage": {
     "title": "Link Requests",
     "subtitle": "Manage link requests from mobile app customers",
+    "all": "All",
     "matching": "Matching",
     "pending": "Pending Requests",
     "linked": "Linked Users",
@@ -2733,6 +2922,70 @@
     "date": "Date",
     "empty": "No link requests",
     "allStatuses": "All statuses"
+  },
+  "linkedUsersPage": {
+    "title": "Linked Users",
+    "subtitle": "View all users connected to your company",
+    "refresh": "Refresh",
+    "all": "All",
+    "employee": "Employee",
+    "supplier": "Supplier",
+    "customer": "Customer",
+    "search": "Search by name, email...",
+    "empty": "No linked users found",
+    "name": "Name",
+    "email": "Email",
+    "type": "Type"
+  },
+  "externalAppOrdersPage": {
+    "title": "External App Orders",
+    "subtitle": "Validate customer orders, track delivery, and confirm with QR.",
+    "refresh": "Refresh",
+    "export": "Export",
+    "kpis": "Indicators",
+    "totalOrders": "Total Orders",
+    "filteredPeriod": "{n} in filtered period",
+    "completionRate": "Completion rate (payment)",
+    "completedCount": "{n} completed",
+    "typeFilter": "Order type",
+    "all": "All",
+    "delivery": "Delivery",
+    "dineIn": "Dine in",
+    "takeaway": "Takeaway",
+    "search": "Search by number, name, phone...",
+    "filters": "Filters",
+    "allStatuses": "All statuses",
+    "allSources": "All sources",
+    "empty": "No orders found",
+    "view": "View",
+    "qrConfirmed": "QR confirmed",
+    "proximityKm": "{km} km",
+    "col": {
+      "reference": "Order #",
+      "customer": "Customer",
+      "store": "Store",
+      "source": "Source",
+      "type": "Type",
+      "delivery": "Delivery",
+      "amount": "Amount",
+      "status": "Status",
+      "date": "Date",
+      "proximity": "Proximity",
+      "actions": "Actions"
+    },
+    "source": {
+      "android": "Android",
+      "ios": "iOS",
+      "web": "Web"
+    },
+    "status": {
+      "pending": "Pending",
+      "validated": "Validated",
+      "preparing": "Preparing",
+      "out_for_delivery": "Out for delivery",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    }
   },
   "mobileOrdersPage": {
     "title": "Mobile Orders",
@@ -4419,7 +4672,11 @@
     "unsavedMessage": "You have unsaved changes. Discard them?",
     "discard": "Discard",
     "keepEditing": "Keep editing",
-    "reset": "Reset"
+    "reset": "Reset",
+    "pagination": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "showing": "{from}–{to} of {total}"
   },
   "realtime": {
     "connected": "Live updates connected",

@@ -11,6 +11,7 @@ use App\Services\Authorization\AuthorizationService;
 use App\Services\Catalog\StoreCatalogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StoreController extends Controller
 {
@@ -21,7 +22,7 @@ class StoreController extends Controller
     public function index(Branch $branch): JsonResponse
     {
         return response()->json([
-            'data' => $branch->stores()->orderBy('name')->get(),
+            'data' => $branch->stores()->orderByDesc('is_main')->orderBy('name')->get(),
         ]);
     }
 
@@ -50,14 +51,23 @@ class StoreController extends Controller
             'code' => ['required', 'string', 'max:50'],
             'kind' => ['nullable', 'in:store,boutique'],
             'is_active' => ['boolean'],
+            'is_main' => ['boolean'],
         ]);
+
+        $makeMain = (bool) ($data['is_main'] ?? false) || ! Store::query()->where('is_main', true)->exists();
+        unset($data['is_main']);
 
         $store = $branch->stores()->create([
             ...$data,
             'tenant_id' => app('tenant.id'),
             'kind' => $data['kind'] ?? 'store',
             'is_active' => $data['is_active'] ?? true,
+            'is_main' => false,
         ]);
+
+        if ($makeMain) {
+            $store->makeMain();
+        }
 
         $this->storeCatalogs->bootstrap($store);
 
@@ -76,16 +86,35 @@ class StoreController extends Controller
             'code' => ['sometimes', 'string', 'max:50'],
             'kind' => ['sometimes', 'in:store,boutique'],
             'is_active' => ['boolean'],
+            'is_main' => ['boolean'],
         ]);
 
+        $makeMain = array_key_exists('is_main', $data) && $data['is_main'];
+        unset($data['is_main']);
+
         $store->update($data);
+
+        if ($makeMain) {
+            $store->makeMain();
+        }
 
         return response()->json(['data' => $store->fresh()]);
     }
 
     public function destroy(Store $store): JsonResponse
     {
-        $store->delete();
+        DB::transaction(function () use ($store) {
+            $wasMain = $store->is_main;
+            if ($wasMain) {
+                $store->forceFill(['is_main' => false])->save();
+            }
+            $store->delete();
+
+            if ($wasMain) {
+                $next = Store::query()->orderBy('created_at')->orderBy('id')->first();
+                $next?->makeMain();
+            }
+        });
 
         return response()->json(['message' => 'Deleted.']);
     }

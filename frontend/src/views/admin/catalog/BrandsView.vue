@@ -13,6 +13,8 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Brand } from '../../../types'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -26,6 +28,7 @@ const filtered = computed(() => store.brands.filter(brand =>
   matchesSearch(`${brand.name} ${brand.slug}`, filters.value.search)
   && matchesActive(brand.is_active, filters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 const form = ref({ name: '', slug: '', description: '', is_active: true })
 const storeIds = ref<string[]>([])
 
@@ -100,7 +103,7 @@ async function remove(brand: Brand) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="brand in filtered" :key="brand.id" class="hover:bg-slate-50">
+            <tr v-for="brand in paged" :key="brand.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">{{ brand.name }}</td>
               <td class="px-4 py-3 font-mono text-slate-500">{{ brand.slug }}</td>
               <td class="px-4 py-3"><StatusBadge :active="brand.is_active" /></td>
@@ -112,6 +115,7 @@ async function remove(brand: Brand) {
           </tbody>
         </table>
         <p v-if="!filtered.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
 

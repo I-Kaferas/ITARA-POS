@@ -192,7 +192,10 @@ export const usePosStore = defineStore('pos', () => {
     }>>(
       `/stores/${storeId}/pos/catalog`,
     )
-    products.value = res.data.products ?? []
+    products.value = (res.data.products ?? []).map(product => ({
+      ...product,
+      primary_image_cdn_url: null,
+    }))
     categories.value = res.data.categories ?? []
     const catalogRegisters = res.data.registers
     if (Array.isArray(catalogRegisters) && catalogRegisters.length) {
@@ -201,6 +204,31 @@ export const usePosStore = defineStore('pos', () => {
         name: item.name,
         code: item.code,
       }))
+    }
+    void loadProductImages(storeId)
+  }
+
+  async function loadProductImages(storeId: string) {
+    try {
+      const res = await api.get<ApiItemResponse<Array<{ product_id: string; cdn_url: string }>>>(
+        `/stores/${storeId}/pos/images`,
+      )
+      const rows = (res.data ?? []).filter(row => row.cdn_url?.trim())
+      const chunkSize = 12
+      for (let index = 0; index < rows.length; index += chunkSize) {
+        if (currentStoreId.value !== storeId) return
+        const slice = rows.slice(index, index + chunkSize)
+        const urls = new Map(slice.map(row => [row.product_id, row.cdn_url.trim()]))
+        products.value = products.value.map(product => {
+          const url = urls.get(product.product_id)
+          return url ? { ...product, primary_image_cdn_url: url } : product
+        })
+        if (index + chunkSize < rows.length) {
+          await new Promise(resolve => window.setTimeout(resolve, 70))
+        }
+      }
+    } catch {
+      // Products stay usable without photos when the CDN index fails.
     }
   }
 

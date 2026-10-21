@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { useConfirm } from '../../../composables/useConfirm'
+import { useClientPager } from '../../../composables/useClientPager'
+import ListPager from '../../../components/ui/ListPager.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
@@ -58,6 +60,7 @@ const rows = computed(() =>
     return String(a.name ?? '').localeCompare(String(b.name ?? ''), undefined, { sensitivity: 'base' })
   }),
 )
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(rows)
 
 onMounted(load)
 
@@ -192,7 +195,7 @@ function buildingLabel(id?: string) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in rows" :key="row.id">
+              <tr v-for="row in paged" :key="row.id">
                 <td>{{ buildingLabel(row.building_id) }}</td>
                 <td class="font-semibold">{{ row.name }}</td>
                 <td>{{ row.display_order ?? 0 }}</td>
@@ -205,6 +208,7 @@ function buildingLabel(id?: string) {
             </tbody>
           </table>
           <p v-if="!rows.length && !loading" class="hotel-crud__empty">{{ t('hotel.wings.empty') }}</p>
+          <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         </div>
       </div>
     </div>

@@ -6,6 +6,9 @@ import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { extractApiErrorMessage } from '../../../api/client'
 import { useAuthStore } from '../../../stores/auth'
 import { useBackofficeStore } from '../../../stores/backoffice'
@@ -38,11 +41,16 @@ const menuId = ref<string | null>(null)
 
 const storeIdValue = storeId
 
-const roleSlugs = computed(() => (auth.user?.roles ?? []).map(role => role.slug))
+const roleSlugs = computed(() =>
+  (auth.user?.roles ?? [])
+    .map(role => (typeof role === 'string' ? role : role.slug))
+    .filter((slug): slug is string => Boolean(slug)),
+)
 const isCashier = computed(() => roleSlugs.value.includes('cashier'))
 const canViewAllShifts = computed(() =>
-  roleSlugs.value.some(slug =>
-    ['administrator', 'company_owner', 'branch_manager', 'store_manager'].includes(slug),
+  Boolean(auth.user?.is_super_admin)
+  || roleSlugs.value.some(slug =>
+    ['administrator', 'company_owner', 'branch_manager', 'store_manager', 'super_admin'].includes(slug),
   ),
 )
 const canOpenShift = computed(() => isCashier.value)
@@ -85,6 +93,7 @@ const visibleShifts = computed(() => {
       return new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime()
     })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(visibleShifts)
 
 async function load() {
   loading.value = true
@@ -329,6 +338,7 @@ function toggleMenu(id: string) {
           </article>
         </section>
 
+        <FilterFold>
         <div class="shifts-toolbar">
           <div class="shifts-filters" role="tablist">
             <button
@@ -355,6 +365,7 @@ function toggleMenu(id: string) {
             <input v-model="search" type="search" :placeholder="t('pointOfSale.shifts.search')" />
           </label>
         </div>
+        </FilterFold>
 
         <p v-if="error" class="shifts-error">{{ error }}</p>
         <p v-if="!activeRegisters.length" class="shifts-note">{{ t('pointOfSale.shifts.noRegisterHint') }}</p>
@@ -362,9 +373,10 @@ function toggleMenu(id: string) {
 
         <LoadingBlock v-if="loading && !scopedShifts.length" :label="t('common.loading')" />
 
-        <div v-else-if="visibleShifts.length" class="shifts-grid">
+        <template v-else-if="visibleShifts.length">
+        <div class="shifts-grid">
           <article
-            v-for="shift in visibleShifts"
+            v-for="shift in paged"
             :key="shift.id"
             class="shift-card"
             :class="{ 'shift-card--open': shift.status === 'open' }"
@@ -414,6 +426,8 @@ function toggleMenu(id: string) {
             <p class="shift-card__store">{{ (shift.cash_register?.name || shift.branch?.name || '—').toUpperCase() }}</p>
           </article>
         </div>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
+        </template>
 
         <div v-else class="shifts-empty">
           <p>{{ t('pointOfSale.shifts.empty') }}</p>
@@ -421,7 +435,6 @@ function toggleMenu(id: string) {
             {{ t('pointOfSale.shifts.openAction') }}
           </button>
         </div>
-      </template>
     </div>
 
     <AppModal :open="showOpen" :title="t('pointOfSale.shifts.openAction')" @close="showOpen = false">
@@ -490,6 +503,9 @@ function toggleMenu(id: string) {
 
 <style>
 .app-content:has(.shifts-root) {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
   --sh-bg: var(--color-canvas);
   --sh-card: var(--color-surface);
   --sh-line: var(--color-border);
@@ -510,15 +526,16 @@ function toggleMenu(id: string) {
   --sh-error: var(--color-danger);
   --sh-note-bg: var(--color-warning-bg);
   --sh-note: var(--color-warning);
-  padding: 0;
   background: var(--sh-bg);
 }
 
 .app-content .shifts-root {
   box-sizing: border-box;
+  flex: 1 1 auto;
+  align-self: stretch;
   width: 100%;
-  max-width: 100%;
-  margin-inline: 0;
+  max-width: none;
+  margin: 0;
   min-height: 100%;
   padding: 22px 24px 36px;
   background: var(--sh-bg);
@@ -546,19 +563,6 @@ function toggleMenu(id: string) {
   --sh-error: #ffb4b4;
   --sh-note-bg: #241c12;
   --sh-note: #f3d7a1;
-}
-
-@media (min-width: 1024px) {
-  .app-content .shifts-root {
-    align-self: flex-start;
-    width: calc(100vw - var(--sidebar-width));
-    max-width: calc(100vw - var(--sidebar-width));
-  }
-
-  html.sidebar-collapsed .app-content .shifts-root {
-    width: calc(100vw - var(--sidebar-collapsed));
-    max-width: calc(100vw - var(--sidebar-collapsed));
-  }
 }
 
 .app-content .shifts-root h1 {
@@ -767,7 +771,7 @@ function toggleMenu(id: string) {
 
 .app-content .shifts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 520px));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 12px;
   margin-top: 16px;
 }

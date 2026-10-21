@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { ForecastsReport } from '../../../types'
@@ -79,12 +80,14 @@ onMounted(() => {
   <ReportsLayout>
     <div class="forecast">
       <div class="forecast__toolbar">
+        <FilterFold>
         <div class="forecast__filters">
           <select v-model="storeId" class="field" @change="load">
             <option value="">{{ t('org.allStores') }}</option>
             <option v-for="s in context.activeStores" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
         </div>
+        </FilterFold>
         <button type="button" class="btn-secondary" :disabled="loading" @click="load">
           <AppIcon name="recycle" :size="15" />
           {{ t('common.refresh') }}

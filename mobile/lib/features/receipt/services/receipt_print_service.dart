@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:pdf/pdf.dart';
@@ -13,6 +14,7 @@ import '../../printers/services/printer_router.dart';
 import '../../printers/services/raw_printer_output.dart';
 import '../domain/receipt_models.dart';
 import 'a4_invoice_builder.dart';
+import 'print_once.dart';
 import 'thermal_receipt_builder.dart';
 
 enum ReceiptPrintMode {
@@ -59,6 +61,7 @@ class ReceiptPrintService {
     String printGroup = 'cashier',
     bool resolvePreferred = true,
     bool keepFormat = false,
+    bool once = true,
   }) async {
     // §40 Document → Printer (receipt / invoice → cashier by default).
     var group = printGroup;
@@ -85,49 +88,77 @@ class ReceiptPrintService {
     }
 
     final payload = keepFormat ? document : document.copyWith(format: formatFor(routed));
+    final number = payload.documentNumber.trim().isNotEmpty
+        ? payload.documentNumber.trim()
+        : payload.saleReference.trim().isNotEmpty
+            ? payload.saleReference.trim()
+            : payload.saleId.trim();
+    final onceKey = '${payload.documentType}:$number';
 
-    final effectiveMode =
+    if (once && !await PrintOnce.claim(onceKey)) {
+      throw const PrintAlreadyDone();
+    }
+
+    var effectiveMode =
         mode == ReceiptPrintMode.dialog && resolvePreferred
             ? _preferredMode(networkPrinter)
             : mode;
 
-    if (effectiveMode == ReceiptPrintMode.masterQueue) {
-      await _masterPrintServer.enqueueReceipt(payload, group: group);
-      return;
+    // Master spooler only helps when a cashier/kitchen printer is actually
+    // enabled — otherwise the UI said "printed" while the job failed silently.
+    if (effectiveMode == ReceiptPrintMode.masterQueue &&
+        TerminalConfigRepository.instance.config.isMaster) {
+      final hasPrinter = await _masterHasEnabledPrinter(group);
+      if (!hasPrinter) {
+        effectiveMode = ReceiptPrintMode.dialog;
+      }
     }
 
-    final bytes = await buildPdf(payload);
-    final name = '${payload.documentType}-${payload.documentNumber}';
+    var sent = false;
+    try {
+      if (effectiveMode == ReceiptPrintMode.masterQueue) {
+        await _masterPrintServer.enqueueReceipt(payload, group: group);
+        sent = true;
+        return;
+      }
 
-    switch (effectiveMode) {
-      case ReceiptPrintMode.dialog:
-        await _printToSystem(bytes, payload, name);
-      case ReceiptPrintMode.bluetooth:
-        final address = TerminalConfigRepository.instance.config.bluetoothPrinterAddress;
-        if (address.isEmpty) {
-          throw StateError('Imprimante Bluetooth non configurée');
-        }
-        await RawPrinterOutput.instance.printPdf(
-          bytes,
-          RawPrinterTarget.bluetooth(address),
-          paperWidthMm: payload.format.paperWidthMm.round(),
-        );
-      case ReceiptPrintMode.network:
-        final config = TerminalConfigRepository.instance.config;
-        await _printToNetwork(
-          bytes,
-          payload,
-          networkPrinter ??
-              NetworkPrinterConfig(
-                host: config.printerHost,
-                port: config.printerPort,
-                enabled: config.printerEnabled || config.printerHost.isNotEmpty,
-              ),
-        );
-      case ReceiptPrintMode.pdf:
-        await Printing.sharePdf(bytes: bytes, filename: '$name.pdf');
-      case ReceiptPrintMode.masterQueue:
-        break;
+      final bytes = await buildPdf(payload);
+      final name = '${payload.documentType}-${payload.documentNumber}';
+
+      switch (effectiveMode) {
+        case ReceiptPrintMode.dialog:
+          await _printToSystem(bytes, payload, name);
+        case ReceiptPrintMode.bluetooth:
+          final address = TerminalConfigRepository.instance.config.bluetoothPrinterAddress;
+          if (address.isEmpty) {
+            throw StateError('Imprimante Bluetooth non configurée');
+          }
+          await RawPrinterOutput.instance.printPdf(
+            bytes,
+            RawPrinterTarget.bluetooth(address),
+            paperWidthMm: payload.format.paperWidthMm.round(),
+          );
+        case ReceiptPrintMode.network:
+          final config = TerminalConfigRepository.instance.config;
+          await _printToNetwork(
+            bytes,
+            payload,
+            networkPrinter ??
+                NetworkPrinterConfig(
+                  host: config.printerHost,
+                  port: config.printerPort,
+                  enabled: config.printerEnabled || config.printerHost.isNotEmpty,
+                ),
+          );
+        case ReceiptPrintMode.pdf:
+          await Printing.sharePdf(bytes: bytes, filename: '$name.pdf');
+        case ReceiptPrintMode.masterQueue:
+          break;
+      }
+      sent = true;
+    } catch (error) {
+      if (once && !sent) await PrintOnce.release(onceKey);
+      rethrow;
     }
   }
 
@@ -148,8 +179,10 @@ class ReceiptPrintService {
         printGroup: printGroup,
       );
       return true;
+    } on PrintAlreadyDone {
+      return true;
     } catch (_) {
-      // Failover: master queue → direct network → system dialog (never abort sale).
+      // Failover only when the first attempt did not already send the document.
       try {
         final config = TerminalConfigRepository.instance.config;
         if (config.printsOverNetwork || config.printsOverBluetooth) {
@@ -168,21 +201,29 @@ class ReceiptPrintService {
           resolvePreferred: false,
         );
         return true;
+      } on PrintAlreadyDone {
+        return true;
       } catch (_) {
         return false;
       }
     }
   }
 
-  /// §43 — Master always centralizes; Slave uses Master when reachable.
+  /// §43 — Slave uses Master when reachable. Master uses the spooler only when
+  /// a physical printer is configured; otherwise the OS dialog (Windows).
   ReceiptPrintMode _preferredMode(NetworkPrinterConfig? networkPrinter) {
     final config = TerminalConfigRepository.instance.config;
-    if (config.isMaster && _masterPrintServer.isAvailable) {
-      return ReceiptPrintMode.masterQueue;
-    }
     if (config.isSlave &&
         config.masterHost.isNotEmpty &&
         SyncEngine.instance.masterReachable) {
+      return ReceiptPrintMode.masterQueue;
+    }
+    if (config.isMaster &&
+        _masterPrintServer.isAvailable &&
+        (config.printsOverBluetooth ||
+            config.printsOverNetwork ||
+            networkPrinter?.isConfigured == true ||
+            (config.printerEnabled && config.printerName.trim().isNotEmpty))) {
       return ReceiptPrintMode.masterQueue;
     }
     if (config.printsOverBluetooth) return ReceiptPrintMode.bluetooth;
@@ -192,8 +233,21 @@ class ReceiptPrintService {
     return ReceiptPrintMode.dialog;
   }
 
+  Future<bool> _masterHasEnabledPrinter(String groupName) async {
+    final config = TerminalConfigRepository.instance.config;
+    if (config.printsOverBluetooth || config.printsOverNetwork) return true;
+    if (config.printerEnabled && config.printerName.trim().isNotEmpty) return true;
+    try {
+      final group = PrintGroup.fromString(groupName);
+      final printers = await PrinterManager.instance.list(group: group, enabledOnly: true);
+      return printers.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<Uint8List> buildPdf(ReceiptPrintPayload payload) async {
-    if (payload.format.isThermal) {
+    if (payload.isInvoice || payload.format.isThermal) {
       return _thermalBuilder.build(payload);
     }
     return _a4Builder.build(payload);
@@ -227,6 +281,7 @@ class ReceiptPrintService {
     final wanted = config.printerEnabled && config.printerMode == 'system'
         ? config.printerName.trim()
         : '';
+    final format = _pageFormat(payload);
     if (wanted.isNotEmpty) {
       final info = await Printing.info();
       if (info.canListPrinters && info.directPrint) {
@@ -237,34 +292,44 @@ class ReceiptPrintService {
             printer: match,
             onLayout: (_) async => bytes,
             name: name,
-            format: _pageFormat(payload),
+            format: format,
+            dynamicLayout: false,
+            usePrinterSettings: true,
           );
           if (done) return;
         }
       }
     }
-    await Printing.layoutPdf(
+    // Windows PrintDlg hides behind the POS window, and an infinite roll
+    // height makes the dialog fail before it is shown.
+    final printed = await Printing.layoutPdf(
       onLayout: (_) async => bytes,
       name: name,
-      format: _pageFormat(payload),
+      format: format,
+      dynamicLayout: false,
+      usePrinterSettings: Platform.isWindows,
+      windowsModernDialog: Platform.isWindows,
     );
+    if (!printed) {
+      throw Exception('Impression annulée');
+    }
   }
 
   PdfPageFormat _pageFormat(ReceiptPrintPayload payload) {
-    if (payload.format == ReceiptDocumentFormat.thermal58) {
-      return PdfPageFormat(
-        58 * PdfPageFormat.mm,
-        double.infinity,
-        marginAll: 2 * PdfPageFormat.mm,
-      );
-    }
-    if (payload.format == ReceiptDocumentFormat.thermal80) {
-      return PdfPageFormat(
-        80 * PdfPageFormat.mm,
-        double.infinity,
-        marginAll: 3 * PdfPageFormat.mm,
-      );
-    }
-    return PdfPageFormat.a4;
+    final format = switch (payload.format) {
+      ReceiptDocumentFormat.thermal58 => PdfPageFormat(
+          58 * PdfPageFormat.mm,
+          double.infinity,
+          marginAll: 2 * PdfPageFormat.mm,
+        ),
+      ReceiptDocumentFormat.thermal80 => PdfPageFormat(
+          80 * PdfPageFormat.mm,
+          double.infinity,
+          marginAll: 3 * PdfPageFormat.mm,
+        ),
+      ReceiptDocumentFormat.a4 || ReceiptDocumentFormat.pdf => PdfPageFormat.a4,
+    };
+    if (format.height.isFinite) return format;
+    return format.copyWith(height: PdfPageFormat.a4.height);
   }
 }

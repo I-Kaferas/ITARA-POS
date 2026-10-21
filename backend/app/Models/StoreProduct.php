@@ -82,7 +82,7 @@ class StoreProduct extends Pivot
      *
      * @return array<string, mixed>
      */
-    public function toPosSyncArray(bool $includeVariants = true): array
+    public function toPosSyncArray(bool $includeVariants = true, bool $includeImages = true): array
     {
         $product = $this->relationLoaded('product')
             ? $this->product
@@ -103,7 +103,7 @@ class StoreProduct extends Pivot
         $priceService = app(PriceService::class);
         $resolved = $priceService->resolveForStoreProduct($this, 'retail');
         $tiers = $priceService->activeTiersForModel($product, $store);
-        $primaryImage = $product->primaryImage();
+        $primaryImage = $includeImages ? $product->primaryImage() : null;
 
         return [
             'store_product_id' => $this->id,
@@ -131,8 +131,8 @@ class StoreProduct extends Pivot
             'prices' => $tiers,
             'default_price_type' => 'retail',
             'is_available' => $this->is_available,
-            'primary_image_cdn_url' => $primaryImage?->cdn_url,
-            'images' => $product->imageGalleryForPos(),
+            'primary_image_cdn_url' => $includeImages ? $primaryImage?->cdn_url : null,
+            'images' => $includeImages ? $product->imageGalleryForPos() : [],
             'variants' => $includeVariants && $product->isVariantProduct()
                 ? $product->variants->where('is_active', true)->map->toPosSyncArray($store)->values()->all()
                 : [],

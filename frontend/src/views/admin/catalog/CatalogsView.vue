@@ -13,6 +13,8 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { useContextStore } from '../../../stores/context'
 import type { Catalog } from '../../../types'
 import { emptyListFilters, matchesActive, matchesSearch, type ListFilters } from '../../../utils/listFilters'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 const { t } = useI18n()
 const { confirm: confirmDialog } = useConfirm()
@@ -29,6 +31,7 @@ const filtered = computed(() => store.catalogs.filter(catalog =>
   matchesSearch(`${catalog.name} ${catalog.description ?? ''}`, filters.value.search)
   && matchesActive(catalog.is_active, filters.value.active),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 const defaultCount = computed(() => store.catalogs.filter(catalog => catalog.is_default).length)
 const form = ref({ name: '', description: '', is_default: true, is_active: true })
 const canCreate = computed(() => Boolean(companyId.value))
@@ -117,7 +120,7 @@ async function remove(catalog: Catalog) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="catalog in filtered" :key="catalog.id" class="hover:bg-slate-50">
+            <tr v-for="catalog in paged" :key="catalog.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">
                 {{ catalog.name }}
                 <span v-if="catalog.is_default" class="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{{ t('catalog.default') }}</span>
@@ -134,6 +137,7 @@ async function remove(catalog: Catalog) {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
 

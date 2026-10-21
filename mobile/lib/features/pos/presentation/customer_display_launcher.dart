@@ -7,12 +7,14 @@ import 'package:flutter/services.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'customer_display_view.dart';
-import '../services/customer_display_bus.dart';
 import 'package:pos_mobile/core/i18n/app_locale.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 import 'package:pos_mobile/core/theme/app_colors.dart';
 import 'package:pos_mobile/core/theme/theme_controller.dart';
+import 'package:pos_mobile/core/ui/window_open_gate.dart';
+
+import '../services/customer_display_bus.dart';
+import 'customer_display_view.dart';
 
 const customerDisplayChannelName = 'itara.customer_display';
 
@@ -29,47 +31,97 @@ const _channel = WindowMethodChannel(
 class CustomerDisplayLauncher {
   CustomerDisplayLauncher._();
 
+  static final WindowOpenGate _gate = WindowOpenGate();
+
+  /// True while a click is opening or focusing the customer window.
+  static ValueNotifier<bool> get busy => _gate.busy;
+
   static bool _listening = false;
   static bool _windowOpen = false;
   static bool _pushing = false;
   static bool _dirty = false;
+  static bool _previewRoute = false;
+  static String? _windowId;
+  static BuildContext? _context;
 
-  static Future<void> open(BuildContext context) async {
+  static Future<void> open(BuildContext context) {
     _ensureListening();
+    _context = context;
+    return _gate.run(() async {
+      try {
+        await _openOnce();
+      } catch (_) {
+        final still = await _findExisting();
+        if (still == null) _clearWindow();
+      }
+    });
+  }
+
+  static Future<void> _openOnce() async {
     if (!_isDesktop) {
+      await _openRoute();
+      return;
+    }
+    WindowController? found;
+    await openSingleWindow(
+      isOpen: () async {
+        found = await _findExisting();
+        return found != null;
+      },
+      focus: () async {
+        final window = found;
+        if (window == null || !await _focus(window)) {
+          throw StateError('Customer display window is gone');
+        }
+        await _push();
+      },
+      create: _createWindow,
+    );
+  }
+
+  static Future<void> _openRoute() async {
+    if (_previewRoute) return;
+    final context = _context;
+    if (context == null || !context.mounted) return;
+    _previewRoute = true;
+    try {
       await Navigator.of(context, rootNavigator: true).push<void>(
         MaterialPageRoute<void>(
           fullscreenDialog: true,
           builder: (_) => const CustomerDisplayPage(),
         ),
       );
-      return;
+    } finally {
+      _previewRoute = false;
     }
-    final existing = await _findExisting();
-    if (existing != null) {
-      _windowOpen = true;
-      _linked = true;
-      try {
-        await existing.invokeMethod<void>('focus');
-      } catch (_) {}
-      await _push();
-      return;
-    }
+  }
+
+  static Future<void> _createWindow() async {
     final frame = await _targetFrame();
     final payload = jsonEncode({
       'kind': 'customer_display',
       'cart': _cart(),
       'frame': frame,
     });
-    await WindowController.create(
+    final created = await WindowController.create(
       WindowConfiguration(
         hiddenAtLaunch: true,
         arguments: payload,
       ),
     );
+    if (created.windowId.isEmpty) {
+      throw StateError('Customer display window was not created');
+    }
+    _windowId = created.windowId;
     _windowOpen = true;
     _linked = false;
     await _pushUntilReady();
+  }
+
+  static void _clearWindow() {
+    _windowOpen = false;
+    _windowId = null;
+    _linked = false;
   }
 
   static Map<String, dynamic> _cart() => {
@@ -132,14 +184,57 @@ class CustomerDisplayLauncher {
     }
   }
 
+  static Future<bool> _focus(WindowController window) async {
+    try {
+      await window.show();
+      try {
+        await window.invokeMethod<void>('focus');
+      } catch (_) {}
+      _windowId = window.windowId;
+      _windowOpen = true;
+      _linked = true;
+      return true;
+    } catch (_) {
+      if (_windowId == window.windowId) _clearWindow();
+      return false;
+    }
+  }
+
   static Future<WindowController?> _findExisting() async {
     try {
       final windows = await WindowController.getAll();
-      for (final window in windows) {
-        if (window.arguments.contains('"kind":"customer_display"')) return window;
+      final matches = <WindowController>[
+        for (final window in windows)
+          if (window.arguments.contains('"kind":"customer_display"')) window,
+      ];
+      if (matches.isEmpty) {
+        _clearWindow();
+        return null;
       }
-    } catch (_) {}
-    return null;
+      var primary = matches.first;
+      if (_windowId != null) {
+        for (final window in matches) {
+          if (window.windowId == _windowId) {
+            primary = window;
+            break;
+          }
+        }
+      }
+      for (final extra in matches) {
+        if (extra.windowId == primary.windowId) continue;
+        try {
+          await extra.hide();
+        } catch (_) {}
+      }
+      _windowId = primary.windowId;
+      _windowOpen = true;
+      return primary;
+    } catch (_) {
+      if (_windowId != null && _windowId!.isNotEmpty) {
+        return WindowController.fromWindowId(_windowId!);
+      }
+      return null;
+    }
   }
 
   static Future<Map<String, dynamic>> _targetFrame() async {

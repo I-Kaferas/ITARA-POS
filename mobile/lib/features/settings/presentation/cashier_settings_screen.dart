@@ -220,7 +220,7 @@ class _TopActions extends StatelessWidget {
           icon: Icons.grid_view_rounded,
           label: tr('Fonctions'),
           onTap: () {
-            final ready = TerminalConfigRepository.instance.isConfigured;
+            final ready = TerminalConfigRepository.instance.isCompanyConfigured;
             if (!ready) {
               _openConfig(context, 0);
               return;
@@ -571,7 +571,19 @@ class _RoleNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ready = config.isConfigured;
+    final roleReady = config.isConfigured;
+    final companyReady = config.isCompanyConfigured;
+    final ready = roleReady && companyReady;
+    final title = !roleReady
+        ? 'Rôle de l’appareil non configuré'
+        : !companyReady
+            ? 'Entreprise non configurée'
+            : 'Rôle : ${config.posRole.label}';
+    final subtitle = !roleReady
+        ? 'Ouvrez le Hub et définissez cet appareil comme Master ou Esclave avant de modifier ces options.'
+        : !companyReady
+            ? 'Liez l’entreprise (tenant / marque) via le Hub pour activer Overview, Point of Sale, Orders et Shifts.'
+            : 'Le menu caissier suit ce rôle. Ouvrez le Hub pour le modifier.';
     return _Card(
       onTap: () => context.go(AppRoutes.hub),
       child: Row(
@@ -590,9 +602,7 @@ class _RoleNotice extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tr(ready
-                      ? 'Rôle : ${config.posRole.label}'
-                      : 'Rôle de l’appareil non configuré'),
+                  tr(title),
                   style: AppTypography.text(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -601,9 +611,7 @@ class _RoleNotice extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  tr(ready
-                      ? 'Le menu caissier suit ce rôle. Ouvrez le Hub pour le modifier.'
-                      : 'Ouvrez le Hub et définissez cet appareil comme Master ou Esclave avant de modifier ces options.'),
+                  tr(subtitle),
                   style: AppTypography.text(
                     fontSize: 12.5,
                     height: 1.35,
@@ -1004,7 +1012,7 @@ class _DataSyncCardState extends State<_DataSyncCard> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.config.isConfigured) return _RoleNotice(config: widget.config);
+    if (!widget.config.isCompanyConfigured) return _RoleNotice(config: widget.config);
     return ListenableBuilder(
       listenable: SyncEngine.instance,
       builder: (context, _) {
@@ -1648,11 +1656,17 @@ class _AboutCard extends StatelessWidget {
             },
           ),
           Divider(height: 1, color: AppColors.border),
-          _NavRow(
-            icon: Icons.monitor_outlined,
-            title: tr('Écran client'),
-            subtitle: tr('Activer, masquer et régler le second écran'),
-            onTap: () => CustomerDisplayLauncher.open(context),
+          ValueListenableBuilder<bool>(
+            valueListenable: CustomerDisplayLauncher.busy,
+            builder: (context, busy, _) {
+              return _NavRow(
+                icon: Icons.monitor_outlined,
+                title: tr('Écran client'),
+                subtitle: tr('Activer, masquer et régler le second écran'),
+                enabled: !busy,
+                onTap: () => CustomerDisplayLauncher.open(context),
+              );
+            },
           ),
         ],
       ),
@@ -1713,6 +1727,7 @@ class _NavRow extends StatelessWidget {
     required this.subtitle,
     this.onTap,
     this.trailing,
+    this.enabled = true,
   });
 
   final IconData icon;
@@ -1720,6 +1735,7 @@ class _NavRow extends StatelessWidget {
   final String subtitle;
   final VoidCallback? onTap;
   final Widget? trailing;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -1763,7 +1779,7 @@ class _NavRow extends StatelessWidget {
         ],
       ),
     );
-    if (onTap == null) return row;
+    if (onTap == null || !enabled) return row;
     return Material(
       color: Colors.transparent,
       child: InkWell(onTap: onTap, child: row),

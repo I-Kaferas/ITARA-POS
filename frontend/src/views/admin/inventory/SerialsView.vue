@@ -6,6 +6,9 @@ import { useConfirm } from '../../../composables/useConfirm'
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, Warehouse } from '../../../types'
@@ -72,11 +75,14 @@ async function remove(id: string) {
 
 watchLiveSearch([search, status], load)
 onMounted(load)
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(() => store.serialNumbers)
 </script>
 
 <template>
   <InventoryLayout>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <FilterFold>
       <div class="flex gap-2">
         <input v-model="search" type="search" :placeholder="t('common.search')" class="field" />
         <select v-model="status" class="field">
@@ -88,6 +94,7 @@ onMounted(load)
           <option value="lost">lost</option>
         </select>
       </div>
+      </FilterFold>
       <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.addSerial') }}</button>
     </div>
 
@@ -103,7 +110,7 @@ onMounted(load)
           </tr>
         </thead>
         <tbody class="divide-y">
-          <tr v-for="row in store.serialNumbers" :key="row.id">
+          <tr v-for="row in paged" :key="row.id">
             <td class="px-4 py-3 font-mono">{{ row.serial_number }}</td>
             <td class="px-4 py-3">{{ row.product?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ row.warehouse?.name ?? '—' }}</td>
@@ -113,6 +120,13 @@ onMounted(load)
         </tbody>
       </table>
       <p v-if="!store.serialNumbers.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="page"
+        :last-page="lastPage"
+        :total="total"
+        :per-page="perPage"
+        @change="setPage"
+      />
     </div>
 
     <AppModal

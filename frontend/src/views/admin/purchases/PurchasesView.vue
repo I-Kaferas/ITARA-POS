@@ -7,6 +7,8 @@ import StatusBadge from '../../../components/organization/StatusBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, PurchaseInvoice, Supplier, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
@@ -90,6 +92,15 @@ const filteredInvoices = computed(() =>
     return true
   }),
 )
+
+const {
+  page: ordersPage,
+  lastPage: ordersLastPage,
+  total: ordersTotal,
+  perPage: ordersPerPage,
+  paged: pagedOrders,
+  setPage: setOrdersPage,
+} = useClientPager(filteredOrders)
 
 onMounted(async () => {
   await Promise.all([
@@ -249,14 +260,15 @@ function invoiceStatusActive(status: string): boolean {
     </div>
 
     <div v-if="activeTab === 'orders'" class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-      <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-        <h3 class="m-0 text-sm font-semibold text-slate-700">{{ t('purchases.tabs.orders') }}</h3>
-        <div class="flex items-center gap-3">
-          <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-            {{ filteredOrders.length }}
-          </span>
-          <button class="btn-primary-sm" @click="openCreateOrder"><AppIcon name="plus" :size="16" /> {{ t('purchases.newOrder') }}</button>
+      <div class="pur-toolbar">
+        <div class="pur-toolbar__lead">
+          <h3 class="pur-toolbar__title">{{ t('purchases.tabs.orders') }}</h3>
+          <span class="pur-toolbar__count">{{ filteredOrders.length }}</span>
         </div>
+        <button type="button" class="btn-primary" @click="openCreateOrder">
+          <AppIcon name="plus" :size="16" />
+          {{ t('purchases.newOrder') }}
+        </button>
       </div>
       <table class="min-w-full divide-y divide-slate-200 text-sm">
         <thead class="bg-slate-50">
@@ -272,7 +284,7 @@ function invoiceStatusActive(status: string): boolean {
         </thead>
         <tbody class="divide-y divide-slate-100">
           <tr
-            v-for="row in filteredOrders"
+            v-for="row in pagedOrders"
             :key="row.id"
             class="cursor-pointer hover:bg-slate-50"
             @click="router.push({ name: 'purchase-order-detail', params: { id: row.id } })"
@@ -290,6 +302,13 @@ function invoiceStatusActive(status: string): boolean {
         </tbody>
       </table>
       <p v-if="!filteredOrders.length" class="px-4 py-8 text-center text-slate-500">{{ t('org.empty') }}</p>
+      <ListPager
+        :page="ordersPage"
+        :last-page="ordersLastPage"
+        :total="ordersTotal"
+        :per-page="ordersPerPage"
+        @change="setOrdersPage"
+      />
     </div>
 
     <div v-else class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -414,8 +433,49 @@ function invoiceStatusActive(status: string): boolean {
 </template>
 
 <style scoped>
+.pur-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
 
+.pur-toolbar__lead {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
 
+.pur-toolbar__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.pur-toolbar__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pur-toolbar .btn-primary {
+  min-height: 2.35rem;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.8125rem;
+}
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}

@@ -25,7 +25,7 @@ class PosCatalogSyncService
      * @param  Collection<int, string>|null  $catalogIds
      * @return list<array<string, mixed>>
      */
-    public function productsForStore(Store $store, ?Collection $catalogIds = null): array
+    public function productsForStore(Store $store, ?Collection $catalogIds = null, bool $includeImages = true): array
     {
         $catalogIds ??= $this->catalogIdsForStore($store);
         if ($catalogIds->isEmpty()) {
@@ -45,36 +45,40 @@ class PosCatalogSyncService
 
         $stockByProduct = $this->stockByProduct($store);
 
+        $with = [
+            'category:id,name',
+            'catalog.company:id,currency_code',
+            'tax',
+            'unitModel',
+            'prices',
+            'variants.prices',
+            'variants.barcodes',
+            'saleUnits',
+            'bundleItems',
+            'accompanimentProducts:id,sku,name,accompaniment_enabled,is_active',
+            'barcodes',
+            'batches:id,product_id,expires_at',
+        ];
+        if ($includeImages) {
+            $with['images'] = fn ($query) => $query->ordered();
+        }
+
         return Product::query()
             ->whereIn('id', $storeProducts->keys())
             ->whereIn('catalog_id', $catalogIds)
             ->where('is_active', true)
-            ->with([
-                'category:id,name',
-                'catalog.company:id,currency_code',
-                'images' => fn ($query) => $query->ordered(),
-                'tax',
-                'unitModel',
-                'prices',
-                'variants.prices',
-                'variants.barcodes',
-                'saleUnits',
-                'bundleItems',
-                'accompanimentProducts:id,sku,name,accompaniment_enabled,is_active',
-                'barcodes',
-                'batches:id,product_id,expires_at',
-            ])
+            ->with($with)
             ->orderBy('name')
             ->get()
-            ->map(function (Product $product) use ($store, $storeProducts, $stockByProduct) {
+            ->map(function (Product $product) use ($store, $storeProducts, $stockByProduct, $includeImages) {
                 $storeProduct = $storeProducts->get($product->id);
                 $product->variants->each(fn ($variant) => $variant->setRelation('product', $product));
                 if ($storeProduct) {
                     $storeProduct->setRelation('product', $product);
                     $storeProduct->setRelation('store', $store);
-                    $payload = $storeProduct->toPosSyncArray(includeVariants: false);
+                    $payload = $storeProduct->toPosSyncArray(includeVariants: false, includeImages: $includeImages);
                 } else {
-                    $payload = $this->productPayload($product, $store);
+                    $payload = $this->productPayload($product, $store, $includeImages);
                 }
 
                 $payload['category_id'] = $storeProduct?->category_id ?: $product->category_id;
@@ -223,6 +227,55 @@ class PosCatalogSyncService
     }
 
     /**
+     * Lightweight CDN index. The catalog itself stays free of image work.
+     *
+     * @return list<array{product_id: string, cdn_url: string}>
+     */
+    public function imageIndexForStore(Store $store): array
+    {
+        $productIds = StoreProduct::query()
+            ->where('store_id', $store->id)
+            ->where('is_available', true)
+            ->pluck('product_id');
+
+        if ($productIds->isEmpty()) {
+            return [];
+        }
+
+        $seen = [];
+        $index = [];
+
+        $images = \App\Models\ProductImage::query()
+            ->whereIn('product_id', $productIds)
+            ->orderByDesc('is_primary')
+            ->orderBy('sort_order')
+            ->get(['id', 'product_id', 'cdn_url', 'storage_path', 'is_primary']);
+
+        foreach ($images as $image) {
+            $productId = (string) $image->product_id;
+            if (isset($seen[$productId])) {
+                continue;
+            }
+
+            $url = trim((string) ($image->getRawOriginal('cdn_url') ?? ''));
+            if ($url === '' && $image->storage_path) {
+                $url = app(ProductImageService::class)->buildCdnUrl((string) $image->storage_path);
+            }
+            if ($url === '') {
+                continue;
+            }
+
+            $seen[$productId] = true;
+            $index[] = [
+                'product_id' => $productId,
+                'cdn_url' => $url,
+            ];
+        }
+
+        return $index;
+    }
+
+    /**
      * Barcode lookup index for POS offline scan.
      *
      * @return list<array<string, mixed>>
@@ -291,9 +344,9 @@ class PosCatalogSyncService
     /**
      * @return array<string, mixed>
      */
-    private function productPayload(Product $product, Store $store): array
+    private function productPayload(Product $product, Store $store, bool $includeImages = true): array
     {
-        $primaryImage = $product->primaryImage();
+        $primaryImage = $includeImages ? $product->primaryImage() : null;
 
         return [
             'store_product_id' => null,
@@ -322,8 +375,8 @@ class PosCatalogSyncService
             'prices' => [],
             'default_price_type' => 'retail',
             'is_available' => true,
-            'primary_image_cdn_url' => $primaryImage?->cdn_url,
-            'images' => $product->imageGalleryForPos(),
+            'primary_image_cdn_url' => $includeImages ? $primaryImage?->cdn_url : null,
+            'images' => $includeImages ? $product->imageGalleryForPos() : [],
             'variants' => [],
             'bundle_items' => $product->isBundle()
                 ? $product->bundleItems->map(fn ($item) => [

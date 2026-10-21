@@ -5,7 +5,9 @@ import { useConfirm } from '../../../composables/useConfirm'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Role } from '../../../types'
 import { emptyListFilters, matchesSearch, type ListFilters } from '../../../utils/listFilters'
@@ -23,6 +25,7 @@ const filters = ref<ListFilters>(emptyListFilters('all'))
 const filtered = computed(() => store.roles.filter(role =>
   matchesSearch(`${role.name} ${role.slug}`, filters.value.search),
 ))
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filtered)
 
 const groupedPermissions = computed(() => {
   const groups: Record<string, typeof store.permissions> = {}
@@ -101,7 +104,7 @@ async function remove(role: Role) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="role in filtered" :key="role.id" class="hover:bg-slate-50">
+            <tr v-for="role in paged" :key="role.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-medium">
                 {{ role.name }}
                 <span v-if="role.is_system" class="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">system</span>
@@ -115,6 +118,7 @@ async function remove(role: Role) {
             </tr>
           </tbody>
         </table>
+        <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
       </div>
     </div>
 

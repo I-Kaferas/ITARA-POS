@@ -19,7 +19,15 @@ import { useRealtimeStore } from '../../stores/realtime'
 import { resolvedTheme, useTheme } from '../../composables/useTheme'
 import { goToMarketing } from '../../utils/marketing'
 
-type NavChild = { name: string; to: string; label: string; icon: string; color?: string; module?: string | string[] }
+type NavChild = {
+  name: string
+  to: string
+  label: string
+  icon: string
+  color?: string
+  module?: string | string[]
+  children?: NavChild[]
+}
 type NavItem = {
   name: string
   to: string
@@ -30,18 +38,17 @@ type NavItem = {
 }
 
 const { t } = useI18n()
-const { preference, setTheme, cycleTheme } = useTheme()
+const { preference, setTheme } = useTheme()
 const appearance = computed(() => resolvedTheme(preference.value))
 function toggleAppearance() {
   setTheme(appearance.value === 'dark' ? 'light' : 'dark')
 }
-const themeIcon = computed(() => {
-  if (preference.value === 'dark') return 'moon'
-  if (preference.value === 'light') return 'sun'
-  return 'device-computer'
-})
 const route = useRoute()
 const router = useRouter()
+const quietHeading = computed(() => {
+  const path = route.path
+  return path === '/admin' || path.endsWith('/dashboard') || path === '/admin/hotel/stock' || path.startsWith('/admin/customer-hub')
+})
 const slots = useSlots()
 const auth = useAuthStore()
 
@@ -253,7 +260,6 @@ const navSections = computed(() => [
           { name: 'org-stores', to: '/admin/organization/stores', label: t('org.tabs.stores'), icon: 'stores' },
           { name: 'org-users', to: '/admin/organization/users', label: t('org.tabs.users'), icon: 'account' },
           { name: 'settings-currency', to: '/admin/organization/currencies', label: t('nav.settingsItems.company'), icon: 'building' },
-          { name: 'settings-merchant-qr', to: '/admin/settings/merchant-qr', label: t('nav.settingsItems.merchantQr'), icon: 'tag' },
           { name: 'design-system', to: '/admin/design', label: t('nav.settingsItems.design'), icon: 'sparkles' },
         ],
       },
@@ -271,13 +277,34 @@ const navSections = computed(() => [
         ],
       },
       {
+        name: 'help-support',
+        to: '/admin/help/guide',
+        label: t('nav.helpHub'),
+        icon: 'info',
+        children: [
+          { name: 'help-guide', to: '/admin/help/guide', label: t('nav.helpItems.guide'), icon: 'note' },
+          { name: 'help-tutorials', to: '/admin/help/tutorials', label: t('nav.helpItems.tutorials'), icon: 'tv' },
+          { name: 'help-faqs', to: '/admin/help/faqs', label: t('nav.helpItems.faqs'), icon: 'search' },
+          { name: 'help-desk', to: '/admin/help/support', label: t('nav.helpItems.support'), icon: 'mail' },
+          { name: 'help-about', to: '/admin/help/about', label: t('nav.helpItems.about'), icon: 'building' },
+        ],
+      },
+      {
         name: 'space-orders',
         to: '/admin/settings/orders',
         label: t('nav.spaceOrdersHub'),
         icon: 'purchases',
         children: [
           { name: 'settings-orders', to: '/admin/settings/orders', label: t('nav.settingsItems.orders'), icon: 'sales' },
-          { name: 'settings-analytics', to: '/admin/settings/analytics', label: t('nav.settingsItems.analytics'), icon: 'dashboard' },
+          {
+            name: 'settings-analytics',
+            to: '/admin/settings/analytics',
+            label: t('nav.settingsItems.analytics'),
+            icon: 'dashboard',
+            children: [
+              { name: 'settings-merchant-qr', to: '/admin/settings/merchant-qr', label: t('nav.settingsItems.merchantQr'), icon: 'tag' },
+            ],
+          },
         ],
       },
       { name: 'app-versions', to: '/admin/settings/app-versions', label: t('nav.settingsItems.appVersions'), icon: 'device-tablet' },
@@ -316,7 +343,12 @@ const visibleNav = computed(() => {
       }
       if (item.name === 'platform' || !allowed(item)) return []
       if (!item.children) return [item]
-      const children = item.children.filter(child => allowed(child))
+      const children = item.children.flatMap(child => {
+        if (!allowed(child)) return []
+        if (!child.children?.length) return [child]
+        const nested = child.children.filter(grand => allowed(grand))
+        return [{ ...child, children: nested }]
+      })
       return children.length ? [{ ...item, children }] : []
     }),
   })).filter(section => section.items.length > 0)
@@ -397,8 +429,12 @@ function isChildActive(child: NavChild) {
   return !children.some(other => other.to !== child.to && other.to.length > child.to.length && matchesChild(other))
 }
 
+function isNestedActive(child: NavChild) {
+  return child.children?.some(grand => matchesChild(grand)) ?? false
+}
+
 function isGroupActive(item: NavItem) {
-  if (item.children?.length) return item.children.some(isChildActive)
+  if (item.children?.length) return item.children.some(child => isChildActive(child) || isNestedActive(child))
   return isActive(item.to)
 }
 
@@ -883,24 +919,42 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
               </button>
               <Transition @enter="onSubEnter" @after-enter="onSubAfterEnter" @leave="onSubLeave">
                 <div v-show="isExpanded(item)" :id="`nav-sub-${item.name}`" class="app-nav-sub">
-                  <div
-                    v-for="child in item.children"
-                    :key="child.name"
-                    class="app-nav-sub__item"
-                  >
-                    <span class="app-nav-link__branch" aria-hidden="true"></span>
-                    <RouterLink
-                      :to="child.to"
-                      class="app-nav-link app-nav-link--child"
-                      :class="{ 'app-nav-link--active': isChildActive(child) }"
-                      :aria-current="isChildActive(child) ? 'page' : undefined"
-                    >
-                      <span class="app-nav-link__mark" aria-hidden="true">
-                        <AppIcon :name="child.icon" :size="18" />
-                      </span>
-                      <span class="min-w-0 flex-1 text-left">{{ child.label }}</span>
-                    </RouterLink>
-                  </div>
+                  <template v-for="child in item.children" :key="child.name">
+                    <div class="app-nav-sub__item">
+                      <span class="app-nav-link__branch" aria-hidden="true"></span>
+                      <RouterLink
+                        :to="child.to"
+                        class="app-nav-link app-nav-link--child"
+                        :class="{ 'app-nav-link--active': isChildActive(child) || isNestedActive(child) }"
+                        :aria-current="isChildActive(child) ? 'page' : undefined"
+                      >
+                        <span class="app-nav-link__mark" aria-hidden="true">
+                          <AppIcon :name="child.icon" :size="20" />
+                        </span>
+                        <span class="min-w-0 flex-1 text-left">{{ child.label }}</span>
+                      </RouterLink>
+                    </div>
+                    <div v-if="child.children?.length" class="app-nav-sub app-nav-sub--nested">
+                      <div
+                        v-for="grand in child.children"
+                        :key="grand.name"
+                        class="app-nav-sub__item"
+                      >
+                        <span class="app-nav-link__branch" aria-hidden="true"></span>
+                        <RouterLink
+                          :to="grand.to"
+                          class="app-nav-link app-nav-link--child"
+                          :class="{ 'app-nav-link--active': matchesChild(grand) }"
+                          :aria-current="matchesChild(grand) ? 'page' : undefined"
+                        >
+                          <span class="app-nav-link__mark" aria-hidden="true">
+                            <AppIcon :name="grand.icon" :size="20" />
+                          </span>
+                          <span class="min-w-0 flex-1 text-left">{{ grand.label }}</span>
+                        </RouterLink>
+                      </div>
+                    </div>
+                  </template>
                 </div>
               </Transition>
             </template>
@@ -936,7 +990,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
           >
             <AppIcon name="menu" :size="18" />
           </button>
-          <div class="app-topbar__heading">
+          <div class="app-topbar__heading" :class="{ 'app-topbar__heading--quiet': quietHeading }">
             <h1 class="app-topbar__title">
               <component :is="HeaderTitle" />
             </h1>
@@ -1059,10 +1113,6 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
                 <button type="button" class="user-menu__item" role="menuitem" @click="goUserMenu('/admin/settings')">
                   <AppIcon name="organization" :size="18" />
                   {{ t('auth.settings') }}
-                </button>
-                <button type="button" class="user-menu__item" role="menuitem" @click="cycleTheme">
-                  <AppIcon :name="themeIcon" :size="18" />
-                  {{ t(`auth.theme.${preference}`) }}
                 </button>
                 <button type="button" class="user-menu__item user-menu__item--danger" role="menuitem" @click="logout">
                   <AppIcon name="logout" :size="18" />

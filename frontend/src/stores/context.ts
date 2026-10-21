@@ -44,7 +44,7 @@ export const useContextStore = defineStore('context', () => {
       const savedValid = saved && stores.value.some(s => s.id === saved && s.is_active)
 
       if (!savedValid) {
-        const firstActive = stores.value.find(s => s.is_active)
+        const firstActive = stores.value.find(s => s.is_active && s.is_main) ?? stores.value.find(s => s.is_active)
         selectStore(firstActive?.id ?? null)
       }
 

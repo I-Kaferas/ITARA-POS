@@ -5,6 +5,118 @@
     "tagline": "ITARA NEXUS Business CORE",
     "welcome": "Karibu kwenye mfumo wa POS wa kitaalamu"
   },
+  "helpCenter": {
+    "guideTitle": "Mwongozo wa mtumiaji",
+    "guideSubtitle": "Nyaraka za hatua kwa hatua kukusaidia kuanza",
+    "centerTitle": "Kituo cha msaada",
+    "searchPlaceholder": "Tafuta makala...",
+    "noArticles": "Hakuna makala inayolingana na utafutaji huu.",
+    "tutorialsTitle": "Mafunzo ya video",
+    "tutorialsSubtitle": "Tazama miongozo ya video kwa maelekezo ya kuona",
+    "videoBadge": "Video",
+    "watchVideo": "Tazama video",
+    "faqsTitle": "Maswali",
+    "faqsSubtitle": "Majibu ya maswali yanayoulizwa mara nyingi",
+    "supportTitle": "Msaada na dawati",
+    "supportSubtitle": "Wasiliana na mtu duka linapozuia kazi",
+    "aboutTitle": "Matangazo",
+    "aboutSubtitle": "Masasisho na habari za hivi karibuni",
+    "kinds": {
+      "update": "Sasisho",
+      "new": "Mpya"
+    },
+    "title": "Msaada",
+    "tutorialNote": "Masomo haya yanafuata mtiririko wa programu. Video bado hazijaunganishwa.",
+    "articles": {
+      "start": {
+        "title": "Kuanza na jukwaa",
+        "body": "Utangulizi wa haraka wa kuabiri dashibodi na vipengele muhimu."
+      },
+      "roles": {
+        "title": "Majukumu na ruhusa za watumiaji",
+        "body": "Kuelewa nani anaweza kuona na kufanya nini kwenye mfumo."
+      },
+      "reports": {
+        "title": "Ripoti na uchambuzi",
+        "body": "Jinsi ya kutengeneza, kubinafsisha, na kuhamisha ripoti za biashara."
+      }
+    },
+    "videos": {
+      "dashboard": {
+        "title": "Kuabiri dashibodi",
+        "body": "Ziara fupi ya dashibodi kuu na jinsi ya kuibinafsisha."
+      },
+      "account": {
+        "title": "Kusimamia akaunti na wasifu wako",
+        "body": "Sasisha taarifa binafsi, nenosiri, na mapendeleo ya arifa."
+      }
+    },
+    "announcements": {
+      "performance": {
+        "title": "Sasisho la jukwaa: utendaji wa kasi",
+        "body": "Maboresho makubwa ya utendaji katika moduli zote."
+      },
+      "language": {
+        "title": "Mpya: msaada wa lugha nyingi",
+        "body": "Jukwaa sasa linapatikana kwa Kiingereza, Kifaransa, na Kiswahili."
+      }
+    },
+    "guide": {
+      "shiftTitle": "Fungua siku kwa zamu",
+      "shiftBody": "Keshia hufungua zamu kwenye kasha lililo huru na kuingiza fedha za mwanzo. Mauzo hubaki kwenye zamu hiyo hadi ifungwe.",
+      "sellTitle": "Uza kwenye kituo cha mauzo",
+      "sellBody": "Chagua duka, ongeza bidhaa, kisha pokea malipo. Tiketi, kodi, na mwendo wa stoku huandikwa na zamu iliyo wazi.",
+      "stockTitle": "Weka stoku na katalogi sawa",
+      "stockBody": "Bidhaa, makundi, bei, na idadi viko kwenye katalogi na orodha ya stoku. Pokea bidhaa na uhesabu kabla idadi haijabadilika.",
+      "closeTitle": "Funga zamu na usome siku",
+      "closeBody": "Hesabu fedha, ingiza kiasi halisi, kisha funga zamu. Ripoti zinaonyesha mapato, oda, na stoku baada ya hapo.",
+      "hubTitle": "Oda za nje na kituo cha wateja",
+      "hubBody": "Oda za Programu ya Nje hufuatilia oda za simu. Kituo cha wateja kinashughulikia akaunti zilizounganishwa, maombi, na malipo."
+    },
+    "lessons": {
+      "shift": "Kufungua na kufunga zamu",
+      "shiftMeta": "Kasha, fedha za mwanzo, na tofauti",
+      "pay": "Kupokea malipo",
+      "payMeta": "Taslimu, kadi, na chenji",
+      "stock": "Kupokea stoku",
+      "stockMeta": "Ugavi, hesabu, na arifa",
+      "hub": "Kituo cha wateja",
+      "hubMeta": "Maombi ya kuunganisha na oda za simu",
+      "report": "Kusoma ripoti ya siku",
+      "reportMeta": "Mapato, tiketi, na stoku"
+    },
+    "faq": {
+      "q1": "Kwa nini siwezi kufungua zamu?",
+      "a1": "Mtumiaji aliyeingia anahitaji jukumu la keshia, duka lililochaguliwa, na kasha ambalo halijafunguliwa.",
+      "q2": "Oda za programu ya simu zinaonekana wapi?",
+      "a2": "Fungua Oda za Programu ya Nje. Takwimu za oda hizo ziko kwenye uchambuzi wa programu ya nje.",
+      "q3": "Ninawezaje kubadilisha duka?",
+      "a3": "Tumia kidhibiti cha duka kwenye upau wa juu. Stoku, mauzo, na zamu hufuata duka unalochagua.",
+      "q4": "Nani anaweza kufungua kituo cha wateja?",
+      "a4": "Mtu yeyote aliyeingia kwenye paneli anaweza kufungua maombi, watumiaji waliounganishwa, oda za simu, na malipo.",
+      "q5": "Tofauti ya kasha inaelezwa vipi?",
+      "a5": "Unapofunga zamu, ingiza fedha ulizohesabu na sababu ikiwa droo hailingani na kiasi kinachotarajiwa.",
+      "q6": "Ninawezaje kubadilisha lugha?",
+      "a6": "Tumia kidhibiti cha lugha kwenye upau wa juu. Nafasi inapatikana kwa Kifaransa, Kiingereza, na Kiswahili."
+    },
+    "support": {
+      "intro": "Eleza kilichokuzuia. Kitufe hufungua barua pepe yako na mada pamoja na ujumbe vimejazwa.",
+      "subject": "Mada",
+      "message": "Ujumbe",
+      "send": "Fungua kwenye barua pepe",
+      "subjectPh": "Zamu haifungi",
+      "messagePh": "Ulichokuwa ukifanya, duka, na ulichotarajia.",
+      "channelTitle": "Cha kuweka",
+      "channelBody": "Jina la duka, ukurasa, na muda. Hiyo inatosha kurudia tatizo."
+    },
+    "about": {
+      "lead": "Nafasi ya mauzo, stoku, ununuzi, na akaunti za wateja.",
+      "point1": "Kituo cha mauzo, zamu, na oda",
+      "point2": "Katalogi, stoku, na ununuzi",
+      "point3": "Kituo cha wateja na oda za programu ya nje",
+      "point4": "Ripoti za duka na kampuni"
+    }
+  },
   "filters": {
     "search": "Tafuta",
     "apply": "Chuja",
@@ -72,22 +184,30 @@
     "expenseTrackerHub": "Ufuatiliaji wa matumizi",
     "syncDevicesHub": "Usawazishaji na vifaa",
     "settingsHub": "Mipangilio",
-    "spaceOrdersHub": "Oda za ITARA Space",
+    "spaceOrdersHub": "Oda za Programu ya Nje",
     "customerHub": "Kituo cha wateja",
+    "helpHub": "Msaada",
+    "helpItems": {
+      "guide": "Mwongozo wa mtumiaji",
+      "tutorials": "Mafunzo ya video",
+      "faqs": "Maswali",
+      "support": "Msaada na dawati",
+      "about": "Kuhusu"
+    },
     "customerHubItems": {
       "dashboard": "Dashibodi",
       "linkRequests": "Maombi ya kuunganisha",
       "linkedUsers": "Watumiaji walioounganishwa",
       "mobileOrders": "Oda za simu",
-      "payments": "Malipo"
+      "payments": "Malipo ya wateja"
     },
     "settingsItems": {
       "subscription": "Usajili",
       "company": "Company Settings",
       "currency": "Sarafu",
-      "spaceOrders": "Oda za ITARA Space",
-      "orders": "Oda",
-      "analytics": "Uchambuzi",
+      "spaceOrders": "Oda za Programu ya Nje",
+      "orders": "Oda za Programu ya Nje",
+      "analytics": "Uchambuzi wa programu ya nje",
       "merchantQr": "QR ya mfanyabiashara",
       "appVersions": "Matoleo ya programu",
       "design": "Mfumo wa muundo"
@@ -485,6 +605,8 @@
     "editBranch": "Hariri tawi",
     "addStore": "Ongeza duka",
     "editStore": "Hariri duka",
+    "mainStore": "Duka kuu",
+    "mainStoreHint": "Duka moja tu linaweza kuwa kuu. Kulichagua kunabadilisha lililopo.",
     "addWarehouse": "Ongeza ghala",
     "editWarehouse": "Hariri ghala",
     "addDevice": "Ongeza kifaa",
@@ -1396,7 +1518,8 @@
       "receive": "Pokea",
       "export": "Hamisha nje",
       "apply": "Tumia",
-      "record": "Rekodi"
+      "record": "Rekodi",
+      "once": "Risiti na tiketi ya jikoni mara moja tu"
     },
     "clearAllModule": "Ondoa vyote",
     "selectAllModule": "Chagua vyote",
@@ -1530,6 +1653,7 @@
     "image": "Picha",
     "gallery": "Matunzio ya picha",
     "galleryAfterSave": "Hifadhi bidhaa ili kuongeza picha.",
+    "photoOnSave": "Picha hii itahifadhiwa pamoja na bidhaa.",
     "uploadImage": "Pakia picha",
     "pickFromGallery": "Matunzio ya katalogi",
     "galleryPickHint": "Picha zote za katalogi. Chagua moja kwa bidhaa hii.",
@@ -2371,6 +2495,7 @@
     "refresh": "Onyesha upya",
     "platform": "Jukwaa",
     "allPlatforms": "Majukwaa yote",
+    "all": "Zote",
     "search": "Tafuta matoleo",
     "searchPlaceholder": "Tafuta matoleo...",
     "count": "Matoleo {n}",
@@ -2386,8 +2511,8 @@
     "files": "Faili",
     "versionLine": "Toleo {version} · Build {build}",
     "platforms": {
-      "android": "android",
-      "desktop": "desktop"
+      "android": "Android",
+      "desktop": "Desktop"
     },
     "columns": {
       "version": "Toleo",
@@ -2623,15 +2748,79 @@
     "recentOrders": "Oda za hivi karibuni",
     "recentPayments": "Malipo ya hivi karibuni",
     "empty": "Hakuna shughuli ya hivi karibuni",
+    "calm": "Hakuna kinachokusubiri kwa sasa.",
+    "calmHint": "Oda ya kwanza ya simu itachukua nafasi hii.",
+    "roomRequests": "Kagua ombi",
+    "roomRequestsHint": "Kubali au kataa muunganisho wa mteja.",
+    "roomLinks": "Wateja waliounganishwa",
+    "roomLinksHint": "Tazama waliounganishwa na duka.",
+    "roomOrders": "Oda za programu",
+    "roomOrdersHint": "Fuatilia yaliyoagizwa kutoka simu.",
+    "roomPayments": "Malipo yaliyopokelewa",
+    "roomPaymentsHint": "Angalia yaliyokusanywa tayari.",
+    "open": "Fungua",
     "reference": "Rejea",
     "counterparty": "Upande mwingine",
     "amount": "Kiasi",
     "status": "Hali",
     "date": "Tarehe"
   },
+  "customerPaymentsPage": {
+    "title": "Malipo ya wateja",
+    "subtitle": "Fuatilia malipo yote yaliyopokelewa kutoka programu ya simu",
+    "refresh": "Onyesha upya",
+    "kpis": "Viashiria",
+    "totalReceived": "Jumla iliyopokelewa",
+    "transactions": "miamala {n}",
+    "refunds": "Marejesho",
+    "refundsHint": "Jumla iliyorejeshwa",
+    "fees": "Ada",
+    "feesHint": "Jumla ya ada zilizotozwa",
+    "pending": "Inasubiri",
+    "pendingHint": "Inasubiri",
+    "trend": "Mwenendo wa malipo",
+    "search": "Tafuta kwa rejea, mteja...",
+    "status": "Hali",
+    "type": "Aina",
+    "allStatuses": "Hali zote",
+    "allTypes": "Aina zote",
+    "statusCompleted": "Imekamilika",
+    "statusPending": "Inasubiri",
+    "statusFailed": "Imeshindwa",
+    "typeOrder": "Oda",
+    "typeTip": "Bahashishi",
+    "typeRefund": "Marejesho",
+    "typeDirect": "Malipo ya moja kwa moja",
+    "empty": "Hakuna malipo yaliyopatikana"
+  },
+  "externalAnalytics": {
+    "title": "Uchambuzi wa programu ya nje",
+    "subtitle": "Data halisi ya oda za programu ya simu (POS / akaunti za wateja)",
+    "period7": "Siku 7 zilizopita",
+    "period30": "Siku 30 zilizopita",
+    "period90": "Siku 90 zilizopita",
+    "refresh": "Onyesha upya",
+    "revenue": "Mapato",
+    "totalOrders": "Oda zote",
+    "uniqueCustomers": "Wateja wa kipekee",
+    "averageBasket": "Wastani wa kikapu",
+    "vsPrevious": "ikilinganishwa na kipindi kilichopita",
+    "uniqueShare": "{pct}% ya kiasi kutoka kwa wateja tofauti",
+    "averageHint": "Kiasi cha wastani kwa oda",
+    "topLocations": "Maeneo ya juu",
+    "noLocations": "Hakuna eneo lililojumlishwa katika kipindi hiki.",
+    "orderTypes": "Aina za oda",
+    "noOrders": "Hakuna oda katika kipindi hiki.",
+    "paymentMethods": "Njia za malipo",
+    "noPayments": "Hakuna taarifa ya malipo katika kipindi hiki.",
+    "dailyTrend": "Mwenendo wa kila siku",
+    "noTrend": "Bado hakuna mfululizo wa kila siku katika kipindi hiki.",
+    "ordersCount": "oda {n}"
+  },
   "linkRequestsPage": {
     "title": "Maombi ya viungo",
     "subtitle": "Simamia maombi ya viungo kutoka kwa wateja wa programu ya simu",
+    "all": "Zote",
     "matching": "Vinavyolingana",
     "pending": "Maombi yanayosubiri",
     "linked": "Watumiaji waliounganishwa",
@@ -2647,6 +2836,70 @@
     "date": "Tarehe",
     "empty": "Hakuna maombi ya viungo",
     "allStatuses": "Hali zote"
+  },
+  "linkedUsersPage": {
+    "title": "Watumiaji walioounganishwa",
+    "subtitle": "Tazama watumiaji wote walio unganishwa na kampuni yako",
+    "refresh": "Onyesha upya",
+    "all": "Wote",
+    "employee": "Mfanyakazi",
+    "supplier": "Muuzaji",
+    "customer": "Mteja",
+    "search": "Tafuta kwa jina, barua pepe...",
+    "empty": "Hakuna watumiaji walioounganishwa",
+    "name": "Jina",
+    "email": "Barua pepe",
+    "type": "Aina"
+  },
+  "externalAppOrdersPage": {
+    "title": "Oda za Programu ya Nje",
+    "subtitle": "Thibitisha oda za wateja, fuatilia uwasilishaji na uthibitisho kwa QR.",
+    "refresh": "Onyesha upya",
+    "export": "Hamisha",
+    "kpis": "Viashiria",
+    "totalOrders": "Jumla ya Oda",
+    "filteredPeriod": "{n} katika kipindi kilichochujwa",
+    "completionRate": "Kiwango cha kukamilika (malipo)",
+    "completedCount": "{n} zimekamilika",
+    "typeFilter": "Aina ya oda",
+    "all": "Zote",
+    "delivery": "Uwasilishaji",
+    "dineIn": "Mahali",
+    "takeaway": "Kuchukua",
+    "search": "Tafuta kwa namba, jina, simu...",
+    "filters": "Vichujio",
+    "allStatuses": "Hali zote",
+    "allSources": "Vyanzo vyote",
+    "empty": "Hakuna oda iliyopatikana",
+    "view": "Angalia",
+    "qrConfirmed": "Imethibitishwa kwa QR",
+    "proximityKm": "km {km}",
+    "col": {
+      "reference": "Nambari ya Oda",
+      "customer": "Mteja",
+      "store": "Duka",
+      "source": "Chanzo",
+      "type": "Aina",
+      "delivery": "Uwasilishaji",
+      "amount": "Kiasi",
+      "status": "Hali",
+      "date": "Tarehe",
+      "proximity": "Ukaribu",
+      "actions": "Vitendo"
+    },
+    "source": {
+      "android": "Android",
+      "ios": "iOS",
+      "web": "Wavuti"
+    },
+    "status": {
+      "pending": "Inasubiri",
+      "validated": "Imethibitishwa",
+      "preparing": "Inaandaliwa",
+      "out_for_delivery": "Inawasilishwa",
+      "delivered": "Imewasilishwa",
+      "cancelled": "Imefutwa"
+    }
   },
   "mobileOrdersPage": {
     "title": "Oda za simu",
@@ -4333,7 +4586,11 @@
     "unsavedMessage": "Una mabadiliko ambayo hayajahifadhiwa. Unataka kuyaacha?",
     "discard": "Acha",
     "keepEditing": "Endelea kuhariri",
-    "reset": "Weka upya"
+    "reset": "Weka upya",
+    "pagination": "Kurasa",
+    "previous": "Iliyotangulia",
+    "next": "Ifuatayo",
+    "showing": "{from}–{to} kati ya {total}"
   },
   "realtime": {
     "connected": "Sasisho za moja kwa moja zimeunganishwa",

@@ -16,6 +16,8 @@ import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
 import { computeStayTaxes, findHotelSettings, moneyFromSettingsCents } from '../../../utils/hotelSettings'
 import HotelChrome from './HotelChrome.vue'
+import ListPager from '../../../components/ui/ListPager.vue'
+import { useClientPager } from '../../../composables/useClientPager'
 
 type Doc = Record<string, any>
 type ClientMode = 'new' | 'existing'
@@ -330,6 +332,7 @@ const filteredStays = computed(() => {
     return hay.includes(q)
   })
 })
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredStays)
 
 const statusFilters = computed(() => ([
   { id: 'all' as const, label: t('hotel.stays.board.all'), count: allStays.value.length },
@@ -1864,7 +1867,7 @@ function roomLabel(room: Doc) {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="row in filteredStays" :key="row.id">
+                <tr v-for="row in paged" :key="row.id">
                   <td>
                     <div class="stay__client">
                       <span class="stay__avatar">{{ initials(row.guest_name) }}</span>
@@ -1914,6 +1917,7 @@ function roomLabel(room: Doc) {
               </tbody>
             </table>
             <p v-if="!filteredStays.length" class="stay__empty">{{ t('hotel.stays.empty') }}</p>
+            <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
           </div>
         </template>
       </div>

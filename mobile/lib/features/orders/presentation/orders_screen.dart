@@ -1,13 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
@@ -24,6 +20,8 @@ import '../../pos/presentation/widgets/pos_merge_sheet.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../pos/services/pos_pending_intent.dart';
 import '../../receipt/domain/receipt_models.dart';
+import '../../receipt/services/kitchen_ticket_service.dart';
+import '../../receipt/services/print_once.dart';
 import '../../receipt/services/receipt_print_service.dart';
 import '../data/orders_api_service.dart';
 import '../domain/order_models.dart';
@@ -333,12 +331,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 amount: sale.total,
                 currency: sale.currency,
                 status: _laneLabel(_saleLane(sale)),
-                statusKey: sale.status,
+                statusKey: _saleLane(sale),
                 badge: sale.serviceBadge,
                 secondary: sale.secondaryReference,
                 customer: _person(sale.customerName),
                 servedBy: sale.cashierName?.trim() ?? '',
-                payment: sale.paymentColumn,
+                payment: sale.paymentStatusLabel,
+                paymentKey: sale.paymentStatus,
               ))
           .toList();
     }
@@ -406,12 +405,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Future<void> _createReceipt(_SaleRow sale) async {
     final id = sale.detailId;
     if (id == null || id.isEmpty) return;
-    await _issueDocument(saleId: id, label: 'Reçu', create: () => _posApi.createReceipt(id));
+    await _issueDocument(saleId: id, label: 'Souche', create: () => _posApi.createReceipt(id));
   }
 
   Future<void> _createInvoice(_SaleRow sale) async {
-    final id = sale.detailId;
-    if (id == null || id.isEmpty) return;
+    final id = !sale.isRemote && sale.id.isNotEmpty ? sale.id : (sale.detailId ?? sale.id);
+    if (id.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vente introuvable pour la facture')),
+      );
+      return;
+    }
     await _issueDocument(saleId: id, label: 'Facture', create: () => _posApi.createInvoice(id));
   }
 
@@ -423,40 +428,44 @@ class _OrdersScreenState extends State<OrdersScreen> {
       );
       return;
     }
-    final doc = pw.Document();
-    final date = DateFormat('dd/MM/yyyy HH:mm').format(sale.createdAt);
-    doc.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-          children: [
-            pw.Text(
-              'BON DE CUISINE',
-              textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+    final customerName = (sale.customerName ?? '').trim();
+    final held = PosHeldSale(
+      id: sale.id,
+      serverId: sale.serverId,
+      label: sale.reference,
+      lines: [
+        for (var i = 0; i < sale.lines.length; i++)
+          PosCartLine(
+            lineId: '${sale.id}-$i',
+            product: PosProduct(
+              storeProductId: '${sale.id}-$i',
+              productId: '${sale.id}-$i',
+              sku: '',
+              name: sale.lines[i].name,
+              price: sale.lines[i].unitPrice,
             ),
-            pw.SizedBox(height: 4),
-            pw.Text(sale.reference, textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 10)),
-            pw.Text(date, textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 9)),
-            if ((sale.customerName ?? '').trim().isNotEmpty)
-              pw.Text('Client: ${sale.customerName}', style: const pw.TextStyle(fontSize: 9)),
-            pw.SizedBox(height: 6),
-            pw.Divider(thickness: 0.6),
-            ...sale.lines.map(
-              (line) => pw.Padding(
-                padding: const pw.EdgeInsets.symmetric(vertical: 3),
-                child: pw.Text('${line.quantity}x  ${line.name}', style: const pw.TextStyle(fontSize: 11)),
-              ),
-            ),
-          ],
-        ),
-      ),
+            unitPrice: sale.lines[i].unitPrice,
+            quantity: sale.lines[i].quantity,
+          ),
+      ],
+      heldAt: sale.createdAt,
+      note: sale.note,
+      tableId: sale.tableId,
+      customer: customerName.isEmpty ? null : PosCustomer(id: sale.id, name: customerName),
     );
-    await Printing.layoutPdf(
-      onLayout: (_) async => Uint8List.fromList(await doc.save()),
-      name: 'kitchen-${sale.reference}',
-    );
+    try {
+      await KitchenTicketService().printHeldSale(held);
+    } on PrintAlreadyDone {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Déjà imprimé')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impression cuisine échouée')),
+      );
+    }
   }
 
   Future<void> _issueDocument({
@@ -475,6 +484,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label créé avec succès')));
       }
+    } on PrintAlreadyDone {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Déjà imprimé')),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -496,8 +510,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return _Detail(
         title: sale.reference,
         status: _laneLabel(_saleLane(sale)),
-        statusKey: sale.status,
-        paymentLabel: sale.paymentColumn == '—' ? '' : sale.paymentColumn,
+        statusKey: _saleLane(sale),
+        paymentLabel: sale.paymentStatusLabel,
+        paymentKey: sale.paymentStatus,
         whenLabel: DateFormat('dd/MM HH:mm').format(sale.createdAt),
         serviceLabel: sale.serviceBadge ?? (sale.isHold ? 'Hold' : ''),
         customer: _person(sale.customerName),
@@ -521,7 +536,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         onAddArticles: sale.isHold ? () => _openHoldOnPos(sale.id, action: PosHoldAction.addArticles) : null,
         onSplit: canSplit ? () => _openHoldOnPos(sale.id, action: PosHoldAction.split) : null,
         onPay: sale.isHold ? () => _openHoldOnPos(sale.id, action: PosHoldAction.pay) : null,
-        onPrintInvoice: sale.canIssueDocs ? () => _createInvoice(sale) : null,
+        onPrintInvoice: sale.isPaidOrder ? () => _createInvoice(sale) : null,
         onPrintKitchen: () => _printKitchenTicket(sale),
       );
     }
@@ -594,8 +609,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final raw = sale.status.toLowerCase();
     if (raw == 'failed' || raw == 'retrying' || sale.filterStatus == 'failed') return 'quarantine';
     if (raw == 'voided' || raw == 'cancelled' || raw == 'merged') return 'cancelled';
-    if (raw == 'completed' || raw == 'synced' || sale.filterStatus == 'completed') return 'completed';
-    if (sale.isHold || raw == 'pending' || raw == 'held') return 'progress';
+    // Paid tickets are Completed even while local sync is still pending.
+    if (sale.isPaidOrder || raw == 'completed' || raw == 'synced' || sale.filterStatus == 'completed') {
+      return 'completed';
+    }
+    // Held / unpaid open tickets stay in the Open lane (not In Progress).
+    if (sale.isHold || raw == 'pending' || raw == 'held') return 'open';
     return 'open';
   }
 
@@ -722,6 +741,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               }),
               onRefresh: _loading ? null : _load,
               onPreviewDisplay: () => CustomerDisplayLauncher.open(context),
+              previewBusy: CustomerDisplayLauncher.busy,
               onSection: (value) {
                 setState(() {
                   _section = value;
@@ -795,7 +815,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                                       final sale = _section == 0
                                                           ? _venteRows.where((row) => row.id == item.id).firstOrNull
                                                           : null;
-                                                      final busy = _docBusyId != null && sale?.detailId == _docBusyId;
+                                                      final invoiceId = sale == null
+                                                          ? null
+                                                          : (!sale.isRemote && sale.id.isNotEmpty
+                                                              ? sale.id
+                                                              : (sale.detailId ?? sale.id));
+                                                      final busy = _docBusyId != null &&
+                                                          (sale?.detailId == _docBusyId || invoiceId == _docBusyId);
                                                       return _OrderTableRow(
                                                         item: item,
                                                         selected: _selectedId == item.id,
@@ -805,7 +831,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                                         onReceipt: sale != null && sale.canIssueDocs && !busy
                                                             ? () => _createReceipt(sale)
                                                             : null,
-                                                        onInvoice: sale != null && sale.canIssueDocs && !busy
+                                                        onInvoice: sale != null && sale.isPaidOrder && !busy
                                                             ? () => _createInvoice(sale)
                                                             : null,
                                                         onMerge: sale != null && sale.canMerge
@@ -857,6 +883,7 @@ class _OrdersChrome extends StatelessWidget {
     required this.onQuarantine,
     required this.onRefresh,
     required this.onPreviewDisplay,
+    required this.previewBusy,
     required this.onSection,
   });
 
@@ -877,6 +904,7 @@ class _OrdersChrome extends StatelessWidget {
   final VoidCallback onQuarantine;
   final VoidCallback? onRefresh;
   final VoidCallback onPreviewDisplay;
+  final ValueNotifier<bool> previewBusy;
   final ValueChanged<int> onSection;
 
   static const _lanes = ['All', 'Open', 'In Progress', 'Completed', 'Cancelled'];
@@ -932,11 +960,14 @@ class _OrdersChrome extends StatelessWidget {
                 runSpacing: 8,
                 alignment: WrapAlignment.end,
                 children: [
-                  _OutlineAction(
-                    icon: Icons.monitor_outlined,
-                    label: 'Preview Customer display',
-                    onPressed: () {
-                      onPreviewDisplay();
+                  ValueListenableBuilder<bool>(
+                    valueListenable: previewBusy,
+                    builder: (context, busy, _) {
+                      return _OutlineAction(
+                        icon: Icons.monitor_outlined,
+                        label: 'Preview Customer display',
+                        onPressed: busy ? null : onPreviewDisplay,
+                      );
                     },
                   ),
                   _OutlineAction(
@@ -1245,7 +1276,7 @@ class _OrdersTableHeader extends StatelessWidget {
             Expanded(flex: 16, child: Text('Status', style: style)),
             Expanded(flex: 12, child: Text('Payment', style: style)),
             Expanded(flex: 12, child: Text('Time', style: style)),
-            SizedBox(width: 96, child: Text('Actions', textAlign: TextAlign.right, style: style)),
+            SizedBox(width: 210, child: Text('Actions', textAlign: TextAlign.right, style: style)),
           ],
         ),
       ),
@@ -1280,7 +1311,8 @@ class _OrderTableRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(item.statusKey);
+    final statusColor = _statusColor(item.statusKey);
+    final paymentColor = _paymentColor(item.paymentKey);
     return Material(
       color: selected ? PosUi.deskRaised : Colors.transparent,
       child: InkWell(
@@ -1370,7 +1402,7 @@ class _OrderTableRow extends StatelessWidget {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                     ),
                     const SizedBox(width: 6),
                     Flexible(
@@ -1378,7 +1410,7 @@ class _OrderTableRow extends StatelessWidget {
                         item.status,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.text(fontSize: 12.5, fontWeight: FontWeight.w700, color: color),
+                        style: AppTypography.text(fontSize: 12.5, fontWeight: FontWeight.w700, color: statusColor),
                       ),
                     ),
                   ],
@@ -1390,7 +1422,7 @@ class _OrderTableRow extends StatelessWidget {
                   item.payment,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskAccent),
+                  style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: paymentColor),
                 ),
               ),
               Expanded(
@@ -1403,10 +1435,25 @@ class _OrderTableRow extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                width: 96,
+                width: 210,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (onInvoice != null)
+                      TextButton(
+                        onPressed: busy ? null : onInvoice,
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF4C8DFF),
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 32),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Print Invoice',
+                          style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w800, color: const Color(0xFF4C8DFF)),
+                        ),
+                      ),
                     if (busy)
                       const SizedBox(
                         width: 16,
@@ -1437,8 +1484,8 @@ class _OrderTableRow extends StatelessWidget {
                           }
                         },
                         itemBuilder: (context) => [
-                          if (onReceipt != null) const PopupMenuItem(value: 'receipt', child: Text('Receipt')),
-                          if (onInvoice != null) const PopupMenuItem(value: 'invoice', child: Text('Invoice')),
+                          if (onReceipt != null) const PopupMenuItem(value: 'receipt', child: Text('Souche')),
+                          if (onInvoice != null) const PopupMenuItem(value: 'invoice', child: Text('Print Invoice')),
                           if (onMerge != null) const PopupMenuItem(value: 'merge', child: Text('Merge')),
                           if (onResume != null) const PopupMenuItem(value: 'resume', child: Text('Resume')),
                         ],
@@ -1525,6 +1572,7 @@ class _DetailBody extends StatelessWidget {
       if (detail.serviceLabel.isNotEmpty) detail.serviceLabel,
     ].join(' · ');
     final statusColor = _statusColor(detail.statusKey);
+    final paymentColor = _paymentColor(detail.paymentKey);
     final invoiceBlue = const Color(0xFF4C8DFF);
 
     return Column(
@@ -1549,7 +1597,7 @@ class _DetailBody extends StatelessWidget {
                       ),
                       _DotPill(label: detail.status, color: statusColor),
                       if (detail.paymentLabel.isNotEmpty)
-                        _DotPill(label: detail.paymentLabel, color: PosUi.deskAccent),
+                        _DotPill(label: detail.paymentLabel, color: paymentColor),
                     ],
                   ),
                   if (when.isNotEmpty) ...[
@@ -1711,37 +1759,35 @@ class _DetailBody extends StatelessWidget {
         ],
         if (modify != null || addArticles != null || split != null || pay != null) ...[
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
+          _ActionGrid(
+            actions: [
               if (modify != null)
-                OutlinedButton.icon(
+                _OrderAction(
+                  label: 'Modifier',
+                  icon: Icons.edit_outlined,
+                  color: const Color(0xFF3B82F6),
                   onPressed: modify,
-                  style: OutlinedButton.styleFrom(foregroundColor: PosUi.deskText, side: BorderSide(color: PosUi.deskLine)),
-                  icon: const Icon(Icons.edit_outlined, size: 16),
-                  label: const Text('Modifier'),
                 ),
               if (addArticles != null)
-                OutlinedButton.icon(
+                _OrderAction(
+                  label: 'Ajouter articles',
+                  icon: Icons.add_shopping_cart_outlined,
+                  color: const Color(0xFF7C5CFF),
                   onPressed: addArticles,
-                  style: OutlinedButton.styleFrom(foregroundColor: PosUi.deskText, side: BorderSide(color: PosUi.deskLine)),
-                  icon: const Icon(Icons.add_shopping_cart_outlined, size: 16),
-                  label: const Text('Ajouter articles'),
                 ),
               if (split != null)
-                OutlinedButton.icon(
+                _OrderAction(
+                  label: 'Séparer',
+                  icon: Icons.call_split,
+                  color: const Color(0xFFF5A524),
                   onPressed: split,
-                  style: OutlinedButton.styleFrom(foregroundColor: PosUi.deskText, side: BorderSide(color: PosUi.deskLine)),
-                  icon: const Icon(Icons.call_split, size: 16),
-                  label: const Text('Séparer'),
                 ),
               if (pay != null)
-                FilledButton.icon(
+                _OrderAction(
+                  label: 'Payer',
+                  icon: Icons.payments_outlined,
+                  color: PosUi.deskPay,
                   onPressed: pay,
-                  style: FilledButton.styleFrom(backgroundColor: PosUi.deskPay, foregroundColor: Colors.white),
-                  icon: const Icon(Icons.payments_outlined, size: 16),
-                  label: const Text('Payer'),
                 ),
             ],
           ),
@@ -1770,11 +1816,11 @@ class _DetailBody extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     if (detail.onPrintInvoice != null)
-                      OutlinedButton.icon(
+                      FilledButton.icon(
                         onPressed: () => detail.onPrintInvoice!(),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: invoiceBlue,
-                          side: BorderSide(color: invoiceBlue.withValues(alpha: 0.8)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: invoiceBlue,
+                          foregroundColor: Colors.white,
                           visualDensity: VisualDensity.compact,
                         ),
                         icon: const Icon(Icons.description_outlined, size: 16),
@@ -1798,6 +1844,91 @@ class _DetailBody extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _OrderAction {
+  const _OrderAction({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+}
+
+/// Modifier, Ajouter articles, Séparer and Payer share one row.
+class _ActionGrid extends StatelessWidget {
+  const _ActionGrid({required this.actions});
+
+  final List<_OrderAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < actions.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(
+            child: _ActionButton(
+              label: actions[i].label,
+              icon: actions[i].icon,
+              color: actions[i].color,
+              onPressed: actions[i].onPressed,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 72,
+      child: FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w800, height: 1.15),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2000,10 +2131,27 @@ class _Empty extends StatelessWidget {
 }
 
 Color _statusColor(String status) => switch (status.toLowerCase()) {
-      'completed' || 'approved' || 'paid' || 'synced' => PosUi.deskStock,
-      'pending' || 'held' || 'submitted' || 'partial' || 'partially_paid' || 'retrying' || 'draft' => PosUi.deskAccent,
-      'cancelled' || 'failed' || 'conflict' || 'voided' => AppColors.danger,
+      'completed' || 'approved' || 'synced' || 'received' || 'paid' => PosUi.deskStock,
+      'open' ||
+      'progress' ||
+      'pending' ||
+      'held' ||
+      'submitted' ||
+      'partial' ||
+      'partially_paid' ||
+      'retrying' ||
+      'draft' =>
+        PosUi.deskAccent,
+      'cancelled' || 'failed' || 'conflict' || 'voided' || 'quarantine' => AppColors.danger,
       'merged' => PosUi.deskMuted,
+      _ => PosUi.deskMuted,
+    };
+
+/// Payment colors stay distinct from [_statusColor] (amber Open / green Completed).
+Color _paymentColor(String payment) => switch (payment.toLowerCase()) {
+      'paid' => const Color(0xFF4C8DFF),
+      'partial' || 'partially_paid' => const Color(0xFF0D9488),
+      'pending' || 'unpaid' || 'on_credit' || 'credit' => const Color(0xFF7C5CFC),
       _ => PosUi.deskMuted,
     };
 
@@ -2022,6 +2170,7 @@ class _ListItem {
     this.servedPrefix = 'Served by',
     this.servedBy = '',
     this.payment = '—',
+    this.paymentKey = '',
   });
 
   final String id;
@@ -2037,7 +2186,7 @@ class _ListItem {
   final String servedPrefix;
   final String servedBy;
   final String payment;
-
+  final String paymentKey;
 }
 
 class _Detail {
@@ -2056,6 +2205,7 @@ class _Detail {
     this.remaining = 0,
     this.itemCount = 0,
     this.paymentLabel = '',
+    this.paymentKey = '',
     this.whenLabel = '',
     this.serviceLabel = '',
     this.customer = '—',
@@ -2083,6 +2233,7 @@ class _Detail {
   final int remaining;
   final int itemCount;
   final String paymentLabel;
+  final String paymentKey;
   final String whenLabel;
   final String serviceLabel;
   final String customer;
@@ -2415,6 +2566,14 @@ class _SaleRow {
     return key == 'completed' || key == 'synced';
   }
 
+  /// Fully settled sale: the invoice can be printed even before sync finishes.
+  bool get isPaidOrder {
+    if (isHold || id.isEmpty) return false;
+    final key = status.toLowerCase();
+    if (key == 'voided' || key == 'cancelled' || key == 'merged') return false;
+    return paymentStatus == 'paid';
+  }
+
   bool get canMerge => mergeId != null;
 
   bool get canResume => isHold || (isRemote && status.toLowerCase() == 'pending');
@@ -2454,11 +2613,20 @@ class _SaleRow {
   String get paymentStatus {
     final raw = paymentStatusRaw?.toLowerCase();
     if (raw != null && raw.isNotEmpty) return raw;
-    if (isHold || (paid <= 0 && outstanding > 0)) return 'on_credit';
+    if (isHold || (paid <= 0 && outstanding > 0)) return 'unpaid';
     if (outstanding > 0) return 'partial';
     if (method == 'credit') return 'credit';
     return 'paid';
   }
+
+  /// Display label for the Payment column (status, not tender method).
+  String get paymentStatusLabel => switch (paymentStatus.toLowerCase()) {
+        'paid' => 'Paid',
+        'partial' || 'partially_paid' => 'Partial',
+        'credit' => 'Credit',
+        'on_credit' || 'unpaid' || 'held' => 'Pending',
+        _ => isHold || !isPaidOrder ? 'Pending' : 'Paid',
+      };
 
   bool matchesPayment(String filter) {
     final key = filter.toLowerCase();
