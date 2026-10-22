@@ -18,7 +18,7 @@ class PosCartPanel extends StatelessWidget {
     required this.onIncrement,
     required this.onDecrement,
     required this.onRemove,
-    this.onLineDiscount,
+    this.onEditLine,
     this.onSearchCustomer,
     this.onSelectTable,
     this.showCheckout = false,
@@ -33,7 +33,7 @@ class PosCartPanel extends StatelessWidget {
   final ValueChanged<String> onIncrement;
   final ValueChanged<String> onDecrement;
   final ValueChanged<String> onRemove;
-  final void Function(String lineId)? onLineDiscount;
+  final void Function(String lineId)? onEditLine;
   final VoidCallback? onSearchCustomer;
 
   /// Restaurant mode only; null hides the table selector.
@@ -214,9 +214,9 @@ class PosCartPanel extends StatelessWidget {
                         onIncrement: () => onIncrement(line.lineId),
                         onDecrement: () => onDecrement(line.lineId),
                         onRemove: () => onRemove(line.lineId),
-                        onDiscount: onLineDiscount == null || line.isAccompaniment
+                        onEdit: onEditLine == null || line.isAccompaniment
                             ? null
-                            : () => onLineDiscount!(line.lineId),
+                            : () => onEditLine!(line.lineId),
                       );
                     },
                   ),
@@ -416,14 +416,14 @@ class _CartLineTile extends StatelessWidget {
     required this.onIncrement,
     required this.onDecrement,
     required this.onRemove,
-    this.onDiscount,
+    this.onEdit,
   });
 
   final PosCartLine line;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
   final VoidCallback onRemove;
-  final VoidCallback? onDiscount;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -447,13 +447,16 @@ class _CartLineTile extends StatelessWidget {
                   style: PosUi.cardTitle(color: PosUi.deskText),
                 ),
               ),
-              if (onDiscount != null)
-                InkWell(
-                  onTap: onDiscount,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.edit_outlined, size: 16, color: PosUi.deskAccent),
+              if (onEdit != null)
+                Tooltip(
+                  message: tr('Edit price & quantity'),
+                  child: InkWell(
+                    onTap: onEdit,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(Icons.edit_outlined, size: 16, color: PosUi.deskAccent),
+                    ),
                   ),
                 ),
               InkWell(

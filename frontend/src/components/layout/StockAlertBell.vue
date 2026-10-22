@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
       @click="open = !open"
     >
       <AppIcon name="bell" :size="16" />
-      <span v-if="unread" class="stock-bell__badge">{{ unread > 9 ? '9+' : unread }}</span>
+      <span v-if="unread" class="stock-bell__badge">{{ unread > 99 ? '99+' : unread }}</span>
     </button>
   </div>
 </template>

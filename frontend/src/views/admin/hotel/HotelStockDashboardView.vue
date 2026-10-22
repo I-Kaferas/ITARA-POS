@@ -14,6 +14,8 @@ import { formatDate } from '../../../utils/format'
 import { formatMoney } from '../../../utils/money'
 import HotelChrome from './HotelChrome.vue'
 
+const props = withDefaults(defineProps<{ variant?: 'page' | 'home' }>(), { variant: 'page' })
+
 const { t, locale } = useI18n()
 const store = useBackofficeStore()
 const context = useContextStore()
@@ -239,9 +241,29 @@ function qtyLabel(quantity: number) {
 </script>
 
 <template>
-  <HotelChrome scroll-body :title="t('hotel.stock.title')" :subtitle="subtitle">
+  <component
+    :is="props.variant === 'home' ? 'div' : HotelChrome"
+    v-bind="props.variant === 'home'
+      ? { class: 'sd-home' }
+      : { scrollBody: true, title: t('hotel.stock.title'), subtitle }"
+  >
+    <header v-if="props.variant === 'home'" class="sd-hero">
+      <div class="sd-hero__id">
+        <span class="sd-hero__mark" aria-hidden="true">
+          <AppIcon name="inventory" :size="18" />
+        </span>
+        <div>
+          <h2>{{ t('hotel.stock.title') }}</h2>
+          <p>{{ t('hotel.stock.subtitle') }}</p>
+        </div>
+      </div>
+      <button type="button" class="sd-hero__refresh" :disabled="loading" @click="load">
+        <AppIcon name="recycle" :size="15" />
+        {{ t('common.refresh') }}
+      </button>
+    </header>
     <div class="sd">
-      <div class="sd__toolbar">
+      <div v-if="props.variant !== 'home'" class="sd__toolbar">
         <p class="text-caption">{{ todayLabel }}</p>
         <button type="button" class="btn-secondary" :disabled="loading" @click="load">
           <AppIcon name="recycle" :size="15" />
@@ -394,7 +416,7 @@ function qtyLabel(quantity: number) {
         </section>
       </template>
     </div>
-  </HotelChrome>
+  </component>
 </template>
 
 <style scoped>
@@ -402,6 +424,56 @@ function qtyLabel(quantity: number) {
   display: flex;
   flex-direction: column;
   gap: var(--section-gap);
+}
+
+.sd-hero,
+.sd-hero__id {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.sd-hero {
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.sd-hero__mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #e8f1ff;
+  color: #3b82f6;
+}
+
+.sd-hero h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+}
+
+.sd-hero p {
+  margin: 2px 0 0;
+  color: #94a3b8;
+  font-size: 0.84rem;
+}
+
+.sd-hero__refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 38px;
+  padding: 0 0.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font-weight: 650;
+  cursor: pointer;
 }
 
 .sd__toolbar {

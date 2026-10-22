@@ -25,6 +25,7 @@ use App\Services\Sales\SaleEngine;
 use App\Services\Shifts\CashierShiftService;
 use App\Services\Sync\ConflictResolutionEngine;
 use App\Services\Sync\OfflineSyncService;
+use App\Services\Sync\PosStockPushService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,6 +41,7 @@ class SyncController extends Controller
         private readonly OfflineSyncService $offlineSync,
         private readonly ConflictResolutionEngine $conflicts,
         private readonly CashierShiftService $shifts,
+        private readonly PosStockPushService $posStockPush,
     ) {}
 
     public function push(Request $request): JsonResponse
@@ -416,9 +418,11 @@ class SyncController extends Controller
             'customer' => $op === 'create'
                 ? $this->applyCustomerCreate($store, $operation)
                 : $this->unsupported($operation, $entityId),
-            'sale' => $op === 'create'
-                ? $this->applySaleCreate($store, $operation, $request, $payload, $entityId)
-                : $this->unsupported($operation, $entityId),
+            'sale' => match ($op) {
+                'create' => $this->applySaleCreate($store, $operation, $request, $payload, $entityId),
+                'hold', 'update' => $this->applySaleHold($store, $operation, $request, $payload, $entityId),
+                default => $this->unsupported($operation, $entityId),
+            },
             'cashier_shift' => $this->applyCashierShift($store, $operation, $request, $payload, $entityId),
             'payment' => $this->applyPayment($store, $operation, $payload, $entityId),
             'stock' => $this->applyStock($store, $operation, $payload, $entityId),
@@ -457,6 +461,18 @@ class SyncController extends Controller
         $payload = $this->bindDeviceShift($store, $payload);
 
         try {
+            if (empty($payload['sale_id']) && $this->sales->isUnpaidOrder($payload)) {
+                $sale = $this->sales->hold($store, $payload, $request->user());
+
+                return [
+                    'id' => $operation['id'],
+                    'entity_id' => $entityId,
+                    'status' => 'synced',
+                    'server_id' => $sale->id,
+                    'reference' => $sale->reference,
+                ];
+            }
+
             $result = ! empty($payload['sale_id'])
                 ? $this->sales->completePending($store, $payload, $request->user())
                 : $this->sales->create($store, $payload, $request->user());
@@ -485,6 +501,52 @@ class SyncController extends Controller
                 ];
             }
 
+            return [
+                'id' => $operation['id'],
+                'entity_id' => $entityId,
+                'status' => 'failed',
+                'error' => collect($exception->errors())->flatten()->first() ?? $exception->getMessage(),
+            ];
+        } catch (\Throwable $exception) {
+            return [
+                'id' => $operation['id'],
+                'entity_id' => $entityId,
+                'status' => 'failed',
+                'error' => $exception->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $operation
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function applySaleHold(Store $store, array $operation, Request $request, array $payload, string $entityId): array
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            return [
+                'id' => $operation['id'],
+                'entity_id' => $entityId,
+                'status' => 'failed',
+                'error' => 'Unauthenticated.',
+            ];
+        }
+
+        $payload['idempotency_key'] = $payload['idempotency_key'] ?? $entityId;
+
+        try {
+            $sale = $this->sales->hold($store, $payload, $user);
+
+            return [
+                'id' => $operation['id'],
+                'entity_id' => $entityId,
+                'status' => 'synced',
+                'server_id' => $sale->id,
+                'reference' => $sale->reference,
+            ];
+        } catch (ValidationException $exception) {
             return [
                 'id' => $operation['id'],
                 'entity_id' => $entityId,
@@ -555,23 +617,7 @@ class SyncController extends Controller
      */
     private function applyStock(Store $store, array $operation, array $payload, string $entityId): array
     {
-        SyncEvent::query()->create([
-            'tenant_id' => $store->tenant_id,
-            'store_id' => $store->id,
-            'event_type' => 'stock.updated',
-            'entity_type' => 'stock',
-            'entity_id' => $entityId,
-            'payload' => $payload,
-            'occurred_at' => now(),
-            'sequence' => SyncEvent::allocateSequence((string) $store->tenant_id),
-        ]);
-
-        return [
-            'id' => $operation['id'],
-            'entity_id' => $entityId,
-            'status' => 'synced',
-            'server_id' => $entityId,
-        ];
+        return $this->posStockPush->apply($store, $operation, $payload, $entityId);
     }
 
     /**
@@ -999,6 +1045,18 @@ class SyncController extends Controller
                 ->where('tenant_id', $store->tenant_id)
                 ->where(function ($query) use ($entityId, $serverId): void {
                     $query->where('notes', 'idempotency:'.$entityId);
+                    if ($serverId !== '') {
+                        $query->orWhere('id', $serverId);
+                    }
+                })
+                ->exists();
+        }
+
+        if ($entityType === 'cashier_shift') {
+            return CashierShift::query()
+                ->where('tenant_id', $store->tenant_id)
+                ->where(function ($query) use ($entityId, $serverId): void {
+                    $query->where('client_uuid', $entityId);
                     if ($serverId !== '') {
                         $query->orWhere('id', $serverId);
                     }

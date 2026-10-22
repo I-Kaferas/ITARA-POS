@@ -23,16 +23,37 @@ class LocalShiftsStore {
     MovementType(value: 'expense', label: tr('Expense'), labelFr: 'Dépense', direction: 'out'),
   ];
 
-  /// The open shift for the connected cashier (not any shift on the store).
-  Future<({CashRegister register, CashRegisterSession session})?> openShift() async {
+  /// Open shift for the connected cashier on the **active store**.
+  Future<({CashRegister register, CashRegisterSession session})?> openShift({
+    String? storeId,
+  }) async {
     final config = TerminalConfigRepository.instance.config;
     final cashierId = config.cashierId.trim();
     if (cashierId.isEmpty) return null;
 
-    final mine = await openShiftForCashier(cashierId);
+    final store = (storeId ?? config.storeId).trim();
+    final mine = await openShiftForCashier(cashierId, storeId: store);
     if (mine == null) return null;
 
-    final registers = await fetchRegisters();
+    final registerId = mine.cashRegisterId?.trim() ?? '';
+    if (registerId.isNotEmpty) {
+      final register = await _registerById(registerId);
+      if (register != null) {
+        return (register: register.copyWithSession(mine), session: mine);
+      }
+      return (
+        register: CashRegister(
+          id: registerId,
+          name: 'Caisse',
+          code: '',
+          isActive: true,
+          openSession: mine,
+        ),
+        session: mine,
+      );
+    }
+
+    final registers = await fetchRegisters(storeId: store);
     for (final register in registers) {
       final session = register.openSession;
       if (session == null || session.id != mine.id) continue;
@@ -41,11 +62,62 @@ class LocalShiftsStore {
     return null;
   }
 
-  Future<List<CashRegister>> fetchRegisters() async {
-    final storeId = TerminalConfigRepository.instance.config.storeId.trim();
+  /// After a store switch: bind TerminalConfig to this cashier's shift for that store,
+  /// or clear session pointers so POS requires opening a new shift.
+  Future<({CashRegister register, CashRegisterSession session})?> syncTerminalShiftForStore(
+    String storeId,
+  ) async {
+    final config = TerminalConfigRepository.instance.config;
+    final cashierId = config.cashierId.trim();
+    final store = storeId.trim();
+    if (cashierId.isEmpty || store.isEmpty) {
+      if (config.cashSessionId.isNotEmpty || config.cashRegisterId.isNotEmpty) {
+        await TerminalConfigRepository.instance.save(
+          config.copyWith(cashRegisterId: '', cashSessionId: ''),
+        );
+      }
+      return null;
+    }
+
+    final open = await openShift(storeId: store);
+    if (open == null) {
+      await TerminalConfigRepository.instance.save(
+        config.copyWith(cashRegisterId: '', cashSessionId: ''),
+      );
+      return null;
+    }
+
+    if (config.cashRegisterId != open.register.id ||
+        config.cashSessionId != open.session.id) {
+      await TerminalConfigRepository.instance.save(
+        config.copyWith(
+          cashRegisterId: open.register.id,
+          cashSessionId: open.session.id,
+        ),
+      );
+    }
+    return open;
+  }
+
+  Future<CashRegister?> _registerById(String registerId) async {
+    final row = await DataModelDaos.cashRegisters.find(registerId);
+    if (row == null || _inactive(row)) return null;
+    final id = row['id']?.toString() ?? '';
+    if (id.isEmpty) return null;
+    return CashRegister(
+      id: id,
+      name: row['name']?.toString() ?? 'Caisse',
+      code: row['code']?.toString() ?? '',
+      isActive: true,
+      openSession: await _openSession(id),
+    );
+  }
+
+  Future<List<CashRegister>> fetchRegisters({String? storeId}) async {
+    final store = (storeId ?? TerminalConfigRepository.instance.config.storeId).trim();
     final rows = await DataModelDaos.cashRegisters.list(
-      where: storeId.isEmpty ? null : "store_id = ? OR store_id IS NULL OR store_id = ''",
-      whereArgs: storeId.isEmpty ? null : [storeId],
+      where: store.isEmpty ? null : "store_id = ? OR store_id IS NULL OR store_id = ''",
+      whereArgs: store.isEmpty ? null : [store],
       orderBy: 'name ASC',
     );
     final registers = <CashRegister>[];
@@ -307,23 +379,38 @@ class LocalShiftsStore {
     );
   }
 
-  Future<CashRegisterSession?> openShiftForCashier(String cashierId) async {
+  /// Active open shift for a cashier at a given store (user-owned, store-scoped).
+  Future<CashRegisterSession?> openShiftForCashier(
+    String cashierId, {
+    String? storeId,
+  }) async {
     await _releaseFinishedShifts();
-    final visibleIds = (await fetchRegisters()).map((register) => register.id).toSet();
-    final rows = await DataModelDaos.shifts.list(
-      where: "lower(status) = ? AND (closed_at IS NULL OR closed_at = '')",
-      whereArgs: ['open'],
-      orderBy: 'opened_at DESC',
-    );
     final mine = cashierId.trim();
     if (mine.isEmpty) return null;
+    final store = (storeId ?? TerminalConfigRepository.instance.config.storeId).trim();
+
+    final rows = await DataModelDaos.shifts.list(
+      where: "lower(status) = ? AND (closed_at IS NULL OR closed_at = '') AND user_id = ?",
+      whereArgs: ['open', mine],
+      orderBy: 'opened_at DESC',
+    );
+
     for (final row in rows) {
-      final registerId = row['cash_register_id']?.toString() ?? '';
-      if (!visibleIds.contains(registerId)) continue;
       final session = CashRegisterSession.fromJson(_sessionJson(row));
       if (!session.isOpen) continue;
-      final owner = session.openedById?.trim() ?? '';
-      if (owner != mine) continue;
+      final rowStore = (row['store_id']?.toString() ?? '').trim();
+      if (store.isNotEmpty) {
+        if (rowStore == store) return session;
+        // Legacy rows without store_id: accept if register belongs to this store.
+        if (rowStore.isEmpty) {
+          final registerId = (row['cash_register_id']?.toString() ?? '').trim();
+          if (registerId.isEmpty) continue;
+          final register = await DataModelDaos.cashRegisters.find(registerId);
+          final regStore = (register?['store_id']?.toString() ?? '').trim();
+          if (regStore == store || regStore.isEmpty) return session;
+        }
+        continue;
+      }
       return session;
     }
     return null;
@@ -338,9 +425,12 @@ class LocalShiftsStore {
     if (!config.canOpenShift) {
       throw Exception('Seul un caissier peut ouvrir un shift.');
     }
-    final mine = await openShiftForCashier(config.cashierId);
+    final storeId = config.storeId.trim();
+    final mine = await openShiftForCashier(config.cashierId, storeId: storeId);
     if (mine != null) {
-      throw Exception('Close your current shift before opening another.');
+      throw Exception(
+        'You already have an open shift for this store. Close it before opening another.',
+      );
     }
     final existing = await _openSession(registerId);
     if (existing != null) {
@@ -355,6 +445,7 @@ class LocalShiftsStore {
       'cash_register_id': registerId,
       'cash_session_id': id,
       'user_id': config.cashierId,
+      'store_id': storeId,
       'status': 'open',
       'opened_at': now.toIso8601String(),
       'opening_balance': openingBalance,
@@ -365,6 +456,7 @@ class LocalShiftsStore {
       'cash_register_id': registerId,
       'cash_session_id': id,
       'user_id': config.cashierId,
+      'store_id': storeId,
       'status': 'open',
       'opened_at': now.toIso8601String(),
     });
@@ -418,6 +510,8 @@ class LocalShiftsStore {
       closedAt: closedAt,
       openedByName: session.openedByName,
       openedById: session.openedById,
+      cashRegisterId: session.cashRegisterId,
+      storeId: session.storeId,
     );
     final report = SessionSummary(
       openingBalance: summary.openingBalance,

@@ -14,11 +14,14 @@ import HotelChrome from './HotelChrome.vue'
 
 type Doc = Record<string, any>
 
+const props = withDefaults(defineProps<{ variant?: 'page' | 'home' }>(), { variant: 'page' })
+
 const { t, locale } = useI18n()
 
 const docs = ref<Doc[]>([])
 const loading = ref(true)
 const error = ref('')
+const revenueSpan = ref<6 | 12>(6)
 
 const todayLabel = computed(() =>
   new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium' }).format(new Date()),
@@ -101,7 +104,7 @@ const kpis = computed(() => {
 const revenueBars = computed(() => {
   const end = new Date()
   const buckets: { key: string; label: string; cents: number }[] = []
-  for (let i = 5; i >= 0; i -= 1) {
+  for (let i = revenueSpan.value - 1; i >= 0; i -= 1) {
     const cursor = new Date(end.getFullYear(), end.getMonth() - i, 1)
     const from = toIsoDate(cursor)
     const to = toIsoDate(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0))
@@ -111,16 +114,41 @@ const revenueBars = computed(() => {
       cents: revenueBetween(from, to),
     })
   }
-  const max = niceMax(Math.max(0, ...buckets.map(row => row.cents / 100)))
+  const raw = Math.max(0, ...buckets.map(row => row.cents / 100))
+  const empty = raw <= 0
+  const max = empty ? 4 : niceMax(raw)
   return {
     max,
-    ticks: axisTicks(max, false),
+    empty,
+    ticks: empty ? [4, 3, 2, 1, 0] : axisTicks(max, false),
     rows: buckets.map(row => ({
       ...row,
       pct: max ? Math.max(row.cents / 100 / max, 0) : 0,
     })),
   }
 })
+
+const revenueLine = computed(() => {
+  const chart = revenueBars.value
+  const count = chart.rows.length
+  const coords = chart.rows.map((row, index) => ({
+    x: count <= 1 ? 50 : (index / (count - 1)) * 100,
+    y: 100 - row.pct * 100,
+    label: row.label,
+  }))
+  return {
+    ...chart,
+    coords,
+    points: coords.map(point => `${point.x},${point.y}`).join(' '),
+  }
+})
+
+const availabilityTiles = computed(() => [
+  { key: 'occupied', label: t('hotel.dashboard.occupied'), value: availability.value.occupied },
+  { key: 'reserved', label: t('hotel.dashboard.reserved'), value: availability.value.reserved },
+  { key: 'available', label: t('hotel.dashboard.available'), value: availability.value.available },
+  { key: 'notReady', label: t('hotel.dashboard.notReady'), value: availability.value.notReady },
+])
 
 const reservationBars = computed(() => {
   const rows = []
@@ -229,11 +257,13 @@ function revenueBetween(from: string, to: string) {
 
 function comparison(current: number, previous: number) {
   if (current === 0 && previous === 0) {
-    return { delta: null as string | null, deltaTone: 'flat' as const }
+    return { delta: null as string | null, pct: null as string | null, deltaTone: 'flat' as const }
   }
   const delta = deltaPct(current, previous)
+  const pct = formatPct(delta)
   return {
-    delta: `${formatPct(delta)} ${t('hotel.dashboard.vsLastWeek')}`,
+    delta: pct === '—' ? null : `${pct} ${t('hotel.dashboard.vsLastWeek')}`,
+    pct: pct === '—' ? null : pct,
     deltaTone: deltaTone(delta),
   }
 }
@@ -287,7 +317,111 @@ function compactNumber(value: number) {
 </script>
 
 <template>
-  <HotelChrome scroll-body :subtitle="t('hotel.dashboard.subtitle')">
+  <div v-if="props.variant === 'home'" class="home-hotel">
+    <header class="home-hero">
+      <div class="home-hero__id">
+        <span class="home-hero__mark" aria-hidden="true">
+          <AppIcon name="bed" :size="18" />
+        </span>
+        <div>
+          <h2>{{ t('hotel.dashboard.title') }}</h2>
+          <p>{{ t('hotel.dashboard.subtitle') }}</p>
+        </div>
+      </div>
+      <div class="home-hero__actions">
+        <button type="button" class="home-refresh" :disabled="loading" @click="load()">
+          <AppIcon name="recycle" :size="15" />
+          {{ t('common.refresh') }}
+        </button>
+        <RouterLink class="home-book" to="/admin/hotel/reservations?new=1">
+          <AppIcon name="plus" :size="15" />
+          {{ t('hotel.dashboard.newBooking') }}
+        </RouterLink>
+      </div>
+    </header>
+
+    <p v-if="error" class="hd__error">{{ error }}</p>
+    <LoadingBlock v-else-if="loading && !docs.length" variant="cards" :rows="4" :label="t('common.loading')" />
+
+    <template v-else>
+      <section class="home-kpis">
+        <article v-for="card in kpis" :key="card.key" class="hkpi" :class="`hkpi--${card.key}`">
+          <div class="hkpi__top">
+            <span class="hkpi__icon" aria-hidden="true">
+              <AppIcon :name="card.key === 'out' ? 'bed' : card.key === 'revenue' ? 'coins' : card.icon" :size="18" />
+            </span>
+            <span v-if="card.pct" class="hkpi__badge" :class="`is-${card.deltaTone}`">
+              {{ card.deltaTone === 'down' ? '↓' : '↑' }} {{ card.pct }}
+            </span>
+          </div>
+          <p class="hkpi__label">{{ card.label }}</p>
+          <p class="hkpi__value">{{ card.value }}</p>
+          <p class="hkpi__hint">{{ t('hotel.dashboard.vsLastWeek') }}</p>
+        </article>
+      </section>
+
+      <div class="home-grid">
+        <section class="home-panel">
+          <header class="home-panel__head">
+            <h3>
+              <AppIcon name="pin" :size="16" />
+              {{ t('hotel.dashboard.roomAvailability') }}
+            </h3>
+            <RouterLink to="/admin/hotel/rooms">{{ t('hotel.dashboard.viewAll') }} →</RouterLink>
+          </header>
+          <div class="home-panel__body">
+            <ul class="avail-tiles">
+              <li v-for="tile in availabilityTiles" :key="tile.key">
+                <span class="avail__dot" :class="`avail__dot--${tile.key === 'notReady' ? 'not-ready' : tile.key}`" />
+                <span>{{ tile.label }}</span>
+                <strong>{{ tile.value }}</strong>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="home-panel">
+          <header class="home-panel__head">
+            <h3>
+              <AppIcon name="sales" :size="16" />
+              {{ t('hotel.dashboard.revenue') }}
+            </h3>
+            <label class="home-range">
+              <select v-model.number="revenueSpan">
+                <option :value="6">{{ t('hotel.dashboard.last6Months') }}</option>
+                <option :value="12">{{ t('hotel.stock.last12Months') }}</option>
+              </select>
+            </label>
+          </header>
+          <div class="home-panel__body">
+            <div class="line-chart" role="img" :aria-label="t('hotel.dashboard.revenue')">
+              <div class="line-chart__y">
+                <span v-for="(tick, index) in revenueLine.ticks" :key="index">{{ compactNumber(tick) }}</span>
+              </div>
+              <div class="line-chart__plot">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <line
+                    v-for="(tick, index) in revenueLine.ticks"
+                    :key="index"
+                    x1="0"
+                    x2="100"
+                    :y1="(index / Math.max(revenueLine.ticks.length - 1, 1)) * 100"
+                    :y2="(index / Math.max(revenueLine.ticks.length - 1, 1)) * 100"
+                  />
+                  <polyline v-if="!revenueLine.empty" :points="revenueLine.points" />
+                </svg>
+                <div class="line-chart__labels">
+                  <span v-for="point in revenueLine.coords" :key="point.label">{{ point.label }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </template>
+  </div>
+
+  <HotelChrome v-else scroll-body :subtitle="t('hotel.dashboard.subtitle')">
     <div class="hd">
       <div class="hd__toolbar">
         <p class="text-caption">{{ todayLabel }}</p>
@@ -612,8 +746,294 @@ function compactNumber(value: number) {
 
 @media (max-width: 720px) {
   .hd-kpis,
-  .hd-grid {
+  .hd-grid,
+  .home-kpis,
+  .home-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.home-hotel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.home-hero,
+.home-hero__id,
+.home-hero__actions,
+.home-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.home-hero {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.home-hero__mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #e8f1ff;
+  color: #3b82f6;
+}
+
+.home-hero h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.home-hero p,
+.hkpi__hint {
+  margin: 2px 0 0;
+  color: #94a3b8;
+  font-size: 0.84rem;
+}
+
+.home-refresh,
+.home-book {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 38px;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.home-refresh {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.home-refresh:disabled { opacity: 0.55; }
+
+.home-book {
+  background: #2563eb;
+  color: #fff;
+}
+
+.home-book:hover { filter: brightness(1.05); }
+
+.home-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.hkpi,
+.home-panel {
+  border: 1px solid #e8eef6;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.hkpi { padding: 1rem 1.05rem 0.95rem; }
+
+.hkpi__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.hkpi__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #e8f1ff;
+  color: #3b82f6;
+}
+
+.hkpi--out .hkpi__icon { background: #fef3c7; color: #d97706; }
+.hkpi--revenue .hkpi__icon { background: #d1fae5; color: #059669; }
+
+.hkpi__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.hkpi__badge.is-up,
+.hkpi__badge.is-flat { background: #ecfdf5; color: #059669; }
+.hkpi__badge.is-down { background: #fef2f2; color: #e11d48; }
+
+.hkpi__label {
+  margin: 0.85rem 0 0;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hkpi__value {
+  margin: 0.15rem 0 0;
+  color: #0f172a;
+  font-size: 1.65rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+  align-items: stretch;
+}
+
+.home-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 280px;
+  padding: 1rem 1.05rem 0.9rem;
+}
+
+.home-panel__head {
+  justify-content: space-between;
+}
+
+.home-panel__head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.home-panel__head h3 :deep(svg) { color: #2563eb; }
+
+.home-panel__head a {
+  color: #2563eb;
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.home-panel__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0.85rem;
+}
+
+.avail-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin: auto 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.avail-tiles li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 42px;
+  padding: 0.45rem 0.65rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.avail-tiles strong {
+  margin-left: auto;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-range select {
+  height: 34px;
+  padding: 0 1.6rem 0 0.75rem;
+  border: 1px solid #e6ebf2;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.line-chart {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 0.55rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 190px;
+}
+
+.line-chart__y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-align: right;
+}
+
+.line-chart__plot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.line-chart svg {
+  width: 100%;
+  height: 160px;
+}
+
+.line-chart line {
+  stroke: #e2e8f0;
+  stroke-dasharray: 3 3;
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.line-chart polyline {
+  fill: none;
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.line-chart__labels {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  margin-top: 0.35rem;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-align: center;
 }
 </style>

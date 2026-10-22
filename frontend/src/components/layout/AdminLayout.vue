@@ -49,6 +49,7 @@ const quietHeading = computed(() => {
   const path = route.path
   return path === '/admin' || path.endsWith('/dashboard') || path === '/admin/hotel/stock' || path.startsWith('/admin/customer-hub')
 })
+const homeDash = computed(() => route.path === '/admin')
 const slots = useSlots()
 const auth = useAuthStore()
 
@@ -79,6 +80,10 @@ const storeMenuTrigger = ref<HTMLElement | null>(null)
 const storeMenuPanel = ref<HTMLElement | null>(null)
 const storeMenuStyle = ref<Record<string, string>>({})
 const storeMenuActive = ref(0)
+const companyMenuOpen = ref(false)
+const companyMenuTrigger = ref<HTMLElement | null>(null)
+const companyMenuPanel = ref<HTMLElement | null>(null)
+const companyMenuStyle = ref<Record<string, string>>({})
 
 const openMenuId = ref<string | null>(null)
 const navEl = ref<HTMLElement | null>(null)
@@ -359,6 +364,12 @@ const userInitials = computed(() => {
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 })
 
+const roleLabel = computed(() => {
+  const role = auth.user?.roles?.[0]
+  const label = role?.name || role?.slug || auth.user?.email?.split('@')[0] || ''
+  return label.toLowerCase()
+})
+
 const company = computed(() => {
   return context.currentStore?.branch?.company
     ?? context.stores.find(store => store.branch?.company)?.branch?.company
@@ -372,6 +383,25 @@ const companyName = computed(() => {
     || brandingStore.branding?.brand_name?.trim()
     || 'ITARA NEXUS Business CORE'
 })
+
+const companies = computed(() => {
+  const map = new Map<string, { id: string; name: string; storeId: string }>()
+  for (const store of context.activeStores) {
+    const profile = store.branch?.company
+    if (!profile?.id || map.has(profile.id)) continue
+    map.set(profile.id, {
+      id: profile.id,
+      name: profile.name?.trim() || profile.trade_name?.trim() || companyName.value,
+      storeId: store.id,
+    })
+  }
+  if (!map.size) {
+    map.set('current', { id: 'current', name: companyName.value, storeId: context.currentStoreId || '' })
+  }
+  return [...map.values()]
+})
+
+const currentCompanyId = computed(() => context.currentStore?.branch?.company?.id ?? companies.value[0]?.id ?? '')
 
 const companyInitials = computed(() => {
   const parts = companyName.value.split(/\s+/).filter(Boolean)
@@ -706,6 +736,32 @@ function chooseStore(id: string) {
   storeMenuOpen.value = false
 }
 
+function placeCompanyMenu() {
+  const rect = companyMenuTrigger.value?.getBoundingClientRect()
+  if (!rect) return
+  companyMenuStyle.value = {
+    top: `${rect.bottom + 8}px`,
+    left: `${Math.max(12, rect.left)}px`,
+    width: `${Math.max(rect.width, 240)}px`,
+  }
+}
+
+function toggleCompanyMenu() {
+  companyMenuOpen.value = !companyMenuOpen.value
+  if (!companyMenuOpen.value) return
+  storeMenuOpen.value = false
+  userMenuOpen.value = false
+  void nextTick(placeCompanyMenu)
+}
+
+function chooseCompany(id: string) {
+  const picked = companies.value.find(item => item.id === id)
+  companyMenuOpen.value = false
+  if (picked?.storeId && picked.storeId !== context.currentStoreId && picked.id !== currentCompanyId.value) {
+    context.selectStore(picked.storeId)
+  }
+}
+
 function onStoreMenuKey(event: KeyboardEvent) {
   const stores = context.activeStores
   if (!stores.length) return
@@ -744,6 +800,9 @@ function onUserMenuPointer(event: PointerEvent) {
   if (!(storeMenuTrigger.value?.contains(target) || storeMenuPanel.value?.contains(target))) {
     storeMenuOpen.value = false
   }
+  if (!(companyMenuTrigger.value?.contains(target) || companyMenuPanel.value?.contains(target))) {
+    companyMenuOpen.value = false
+  }
 }
 
 function onUserMenuKey(event: KeyboardEvent) {
@@ -780,6 +839,7 @@ onMounted(() => {
   window.addEventListener('keydown', onUserMenuKey)
   window.addEventListener('resize', placeUserMenu)
   window.addEventListener('resize', placeStoreMenu)
+  window.addEventListener('resize', placeCompanyMenu)
   window.addEventListener('resize', syncViewport)
   window.addEventListener('pos-sidebar-pref', onSidebarPref)
   void brandingStore.loadCurrent().catch(() => undefined)
@@ -793,6 +853,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onUserMenuKey)
   window.removeEventListener('resize', placeUserMenu)
   window.removeEventListener('resize', placeStoreMenu)
+  window.removeEventListener('resize', placeCompanyMenu)
   window.removeEventListener('resize', syncViewport)
   window.removeEventListener('pos-sidebar-pref', onSidebarPref)
   document.body.classList.remove('nav-drawer-open')
@@ -804,6 +865,7 @@ onBeforeUnmount(() => {
 watch(() => route.path, () => {
   userMenuOpen.value = false
   storeMenuOpen.value = false
+  companyMenuOpen.value = false
   drawerOpen.value = false
 })
 
@@ -823,12 +885,14 @@ watch(() => context.currentStoreId, (storeId, previous) => {
 watch(userMenuOpen, async (open) => {
   if (!open) return
   storeMenuOpen.value = false
+  companyMenuOpen.value = false
   await nextTick()
   placeUserMenu()
 })
 
 watch(storeMenuOpen, async (open) => {
   if (!open) return
+  companyMenuOpen.value = false
   await nextTick()
   placeStoreMenu()
 })
@@ -844,7 +908,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'app-shell--home': homeDash }">
     <Transition name="fade">
       <div
         v-if="drawerOpen"
@@ -990,7 +1054,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
           >
             <AppIcon name="menu" :size="18" />
           </button>
-          <div class="app-topbar__heading" :class="{ 'app-topbar__heading--quiet': quietHeading }">
+          <div v-if="!homeDash" class="app-topbar__heading" :class="{ 'app-topbar__heading--quiet': quietHeading }">
             <h1 class="app-topbar__title">
               <component :is="HeaderTitle" />
             </h1>
@@ -1001,9 +1065,53 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
         </div>
 
         <div class="topbar-tools">
+          <div v-if="homeDash" class="company-menu">
+            <button
+              ref="companyMenuTrigger"
+              type="button"
+              class="company-menu__trigger"
+              :class="{ 'company-menu__trigger--open': companyMenuOpen }"
+              :aria-expanded="companyMenuOpen"
+              aria-haspopup="listbox"
+              @click="toggleCompanyMenu"
+            >
+              <span class="company-menu__mark" aria-hidden="true">
+                <AppIcon name="building" :size="15" />
+              </span>
+              <span class="company-menu__name">{{ companyName }}</span>
+              <AppIcon name="chevron-down" :size="14" class="company-menu__caret" />
+            </button>
+          </div>
+          <Teleport to="body">
+            <Transition name="menu-pop">
+              <div
+                v-if="homeDash && companyMenuOpen"
+                ref="companyMenuPanel"
+                class="company-menu__panel"
+                :style="companyMenuStyle"
+                role="listbox"
+                :aria-label="companyName"
+              >
+                <button
+                  v-for="item in companies"
+                  :key="item.id"
+                  type="button"
+                  class="company-menu__option"
+                  :class="{ 'company-menu__option--current': item.id === currentCompanyId }"
+                  role="option"
+                  :aria-selected="item.id === currentCompanyId"
+                  @click="chooseCompany(item.id)"
+                >
+                  <span>{{ item.name }}</span>
+                  <AppIcon v-if="item.id === currentCompanyId" name="check" :size="14" />
+                </button>
+              </div>
+            </Transition>
+          </Teleport>
           <StockAlertBell />
           <AppCalculator />
           <button
+            v-if="!homeDash"
             type="button"
             class="theme-btn"
             :aria-label="appearance === 'dark' ? t('auth.theme.light') : t('auth.theme.dark')"
@@ -1012,7 +1120,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
           >
             <AppIcon :name="appearance === 'dark' ? 'sun' : 'moon'" :size="16" />
           </button>
-          <LanguageSwitcher />
+          <LanguageSwitcher :compact="homeDash" />
           <div v-if="context.activeStores.length" class="store-menu">
             <button
               ref="storeMenuTrigger"
@@ -1027,7 +1135,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
                 <AppIcon name="store-pin" :size="16" />
               </span>
               <span class="store-menu__name">{{ currentStoreParts.title }}</span>
-              <span v-if="currentStoreParts.place" class="store-menu__chip">{{ currentStoreParts.place }}</span>
+              <span v-if="currentStoreParts.place && !homeDash" class="store-menu__chip">{{ currentStoreParts.place }}</span>
               <AppIcon name="chevron-down" :size="16" class="store-menu__caret" />
             </button>
           </div>
@@ -1087,6 +1195,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
               <span class="user-chip__avatar">{{ userInitials }}</span>
               <span class="user-menu__identity">
                 <span class="user-menu__name">{{ auth.user?.name }}</span>
+                <span v-if="homeDash" class="user-menu__role">{{ roleLabel }}</span>
                 <span class="user-menu__email">{{ auth.user?.email }}</span>
               </span>
               <AppIcon name="chevron-right" :size="16" class="user-menu__caret" :class="{ 'user-menu__caret--open': userMenuOpen }" />
@@ -1568,5 +1677,159 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
   padding: 0.35rem 0.75rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+.company-menu {
+  position: relative;
+  min-width: 0;
+  max-width: 14rem;
+  flex: 0 0 auto;
+}
+
+.company-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: var(--control-md);
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 0.7rem 0 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.company-menu__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-50);
+  color: var(--color-ink-brand, var(--color-brand-600));
+}
+
+.company-menu__name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: 650;
+  line-height: var(--line-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-menu__caret {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.company-menu__trigger--open .company-menu__caret {
+  transform: rotate(180deg);
+}
+
+.company-menu__panel {
+  position: fixed;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--overlay-pad);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-overlay, 12px);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-overlay);
+}
+
+.company-menu__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: var(--control-md);
+  padding: 0.45rem 0.7rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.company-menu__option:hover,
+.company-menu__option--current {
+  background: var(--color-table-row-hover);
+}
+
+.user-menu__role {
+  display: none;
+}
+
+.app-shell--home .app-topbar {
+  border-bottom-color: #e8eef6;
+}
+
+.app-shell--home .topbar-tools {
+  gap: 0.55rem;
+  overflow: visible;
+}
+
+.app-shell--home .company-menu { order: 1; }
+.app-shell--home .store-menu { order: 2; }
+.app-shell--home :deep(.lang) { order: 3; }
+.app-shell--home :deep(.stock-bell) { order: 4; }
+.app-shell--home :deep(.calc) { order: 5; }
+.app-shell--home .user-menu { order: 6; max-width: 13.5rem; }
+
+.app-shell--home .company-menu__trigger,
+.app-shell--home .store-menu__trigger,
+.app-shell--home :deep(.lang__trigger),
+.app-shell--home .user-menu__trigger {
+  height: 38px;
+  border-radius: 999px;
+  border-color: #e6ebf2;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.app-shell--home .user-menu__trigger {
+  padding-right: 0.55rem;
+}
+
+.app-shell--home .user-menu__trigger .user-chip__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: none;
+}
+
+.app-shell--home .user-menu__role {
+  display: block;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell--home :deep(.stock-bell__btn),
+.app-shell--home :deep(.calc-btn) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell--home :deep(.stock-bell__badge) {
+  background: #ef4444;
 }
 </style>

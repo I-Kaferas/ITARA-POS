@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../core/config/app_config.dart';
 import '../core/config/terminal_config_repository.dart';
+import '../data/local/document_dao.dart';
 import '../data/local/local_database.dart';
 import '../features/pos/domain/pos_models.dart';
 import '../features/shifts/data/local_shifts_store.dart';
@@ -65,9 +66,14 @@ class OfflineStore {
     final existingRows = await db.query('products', where: 'store_id = ?', whereArgs: [catalog.storeId]);
     for (final row in existingRows) {
       final decoded = jsonDecode(row['json'] as String);
-      if (decoded is Map<String, dynamic>) {
-        existingStock[row['product_id'] as String] = decoded;
-      }
+      if (decoded is! Map) continue;
+      final json = Map<String, dynamic>.from(decoded);
+      final rowId = row['product_id']?.toString() ?? '';
+      if (rowId.isNotEmpty) existingStock[rowId] = json;
+      final productId = json['product_id']?.toString() ?? '';
+      final storeProductId = json['store_product_id']?.toString() ?? '';
+      if (productId.isNotEmpty) existingStock[productId] = json;
+      if (storeProductId.isNotEmpty) existingStock[storeProductId] = json;
     }
 
     final localOnly = replaceAll
@@ -78,6 +84,9 @@ class OfflineStore {
           }).toList()
         : const <Map<String, Object?>>[];
 
+    // Precompute before the write txn: stock_local = stock_cloud + pending deltas.
+    final pendingByProduct = await pendingStockDeltas();
+
     await db.transaction((txn) async {
       if (replaceAll) {
         await txn.delete('products', where: 'store_id = ?', whereArgs: [catalog.storeId]);
@@ -86,9 +95,15 @@ class OfflineStore {
       final batch = txn.batch();
       for (final product in products.values) {
         final json = _productToJson(product);
-        final previous = existingStock[product.productId];
+        final previous = existingStock[product.productId] ?? existingStock[product.storeProductId];
         final previousVersion = _asInt(previous?['stock_version']);
-        if (previous != null && previousVersion > product.stockVersion) {
+        if (product.quantityOnHand != null) {
+          final pending = pendingByProduct[product.productId] ?? 0;
+          json['quantity_on_hand'] = product.quantityOnHand! + pending;
+          json['stock_version'] = product.stockVersion >= previousVersion
+              ? product.stockVersion
+              : previousVersion;
+        } else if (previous != null && previous['quantity_on_hand'] != null) {
           json['quantity_on_hand'] = previous['quantity_on_hand'];
           json['stock_version'] = previousVersion;
           if (previous['stock_display'] != null) json['stock_display'] = previous['stock_display'];
@@ -656,6 +671,7 @@ class OfflineStore {
       'store_id': config.storeId,
       'items': items,
       'payments': payments,
+      'apply_promotions': false,
       if (remoteCustomerId != null) 'customer_id': remoteCustomerId,
       if (customerId != null) 'customer_client_id': customerId,
       if (warehouseId != null) 'warehouse_id': warehouseId,
@@ -747,9 +763,10 @@ class OfflineStore {
 
       final movementIds = <String>[];
       final stock = <Map<String, dynamic>>[];
-      for (final item in items) {
-        final productId = item['product_id']?.toString() ?? '';
-        final quantity = _asInt(item['quantity']);
+      final demands = await _stockDemandsForSaleItems(txn, items);
+      for (final demand in demands) {
+        final productId = demand.productId;
+        final quantity = demand.quantity;
         if (productId.isEmpty || quantity <= 0) continue;
         final movementId = const Uuid().v4();
         movementIds.add(movementId);
@@ -768,6 +785,8 @@ class OfflineStore {
           productId,
           quantity,
           authoritative: config.isMaster || !config.isSlave,
+          hintOnHand: demand.hintOnHand,
+          hintVersion: demand.hintVersion,
         );
         if (line.isNotEmpty) {
           stock.add(line);
@@ -844,11 +863,145 @@ class OfflineStore {
     if (entityType == 'sale' && op == 'create') {
       return _acceptRemoteSale(operation['id']?.toString() ?? '', entityId, payload);
     }
+    if (entityType == 'sale' && (op == 'hold' || op == 'update')) {
+      final id = await acceptRemoteHold({
+        ...payload,
+        'id': entityId,
+      });
+      return {
+        'id': operation['id'],
+        'entity_id': entityId,
+        'status': 'synced',
+        'server_id': id,
+      };
+    }
+    if (entityType == 'stock') {
+      return _acceptRemoteStock(operation['id']?.toString() ?? '', entityId, payload);
+    }
     return {
       'id': operation['id'],
       'entity_id': entityId,
       'status': 'conflict',
       'error': 'Unsupported sync operation.',
+    };
+  }
+
+  /// Slave → Master stock delta (idempotent on movement UUID).
+  Future<Map<String, dynamic>> _acceptRemoteStock(
+    String queueId,
+    String entityId,
+    Map<String, dynamic> payload,
+  ) async {
+    final uuid = (payload['idempotency_key']?.toString() ?? entityId).trim();
+    if (uuid.isEmpty) {
+      return {
+        'id': queueId,
+        'entity_id': entityId,
+        'status': 'failed',
+        'error': 'Stock movement UUID required.',
+      };
+    }
+
+    final db = await _db;
+    final existingMove = await db.query('stock_movements', where: 'id = ?', whereArgs: [uuid], limit: 1);
+    if (existingMove.isNotEmpty) {
+      final productId = existingMove.first['product_id']?.toString() ?? '';
+      final snap = await stockSnapshot();
+      final line = snap.where((row) => row['product_id'] == productId).toList();
+      return {
+        'id': queueId,
+        'entity_id': entityId,
+        'status': 'synced',
+        'server_id': uuid,
+        'already_processed': true,
+        if (line.isNotEmpty) 'stock': line,
+      };
+    }
+
+    final productId = payload['product_id']?.toString() ?? '';
+    final delta = _asInt(payload['quantity'] ?? payload['delta']);
+    final type = (payload['type']?.toString() ?? 'ADJUSTMENT').toUpperCase();
+    if (productId.isEmpty) {
+      return {
+        'id': queueId,
+        'entity_id': entityId,
+        'status': 'failed',
+        'error': 'product_id required.',
+      };
+    }
+
+    final stock = <Map<String, dynamic>>[];
+    try {
+      await exclusiveStock(() => db.transaction((txn) async {
+        final now = payload['occurred_at']?.toString() ??
+            payload['created_at']?.toString() ??
+            DateTime.now().toIso8601String();
+        await txn.insert('stock_movements', {
+          'id': uuid,
+          'sale_id': payload['sale_id']?.toString() ?? uuid,
+          'product_id': productId,
+          'quantity': delta,
+          'type': type,
+          'created_at': now,
+        });
+        if (delta != 0) {
+          // _applyStockDelta expects positive qty to deduct; invert for inbound.
+          final absQty = delta.abs();
+          if (delta < 0) {
+            stock.add(await _applyStockDelta(
+              txn,
+              productId,
+              absQty,
+              authoritative: true,
+            ));
+          } else {
+            // Positive delta = inbound: apply as negative deduction (add stock).
+            stock.add(await _applyStockDelta(
+              txn,
+              productId,
+              -absQty,
+              authoritative: false,
+            ));
+          }
+        }
+        await SyncOutbox.instance.enqueue(
+          entity: 'stock',
+          entityId: uuid,
+          operation: 'create',
+          payload: {
+            ...payload,
+            'idempotency_key': uuid,
+            'quantity': delta,
+            'delta': delta,
+            'product_id': productId,
+            'type': type,
+            'occurred_at': now,
+          },
+          executor: txn,
+        );
+      }));
+    } on StockConflict catch (error) {
+      await recordSyncConflict(
+        entityType: 'stock',
+        entityId: uuid,
+        reason: error.message,
+        remote: payload,
+      );
+      return {
+        'id': queueId,
+        'entity_id': entityId,
+        'status': 'conflict',
+        'error': error.message,
+        'conflict_code': 'negative_stock',
+      };
+    }
+
+    return {
+      'id': queueId,
+      'entity_id': entityId,
+      'status': 'synced',
+      'server_id': uuid,
+      'stock': stock.where((line) => line.isNotEmpty).toList(),
     };
   }
 
@@ -860,6 +1013,25 @@ class OfflineStore {
     if (entityType == 'customer') {
       if (await findCustomer(entityId) != null) return true;
       if (serverId != null && serverId.isNotEmpty && await findCustomer(serverId) != null) return true;
+      return false;
+    }
+    if (entityType == 'stock') {
+      final db = await _db;
+      final rows = await db.query('stock_movements', where: 'id = ?', whereArgs: [entityId], limit: 1);
+      if (rows.isNotEmpty) return true;
+      if (serverId != null && serverId.isNotEmpty) {
+        final byServer = await db.query('stock_movements', where: 'id = ?', whereArgs: [serverId], limit: 1);
+        return byServer.isNotEmpty;
+      }
+      return false;
+    }
+    if (entityType == 'cashier_shift') {
+      final row = await DataModelDaos.shifts.find(entityId);
+      if (row != null) return true;
+      if (serverId != null && serverId.isNotEmpty) {
+        final rows = await DataModelDaos.shifts.list();
+        return rows.any((r) => r['shift_server_id']?.toString() == serverId || r['id']?.toString() == serverId);
+      }
       return false;
     }
     final db = await _db;
@@ -1009,19 +1181,25 @@ class OfflineStore {
         });
       }
       await _insertSaleItems(txn, saleId: entityId, items: items);
-      for (final item in items) {
-        final productId = item['product_id']?.toString();
-        final quantity = _asInt(item['quantity']);
-        if (productId == null || productId.isEmpty || quantity <= 0) continue;
+      final demands = await _stockDemandsForSaleItems(txn, items);
+      for (final demand in demands) {
+        if (demand.productId.isEmpty || demand.quantity <= 0) continue;
         await txn.insert('stock_movements', {
           'id': const Uuid().v4(),
           'sale_id': entityId,
-          'product_id': productId,
-          'quantity': -quantity,
+          'product_id': demand.productId,
+          'quantity': -demand.quantity,
           'type': 'SALE',
           'created_at': now,
         });
-        stock.add(await _applyStockDelta(txn, productId, quantity, authoritative: true));
+        stock.add(await _applyStockDelta(
+          txn,
+          demand.productId,
+          demand.quantity,
+          authoritative: true,
+          hintOnHand: demand.hintOnHand,
+          hintVersion: demand.hintVersion,
+        ));
       }
       final eventId = const Uuid().v4();
       await txn.insert('sync_events', {
@@ -1499,6 +1677,7 @@ class OfflineStore {
     }
 
     final holds = holdsForStore(await loadLocalHolds(), storeId);
+    final myShift = await LocalShiftsStore.instance.openShift(storeId: storeId);
 
     return {
       'date': days.last['date'],
@@ -1511,7 +1690,7 @@ class OfflineStore {
       'sales_by_hour': hours,
       'daily_summary': days,
       'active_orders': holds.length,
-      'my_shift_open': config.cashSessionId.trim().isNotEmpty,
+      'my_shift_open': myShift != null,
     };
   }
 
@@ -1528,6 +1707,7 @@ class OfflineStore {
       SyncOutbox.instance.details(limit: limit);
 
   static const localHoldsKey = 'local_holds_v1';
+  static const saleRefSeqKey = 'sale_ref_seq';
   final ValueNotifier<int> holdsRevision = ValueNotifier(0);
 
   Future<void> saveLocalHolds(List<Map<String, dynamic>> holds) async {
@@ -1660,6 +1840,24 @@ class OfflineStore {
     return lines;
   }
 
+  /// Parked orders that were not confirmed by the server on the last upload.
+  Future<List<String>> unpushedHoldLabels() async {
+    final lines = <String>[];
+    for (final hold in await loadLocalHolds()) {
+      final items = hold['items'];
+      if (items is! List || items.isEmpty) continue;
+      final uploaded = hold['uploaded_at']?.toString().trim() ?? '';
+      if (uploaded.isNotEmpty) continue;
+      final serverId = hold['server_id']?.toString().trim() ?? '';
+      final error = hold['sync_error']?.toString().trim() ?? '';
+      if (serverId.isNotEmpty && error.isEmpty) continue;
+      final label = hold['label']?.toString().trim() ?? '';
+      final name = label.isEmpty ? 'Commande en attente' : label;
+      lines.add(error.isEmpty ? name : '$name · $error');
+    }
+    return lines;
+  }
+
   String _payloadReference(dynamic raw) {
     try {
       final decoded = raw is String ? jsonDecode(raw) : raw;
@@ -1671,21 +1869,33 @@ class OfflineStore {
     return '';
   }
 
-  /// Deletes local rows the server has already acknowledged.
-  /// Sales and payments stay (receipts, daily references), and the highest
-  /// sync event stays because the next sequence number is derived from it.
+  /// Drops the acknowledged sync queue only. Sales, payments, parked orders
+  /// and shifts stay on the device after they have been sent online. The sale
+  /// reference counter is kept so the next ticket does not reuse a number
+  /// already sent. The highest sync event stays because the next sequence
+  /// number is derived from it.
   Future<Map<String, int>> purgeSyncedMovements() async {
     final db = await _db;
     return db.transaction((txn) async {
+      final countRows = await txn.rawQuery('SELECT COUNT(*) AS c FROM sales');
+      final count = syncAsInt(countRows.first['c']);
+      final floorRows = await txn.query(
+        'checkpoints',
+        where: 'key = ?',
+        whereArgs: [saleRefSeqKey],
+        limit: 1,
+      );
+      final floor = floorRows.isEmpty ? 0 : int.tryParse('${floorRows.first['value']}') ?? 0;
+      await txn.insert(
+        'checkpoints',
+        {'key': saleRefSeqKey, 'value': '${count > floor ? count : floor}'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
       final outbox = await txn.delete(
         SyncOutbox.table,
         where: 'status = ?',
         whereArgs: [OutboxStatus.synced.wire],
-      );
-      final movements = await txn.rawDelete(
-        'DELETE FROM stock_movements WHERE sale_id IN '
-        '(SELECT id FROM sales WHERE sync_status = ?)',
-        [SyncQueueStatus.synced.name],
       );
       final events = await txn.rawDelete(
         'DELETE FROM sync_events WHERE sync_status = ? '
@@ -1694,7 +1904,6 @@ class OfflineStore {
       );
       return {
         'sync_outbox': outbox,
-        'stock_movements': movements,
         'sync_events': events,
       };
     });
@@ -1762,7 +1971,20 @@ class OfflineStore {
     final suffix = deviceIdentifier.replaceAll('-', '');
     final pos = suffix.isEmpty ? 'POS' : suffix.substring(0, suffix.length.clamp(0, 4)).toUpperCase();
     final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM sales');
-    final seq = syncAsInt(rows.first['c']) + 1;
+    final count = syncAsInt(rows.first['c']);
+    final floorRows = await db.query(
+      'checkpoints',
+      where: 'key = ?',
+      whereArgs: [saleRefSeqKey],
+      limit: 1,
+    );
+    final floor = floorRows.isEmpty ? 0 : int.tryParse('${floorRows.first['value']}') ?? 0;
+    final seq = (count > floor ? count : floor) + 1;
+    await db.insert(
+      'checkpoints',
+      {'key': saleRefSeqKey, 'value': '$seq'},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return 'SALE-$pos-$stamp-${seq.toString().padLeft(6, '0')}';
   }
 
@@ -1856,8 +2078,63 @@ class OfflineStore {
     };
   }
 
+  /// Sum of local stock deltas not yet confirmed by the cloud/Master ACK.
+  /// Used as: stock_local = stock_cloud + pending.
+  Future<Map<String, int>> pendingStockDeltas() async {
+    final db = await _db;
+    final result = <String, int>{};
+
+    // Unsynced sales: their SALE movements are not on the server yet.
+    final saleRows = await db.rawQuery('''
+      SELECT m.product_id AS product_id, SUM(m.quantity) AS delta
+      FROM stock_movements m
+      INNER JOIN sales s ON s.id = m.sale_id
+      WHERE UPPER(m.type) = 'SALE' AND s.sync_status != 'synced'
+      GROUP BY m.product_id
+    ''');
+    for (final row in saleRows) {
+      final productId = row['product_id']?.toString() ?? '';
+      if (productId.isEmpty) continue;
+      result[productId] = (result[productId] ?? 0) + _asInt(row['delta']);
+    }
+
+    // Non-sale movements still pending in the outbox (or not queued yet).
+    final adjRows = await db.rawQuery('''
+      SELECT m.product_id AS product_id, SUM(m.quantity) AS delta
+      FROM stock_movements m
+      WHERE UPPER(m.type) != 'SALE'
+        AND (
+          NOT EXISTS (
+            SELECT 1 FROM ${SyncOutbox.table} o
+            WHERE o.entity = 'stock' AND o.entity_id = m.id
+          )
+          OR EXISTS (
+            SELECT 1 FROM ${SyncOutbox.table} o
+            WHERE o.entity = 'stock' AND o.entity_id = m.id
+              AND o.status IN ('PENDING', 'SYNCING', 'FAILED', 'CONFLICT')
+          )
+        )
+      GROUP BY m.product_id
+    ''');
+    for (final row in adjRows) {
+      final productId = row['product_id']?.toString() ?? '';
+      if (productId.isEmpty) continue;
+      result[productId] = (result[productId] ?? 0) + _asInt(row['delta']);
+    }
+
+    return result;
+  }
+
+  Future<int> pendingStockDelta(String productId) async {
+    if (productId.isEmpty) return 0;
+    final all = await pendingStockDeltas();
+    return all[productId] ?? 0;
+  }
+
+  /// Apply cloud/Master stock quantities, then re-add pending local deltas.
   Future<void> applyAuthoritativeStock(List<dynamic> lines) async {
     if (lines.isEmpty) return;
+    final pending = await pendingStockDeltas();
     await exclusiveStock(() async {
       final db = await _db;
       await db.transaction((txn) async {
@@ -1865,14 +2142,22 @@ class OfflineStore {
           final productId = line['product_id']?.toString() ?? '';
           final version = _asIntOrNull(line['stock_version']);
           final quantity = _asIntOrNull(line['quantity_on_hand']);
-          if (productId.isEmpty || version == null || quantity == null) continue;
+          if (productId.isEmpty || quantity == null) continue;
           final rows = await txn.query('products', where: 'product_id = ?', whereArgs: [productId], limit: 1);
           if (rows.isEmpty) continue;
           final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
           final currentVersion = _asInt(json['stock_version']);
-          if (version < currentVersion) continue;
-          json['quantity_on_hand'] = quantity;
-          json['stock_version'] = version;
+          if (version != null && version < currentVersion) {
+            // Still fold pending onto the cloud base when versions regress? Skip.
+            continue;
+          }
+          final pendingDelta = pending[productId] ?? 0;
+          json['quantity_on_hand'] = quantity + pendingDelta;
+          if (version != null) {
+            json['stock_version'] = version >= currentVersion ? version : currentVersion;
+          } else {
+            json['stock_version'] = currentVersion + 1;
+          }
           await txn.update(
             'products',
             {'json': jsonEncode(json)},
@@ -1956,16 +2241,98 @@ class OfflineStore {
     };
   }
 
+  /// Expands cart lines into stock deductions (bundles → components, sale units → ml).
+  Future<List<({String productId, int quantity, int? hintOnHand, int? hintVersion})>> _stockDemandsForSaleItems(
+    Transaction txn,
+    List<Map<String, dynamic>> items,
+  ) async {
+    final demands = <({String productId, int quantity, int? hintOnHand, int? hintVersion})>[];
+    for (final item in items) {
+      if (item['is_accompaniment'] == true) continue;
+      final productId = item['product_id']?.toString() ?? '';
+      final quantity = _asInt(item['quantity']);
+      if (productId.isEmpty || quantity <= 0) continue;
+      final hintOnHand = _asIntOrNull(item['quantity_on_hand']);
+      final hintVersion = _asIntOrNull(item['stock_version']);
+
+      final row = await _productRow(txn, productId);
+      Map<String, dynamic> json = const {};
+      if (row != null) {
+        try {
+          final decoded = jsonDecode(row['json'] as String);
+          if (decoded is Map) json = Map<String, dynamic>.from(decoded);
+        } catch (_) {}
+      }
+
+      final bundleRaw = item['bundle_items'] ?? json['bundle_items'];
+      if (bundleRaw is List && bundleRaw.isNotEmpty) {
+        var added = 0;
+        for (final raw in bundleRaw.whereType<Map>()) {
+          final componentId = raw['component_product_id']?.toString() ?? '';
+          final perUnit = _asInt(raw['quantity']);
+          final componentQty = perUnit <= 0 ? quantity : (perUnit * quantity);
+          if (componentId.isEmpty || componentQty <= 0) continue;
+          demands.add((
+            productId: componentId,
+            quantity: componentQty,
+            hintOnHand: null,
+            hintVersion: null,
+          ));
+          added++;
+        }
+        if (added > 0) continue;
+        // Fall through and deduct the parent if components could not be resolved.
+      }
+
+      var stockQty = _asIntOrNull(item['stock_quantity']) ?? quantity;
+      final saleUnitId = item['sale_unit_id']?.toString() ?? '';
+      if (saleUnitId.isNotEmpty && _asIntOrNull(item['stock_quantity']) == null) {
+        final units = json['sale_units'];
+        if (units is List) {
+          for (final raw in units.whereType<Map>()) {
+            if (raw['id']?.toString() != saleUnitId) continue;
+            final volumeMl = _asInt(raw['volume_ml']);
+            if (volumeMl > 0) stockQty = quantity * volumeMl;
+            break;
+          }
+        }
+      }
+      demands.add((
+        productId: productId,
+        quantity: stockQty,
+        hintOnHand: hintOnHand,
+        hintVersion: hintVersion,
+      ));
+    }
+    return demands;
+  }
+
   Future<Map<String, dynamic>> _applyStockDelta(
     Transaction txn,
     String productId,
     int quantity, {
     required bool authoritative,
+    int? hintOnHand,
+    int? hintVersion,
   }) async {
-    final rows = await txn.query('products', where: 'product_id = ?', whereArgs: [productId], limit: 1);
-    if (rows.isEmpty) return {};
-    final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
-    final current = _asIntOrNull(json['quantity_on_hand']);
+    final row = await _productRow(txn, productId);
+    if (row == null) {
+      // Product missing from local catalog — still return a UI update when the
+      // cart provided an on-hand hint so the grid can refresh immediately.
+      if (hintOnHand == null) return {};
+      return {
+        'product_id': productId,
+        'quantity_on_hand': hintOnHand - quantity,
+        'stock_version': (hintVersion ?? 0) + 1,
+      };
+    }
+    final json = jsonDecode(row['json'] as String) as Map<String, dynamic>;
+    var current = _asIntOrNull(json['quantity_on_hand']);
+    if (current == null) {
+      final stockRows = await txn.query('stocks', where: 'product_id = ?', whereArgs: [productId], limit: 1);
+      if (stockRows.isNotEmpty) current = _asIntOrNull(stockRows.first['quantity']);
+    }
+    current ??= hintOnHand;
     if (current == null) return {};
     if (authoritative && current < quantity) {
       final name = json['name']?.toString() ?? 'Article';
@@ -1974,28 +2341,29 @@ class OfflineStore {
     final next = current - quantity;
     // Always bump the version so a later catalog pull cannot overwrite a
     // fresher local sale with a stale cloud / master quantity.
-    final version = _asInt(json['stock_version']) + 1;
+    final version = (_asIntOrNull(json['stock_version']) ?? hintVersion ?? 0) + 1;
     json['quantity_on_hand'] = next;
     json['stock_version'] = version;
+    final storedId = row['product_id']?.toString() ?? productId;
     await txn.update(
       'products',
       {'json': jsonEncode(json)},
       where: 'product_id = ?',
-      whereArgs: [productId],
+      whereArgs: [storedId],
     );
-    final storeId = rows.first['store_id']?.toString() ?? '';
-    final stockId = '$productId:${storeId.isEmpty ? '_' : storeId}:_';
+    final storeId = row['store_id']?.toString() ?? '';
+    final stockId = '$storedId:${storeId.isEmpty ? '_' : storeId}:_';
     await txn.insert(
       'stocks',
       {
         'id': stockId,
-        'product_id': productId,
+        'product_id': storedId,
         'store_id': storeId.isEmpty ? null : storeId,
         'warehouse_id': null,
         'quantity': next,
         'reserved': 0,
         'json': jsonEncode({
-          'product_id': productId,
+          'product_id': storedId,
           'store_id': storeId,
           'quantity': next,
           'stock_version': version,
@@ -2005,10 +2373,29 @@ class OfflineStore {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     return {
-      'product_id': productId,
+      'product_id': storedId,
       'quantity_on_hand': next,
       'stock_version': version,
+      // Also expose alternate ids so the product grid can match either key.
+      if (json['store_product_id'] != null) 'store_product_id': json['store_product_id'],
+      if (json['product_id'] != null) 'catalog_product_id': json['product_id'],
     };
+  }
+
+  Future<Map<String, Object?>?> _productRow(Transaction txn, String productId) async {
+    final rows = await txn.query('products', where: 'product_id = ?', whereArgs: [productId], limit: 1);
+    if (rows.isNotEmpty) return rows.first;
+    final all = await txn.query('products');
+    for (final row in all) {
+      try {
+        final decoded = jsonDecode(row['json'] as String);
+        if (decoded is! Map) continue;
+        final id = decoded['product_id']?.toString() ?? '';
+        final storeProductId = decoded['store_product_id']?.toString() ?? '';
+        if (id == productId || storeProductId == productId) return row;
+      } catch (_) {}
+    }
+    return null;
   }
 
   Future<void> _insertSaleItems(
@@ -2072,7 +2459,7 @@ class OfflineStore {
       'primary_image_cdn_url': product.primaryImageUrl,
       'is_available': product.isAvailable,
       if (product.quantityOnHand != null) 'quantity_on_hand': product.quantityOnHand,
-      if (product.stockVersion > 0) 'stock_version': product.stockVersion,
+      'stock_version': product.stockVersion,
       if (product.stockDisplay != null) 'stock_display': product.stockDisplay,
       if (product.bundleItems.isNotEmpty)
         'bundle_items': product.bundleItems.map((item) => item.toJson()).toList(),

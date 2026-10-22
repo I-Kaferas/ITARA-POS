@@ -3,18 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../services/customer_display_bus.dart';
+import 'widgets/pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 import 'package:pos_mobile/core/theme/app_typography.dart';
 
-Color get _brand => AppColors.brandInk;
-const _brandFill = AppColors.brand700;
-const _accent = AppColors.accent;
-Color get _ink => AppColors.textPrimary;
-Color get _text => AppColors.textSecondary;
-Color get _muted => AppColors.textMuted;
-Color get _canvas => AppColors.canvas;
-Color get _line => AppColors.border;
-Color get _surface => AppColors.surface;
+/// Bundled produce hero — must stay visible on every form factor.
+const _kProduceAsset = 'assets/images/customer_display_vegetables.jpg';
 
 class CustomerDisplayPage extends StatelessWidget {
   const CustomerDisplayPage({super.key});
@@ -31,7 +25,7 @@ class CustomerDisplayPage extends StatelessWidget {
   }
 }
 
-/// Customer-facing order screen, styled like the cashier settings page.
+/// Customer-facing order screen — PosUi desk tokens, fruit/produce always on screen.
 class CustomerDisplayView extends StatelessWidget {
   const CustomerDisplayView({
     super.key,
@@ -45,56 +39,55 @@ class CustomerDisplayView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: _canvas,
+      color: PosUi.deskNight,
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 980;
-            final pad = wide ? 28.0 : 16.0;
-            final compactImage = constraints.maxHeight >= 760
-                ? 170.0
-                : constraints.maxHeight >= 600
-                    ? 120.0
-                    : 0.0;
-            final hero = _HeroCard(snapshot: snapshot, wide: wide, compactImage: compactImage);
-            final order = _OrderPanel(snapshot: snapshot, wide: wide);
-            return Padding(
-              padding: EdgeInsets.fromLTRB(pad, onClose == null ? pad : 12, pad, pad),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (onClose != null) ...[
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: _PillButton(
-                        icon: Icons.close_rounded,
-                        label: tr('Fermer'),
-                        onTap: onClose!,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  Expanded(
-                    child: wide
-                        ? Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(flex: 5, child: hero),
-                              const SizedBox(width: 24),
-                              Expanded(flex: 6, child: order),
-                            ],
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              hero,
-                              const SizedBox(height: 16),
-                              Expanded(child: order),
-                            ],
-                          ),
+            final wide = constraints.maxWidth >= 900;
+            return Stack(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    wide ? 24 : 14,
+                    onClose == null ? (wide ? 24 : 14) : 12,
+                    wide ? 24 : 14,
+                    wide ? 24 : 14,
                   ),
-                ],
-              ),
+                  child: wide
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: _HeroPanel(snapshot: snapshot, wide: true),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              flex: 6,
+                              child: _OrderPanel(snapshot: snapshot, wide: true),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _HeroPanel(
+                              snapshot: snapshot,
+                              wide: false,
+                              imageHeight: constraints.maxHeight < 560 ? 120 : 168,
+                            ),
+                            const SizedBox(height: 12),
+                            Expanded(child: _OrderPanel(snapshot: snapshot, wide: false)),
+                          ],
+                        ),
+                ),
+                if (onClose != null)
+                  Positioned(
+                    top: 8,
+                    right: 10,
+                    child: _CloseChip(onTap: onClose!),
+                  ),
+              ],
             );
           },
         ),
@@ -119,101 +112,36 @@ String _initials(String name) {
   return '${parts.first.substring(0, 1)}${parts[1].substring(0, 1)}'.toUpperCase();
 }
 
-class _Card extends StatelessWidget {
-  const _Card({required this.child, this.padding = const EdgeInsets.all(20)});
+class _CloseChip extends StatelessWidget {
+  const _CloseChip({required this.onTap});
 
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _line),
-        boxShadow: AppColors.elevationMd,
-      ),
-      child: child,
-    );
-  }
-}
-
-class _IconBadge extends StatelessWidget {
-  const _IconBadge({required this.icon, this.size = 40});
-
-  final IconData icon;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(size * 0.28),
-      ),
-      child: Icon(icon, size: size * 0.5, color: AppColors.violet600),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: _brand),
-        const SizedBox(width: 6),
-        Text(
-          text,
-          style: AppTypography.text(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: _brand,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PillButton extends StatelessWidget {
-  const _PillButton({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: _brand.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(999),
+      color: PosUi.deskPanel.withValues(alpha: 0.92),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: PosUi.deskLine),
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: _brand),
+              Icon(Icons.close_rounded, size: 16, color: PosUi.deskText),
               const SizedBox(width: 6),
               Text(
-                label,
+                tr('Fermer'),
                 style: AppTypography.text(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: _brand,
+                  color: PosUi.deskText,
                 ),
               ),
             ],
@@ -224,137 +152,65 @@ class _PillButton extends StatelessWidget {
   }
 }
 
-// ── Brand / welcome ─────────────────────────────────────────────────────────
-
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.snapshot, required this.wide, this.compactImage = 0});
+class _HeroPanel extends StatelessWidget {
+  const _HeroPanel({
+    required this.snapshot,
+    required this.wide,
+    this.imageHeight = 168,
+  });
 
   final CustomerDisplaySnapshot snapshot;
   final bool wide;
-
-  /// Height of the produce photo in the narrow layout; 0 hides it.
-  final double compactImage;
+  final double imageHeight;
 
   @override
   Widget build(BuildContext context) {
-    final bannerHeight = wide ? 150.0 : 84.0;
-    final avatar = wide ? 84.0 : 60.0;
-    final header = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    if (wide) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
-              child: SizedBox(height: bannerHeight, child: const _Banner()),
+            const _ProduceImage(fill: true),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    PosUi.deskInk.withValues(alpha: 0.15),
+                    PosUi.deskInk.withValues(alpha: 0.72),
+                    PosUi.deskInk.withValues(alpha: 0.92),
+                  ],
+                  stops: const [0.0, 0.45, 1.0],
+                ),
+              ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(avatar + 40, 14, 20, 0),
+              padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _BrandBadge(name: snapshot.brandName, large: true),
+                  const Spacer(),
                   Text(
-                    snapshot.brandName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    tr('Bienvenue'),
                     style: AppTypography.text(
-                      fontSize: wide ? 24 : 19,
-                      fontWeight: FontWeight.w800,
-                      color: _ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: PosUi.deskAccent,
+                      letterSpacing: 0.4,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    tr(snapshot.tagline),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.text(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _brand,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        Positioned(
-          left: 20,
-          top: bannerHeight - avatar * 0.55,
-          child: Container(
-            width: avatar,
-            height: avatar,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _brandFill,
-              border: Border.all(color: _accent, width: 3),
-            ),
-            child: Text(
-              _initials(snapshot.brandName),
-              style: AppTypography.text(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: avatar * 0.32,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    final customer = _InfoTile(
-      icon: Icons.person_rounded,
-      label: tr('Client'),
-      value: _customerLabel(snapshot),
-    );
-
-    if (!wide) {
-      return _Card(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            header,
-            const SizedBox(height: 14),
-            if (compactImage > 0)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: SizedBox(height: compactImage, child: const _ProduceImage(padded: false)),
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: customer,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return _Card(
-      padding: const EdgeInsets.only(bottom: 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          header,
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionLabel(icon: Icons.waving_hand_rounded, text: tr('Bienvenue')),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
                     tr('Merci pour votre visite'),
                     style: AppTypography.text(
-                      fontSize: 38,
-                      height: 1.08,
+                      fontSize: 36,
+                      height: 1.1,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
-                      color: _ink,
+                      letterSpacing: -0.5,
+                      color: Colors.white,
                     ),
                   ),
                   Text(
@@ -362,90 +218,173 @@ class _HeroCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.text(
-                      fontSize: 38,
-                      height: 1.08,
+                      fontSize: 28,
+                      height: 1.15,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
-                      color: AppColors.violet600,
+                      color: Colors.white.withValues(alpha: 0.92),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Text(
-                    tr('Vos articles s’affichent ici au fur et à mesure.'),
-                    style: AppTypography.text(fontSize: 15, height: 1.4, color: _muted),
+                    tr(snapshot.tagline),
+                    style: AppTypography.text(
+                      fontSize: 14,
+                      height: 1.35,
+                      color: Colors.white.withValues(alpha: 0.78),
+                    ),
                   ),
-                  const Expanded(child: _ProduceImage()),
-                  customer,
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _InfoTile(
-                          icon: Icons.verified_user_rounded,
-                          label: tr('Paiement'),
-                          value: tr('Sécurisé'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _InfoTile(
-                          icon: Icons.receipt_long_rounded,
-                          label: tr('Reçu'),
-                          value: tr('Remis à la caisse'),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 18),
+                  _GlassTile(
+                    icon: Icons.person_rounded,
+                    label: tr('Client'),
+                    value: _customerLabel(snapshot),
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: SizedBox(
+            height: imageHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const _ProduceImage(fill: true),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        PosUi.deskInk.withValues(alpha: 0.78),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 12,
+                  child: Row(
+                    children: [
+                      _BrandBadge(name: snapshot.brandName, large: false),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              snapshot.brandName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.text(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              tr(snapshot.tagline),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.text(
+                                fontSize: 11.5,
+                                color: Colors.white.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: PosUi.deskPanel,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: PosUi.deskLine),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.person_outline_rounded, size: 18, color: PosUi.deskAccent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _customerLabel(snapshot),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.text(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: PosUi.deskText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BrandBadge extends StatelessWidget {
+  const _BrandBadge({required this.name, required this.large});
+
+  final String name;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = large ? 56.0 : 40.0;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: PosUi.deskAccent,
+        borderRadius: BorderRadius.circular(large ? 16 : 12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: Text(
+        _initials(name),
+        style: AppTypography.text(
+          fontSize: size * 0.34,
+          fontWeight: FontWeight.w800,
+          color: PosUi.deskInk,
+        ),
       ),
     );
   }
 }
 
-class _ProduceImage extends StatelessWidget {
-  const _ProduceImage({this.padded = true});
-
-  final bool padded;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxHeight < 90) return const SizedBox.shrink();
-        return Padding(
-          padding: EdgeInsets.symmetric(vertical: padded ? 18 : 0),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.asset(
-              'assets/images/customer_display_vegetables.jpg',
-              width: double.infinity,
-              height: double.infinity,
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.medium,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _Banner extends StatelessWidget {
-  const _Banner();
-
-  @override
-  Widget build(BuildContext context) {
-    return const ColoredBox(color: _brandFill);
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  const _InfoTile({required this.icon, required this.label, required this.value});
+class _GlassTile extends StatelessWidget {
+  const _GlassTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   final IconData icon;
   final String label;
@@ -454,15 +393,24 @@ class _InfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _canvas,
+        color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _line),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: [
-          _IconBadge(icon: icon, size: 38),
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: PosUi.deskAccent.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 20, color: PosUi.deskAccent),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -470,16 +418,19 @@ class _InfoTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: AppTypography.text(fontSize: 12, color: _muted),
+                  style: AppTypography.text(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
                 ),
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.text(
-                    fontSize: 14.5,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: _text,
+                    color: Colors.white,
                   ),
                 ),
               ],
@@ -491,7 +442,57 @@ class _InfoTile extends StatelessWidget {
   }
 }
 
-// ── Order ───────────────────────────────────────────────────────────────────
+class _ProduceImage extends StatelessWidget {
+  const _ProduceImage({this.fill = false});
+
+  final bool fill;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = Image.asset(
+      _kProduceAsset,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: fill ? double.infinity : null,
+      alignment: Alignment.center,
+      filterQuality: FilterQuality.high,
+      errorBuilder: (_, _, _) => const _ProduceFallback(),
+    );
+    if (fill) return image;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: image,
+    );
+  }
+}
+
+class _ProduceFallback extends StatelessWidget {
+  const _ProduceFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            PosUi.deskAccent.withValues(alpha: 0.55),
+            AppColors.success.withValues(alpha: 0.45),
+            PosUi.deskInk,
+          ],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.eco_rounded,
+          size: 64,
+          color: Colors.white.withValues(alpha: 0.85),
+        ),
+      ),
+    );
+  }
+}
 
 class _OrderPanel extends StatelessWidget {
   const _OrderPanel({required this.snapshot, required this.wide});
@@ -503,22 +504,30 @@ class _OrderPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final count = _itemCount(snapshot);
     final active = !snapshot.isEmpty;
-    return LayoutBuilder(
-      builder: (context, constraints) => _card(count, active, showFooter: constraints.maxHeight >= 360),
-    );
-  }
-
-  Widget _card(int count, bool active, {required bool showFooter}) {
-    return _Card(
-      padding: EdgeInsets.zero,
+    return Container(
+      decoration: BoxDecoration(
+        color: PosUi.deskPanel,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: PosUi.deskLine),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
             child: Row(
               children: [
-                const _IconBadge(icon: Icons.shopping_bag_rounded),
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: PosUi.deskAccent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.shopping_bag_outlined, color: PosUi.deskAccent, size: 22),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -527,14 +536,14 @@ class _OrderPanel extends StatelessWidget {
                       Text(
                         tr('Votre commande'),
                         style: AppTypography.text(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: _ink,
+                          fontSize: wide ? 18 : 16,
+                          fontWeight: FontWeight.w800,
+                          color: PosUi.deskText,
                         ),
                       ),
                       Text(
                         count == 1 ? tr('1 article') : trf('{0} articles', [count]),
-                        style: AppTypography.text(fontSize: 13, color: _muted),
+                        style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted),
                       ),
                     ],
                   ),
@@ -543,23 +552,13 @@ class _OrderPanel extends StatelessWidget {
               ],
             ),
           ),
-          Divider(height: 1, color: _line),
-          if (active)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Row(
-                children: [
-                  Expanded(child: _ColumnLabel(tr('ARTICLE'))),
-                  _ColumnLabel(tr('MONTANT')),
-                ],
-              ),
-            ),
+          Divider(height: 1, color: PosUi.deskLine),
           Expanded(
             child: active
                 ? ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
                     itemCount: snapshot.lines.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 6),
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
                     itemBuilder: (context, index) => _LineRow(
                       line: snapshot.lines[index],
                       currencyCode: snapshot.currencyCode,
@@ -570,11 +569,18 @@ class _OrderPanel extends StatelessWidget {
                 : const _EmptyOrder(),
           ),
           _TotalBlock(snapshot: snapshot, count: count),
-          if (showFooter)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: const _Footer(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: Text(
+              tr('Merci et à bientôt !'),
+              textAlign: TextAlign.center,
+              style: AppTypography.text(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: PosUi.deskMuted,
+              ),
             ),
+          ),
         ],
       ),
     );
@@ -588,12 +594,13 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? _brand : _muted;
+    final color = active ? PosUi.deskPay : PosUi.deskMuted;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -618,25 +625,6 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-class _ColumnLabel extends StatelessWidget {
-  const _ColumnLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: AppTypography.text(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.8,
-        color: _muted,
-      ),
-    );
-  }
-}
-
 class _LineRow extends StatelessWidget {
   const _LineRow({
     required this.line,
@@ -652,35 +640,39 @@ class _LineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fontSize = large ? 17.0 : 15.0;
+    final fontSize = large ? 16.0 : 14.5;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      duration: const Duration(milliseconds: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: latest ? _brand.withValues(alpha: 0.07) : Colors.transparent,
+        color: latest ? PosUi.deskRaised : PosUi.deskField,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: latest ? _brand.withValues(alpha: 0.25) : Colors.transparent),
+        border: Border.all(
+          color: latest
+              ? PosUi.deskAccent.withValues(alpha: 0.45)
+              : PosUi.deskLine,
+        ),
       ),
       child: Row(
         children: [
           Container(
-            constraints: const BoxConstraints(minWidth: 44),
+            constraints: const BoxConstraints(minWidth: 42),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _brand.withValues(alpha: 0.12),
+              color: PosUi.deskAccent.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(9),
             ),
             child: Text(
               '${line.quantity}×',
               style: AppTypography.text(
-                fontSize: fontSize - 2,
+                fontSize: fontSize - 1,
                 fontWeight: FontWeight.w800,
-                color: _brand,
+                color: PosUi.deskInk,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               line.name,
@@ -689,17 +681,17 @@ class _LineRow extends StatelessWidget {
               style: AppTypography.text(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w600,
-                color: _ink,
+                color: PosUi.deskText,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Text(
             MoneyFormatter.format(line.price, currencyCode: currencyCode),
             style: AppTypography.text(
               fontSize: fontSize,
-              fontWeight: FontWeight.w700,
-              color: _ink,
+              fontWeight: FontWeight.w800,
+              color: PosUi.deskText,
             ),
           ),
         ],
@@ -714,36 +706,36 @@ class _EmptyOrder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: SingleChildScrollView(
+      child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 76,
-              height: 76,
+              width: 72,
+              height: 72,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: _brand.withValues(alpha: 0.10),
+                color: PosUi.deskAccent.withValues(alpha: 0.14),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.shopping_cart_outlined, size: 34, color: _brand),
+              child: const Icon(Icons.shopping_cart_outlined, size: 32, color: PosUi.deskAccent),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Text(
               tr('Votre commande apparaîtra ici'),
               textAlign: TextAlign.center,
               style: AppTypography.text(
-                fontSize: 17,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: _text,
+                color: PosUi.deskText,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               tr('Le caissier ajoute vos articles un par un.'),
               textAlign: TextAlign.center,
-              style: AppTypography.text(fontSize: 13.5, color: _muted),
+              style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted),
             ),
           ],
         ),
@@ -762,11 +754,11 @@ class _TotalBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final amount = MoneyFormatter.format(snapshot.total, currencyCode: snapshot.currencyCode);
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      margin: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: _brandFill,
+        color: PosUi.deskPay,
       ),
       child: Row(
         children: [
@@ -785,12 +777,12 @@ class _TotalBlock extends StatelessWidget {
                 count == 1 ? tr('1 article') : trf('{0} articles', [count]),
                 style: AppTypography.text(
                   fontSize: 12.5,
-                  color: Colors.white.withValues(alpha: 0.75),
+                  color: Colors.white.withValues(alpha: 0.8),
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Align(
               alignment: Alignment.centerRight,
@@ -798,18 +790,11 @@ class _TotalBlock extends StatelessWidget {
                 fit: BoxFit.scaleDown,
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 220),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(
-                      scale: Tween(begin: 0.94, end: 1.0).animate(animation),
-                      child: child,
-                    ),
-                  ),
                   child: Text(
                     amount,
                     key: ValueKey(amount),
                     style: AppTypography.text(
-                      fontSize: 32,
+                      fontSize: 30,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                     ),
@@ -820,73 +805,6 @@ class _TotalBlock extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _Footer extends StatelessWidget {
-  const _Footer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 12,
-      runSpacing: 6,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.sentiment_satisfied_alt_rounded, color: _brand, size: 18),
-            const SizedBox(width: 6),
-            Text(
-              tr('Merci et à bientôt !'),
-              style: AppTypography.text(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
-                color: _brand,
-              ),
-            ),
-          ],
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              tr('Propulsé par'),
-              style: AppTypography.text(fontSize: 12, color: _muted),
-            ),
-            const SizedBox(width: 6),
-            Container(
-              width: 18,
-              height: 18,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: _brand,
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Text(
-                'I',
-                style: AppTypography.text(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'ITARA POS',
-              style: AppTypography.text(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: _brand,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

@@ -53,7 +53,7 @@ class LocalDatabase {
     final path = p.join(dir.path, 'pos_offline.sqlite');
     return openDatabase(
       path,
-      version: 15,
+      version: 16,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -192,8 +192,33 @@ class LocalDatabase {
         if (oldVersion < 15) {
           await _createPrintedDocuments(db);
         }
+        if (oldVersion < 16) {
+          await _migrateShiftsStoreIdV16(db);
+        }
       },
     );
+  }
+
+  /// Shifts are owned by cashier + store (not only by register visibility).
+  static Future<void> _migrateShiftsStoreIdV16(Database db) async {
+    final cols = await db.rawQuery('PRAGMA table_info(shifts)');
+    final names = cols.map((row) => row['name']?.toString() ?? '').toSet();
+    if (!names.contains('store_id')) {
+      await db.execute('ALTER TABLE shifts ADD COLUMN store_id TEXT');
+    }
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_shifts_user_store_status ON shifts(user_id, store_id, status)',
+    );
+    // Backfill from the cash register when possible.
+    await db.execute('''
+      UPDATE shifts
+      SET store_id = (
+        SELECT cash_registers.store_id
+        FROM cash_registers
+        WHERE cash_registers.id = shifts.cash_register_id
+      )
+      WHERE store_id IS NULL OR store_id = ''
+    ''');
   }
 
   /// Documents already sent while the back-office right pos.print.once is on.
@@ -764,6 +789,7 @@ class LocalDatabase {
         cash_register_id TEXT,
         cash_session_id TEXT,
         user_id TEXT,
+        store_id TEXT,
         status TEXT NOT NULL DEFAULT 'open',
         opened_at TEXT NOT NULL,
         closed_at TEXT,
@@ -771,6 +797,9 @@ class LocalDatabase {
       )
     ''');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(status, opened_at)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_shifts_user_store_status ON shifts(user_id, store_id, status)',
+    );
     await db.execute('''
       CREATE TABLE IF NOT EXISTS stocks (
         id TEXT PRIMARY KEY,

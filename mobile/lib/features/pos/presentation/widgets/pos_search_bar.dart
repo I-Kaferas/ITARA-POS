@@ -22,7 +22,7 @@ class PosSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final desk = MediaQuery.sizeOf(context).width >= 900;
+    final desk = PosUi.isDesk(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(desk ? 16 : 12, 12, 8, 4),
       child: DecoratedBox(

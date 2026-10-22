@@ -22,6 +22,7 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
     on<ProductSearchChanged>(_onSearch);
     on<ProductCategoryFilterChanged>(_onCategoryFilter);
     on<ProductSynced>(_onSynced);
+    on<ProductStockAdjusted>(_onStockAdjusted);
     _sync.addListener(_onSyncChanged);
   }
 
@@ -92,15 +93,25 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
       if (_api.storeId != storeId) return;
       await _offline.cacheCatalog(catalog);
       _loadedStoreId = storeId;
-      final visible = catalog.products.where((p) => p.isAvailable).toList();
+      final stored = await _offline.loadCatalog(storeId);
+      final visible = (stored?.products ?? catalog.products).where((product) => product.isAvailable).toList();
+      final categories = stored?.categories ?? catalog.categories;
       emit(state.copyWith(
         status: ProductStatus.ready,
         products: visible,
-        categories: catalog.categories,
+        categories: categories,
         clearError: true,
         clearStatusMessage: true,
       ));
-      await _paintImages(storeId, catalog, visible, emit);
+      await _paintImages(storeId, PosCatalog(storeId: storeId, products: visible, categories: categories), visible, emit);
+      final fresh = await _offline.loadCatalog(storeId);
+      if (fresh == null || _api.storeId != storeId || isClosed) return;
+      emit(state.copyWith(
+        status: ProductStatus.ready,
+        products: fresh.products.where((product) => product.isAvailable).toList(),
+        categories: fresh.categories,
+        clearError: true,
+      ));
     } catch (error) {
       if (_api.storeId != storeId) return;
       if (cached != null) {
@@ -179,6 +190,43 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
       selectedCategoryId: event.categoryId,
       clearCategory: event.categoryId == null,
     ));
+  }
+
+  void _onStockAdjusted(
+    ProductStockAdjusted event,
+    Emitter<ProductState> emit,
+  ) {
+    if (event.updates.isEmpty || state.products.isEmpty) return;
+    final byId = <String, Map<String, dynamic>>{};
+    for (final row in event.updates) {
+      for (final key in [
+        row['product_id']?.toString(),
+        row['store_product_id']?.toString(),
+        row['catalog_product_id']?.toString(),
+      ]) {
+        if (key != null && key.isNotEmpty) byId[key] = row;
+      }
+    }
+    if (byId.isEmpty) return;
+    emit(state.copyWith(
+      products: [
+        for (final product in state.products)
+          if (byId[product.productId] ?? byId[product.storeProductId] case final row?)
+            product.withStock(
+              quantityOnHand: _stockInt(row['quantity_on_hand']) ?? product.quantityOnHand ?? 0,
+              stockVersion: _stockInt(row['stock_version']) ?? product.stockVersion,
+            )
+          else
+            product,
+      ],
+    ));
+  }
+
+  int? _stockInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value.toString());
   }
 
   Future<void> _onSynced(

@@ -30,6 +30,7 @@ type Company = {
   modules: string[]
   license: { key?: string | null; status: string; seats: number; expires_on?: string | null }
   subscription: { plan?: string | null; status: string; renews_on?: string | null }
+  signup?: { awaiting_approval?: boolean; requested_plan?: string | null }
   billing?: {
     plan: string
     status: string
@@ -449,6 +450,10 @@ async function setCompanyStatus(company: Company, status: string) {
   await run(() => api.patch(`/platform/companies/${company.id}`, { status }).then(() => undefined))
 }
 
+async function approveSignup(company: Company) {
+  await run(() => api.post(`/platform/tenants/${company.id}/signup/approve`).then(() => undefined))
+}
+
 function commercialPlan(company: Company) {
   return company.billing?.plan || company.subscription.plan
 }
@@ -612,6 +617,7 @@ onMounted(() => {
               <td>
                 <p class="font-medium">{{ company.name }}</p>
                 <p class="platform-muted">{{ company.slug }}</p>
+                <p v-if="company.signup?.awaiting_approval" class="platform-muted">{{ t('platform.awaitingBouquet') }} · {{ company.signup.requested_plan }}</p>
               </td>
               <td><Badge :variant="statusVariant(company.status)" dot>{{ statusLabel(company.status) }}</Badge></td>
               <td>{{ company.modules.map(code => t(`platform.moduleNames.${code}`)).join(' · ') || '—' }}</td>
@@ -620,6 +626,16 @@ onMounted(() => {
               <td>{{ company.open_support }}</td>
               <td class="text-right">
                 <div class="platform-actions">
+                  <button
+                    v-if="company.signup?.awaiting_approval"
+                    class="btn-primary"
+                    type="button"
+                    :disabled="busy"
+                    @click="approveSignup(company)"
+                  >
+                    <AppIcon name="check" :size="16" />
+                    {{ t('platform.approveBouquet') }}
+                  </button>
                   <button class="btn-primary" type="button" :disabled="busy" @click="openShop(company)"><AppIcon name="eye" :size="16" /> {{ t('platform.openShop') }}</button>
                   <button class="btn-secondary" type="button" @click="openManage(company)"><AppIcon name="edit" :size="16" /> {{ t('platform.edit') }}</button>
                   <button class="btn-secondary" type="button" :disabled="busy" @click="setCompanyStatus(company, company.status === 'active' ? 'suspended' : 'active')">

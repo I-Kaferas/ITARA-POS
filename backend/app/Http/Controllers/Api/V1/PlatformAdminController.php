@@ -114,10 +114,46 @@ class PlatformAdminController extends Controller
                 'open_support' => collect($saas['support'])->where('status', 'open')->count(),
                 'users' => (int) ($users[$tenant->id] ?? 0),
                 'devices' => (int) ($devices[$tenant->id] ?? 0),
+                'signup' => [
+                    'awaiting_approval' => (bool) data_get($tenant->settings, 'signup.awaiting_approval', false),
+                    'requested_plan' => data_get($tenant->settings, 'signup.requested_plan'),
+                ],
             ];
         });
 
         return response()->json(['data' => $rows]);
+    }
+
+    public function approveSignup(Request $request, Tenant $tenant): JsonResponse
+    {
+        $this->assertSuperAdmin($request);
+        $settings = $tenant->settings ?? [];
+        $signup = is_array($settings['signup'] ?? null) ? $settings['signup'] : [];
+        $plan = is_string($signup['requested_plan'] ?? null) ? $signup['requested_plan'] : 'starter';
+        $signup['awaiting_approval'] = false;
+        $signup['approved_at'] = now()->toIso8601String();
+        $settings['signup'] = $signup;
+        $saas = is_array($settings['saas'] ?? null) ? $settings['saas'] : [];
+        $saas['subscription'] = is_array($saas['subscription'] ?? null) ? $saas['subscription'] : [];
+        $saas['subscription']['plan'] = SaasCatalog::toCommercial($plan);
+        $saas['subscription']['status'] = 'active';
+        $settings['saas'] = $saas;
+        $tenant->settings = $settings;
+        $tenant->subscription = $saas['subscription'];
+        $tenant->status = 'active';
+        $tenant->save();
+        $this->subscriptions->alignLegacy($tenant, ['status' => 'active']);
+        $this->audit->record($request->user(), 'tenant.signup_approved', $tenant->id, [
+            'plan' => $plan,
+        ], $request->ip());
+
+        return response()->json([
+            'data' => [
+                'id' => $tenant->id,
+                'status' => $tenant->status,
+                'plan' => $saas['subscription']['plan'],
+            ],
+        ]);
     }
 
     public function updateCompany(Request $request, Tenant $tenant): JsonResponse

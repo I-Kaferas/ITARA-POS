@@ -8,6 +8,7 @@ import 'core/config/settings_bloc.dart';
 import 'core/config/terminal_bloc.dart';
 import 'core/config/terminal_config_repository.dart';
 import 'core/di/service_locator.dart';
+import 'core/layout/android_form_factor.dart';
 import 'core/layout/app_viewport_scale.dart';
 import 'core/logging/app_logger.dart';
 import 'core/navigation/app_router.dart';
@@ -179,18 +180,26 @@ class PosApp extends StatelessWidget {
                   Locale('sw'),
                 ],
                 routerConfig: AppRouter.create(),
-                builder: (context, child) => AppViewportScale(
-                  child: SilentScaffoldMessenger(
-                    child: ThemeRefresh(
-                      sources: [
-                        LocaleController.instance,
-                        CashierPreferences.instance,
-                        sl<TerminalConfigRepository>(),
-                      ],
-                      child: AutoLockGuard(child: child ?? const SizedBox.shrink()),
+                builder: (context, child) {
+                  final media = MediaQuery.of(context);
+                  return MediaQuery(
+                    data: media.copyWith(
+                      textScaler: AndroidLayout.clampTextScaler(media.textScaler),
                     ),
-                  ),
-                ),
+                    child: AppViewportScale(
+                      child: SilentScaffoldMessenger(
+                        child: ThemeRefresh(
+                          sources: [
+                            LocaleController.instance,
+                            CashierPreferences.instance,
+                            sl<TerminalConfigRepository>(),
+                          ],
+                          child: AutoLockGuard(child: child ?? const SizedBox.shrink()),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               );
             },
           );

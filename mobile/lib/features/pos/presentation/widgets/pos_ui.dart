@@ -28,7 +28,7 @@ abstract final class PosUi {
   static const double deskBreakpoint = AndroidLayout.tabletMax;
   static const double wideBreakpoint = AndroidLayout.tabletMax;
   /// Ultra-wide Windows POS desk (≥1280).
-  static const double windowsDeskBreakpoint = 1280;
+  static const double windowsDeskBreakpoint = AndroidLayout.windowsDeskMin;
   static const double tabletBreakpoint = 720;
   static const double phoneBreakpoint = AndroidLayout.phoneMax;
 
@@ -38,24 +38,29 @@ abstract final class PosUi {
   static const double cartWidthWindows = 420;
 
   /// Cashier surface. Dark desk at night, the light canvas when the app is in light mode.
+  /// Dark tokens track [AppPalette.dark] so Overview / Réglages match POS.
   static bool get isDarkDesk => ThemeController.instance.isDark;
 
   static const Color deskInk = Color(0xFF12243C);
   static const Color deskAccent = Color(0xFFE39B2B);
   static const Color deskPay = Color(0xFF1FA971);
 
-  static Color get deskNight => isDarkDesk ? const Color(0xFF0C1422) : AppColors.canvas;
-  static Color get deskPanel => isDarkDesk ? const Color(0xFF121A2B) : AppColors.surface;
-  static Color get deskCard => isDarkDesk ? const Color(0xFF182233) : AppColors.surface;
-  static Color get deskField => isDarkDesk ? const Color(0xFF101828) : AppColors.fieldFill;
-  static Color get deskLine => isDarkDesk ? const Color(0xFF2C3A50) : AppColors.border;
-  static Color get deskText => isDarkDesk ? const Color(0xFFF4F7FB) : AppColors.textPrimary;
-  static Color get deskMuted => isDarkDesk ? const Color(0xFF9AABBE) : AppColors.textSecondary;
-  static Color get deskStock => isDarkDesk ? const Color(0xFF3DDC97) : AppColors.success;
-  static Color get deskPhoto => isDarkDesk ? const Color(0xFFE8EDF2) : const Color(0xFFE7EBEF);
-  static Color get deskRaised => isDarkDesk ? const Color(0xFF243044) : AppColors.brand100;
-  static Color get deskSoft => isDarkDesk ? const Color(0xFF1B2536) : AppColors.fieldFill;
-  static Color get deskSuccessBg => isDarkDesk ? const Color(0xFF143528) : AppColors.successBg;
+  static Color get deskNight => AppColors.canvas;
+  static Color get deskPanel =>
+      isDarkDesk ? AppColors.surfaceVariant : AppColors.surface;
+  static Color get deskCard => AppColors.surface;
+  static Color get deskField => AppColors.fieldFill;
+  static Color get deskLine => AppColors.border;
+  static Color get deskText => AppColors.textPrimary;
+  static Color get deskMuted => AppColors.textSecondary;
+  static Color get deskStock =>
+      isDarkDesk ? const Color(0xFF3DDC97) : AppColors.success;
+  static Color get deskPhoto =>
+      isDarkDesk ? const Color(0xFFE8EDF2) : const Color(0xFFE7EBEF);
+  static Color get deskRaised => AppColors.brand100;
+  static Color get deskSoft =>
+      isDarkDesk ? AppColors.brand50 : AppColors.fieldFill;
+  static Color get deskSuccessBg => AppColors.successBg;
 
   static bool isWindowsDesk(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= windowsDeskBreakpoint;
@@ -77,25 +82,15 @@ abstract final class PosUi {
   static bool isTablet(BuildContext context) =>
       AndroidLayout.of(context).isTablet;
 
-  /// §18 tablette : Sidebar + Product Grid + Cart.
+  /// Desk always; tablet landscape only (see [AndroidLayout.usePosThreePane]).
   static bool usePosThreePane(BuildContext context) =>
-      AndroidLayout.of(context).usePosThreePane;
+      AndroidLayout.usePosThreePane(context);
 
-  static EdgeInsets pagePadding(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= deskBreakpoint) {
-      return const EdgeInsets.fromLTRB(24, 18, 24, 24);
-    }
-    if (width >= tabletBreakpoint) {
-      return const EdgeInsets.fromLTRB(18, 14, 18, 20);
-    }
-    return const EdgeInsets.fromLTRB(14, 12, 14, 18);
-  }
+  static EdgeInsets pagePadding(BuildContext context) =>
+      AndroidLayout.pagePadding(context);
 
-  static double contentMaxWidth(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    return width >= deskBreakpoint ? 980 : width;
-  }
+  static double contentMaxWidth(BuildContext context) =>
+      AndroidLayout.contentMaxWidth(context);
 
   static TextStyle sectionLabel({Color? color}) => AppTypography.label(
         color: color ?? AppColors.textMuted,

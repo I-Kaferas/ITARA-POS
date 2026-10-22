@@ -10,6 +10,7 @@ import '../../../core/architecture/business_continuity.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/di/service_locator.dart';
+import '../../../core/layout/android_form_factor.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
@@ -49,6 +50,7 @@ import '../services/pos_pending_intent.dart';
 import 'widgets/delivery_map_card.dart';
 import 'widgets/hold_order_dialog.dart';
 import 'widgets/pos_cart_panel.dart';
+import 'widgets/pos_edit_line_dialog.dart';
 import 'customer_display_launcher.dart';
 import 'widgets/pos_category_sidebar.dart';
 import 'widgets/pos_desktop_shortcuts.dart';
@@ -151,6 +153,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     _hidScanner = HidScannerController(onScan: _onBarcodeScanned);
     _cart.addListener(_onCartChanged);
     SyncEngine.instance.addListener(_onSyncChanged);
+    OfflineStore.instance.holdsRevision.addListener(_onLocalHoldsChanged);
     PosPendingIntent.notifier.addListener(_onPendingIntent);
     _favorites.addListener(_onFavoritesChanged);
     unawaited(_favorites.ensureLoaded());
@@ -202,6 +205,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     _productSub?.cancel();
     PosPendingIntent.notifier.removeListener(_onPendingIntent);
     SyncEngine.instance.removeListener(_onSyncChanged);
+    OfflineStore.instance.holdsRevision.removeListener(_onLocalHoldsChanged);
     _favorites.removeListener(_onFavoritesChanged);
     TerminalConfigRepository.instance.removeListener(_onShiftConfigChanged);
     CashierPreferences.instance.removeListener(_onBusinessModeChanged);
@@ -382,7 +386,11 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       _showStatus('Panier vide — ajoutez un article avant de payer');
       return;
     }
-    setState(() => _requestPayment = true);
+    // Close the mobile cart drawer so the payment sheet is not trapped under it.
+    setState(() {
+      _cartOpen = false;
+      _requestPayment = true;
+    });
   }
 
   void _shortcutCustomer() {
@@ -423,7 +431,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     var total = 0;
     for (final line in _cart.lines) {
       if (line.product.productId == product.productId && !line.isAccompaniment) {
-        total += line.quantity;
+        total += line.stockQuantity;
       }
     }
     return total;
@@ -482,11 +490,10 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   Future<void> _loadShiftSession() async {
     if (!mounted) return;
     try {
-      final registers = await _shiftsApi.fetchRegisters();
+      // Shift is owned by the connected cashier for the active store.
+      final mine = await _shiftsApi.openShift();
       if (!mounted) return;
-      setState(() {
-        _shiftOpen = registers.any((register) => register.hasOpenSession);
-      });
+      setState(() => _shiftOpen = mine != null);
     } catch (_) {
       if (!mounted) return;
       setState(() => _shiftOpen = false);
@@ -528,15 +535,23 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
 
   Future<void> _writeHolds(String storeId) async {
     final existing = await OfflineStore.instance.loadLocalHolds();
-    final serverIds = {
+    final storedById = {
       for (final row in existing)
-        if ((row['id']?.toString() ?? '').isNotEmpty) row['id'].toString(): row['server_id']?.toString(),
+        if ((row['id']?.toString() ?? '').isNotEmpty) row['id'].toString(): row,
     };
     final payload = _cart.heldSales.map((sale) {
       final json = sale.toLocalJson();
-      final stored = serverIds[sale.id];
-      if ((json['server_id'] == null || json['server_id'].toString().isEmpty) && stored != null && stored.isNotEmpty) {
-        json['server_id'] = stored;
+      final stored = storedById[sale.id];
+      final storedServerId = stored?['server_id']?.toString();
+      if ((json['server_id'] == null || json['server_id'].toString().isEmpty) &&
+          storedServerId != null &&
+          storedServerId.isNotEmpty) {
+        json['server_id'] = storedServerId;
+      }
+      for (final key in ['uploaded_at', 'sync_error']) {
+        final current = json[key]?.toString().trim() ?? '';
+        final previous = stored?[key]?.toString().trim() ?? '';
+        if (current.isEmpty && previous.isNotEmpty) json[key] = previous;
       }
       if (storeId.trim().isNotEmpty) json['store_id'] = storeId.trim();
       return json;
@@ -600,49 +615,43 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         .toList();
   }
 
-  Future<void> _showLineDiscountDialog(String lineId) async {
+  String _majorAmount(int minor) {
+    final major = minor / 100;
+    return major == major.roundToDouble()
+        ? major.toStringAsFixed(0)
+        : major.toStringAsFixed(2);
+  }
+
+  int _parseMajorAmount(String raw) {
+    final cleaned = raw.trim().replaceAll(',', '.').replaceAll(RegExp(r'[^\d.]'), '');
+    return ((double.tryParse(cleaned) ?? 0) * 100).round().clamp(0, 1 << 31);
+  }
+
+  Future<void> _showEditLineDialog(String lineId) async {
     final line = _cart.lines.cast<PosCartLine?>().firstWhere(
           (l) => l!.lineId == lineId,
           orElse: () => null,
         );
-    if (line == null) return;
-    final ctrl = TextEditingController(
-      text: line.lineDiscountFixed > 0 ? '${line.lineDiscountFixed}' : '',
-    );
-    final amount = await showDialog<int>(
+    if (line == null || line.isAccompaniment) return;
+
+    final result = await showPosEditLineDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Remise ligne')),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: trf('Montant (max {0})', [line.lineSubtotal]),
-            suffixText: AppConfig.currencyCode,
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, 0), child: Text(tr('Effacer'))),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Annuler'))),
-          FilledButton(
-            onPressed: () {
-              final value = int.tryParse(ctrl.text.trim()) ?? 0;
-              Navigator.pop(ctx, value);
-            },
-            child: Text(tr('OK')),
-          ),
-        ],
-      ),
+      line: line,
+      money: (amount) => MoneyFormatter.format(amount, currencyCode: AppConfig.currencyCode),
+      major: _majorAmount,
+      parseMajor: _parseMajorAmount,
     );
-    ctrl.dispose();
-    if (amount == null || !mounted) return;
-    _cart.setLineDiscount(lineId, amount);
+    if (result == null || !mounted) return;
+    _cart.updateLine(
+      lineId: lineId,
+      quantity: result.quantity,
+      unitPrice: result.unitPrice,
+    );
     _scheduleRecalc();
   }
 
   /// Puts the register back to a clean sale: search, category, cart panel, and stock.
-  Future<void> _refreshRegister() async {
+  Future<void> _refreshRegister({bool forceNetwork = true}) async {
     if (!mounted) return;
     _searchController.clear();
     final products = context.read<ProductBloc>();
@@ -656,7 +665,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       _filteredCache = const [];
       _cartOpen = false;
     });
-    await _loadCatalog(forceNetwork: true);
+    await _loadCatalog(forceNetwork: forceNetwork);
     if (!mounted) return;
     await _loadPendingOrders();
     if (mounted) setState(() {});
@@ -745,12 +754,18 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     _scheduleRecalc();
   }
 
+  void _onLocalHoldsChanged() {
+    if (!mounted) return;
+    unawaited(_loadPendingOrders());
+  }
+
   Future<void> _loadPendingOrders() async {
     try {
       final local = OfflineStore.instance.holdsForStore(
         await OfflineStore.instance.loadLocalHolds(),
         _activeStoreId,
       );
+      if (!mounted) return;
       _cart.restoreHeldSales(local.map(PosHeldSale.fromLocalJson).where((sale) => sale.lines.isNotEmpty).toList());
     } catch (_) {}
   }
@@ -825,9 +840,24 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         : '';
     _showStatus('${result.message}$change$balance$loyalty');
     _cart.cancel();
-    unawaited(_refreshRegister());
-    // Refresh grid quantities from the stock rows written by commitSale.
-    SyncEngine.instance.markCatalogChanged(stock: result.stockUpdates);
+    // Apply stock to the grid immediately. Avoid bumping catalogRevision —
+    // that reloads SQLite/catalog and was restoring the pre-sale quantity.
+    if (result.stockUpdates.isNotEmpty) {
+      context.read<ProductBloc>().add(ProductStockAdjusted(result.stockUpdates));
+      SyncEngine.instance.markCatalogChanged(
+        stock: result.stockUpdates,
+        bumpRevision: false,
+      );
+    }
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _selectedCategoryId = null;
+      _filteredCategoryId = null;
+      _filteredQuery = '';
+      _filteredCache = const [];
+      _cartOpen = false;
+    });
     if (CashDrawerService.shouldOpenForPayment(
       method: result.method,
       change: result.change,
@@ -1084,13 +1114,14 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                             },
                             onDecrement: _cart.decrementQuantity,
                             onRemove: _cart.removeLine,
-                            onLineDiscount: _showLineDiscountDialog,
+                            onEditLine: _showEditLineDialog,
                             onSearchCustomer: _shortcutCustomer,
                             onSelectTable: CashierPreferences.instance.standardPos ? null : _selectTable,
                             onCustomerDisplay: () {
                               CustomerDisplayLauncher.open(context);
                             },
-                            showCheckout: PosUi.usePosThreePane(context),
+                            // Always show Pay & Close in the cart (phone drawer + desk).
+                            showCheckout: true,
                             onHold: () => unawaited(_shortcutHold()),
                             onClear: () {
                               if (_cart.isEmpty) return;
@@ -1399,34 +1430,40 @@ class _PosWorkspace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (threePane) {
-      final tablet = PosUi.isTablet(context);
-      final cartW = windowsDesk
-          ? PosUi.cartWidthWindows
-          : (tablet ? 300.0 : PosUi.cartWidth);
       return ColoredBox(
         color: PosUi.deskNight,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  search,
-                  categories,
-                  Expanded(child: products),
-                ],
-              ),
-            ),
-            SizedBox(width: cartW, child: cart),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final tablet = PosUi.isTablet(context);
+            final cartW = AndroidLayout.posCartWidth(
+              parentWidth: constraints.maxWidth,
+              windowsDesk: windowsDesk,
+              tablet: tablet,
+            );
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      search,
+                      categories,
+                      Expanded(child: products),
+                    ],
+                  ),
+                ),
+                SizedBox(width: cartW, child: cart),
+              ],
+            );
+          },
         ),
       );
     }
 
-    // Smartphone : pastilles de catégories + grille, panier en tiroir.
+    // Smartphone / tablette portrait : grille + panier en tiroir.
     final width = MediaQuery.sizeOf(context).width;
-    final cartWidth = width < 400 ? width * 0.92 : 320.0;
+    final cartWidth = AndroidLayout.phoneCartWidth(width);
     return ColoredBox(
       color: PosUi.deskNight,
       child: Stack(

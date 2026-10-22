@@ -416,7 +416,9 @@ class CartEngine
 
 
 
-        $applyPromotions = $payload['apply_promotions'] ?? true;
+        $applyPromotions = array_key_exists('apply_promotions', $payload)
+            ? (bool) $payload['apply_promotions']
+            : ! $this->clientPricedCart($payload);
 
         $promotions = $applyPromotions
 
@@ -551,6 +553,21 @@ class CartEngine
 
 
 
+        if (isset($payload['product_id']) && ! isset($payload['tax_rate'])) {
+            $storeProduct = StoreProduct::query()
+                ->where('store_id', $store->id)
+                ->where('product_id', $payload['product_id'])
+                ->with(['product.tax'])
+                ->first();
+
+            if ($storeProduct) {
+                $storeProduct->loadMissing(['product.tax']);
+                $product = $storeProduct->product;
+                $payload['tax_rate'] = $product->tax?->rate ?? '0.0000';
+                $payload['tax_inclusive'] ??= (bool) ($product->tax?->is_inclusive ?? false);
+            }
+        }
+
         if (! isset($payload['unit_price'])) {
 
             throw new \InvalidArgumentException('unit_price is required when product_id is not provided.');
@@ -564,6 +581,26 @@ class CartEngine
     }
 
 
+
+    /**
+     * A register that already priced every line collected that amount.
+     * Automatic promotions stay on for carts the server prices itself.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function clientPricedCart(array $payload): bool
+    {
+        foreach ($payload['items'] ?? [] as $item) {
+            if (! is_array($item) || ! empty($item['is_accompaniment'])) {
+                continue;
+            }
+            if (isset($item['unit_price'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private function resolveDiscount(int $baseAmount, ?CartDiscountInput $discount): int
 

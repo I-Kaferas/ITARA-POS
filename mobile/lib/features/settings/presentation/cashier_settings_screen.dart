@@ -20,6 +20,7 @@ import '../../../sync/sync_models.dart';
 import '../../auth/data/pin_auth_service.dart';
 import '../../auth/presentation/logout_profile_dialog.dart';
 import '../../pos/presentation/customer_display_launcher.dart';
+import '../../pos/presentation/widgets/pos_ui.dart';
 import '../../printers/presentation/printer_routing_screen.dart';
 import '../../printers/services/printer_manager.dart';
 import '../../receipt/domain/printer_models.dart';
@@ -30,9 +31,8 @@ import 'printer_setup_panel.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 import 'package:pos_mobile/core/theme/app_typography.dart';
 
-Color get _brand => AppColors.brandInk;
-Color get _onBrand =>
-    _brand.computeLuminance() > 0.5 ? AppColors.brand900 : Colors.white;
+Color get _brand => AppColors.accent;
+Color get _onBrand => AppColors.brand900;
 
 /// Cashier settings, opened from the top overflow menu and shown right
 /// after an administrator signs in, before the technical configuration.
@@ -49,18 +49,57 @@ class CashierSettingsScreen extends StatelessWidget {
       ]),
       builder: (context, _) {
         return BlocBuilder<ThemeCubit, ThemeState>(
-          builder: (context, theme) {
+          builder: (context, themeState) {
             final config = TerminalConfigRepository.instance.config;
             final prefs = CashierPreferences.instance;
-            return ColoredBox(
-              color: AppColors.canvas,
+            final theme = Theme.of(context);
+            return Theme(
+              data: theme.copyWith(
+                colorScheme: theme.colorScheme.copyWith(
+                  primary: AppColors.accent,
+                  onPrimary: AppColors.brand900,
+                  secondary: AppColors.accent,
+                  onSecondary: AppColors.brand900,
+                ),
+                switchTheme: SwitchThemeData(
+                  thumbColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.disabled)) {
+                      return AppColors.textMuted.withValues(alpha: 0.45);
+                    }
+                    if (states.contains(WidgetState.selected)) return AppColors.brand900;
+                    return AppColors.textMuted;
+                  }),
+                  trackColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) return AppColors.accent;
+                    return PosUi.deskField;
+                  }),
+                  trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) return AppColors.accent;
+                    return AppColors.border;
+                  }),
+                ),
+                filledButtonTheme: FilledButtonThemeData(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: AppColors.brand900,
+                  ),
+                ),
+                outlinedButtonTheme: OutlinedButtonThemeData(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: PosUi.deskAccent,
+                    side: const BorderSide(color: PosUi.deskAccent),
+                  ),
+                ),
+              ),
+              child: ColoredBox(
+              color: PosUi.deskNight,
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final wide = constraints.maxWidth >= 980;
+                  final wide = constraints.maxWidth >= AndroidLayout.contentWide;
                   final page = _Page(
                     config: config,
                     prefs: prefs,
-                    themeMode: theme.mode,
+                    themeMode: themeState.mode,
                     wide: wide,
                   );
                   return SingleChildScrollView(
@@ -74,6 +113,7 @@ class CashierSettingsScreen extends StatelessWidget {
                   );
                 },
               ),
+            ),
             );
           },
         );
@@ -261,10 +301,10 @@ class _PillButton extends StatelessWidget {
     final color = danger ? AppColors.danger : _brand;
     return Material(
       color: danger ? AppColors.dangerBg : _brand.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
@@ -306,146 +346,65 @@ class _ProfileCard extends StatelessWidget {
               : 'ITARA');
     final role = config.isAdmin ? 'Administrateur' : 'Caissier';
 
+    final detail = [
+      role,
+      if (email.isNotEmpty) email,
+      company,
+    ].join(' · ');
     return Container(
+      padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        color: PosUi.deskCard,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: PosUi.deskLine),
       ),
-      child: Stack(
+      child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(17),
-                ),
-                child: Container(
-                  height: 92,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        AppColors.brand800,
-                        AppColors.brand600,
-                        AppColors.brand400,
-                      ],
-                    ),
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 36),
-                      width: 140,
-                      height: 140,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.14),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(96, 14, 18, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(name),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.text(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      tr(role),
-                      style: AppTypography.text(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: _brand,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 4,
-                      children: [
-                        if (email.isNotEmpty)
-                          _Meta(icon: Icons.mail_outline, label: email),
-                        _Meta(icon: Icons.apartment_outlined, label: company),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Positioned(
-            left: 18,
-            top: 58,
-            child: Container(
-              width: 64,
-              height: 64,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.brand700,
-                border: Border.all(color: AppColors.accent, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.brand900.withValues(alpha: 0.35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Text(
-                tr(_initials(name)),
-                style: AppTypography.text(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: PosUi.deskAccent,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              tr(_initials(name)),
+              style: AppTypography.text(
+                color: PosUi.deskInk,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Meta extends StatelessWidget {
-  const _Meta({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 280),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppColors.textMuted),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              tr(label),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.text(
-                fontSize: 12.5,
-                color: AppColors.textSecondary,
-              ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr(name),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.text(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    color: PosUi.deskText,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  tr(detail),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.text(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: PosUi.deskMuted,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -686,9 +645,9 @@ class _PrintCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.canvas,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border),
+                  color: PosUi.deskField,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: PosUi.deskLine),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -894,12 +853,12 @@ class _StoreCardState extends State<_StoreCard> {
             height: 42,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.accent,
-              borderRadius: BorderRadius.circular(12),
+              color: PosUi.deskAccent,
+              borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.storefront_rounded,
-              color: AppColors.brand900,
+              color: PosUi.deskInk,
               size: 22,
             ),
           ),
@@ -940,7 +899,7 @@ class _StoreCardState extends State<_StoreCard> {
   }
 }
 
-const _syncBlue = AppColors.info;
+const _syncBlue = AppColors.accent;
 
 class _DataSyncCard extends StatefulWidget {
   const _DataSyncCard({required this.config});
@@ -1805,8 +1764,8 @@ class _CardTitle extends StatelessWidget {
       children: [
         _IconBadge(
           icon: icon,
-          color: _brand,
-          background: _brand.withValues(alpha: 0.12),
+          color: PosUi.deskInk,
+          background: PosUi.deskAccent,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -1816,18 +1775,19 @@ class _CardTitle extends StatelessWidget {
               Text(
                 tr(title),
                 style: AppTypography.text(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: PosUi.deskText,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 tr(subtitle),
                 style: AppTypography.text(
-                  fontSize: 12.5,
+                  fontSize: 13,
                   height: 1.3,
-                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  color: PosUi.deskMuted,
                 ),
               ),
             ],
@@ -1852,14 +1812,14 @@ class _IconBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 36,
-      height: 36,
+      width: 42,
+      height: 42,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Icon(icon, size: 18, color: color),
+      child: Icon(icon, size: 20, color: color),
     );
   }
 }
@@ -1939,9 +1899,9 @@ class _ChoiceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? _onBrand : AppColors.textPrimary;
+    final fg = selected ? PosUi.deskInk : PosUi.deskText;
     return Material(
-      color: selected ? _brand : AppColors.fieldFill,
+      color: selected ? PosUi.deskAccent : PosUi.deskField,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -1952,7 +1912,7 @@ class _ChoiceChip extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? _brand : AppColors.border),
+            border: Border.all(color: selected ? PosUi.deskAccent : PosUi.deskLine),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1992,14 +1952,15 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8, bottom: 2),
       child: Row(
         children: [
-          Icon(_iconFor(text), size: 14, color: _brand),
+          Icon(_iconFor(text), size: 14, color: PosUi.deskAccent),
           const SizedBox(width: 6),
           Text(
             tr(text),
             style: AppTypography.text(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: _brand,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+              color: PosUi.deskMuted,
             ),
           ),
         ],
@@ -2036,15 +1997,16 @@ class _Card extends StatelessWidget {
       child: child,
     );
     return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(16),
+      color: PosUi.deskCard,
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(22),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: PosUi.deskLine),
           ),
           child: body,
         ),

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../sync/offline_store.dart';
+import '../../../sync/sync_engine.dart';
 import '../../auth/data/pin_auth_service.dart';
 import '../../../core/widgets/role_guard.dart';
 import '../../../core/theme/app_colors.dart';
@@ -124,72 +125,22 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
       return;
     }
     if (_myOpenShift != null) {
-      _showMessage('Close your current shift before opening another.');
+      _showMessage('You already have an open shift for this store.');
       return;
     }
-    final balanceCtrl = TextEditingController(text: '0');
-    final notesCtrl = TextEditingController();
-
-    final confirmed = await showDialog<bool>(
+    final result = await showDialog<_OpenShiftResult>(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(PosUi.radiusXl)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(tr('Ouvrir le shift'), style: AppTypography.text(fontSize: 17, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text('${register.name} · ${register.code}', style: PosUi.caption()),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: balanceCtrl,
-                  decoration: InputDecoration(
-                    labelText: trf('Fonds initial ({0})', [AppConfig.currencyCode]),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: notesCtrl,
-                  decoration: InputDecoration(labelText: tr('Notes (optionnel)')),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Annuler')))),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: SizedBox(
-                        height: PosUi.ctaHeight - 4,
-                        child: FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Ouvrir'))),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      barrierColor: const Color(0xB30B1220),
+      builder: (context) => _OpenShiftDialog(register: register),
     );
 
-    if (confirmed != true) return;
+    if (result == null || !mounted) return;
 
     try {
-      final balance = _parseMoney(balanceCtrl.text);
       final opened = await _api.openSession(
         registerId: register.id,
-        openingBalance: balance,
-        notes: notesCtrl.text.trim(),
+        openingBalance: result.balance,
+        notes: result.notes,
       );
       final repo = TerminalConfigRepository.instance;
       await repo.save(repo.config.copyWith(
@@ -346,7 +297,25 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
       if (repo.config.cashRegisterId == register.id) {
         await repo.save(repo.config.copyWith(cashSessionId: ''));
       }
-      _showMessage('Shift fermé');
+
+      // Push remaining sales + shift open/close now that the session is closed.
+      // The pre-close gate cannot send "close" while the shift is still open.
+      try {
+        final sync = await SyncEngine.instance.syncNow();
+        if (!sync.ok) {
+          _showMessage(
+            sync.message.trim().isEmpty
+                ? 'Shift fermé en local — synchronisation incomplète. Relancez Sync.'
+                : 'Shift fermé en local — ${sync.message}',
+          );
+        } else {
+          _showMessage('Shift fermé et synchronisé');
+        }
+      } catch (e) {
+        _showMessage(
+          'Shift fermé en local — sync échouée: ${e.toString().replaceFirst('Exception: ', '')}',
+        );
+      }
       await _load();
 
       if (report != null && mounted) {
@@ -578,7 +547,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
       return;
     }
     if (_myOpenShift != null) {
-      _showMessage('Close your current shift before opening another.');
+      _showMessage('You already have an open shift for this store.');
       return;
     }
     var idle = _registers.where((register) => !register.hasOpenSession).toList();
@@ -735,6 +704,184 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                           ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OpenShiftResult {
+  const _OpenShiftResult({required this.balance, required this.notes});
+
+  final int balance;
+  final String notes;
+}
+
+class _OpenShiftDialog extends StatefulWidget {
+  const _OpenShiftDialog({required this.register});
+
+  final CashRegister register;
+
+  @override
+  State<_OpenShiftDialog> createState() => _OpenShiftDialogState();
+}
+
+class _OpenShiftDialogState extends State<_OpenShiftDialog> {
+  final _balanceCtrl = TextEditingController(text: '0');
+  final _notesCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _balanceCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  int _parseMoney(String input) {
+    final cleaned = input.replaceAll(',', '.').trim();
+    final value = double.tryParse(cleaned) ?? 0;
+    return (value * 100).round();
+  }
+
+  InputDecoration _field(String label) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: PosUi.deskLine),
+    );
+    return InputDecoration(
+      labelText: label,
+      labelStyle: AppTypography.text(color: PosUi.deskMuted, fontSize: 13, fontWeight: FontWeight.w600),
+      floatingLabelStyle: AppTypography.text(color: PosUi.deskAccent, fontSize: 13, fontWeight: FontWeight.w700),
+      filled: true,
+      fillColor: PosUi.deskField,
+      enabledBorder: border,
+      border: border,
+      focusedBorder: border.copyWith(borderSide: const BorderSide(color: PosUi.deskAccent, width: 1.4)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final register = widget.register;
+    final fieldStyle = AppTypography.text(fontSize: 15, fontWeight: FontWeight.w700, color: PosUi.deskText);
+    return Dialog(
+      backgroundColor: PosUi.deskCard,
+      surfaceTintColor: Colors.transparent,
+      elevation: 24,
+      shadowColor: const Color(0x99000000),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: PosUi.deskLine),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: PosUi.deskAccent,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.play_arrow_rounded, color: PosUi.deskInk, size: 26),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('Ouvrir le shift'),
+                          style: AppTypography.text(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                            color: PosUi.deskText,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${register.name} · ${register.code}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w600, color: PosUi.deskMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _balanceCtrl,
+                autofocus: true,
+                style: fieldStyle,
+                cursorColor: PosUi.deskAccent,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.,]'))],
+                decoration: _field(trf('Fonds initial ({0})', [AppConfig.currencyCode])),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _notesCtrl,
+                style: fieldStyle,
+                cursorColor: PosUi.deskAccent,
+                maxLines: 2,
+                decoration: _field(tr('Notes (optionnel)')),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: PosUi.deskText,
+                        backgroundColor: PosUi.deskCard,
+                        side: BorderSide(color: PosUi.deskLine),
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                      child: Text(tr('Annuler')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.pop(
+                        context,
+                        _OpenShiftResult(
+                          balance: _parseMoney(_balanceCtrl.text),
+                          notes: _notesCtrl.text.trim(),
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: PosUi.deskAccent,
+                        foregroundColor: PosUi.deskInk,
+                        minimumSize: const Size.fromHeight(48),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800),
+                      ),
+                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                      label: Text(tr('Ouvrir')),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

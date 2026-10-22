@@ -35,10 +35,10 @@ class _ClosePeriodDialogState extends State<_ClosePeriodDialog> {
   String get _target => widget.toMaster ? 'le Master' : 'le cloud';
 
   List<(ClosePeriodStep, IconData, Color, String)> get _steps => [
-        (ClosePeriodStep.upload, Icons.cloud_upload_rounded, AppColors.brandInk, 'Envoi des mouvements en attente…'),
+        (ClosePeriodStep.upload, Icons.cloud_upload_rounded, AppColors.brandInk, 'Synchronisation en ligne…'),
         (ClosePeriodStep.verify, Icons.verified_rounded, AppColors.info, 'Vérification de la réception par $_target…'),
         (ClosePeriodStep.backup, Icons.save_rounded, AppColors.success, 'Sauvegarde locale…'),
-        (ClosePeriodStep.clean, Icons.cleaning_services_rounded, AppColors.warning, 'Nettoyage des données locales…'),
+        (ClosePeriodStep.clean, Icons.cleaning_services_rounded, AppColors.warning, 'Nettoyage de la file de sync…'),
       ];
 
   _StepState _stateOf(ClosePeriodStep step) {

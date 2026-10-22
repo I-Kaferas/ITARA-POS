@@ -6,7 +6,9 @@ use App\Models\CashierShift;
 use App\Models\CashRegister;
 use App\Models\DeskDocument;
 use App\Models\OfflineTransaction;
+use App\Models\Promotion;
 use App\Models\Sale;
+use App\Models\Tax;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -77,6 +79,158 @@ class OfflineSyncTest extends TestCase
             ->assertJsonPath('data.results.0.conflict_code', 'uuid_payload_mismatch');
 
         $this->assertSame(1, Sale::query()->where('tenant_id', $store->tenant_id)->count());
+    }
+
+    public function test_unpaid_order_syncs_without_a_payment(): void
+    {
+        $headers = $this->storeHeaders();
+        $store = $this->fixture['store'];
+        $product = $this->fixture['product'];
+        $product->importToStore($store);
+
+        $uuid = (string) Str::uuid();
+        $operation = $this->operation($uuid, 'pos', 'sale', 'hold', [
+            'idempotency_key' => $uuid,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ],
+        ]);
+
+        $first = $this->postJson('/api/v1/sync/offline', ['operations' => [$operation]], $headers)->assertOk();
+        $first->assertJsonPath('data.results.0.status', 'synced');
+        $serverId = $first->json('data.results.0.server_id');
+
+        $sale = Sale::query()->find($serverId);
+        $this->assertNotNull($sale);
+        $this->assertSame('pending', $sale->status->value);
+        $this->assertSame('unpaid', $sale->payment_status->value);
+        $this->assertSame(0, (int) $sale->paid_amount);
+
+        $this->postJson('/api/v1/sync/offline', ['operations' => [$operation]], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.results.0.status', 'synced')
+            ->assertJsonPath('data.results.0.server_id', $serverId);
+
+        $this->assertSame(1, Sale::query()->where('idempotency_key', $uuid)->count());
+
+        $create = $this->operation((string) Str::uuid(), 'pos', 'sale', 'create', [
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+            'payments' => [
+                ['method' => 'unpaid', 'amount' => 1000],
+            ],
+        ]);
+        $second = $this->postJson('/api/v1/sync/offline', ['operations' => [$create]], $headers)->assertOk();
+        $second->assertJsonPath('data.results.0.status', 'synced');
+        $unpaid = Sale::query()->find($second->json('data.results.0.server_id'));
+        $this->assertSame('pending', $unpaid?->status->value);
+        $this->assertSame('unpaid', $unpaid?->payment_status->value);
+    }
+
+    public function test_device_priced_sale_keeps_charged_tax_and_skips_unseen_promotion(): void
+    {
+        $headers = $this->storeHeaders();
+        $store = $this->fixture['store'];
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $product->update([
+            'tax_id' => Tax::query()->create([
+                'tenant_id' => $store->tenant_id,
+                'name' => 'TVA 18%',
+                'code' => 'TVA18-SYNC',
+                'kind' => 'vat',
+                'type' => 'percentage',
+                'rate' => 18,
+                'is_inclusive' => false,
+                'is_active' => true,
+            ])->id,
+        ]);
+        $product->importToStore($store);
+
+        Promotion::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'name' => 'Soldes -15%',
+            'code' => 'SUMMER15-SYNC',
+            'type' => 'percentage_discount',
+            'discount_percent' => 15,
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addMonth(),
+            'min_quantity' => 1,
+            'is_active' => true,
+        ]);
+
+        $this->postJson("/api/v1/warehouses/{$warehouse->id}/movements", [
+            'product_id' => $product->id,
+            'movement_type' => 'INITIAL_STOCK',
+            'quantity' => 20,
+            'unit_cost' => 500,
+        ], $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']))->assertCreated();
+
+        $saleKey = (string) Str::uuid();
+        $paymentId = (string) Str::uuid();
+        $response = $this->postJson('/api/v1/sync/push', [
+            'operations' => [
+                [
+                    'id' => (string) Str::uuid(),
+                    'entity_type' => 'sale',
+                    'entity_id' => $saleKey,
+                    'operation' => 'create',
+                    'payload' => [
+                        'idempotency_key' => $saleKey,
+                        'warehouse_id' => $warehouse->id,
+                        'items' => [
+                            ['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 1000],
+                        ],
+                        'payments' => [
+                            ['method' => 'cash', 'amount' => 1180],
+                        ],
+                    ],
+                ],
+                [
+                    'id' => (string) Str::uuid(),
+                    'entity_type' => 'payment',
+                    'entity_id' => $paymentId,
+                    'operation' => 'create',
+                    'payload' => [
+                        'sale_id' => $saleKey,
+                        'method' => 'cash',
+                        'amount' => 1180,
+                    ],
+                ],
+            ],
+        ], $headers)->assertOk();
+
+        $response->assertJsonPath('data.results.0.status', 'synced');
+        $response->assertJsonPath('data.results.1.status', 'synced');
+
+        $sale = Sale::query()->find($response->json('data.results.0.server_id'));
+        $this->assertNotNull($sale);
+        $this->assertSame(1180, (int) $sale->total);
+        $this->assertSame(180, (int) $sale->tax_total);
+
+        $serverPriced = $this->postJson('/api/v1/sync/push', [
+            'operations' => [[
+                'id' => (string) Str::uuid(),
+                'entity_type' => 'sale',
+                'entity_id' => (string) Str::uuid(),
+                'operation' => 'create',
+                'payload' => [
+                    'warehouse_id' => $warehouse->id,
+                    'items' => [
+                        ['product_id' => $product->id, 'quantity' => 1],
+                    ],
+                    'payments' => [
+                        ['method' => 'cash', 'amount' => 1003],
+                    ],
+                ],
+            ]],
+        ], $headers)->assertOk();
+
+        $serverPriced->assertJsonPath('data.results.0.status', 'synced');
+        $discounted = Sale::query()->find($serverPriced->json('data.results.0.server_id'));
+        $this->assertSame(1003, (int) $discounted?->total);
+        $this->assertSame(153, (int) $discounted?->tax_total);
     }
 
     public function test_restaurant_order_keeps_the_client_uuid(): void

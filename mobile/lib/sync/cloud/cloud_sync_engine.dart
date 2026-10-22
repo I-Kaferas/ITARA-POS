@@ -121,9 +121,11 @@ class CloudSyncEngine extends ChangeNotifier {
       }
 
       await PinAuthService.refreshIfNeeded();
+      await OfflineStore.instance.log('info', 'Cloud sync · harvest outbox');
       await harvestOutbound();
 
       if (push) {
+        await OfflineStore.instance.log('info', 'Cloud sync · upload + ACK');
         await _pushShifts();
         final pushResult = await _drainOutbound();
         pushed.addAll(pushResult.counts);
@@ -132,6 +134,7 @@ class CloudSyncEngine extends ChangeNotifier {
       }
 
       if (pull) {
+        await OfflineStore.instance.log('info', 'Cloud sync · download + recalcul stock local');
         try {
           final pullResult = await _pullInbound();
           pulled.addAll(pullResult);
@@ -146,6 +149,10 @@ class CloudSyncEngine extends ChangeNotifier {
       }
 
       await _heartbeat();
+      await OfflineStore.instance.log(
+        'info',
+        'Cloud sync · fin · push=${pushed.values.fold<int>(0, (a, b) => a + b)} pull=${pulled.values.fold<int>(0, (a, b) => a + b)} fail=$failed',
+      );
 
       lastSyncAt = DateTime.now();
       final productsPulled = pulled[CloudSyncEntity.products] ?? 0;
@@ -419,6 +426,9 @@ class CloudSyncEngine extends ChangeNotifier {
       final id = row['id']?.toString() ?? '';
       if (id.isEmpty) continue;
       if (await _alreadyQueuedOrSynced('stock', id)) continue;
+      final config = TerminalConfigRepository.instance.config;
+      final posId = config.deviceId.isNotEmpty ? config.deviceId : config.deviceIdentifier;
+      // Compat: anciens mouvements sans pos_id restent valides (UUID = id ligne).
       await SyncOutbox.instance.enqueue(
         entity: CloudSyncEntity.stocks.wire,
         entityId: id,
@@ -426,11 +436,14 @@ class CloudSyncEngine extends ChangeNotifier {
         payload: {
           'idempotency_key': id,
           'product_id': row['product_id'],
-          'quantity': row['quantity'],
+          'quantity': row['quantity'], // signed delta — never absolute on-hand
+          'delta': row['quantity'],
           'type': row['type'] ?? 'ADJUSTMENT',
           'sale_id': row['sale_id'],
-          'store_id': TerminalConfigRepository.instance.config.storeId,
-          'occurred_at': row['created_at'],
+          'store_id': config.storeId,
+          if (posId.isNotEmpty) 'pos_id': posId,
+          if (posId.isNotEmpty) 'device_id': posId,
+          'occurred_at': row['created_at'] ?? DateTime.now().toIso8601String(),
         },
       );
       added++;
@@ -485,10 +498,15 @@ class CloudSyncEngine extends ChangeNotifier {
   Future<void> _pushShifts() async {
     try {
       await ShiftSync.instance.push(
-        (body) => _authorized(
+        postPush: (body) => _authorized(
           () => _client
               .post(Uri.parse('$_cloudBase/sync/push'), headers: _headers, body: body)
               .timeout(const Duration(seconds: 30)),
+        ),
+        postAck: (body) => _authorized(
+          () => _client
+              .post(Uri.parse('$_cloudBase/sync/ack'), headers: _headers, body: body)
+              .timeout(const Duration(seconds: 20)),
         ),
       );
     } catch (error) {
@@ -971,9 +989,65 @@ class CloudSyncEngine extends ChangeNotifier {
     }
   }
 
+  /// Pull cloud on-hand quantities, then set
+  /// stock_local = stock_cloud + Σ(pending local movements).
   Future<int> _pullStockSnapshot() async {
-    // Stock levels arrive via catalog pull / sale ACK; status endpoint may expose counts.
-    return 0;
+    final storeId = TerminalConfigRepository.instance.config.storeId.trim();
+    if (storeId.isEmpty) return 0;
+
+    http.Response? response;
+    try {
+      response = await _authorized(
+        () => _client
+            .get(
+              Uri.parse('$_cloudBase/stores/$storeId/pos/catalog'),
+              headers: _headers,
+            )
+            .timeout(const Duration(seconds: 30)),
+      );
+      if (response.statusCode != 200) response = null;
+    } catch (_) {
+      response = null;
+    }
+
+    if (response == null) {
+      final since =
+          await OfflineStore.instance.checkpoint('cloud_last_server_sequence') ?? '0';
+      final uri =
+          Uri.parse('$_cloudBase/sync/pull').replace(queryParameters: {'since': since});
+      response = await _authorized(
+        () => _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30)),
+      );
+      if (response.statusCode != 200) return 0;
+    }
+
+    final body = jsonDecode(response.body);
+    final data = body is Map
+        ? (body['data'] is Map ? Map<String, dynamic>.from(body['data'] as Map) : Map<String, dynamic>.from(body))
+        : <String, dynamic>{};
+    final productsRaw = data['products'];
+    if (productsRaw is! List) return 0;
+
+    final lines = <Map<String, dynamic>>[];
+    for (final item in productsRaw) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final productId = map['product_id']?.toString() ?? map['id']?.toString() ?? '';
+      final qty = map['quantity_on_hand'];
+      if (productId.isEmpty || qty == null) continue;
+      lines.add({
+        'product_id': productId,
+        'quantity_on_hand': qty is int ? qty : int.tryParse(qty.toString()) ?? 0,
+        'stock_version': map['stock_version'] ?? data['server_sequence'] ?? 0,
+      });
+    }
+    if (lines.isEmpty) return 0;
+    await OfflineStore.instance.applyAuthoritativeStock(lines);
+    await OfflineStore.instance.log(
+      'info',
+      'Stock pull · ${lines.length} produit(s) · pending locaux réappliqués',
+    );
+    return lines.length;
   }
 
   Future<void> heartbeat() async {

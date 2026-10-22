@@ -28,7 +28,7 @@ class PosCatalogSkeleton extends StatelessWidget {
       color: PosUi.deskNight,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final columns = AndroidLayout.productColumns(MediaQuery.sizeOf(context).width);
+          final columns = AndroidLayout.productColumns(constraints.maxWidth);
           final extent = _cardExtent(constraints.maxWidth);
           return GridView.builder(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
@@ -129,7 +129,8 @@ class PosProductGrid extends StatelessWidget {
                 ? const _EmptyProducts()
                 : LayoutBuilder(
                     builder: (context, constraints) {
-                      final crossAxisCount = AndroidLayout.productColumns(MediaQuery.sizeOf(context).width);
+                      final crossAxisCount =
+                          AndroidLayout.productColumns(constraints.maxWidth);
                       final extent = _cardExtent(constraints.maxWidth);
 
                       return GridView.builder(

@@ -210,6 +210,39 @@ class PosCartEngine extends ChangeNotifier {
     for (final child in _lines.where((item) => item.parentLineId == lineId)) {
       child.quantity = quantity;
     }
+    line.lineDiscountFixed = line.lineDiscountFixed.clamp(0, line.lineSubtotal);
+    _clearServerTotals();
+    notifyListeners();
+  }
+
+  void updateUnitPrice(String lineId, int unitPrice) {
+    final line = _lineById(lineId);
+    if (line == null || line.isAccompaniment) return;
+    line.unitPrice = unitPrice.clamp(0, 1 << 31);
+    line.lineDiscountFixed = line.lineDiscountFixed.clamp(0, line.lineSubtotal);
+    _clearServerTotals();
+    notifyListeners();
+  }
+
+  void updateLine({
+    required String lineId,
+    required int quantity,
+    required int unitPrice,
+  }) {
+    final line = _lineById(lineId);
+    if (line == null) return;
+    if (quantity <= 0) {
+      removeLine(lineId);
+      return;
+    }
+    line.quantity = quantity;
+    if (!line.isAccompaniment) {
+      line.unitPrice = unitPrice.clamp(0, 1 << 31);
+    }
+    for (final child in _lines.where((item) => item.parentLineId == lineId)) {
+      child.quantity = quantity;
+    }
+    line.lineDiscountFixed = line.lineDiscountFixed.clamp(0, line.lineSubtotal);
     _clearServerTotals();
     notifyListeners();
   }
@@ -337,6 +370,8 @@ class PosCartEngine extends ChangeNotifier {
         fees: held.fees,
         tableId: held.tableId,
         tableLabel: held.tableLabel,
+        uploadedAt: held.uploadedAt,
+        syncError: held.syncError,
       );
       notifyListeners();
       return;
@@ -382,6 +417,8 @@ class PosCartEngine extends ChangeNotifier {
       fees: held.fees,
       tableId: held.tableId,
       tableLabel: held.tableLabel,
+      uploadedAt: held.uploadedAt,
+      syncError: held.syncError,
     );
     notifyListeners();
   }

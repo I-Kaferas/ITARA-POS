@@ -300,6 +300,7 @@ class SaleController extends Controller
             'device_id' => ['nullable', 'uuid', 'exists:devices,id'],
             'table_id' => ['nullable', 'uuid', 'exists:pos_tables,id'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'idempotency_key' => ['nullable', 'string', 'max:100'],
             'service_mode' => ['nullable', 'string', Rule::in(['takeaway', 'delivery'])],
             'delivery_address' => ['nullable', 'string', 'max:255', 'required_if:service_mode,delivery'],
             'order_date' => ['nullable', 'date'],

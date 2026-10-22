@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -59,6 +58,8 @@ Future<PaymentDialogResult?> showPosPaymentDialog({
   final mobileSheet = _useMobilePaymentSheet(context);
   return showDialog<PaymentDialogResult>(
     context: context,
+    useRootNavigator: true,
+    barrierDismissible: true,
     barrierColor: mobileSheet ? const Color(0xCC070B14) : const Color(0x660F172A),
     builder: (context) => _PaymentDialog(
       total: total,
@@ -290,6 +291,44 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     );
   }
 
+  InputDecoration _sheetFieldDecoration({String? hint, bool large = false}) {
+    return InputDecoration(
+      filled: true,
+      fillColor: PosUi.deskField,
+      hintText: hint,
+      hintStyle: AppTypography.text(
+        fontSize: large ? 28 : 16,
+        fontWeight: FontWeight.w700,
+        color: PosUi.deskMuted,
+      ),
+      contentPadding: EdgeInsets.symmetric(vertical: large ? 14 : 12, horizontal: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: PosUi.deskLine),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: PosUi.deskLine),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: PosUi.deskAccent, width: 1.4),
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text) {
+    return Text(
+      tr(text),
+      style: AppTypography.text(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.2,
+        color: PosUi.deskMuted,
+      ),
+    );
+  }
+
   Widget _buildMobileSheet({
     required Size size,
     required double inset,
@@ -298,58 +337,77 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   }) {
     final tenders = _tenderMethods.isEmpty ? _available : _tenderMethods;
     final accounts = _accountMethods;
-    const labelStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFE8EEF6));
 
-    return Dialog(
-      insetPadding: EdgeInsets.fromLTRB(14, 20, 14, 20 + inset),
-      backgroundColor: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 460, maxHeight: size.height * 0.92),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: Material(
-            color: const Color(0xFF1A2233),
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: inset),
+        child: Material(
+          color: PosUi.deskPanel,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: size.width,
+              maxHeight: size.height * 0.92,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _ProcessHeader(onClose: () => Navigator.pop(context)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 4),
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: PosUi.deskLine,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                _ProcessHeader(
+                  onClose: () => Navigator.pop(context),
+                  customer: widget.customer,
+                ),
                 Flexible(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF121A28),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF2C3A50)),
-                          ),
-                          child: Column(
-                            children: [
-                              _SheetAmountRow(label: tr('Subtotal'), value: widget.money(widget.subtotal)),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
-                                child: Divider(height: 1, color: Color(0xFF2C3A50)),
-                              ),
-                              _SheetAmountRow(label: tr('Amount Due'), value: widget.money(widget.total), emphasize: true),
-                            ],
-                          ),
+                        _TotalCard(
+                          subtotalLabel: widget.money(widget.subtotal),
+                          totalLabel: widget.money(widget.total),
+                          customerBalance: widget.customerBalance == null
+                              ? null
+                              : widget.money(widget.customerBalance!.balance),
                         ),
-                        const SizedBox(height: 18),
-                        Text(tr('Payment Type'), style: AppTypography.text(textStyle: labelStyle)),
+                        const SizedBox(height: 16),
+                        _sectionLabel('Payment Type'),
                         const SizedBox(height: 8),
                         _ProcessModeTabs(
                           mode: _mode,
+                          creditEnabled: widget.customer != null,
                           onChanged: (value) => setState(() {
+                            if ((value == 'credit' || value == 'house') &&
+                                widget.customer == null) {
+                              _error =
+                                  'Select a customer on this order to use Credit or House offer.';
+                              return;
+                            }
                             _mode = value;
                             _error = null;
                             if (value == 'credit') {
-                              final account = accounts.where((method) => method.value == _selected).firstOrNull ?? accounts.firstOrNull;
+                              final account = accounts
+                                      .where((method) => method.value == _selected)
+                                      .firstOrNull ??
+                                  accounts.firstOrNull;
                               if (account != null) _selected = account.value;
                             } else if (value == 'single') {
-                              final tender = tenders.where((method) => method.value == _selected).firstOrNull ?? tenders.firstOrNull;
+                              final tender = tenders
+                                      .where((method) => method.value == _selected)
+                                      .firstOrNull ??
+                                  tenders.firstOrNull;
                               if (tender != null) _selected = tender.value;
                             }
                           }),
@@ -359,11 +417,14 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                           const _CustomerNotice(),
                         ],
                         if (_mode == 'single') ...[
-                          const SizedBox(height: 18),
-                          Text(tr('Payment Method'), style: AppTypography.text(textStyle: labelStyle)),
+                          const SizedBox(height: 16),
+                          _sectionLabel('Payment Method'),
                           const SizedBox(height: 8),
                           if (tenders.isEmpty)
-                            Text(tr('No payment method'), style: AppTypography.text(fontSize: 12, color: const Color(0xFF9AABBE)))
+                            Text(
+                              tr('No payment method'),
+                              style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
+                            )
                           else
                             Wrap(
                               spacing: 8,
@@ -381,39 +442,33 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                                   ),
                               ],
                             ),
-                          const SizedBox(height: 18),
-                          Text(tr('Amount Received'), style: AppTypography.text(textStyle: labelStyle)),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _tenderedCtrl,
-                              onChanged: (_) => setState(() {}),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              textAlign: TextAlign.center,
-                              style: AppTypography.text(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white),
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: const Color(0xFF101828),
-                                hintText: widget.major(widget.total),
-                                hintStyle: AppTypography.text(fontSize: 28, fontWeight: FontWeight.w700, color: const Color(0xFF6E7C90)),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: Color(0xFF2C3A50)),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: Color(0xFF8B6CFF)),
-                                ),
-                              ),
+                          const SizedBox(height: 16),
+                          _sectionLabel('Amount Received'),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _tenderedCtrl,
+                            onChanged: (_) => setState(() {}),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            textAlign: TextAlign.center,
+                            cursorColor: PosUi.deskAccent,
+                            style: AppTypography.text(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              color: PosUi.deskText,
                             ),
-                            if (change > 0) ...[
-                              const SizedBox(height: 8),
-                              _ChangeBanner(value: widget.money(change)),
-                            ],
+                            decoration: _sheetFieldDecoration(
+                              hint: widget.major(widget.total),
+                              large: true,
+                            ),
+                          ),
+                          if (change > 0) ...[
+                            const SizedBox(height: 8),
+                            _ChangeBanner(value: widget.money(change)),
+                          ],
                         ] else if (_mode == 'credit') ...[
                           if (widget.customer != null && accounts.isNotEmpty) ...[
-                            const SizedBox(height: 18),
-                            Text(tr('Payment Method'), style: AppTypography.text(textStyle: labelStyle)),
+                            const SizedBox(height: 16),
+                            _sectionLabel('Payment Method'),
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 8,
@@ -434,10 +489,14 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                           ],
                         ] else if (_mode == 'house') ...[
                           if (widget.customer != null) ...[
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 16),
                             Text(
                               tr('The full amount is recorded as a house offer.'),
-                              style: AppTypography.text(fontSize: 13, height: 1.35, color: const Color(0xFF9AABBE)),
+                              style: AppTypography.text(
+                                fontSize: 13,
+                                height: 1.35,
+                                color: PosUi.deskMuted,
+                              ),
                             ),
                           ],
                         ] else ...[
@@ -447,16 +506,20 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                             const SizedBox(height: 10),
                             for (var index = 0; index < _committed.length; index++)
                               _CommittedLine(
-                                label: _metaOf(_committed[index].method)?.label ?? _committed[index].method,
-                                amount: widget.money(widget.parseMajor(_committed[index].amount.text)),
+                                label: _metaOf(_committed[index].method)?.label ??
+                                    _committed[index].method,
+                                amount: widget.money(
+                                  widget.parseMajor(_committed[index].amount.text),
+                                ),
                                 onRemove: () => setState(() {
                                   _committed.removeAt(index).dispose();
-                                  _draftAmountCtrl.text = widget.major(widget.total - _committedPaid);
+                                  _draftAmountCtrl.text =
+                                      widget.major(widget.total - _committedPaid);
                                 }),
                               ),
                           ],
                           const SizedBox(height: 16),
-                          Text(tr('Payment Method'), style: AppTypography.text(textStyle: labelStyle)),
+                          _sectionLabel('Payment Method'),
                           const SizedBox(height: 8),
                           _MixMethodField(
                             value: _draftMethod,
@@ -473,37 +536,40 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                                 child: TextField(
                                   controller: _draftAmountCtrl,
                                   onChanged: (_) => setState(() {}),
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(decimal: true),
                                   textAlign: TextAlign.center,
-                                  style: AppTypography.text(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: const Color(0xFF121A28),
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(color: Color(0xFF3A4A62)),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(color: Color(0xFF8B6CFF)),
-                                    ),
+                                  cursorColor: PosUi.deskAccent,
+                                  style: AppTypography.text(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                    color: PosUi.deskText,
                                   ),
+                                  decoration: _sheetFieldDecoration(),
                                 ),
                               ),
                               const SizedBox(width: 10),
                               FilledButton(
-                                onPressed: tenders.isEmpty ? null : () => _addCommittedLine(tenders),
+                                onPressed:
+                                    tenders.isEmpty ? null : () => _addCommittedLine(tenders),
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF7C5CFF),
-                                  disabledBackgroundColor: const Color(0xFF7C5CFF).withValues(alpha: 0.35),
-                                  foregroundColor: Colors.white,
+                                  backgroundColor: PosUi.deskAccent,
+                                  disabledBackgroundColor:
+                                      PosUi.deskAccent.withValues(alpha: 0.35),
+                                  foregroundColor: PosUi.deskInk,
                                   minimumSize: const Size(72, 52),
                                   padding: const EdgeInsets.symmetric(horizontal: 18),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
                                 ),
-                                child: Text(tr('Add'), style: AppTypography.text(fontSize: 15, fontWeight: FontWeight.w800)),
+                                child: Text(
+                                  tr('Add'),
+                                  style: AppTypography.text(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -519,7 +585,10 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                 _ProcessFooter(
                   onCancel: () => Navigator.pop(context),
                   onConfirm: _confirm,
-                  enabled: _mode != 'mixed' || ((widget.total - _committedPaid) == 0 && _committed.length >= 2),
+                  enabled: ((_mode != 'credit' && _mode != 'house') ||
+                          widget.customer != null) &&
+                      (_mode != 'mixed' ||
+                          ((widget.total - _committedPaid) == 0 && _committed.length >= 2)),
                 ),
               ],
             ),
@@ -553,132 +622,249 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
     return Dialog(
       insetPadding: EdgeInsets.fromLTRB(compact ? 14 : 28, 24, compact ? 14 : 28, 24 + inset),
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: compact ? size.width : 480, maxHeight: size.height * 0.88),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _Header(customer: widget.customer, onClose: () => Navigator.pop(context)),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _TotalCard(
-                      totalLabel: widget.money(widget.total),
-                      customerBalance: widget.customerBalance == null ? null : widget.money(widget.customerBalance!.balance),
-                    ),
-                    const SizedBox(height: 12),
-                    _ModeTabs(
-                      mode: _mode,
-                      onChanged: (value) => setState(() {
-                        _mode = value;
-                        _error = null;
-                      }),
-                    ),
-                    const SizedBox(height: 14),
-                    if (_mode == 'single') ...[
-                      if (available.isEmpty)
-                        Text(tr('Aucun mode de paiement configuré'), style: AppTypography.text(fontSize: 12, color: AppColors.textMuted))
-                      else
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final columns = constraints.maxWidth >= 360 ? 2 : 1;
-                            final width = (constraints.maxWidth - 8 * (columns - 1)) / columns;
-                            return Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (final method in available)
-                                  SizedBox(
-                                    width: width,
-                                    child: _MethodTile(
-                                      label: method.displayLabel,
-                                      icon: widget.paymentIcon(method.value),
-                                      selected: _selected == method.value,
-                                      hint: method.requiresCustomer ? 'Client requis' : null,
-                                      onTap: () => setState(() {
-                                        _selected = method.value;
-                                        _error = null;
-                                      }),
-                                    ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                      if (supportsChange) ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _tenderedCtrl,
-                          onChanged: (_) => setState(() {}),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            labelText: tr('Montant reçu'),
-                            hintText: widget.major(widget.total),
-                            prefixIcon: const Icon(Icons.payments_outlined, size: 18),
-                            isDense: true,
-                          ),
-                        ),
-                        if (change > 0) ...[
-                          const SizedBox(height: 8),
-                          _ChangeBanner(value: widget.money(change)),
-                        ],
-                      ],
-                    ] else ...[
-                      Row(
-                        children: [
-                          Expanded(child: _MixStat(label: tr('Payé'), value: widget.money(paid), ok: remaining == 0)),
-                          const SizedBox(width: 8),
-                          Expanded(child: _MixStat(label: tr('Reste'), value: widget.money(remaining), ok: remaining == 0)),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      for (var index = 0; index < _mixed.length; index++)
-                        _MixedLineCard(
-                          key: ValueKey('mix-$index-${_mixed[index].method}'),
-                          line: _mixed[index],
-                          available: available,
-                          supportsChange: _metaOf(_mixed[index].method)?.supportsChange == true,
-                          canRemove: _mixed.length > 2,
-                          onFillRemaining: () => setState(() {
-                            final others = _mixed.fold<int>(0, (sum, row) {
-                              if (identical(row, _mixed[index])) return sum;
-                              return sum + widget.parseMajor(row.amount.text);
-                            });
-                            _mixed[index].amount.text = widget.major((widget.total - others).clamp(0, widget.total));
-                          }),
-                          onRemove: () => setState(() => _mixed.removeAt(index)),
-                          onChanged: () => setState(() {}),
-                        ),
-                      OutlinedButton.icon(
-                        onPressed: available.isEmpty
+      backgroundColor: Colors.transparent,
+      child: Material(
+        color: PosUi.deskPanel,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: compact ? size.width : 480,
+            maxHeight: size.height * 0.88,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ProcessHeader(
+                onClose: () => Navigator.pop(context),
+                customer: widget.customer,
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _TotalCard(
+                        subtotalLabel: widget.money(widget.subtotal),
+                        totalLabel: widget.money(widget.total),
+                        customerBalance: widget.customerBalance == null
                             ? null
-                            : () => setState(() {
-                                  final used = _mixed.map((line) => line.method).toSet();
-                                  final next = available.where((method) => !used.contains(method.value));
-                                  _mixed.add(_MixControllers(
-                                    method: next.isEmpty ? available.first.value : next.first.value,
-                                    amount: '0',
-                                  ));
-                                }),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: Text(tr('Ajouter un mode')),
+                            : widget.money(widget.customerBalance!.balance),
                       ),
+                      const SizedBox(height: 14),
+                      _sectionLabel('Payment Type'),
+                      const SizedBox(height: 8),
+                      _ModeTabs(
+                        mode: _mode,
+                        creditEnabled: widget.customer != null,
+                        onChanged: (value) => setState(() {
+                          if (value == 'credit' && widget.customer == null) {
+                            _error = 'Select a customer on this order to use Credit or House offer.';
+                            return;
+                          }
+                          _mode = value;
+                          _error = null;
+                          if (value == 'credit') {
+                            final account = _accountMethods
+                                    .where((method) => method.value == _selected)
+                                    .firstOrNull ??
+                                _accountMethods.firstOrNull;
+                            _selected = account?.value ?? 'credit';
+                          } else if (value == 'single') {
+                            final tender = _tenderMethods
+                                    .where((method) => method.value == _selected)
+                                    .firstOrNull ??
+                                _tenderMethods.firstOrNull;
+                            if (tender != null) _selected = tender.value;
+                          }
+                        }),
+                      ),
+                      if (widget.customer == null && _mode == 'credit') ...[
+                        const SizedBox(height: 12),
+                        const _CustomerNotice(),
+                      ],
+                      const SizedBox(height: 14),
+                      if (_mode == 'single') ...[
+                        _sectionLabel('Payment Method'),
+                        const SizedBox(height: 8),
+                        if (_tenderMethods.isEmpty)
+                          Text(
+                            tr('Aucun mode de paiement configuré'),
+                            style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
+                          )
+                        else
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final columns = constraints.maxWidth >= 360 ? 2 : 1;
+                              final width = (constraints.maxWidth - 8 * (columns - 1)) / columns;
+                              return Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final method in _tenderMethods)
+                                    SizedBox(
+                                      width: width,
+                                      child: _MethodTile(
+                                        label: method.displayLabel,
+                                        icon: widget.paymentIcon(method.value),
+                                        selected: _selected == method.value,
+                                        onTap: () => setState(() {
+                                          _selected = method.value;
+                                          _error = null;
+                                        }),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        if (supportsChange) ...[
+                          const SizedBox(height: 14),
+                          _sectionLabel('Amount Received'),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _tenderedCtrl,
+                            onChanged: (_) => setState(() {}),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            textAlign: TextAlign.center,
+                            cursorColor: PosUi.deskAccent,
+                            style: AppTypography.text(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: PosUi.deskText,
+                            ),
+                            decoration: _sheetFieldDecoration(hint: widget.major(widget.total), large: true),
+                          ),
+                          if (change > 0) ...[
+                            const SizedBox(height: 8),
+                            _ChangeBanner(value: widget.money(change)),
+                          ],
+                        ],
+                      ] else if (_mode == 'credit') ...[
+                        if (widget.customer != null) ...[
+                          Text(
+                            tr('Le montant total est enregistré à crédit sur le compte client.'),
+                            style: AppTypography.text(
+                              fontSize: 13,
+                              height: 1.35,
+                              color: PosUi.deskMuted,
+                            ),
+                          ),
+                          if (_accountMethods.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            _sectionLabel('Payment Method'),
+                            const SizedBox(height: 8),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final columns = constraints.maxWidth >= 360 ? 2 : 1;
+                                final width = (constraints.maxWidth - 8 * (columns - 1)) / columns;
+                                return Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final method in _accountMethods)
+                                      SizedBox(
+                                        width: width,
+                                        child: _MethodTile(
+                                          label: method.displayLabel,
+                                          icon: widget.paymentIcon(method.value),
+                                          selected: _selected == method.value,
+                                          hint: tr('Client requis'),
+                                          onTap: () => setState(() {
+                                            _selected = method.value;
+                                            _error = null;
+                                          }),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MixStat(
+                                label: tr('Payé'),
+                                value: widget.money(paid),
+                                ok: remaining == 0,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _MixStat(
+                                label: tr('Reste'),
+                                value: widget.money(remaining),
+                                ok: remaining == 0,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        for (var index = 0; index < _mixed.length; index++)
+                          _MixedLineCard(
+                            key: ValueKey('mix-$index-${_mixed[index].method}'),
+                            line: _mixed[index],
+                            available: _tenderMethods,
+                            supportsChange:
+                                _metaOf(_mixed[index].method)?.supportsChange == true,
+                            canRemove: _mixed.length > 2,
+                            onFillRemaining: () => setState(() {
+                              final others = _mixed.fold<int>(0, (sum, row) {
+                                if (identical(row, _mixed[index])) return sum;
+                                return sum + widget.parseMajor(row.amount.text);
+                              });
+                              _mixed[index].amount.text = widget.major(
+                                (widget.total - others).clamp(0, widget.total),
+                              );
+                            }),
+                            onRemove: () => setState(() => _mixed.removeAt(index)),
+                            onChanged: () => setState(() {}),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: _tenderMethods.isEmpty
+                              ? null
+                              : () => setState(() {
+                                    final used = _mixed.map((line) => line.method).toSet();
+                                    final next =
+                                        _tenderMethods.where((method) => !used.contains(method.value));
+                                    _mixed.add(_MixControllers(
+                                      method: next.isEmpty
+                                          ? _tenderMethods.first.value
+                                          : next.first.value,
+                                      amount: '0',
+                                    ));
+                                  }),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: PosUi.deskText,
+                            side: BorderSide(color: PosUi.deskLine),
+                            minimumSize: const Size.fromHeight(44),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: Text(tr('Ajouter un mode')),
+                        ),
+                      ],
+                      if (_error != null) ...[
+                        const SizedBox(height: 10),
+                        _ErrorBanner(message: _error!),
+                      ],
                     ],
-                    if (_error != null) ...[
-                      const SizedBox(height: 10),
-                      _ErrorBanner(message: _error!),
-                    ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            _Footer(onCancel: () => Navigator.pop(context), onConfirm: _confirm),
-          ],
+              _ProcessFooter(
+                onCancel: () => Navigator.pop(context),
+                onConfirm: _confirm,
+                enabled: _mode != 'credit' || widget.customer != null,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -700,80 +886,42 @@ class _MixControllers {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.customer, required this.onClose});
-
-  final PosCustomer? customer;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-      decoration: BoxDecoration(
-        color: AppColors.brand50,
-        border: Border(top: BorderSide(color: AppColors.brand600, width: 3)),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Icon(Icons.payments_outlined, size: 18, color: AppColors.brandInk),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr('Paiement'), style: AppTypography.text(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                if (customer != null)
-                  Text(
-                    tr(customer!.displayLabel),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.text(fontSize: 11, color: AppColors.textSecondary),
-                  ),
-              ],
-            ),
-          ),
-          IconButton(onPressed: onClose, icon: const Icon(Icons.close, size: 18)),
-        ],
-      ),
-    );
-  }
-}
-
 class _TotalCard extends StatelessWidget {
-  const _TotalCard({required this.totalLabel, this.customerBalance});
+  const _TotalCard({
+    required this.totalLabel,
+    this.subtotalLabel,
+    this.customerBalance,
+  });
 
   final String totalLabel;
+  final String? subtotalLabel;
   final String? customerBalance;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: AppColors.fieldFill,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        color: PosUi.deskField,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PosUi.deskLine),
       ),
       child: Column(
         children: [
-          Text(tr('Montant dû'), style: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
-          const SizedBox(height: 4),
-          Text(tr(totalLabel), style: GoogleFonts.ibmPlexMono(fontSize: 26, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
+          if (subtotalLabel != null) ...[
+            _SheetAmountRow(label: tr('Subtotal'), value: subtotalLabel!),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1, color: PosUi.deskLine),
+            ),
+          ],
+          _SheetAmountRow(label: tr('Amount Due'), value: totalLabel, emphasize: true),
           if (customerBalance != null) ...[
-            const SizedBox(height: 4),
-            Text(trf('Solde client {0}', [customerBalance]), style: AppTypography.text(fontSize: 11, color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            Text(
+              trf('Solde client {0}', [customerBalance]),
+              style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
+            ),
           ],
         ],
       ),
@@ -782,43 +930,62 @@ class _TotalCard extends StatelessWidget {
 }
 
 class _ModeTabs extends StatelessWidget {
-  const _ModeTabs({required this.mode, required this.onChanged});
+  const _ModeTabs({
+    required this.mode,
+    required this.onChanged,
+    this.creditEnabled = true,
+  });
 
   final String mode;
   final ValueChanged<String> onChanged;
+  final bool creditEnabled;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: AppColors.fieldFill,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: AppColors.border),
+        color: PosUi.deskCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PosUi.deskLine),
       ),
       child: Row(
         children: [
-          for (final entry in const [('single', 'Simple'), ('mixed', 'Mixte')])
+          for (final entry in const [
+            ('single', 'Simple'),
+            ('mixed', 'Mixte'),
+            ('credit', 'Crédit'),
+          ])
             Expanded(
-              child: Material(
-                color: mode == entry.$1 ? AppColors.brand900 : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () => onChanged(entry.$1),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 9),
-                    child: Text(
-                      tr(entry.$2),
-                      textAlign: TextAlign.center,
-                      style: AppTypography.text(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: mode == entry.$1 ? Colors.white : AppColors.textSecondary,
+              child: Builder(
+                builder: (context) {
+                  final isCredit = entry.$1 == 'credit';
+                  final enabled = !isCredit || creditEnabled;
+                  final selected = mode == entry.$1;
+                  return Opacity(
+                    opacity: enabled ? 1 : 0.45,
+                    child: Material(
+                      color: selected ? PosUi.deskAccent : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9),
+                      child: InkWell(
+                        onTap: enabled ? () => onChanged(entry.$1) : null,
+                        borderRadius: BorderRadius.circular(9),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Text(
+                            tr(entry.$2),
+                            textAlign: TextAlign.center,
+                            style: AppTypography.text(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: selected ? PosUi.deskInk : PosUi.deskMuted,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
         ],
@@ -845,7 +1012,7 @@ class _MethodTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.brand50 : AppColors.fieldFill,
+      color: selected ? PosUi.deskRaised : PosUi.deskField,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -854,23 +1021,43 @@ class _MethodTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? AppColors.brand600 : AppColors.border, width: selected ? 1.4 : 1),
+            border: Border.all(
+              color: selected
+                  ? PosUi.deskAccent.withValues(alpha: 0.55)
+                  : PosUi.deskLine,
+              width: selected ? 1.4 : 1,
+            ),
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: selected ? AppColors.brandInk : AppColors.textMuted),
+              Icon(
+                icon,
+                size: 18,
+                color: selected ? PosUi.deskAccent : PosUi.deskMuted,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(tr(label), style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    Text(
+                      tr(label),
+                      style: AppTypography.text(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: PosUi.deskText,
+                      ),
+                    ),
                     if (hint != null)
-                      Text(tr(hint!), style: AppTypography.text(fontSize: 10, color: AppColors.warning)),
+                      Text(
+                        tr(hint!),
+                        style: AppTypography.text(fontSize: 10, color: AppColors.warning),
+                      ),
                   ],
                 ),
               ),
-              if (selected) Icon(Icons.check_circle, size: 16, color: AppColors.brandInk),
+              if (selected)
+                const Icon(Icons.check_circle, size: 16, color: PosUi.deskAccent),
             ],
           ),
         ),
@@ -901,7 +1088,10 @@ class _MixStat extends StatelessWidget {
         children: [
           Text(tr(label), style: AppTypography.text(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
-          Text(tr(value), style: GoogleFonts.ibmPlexMono(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+          Text(
+            tr(value),
+            style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w800, color: color),
+          ),
         ],
       ),
     );
@@ -928,15 +1118,20 @@ class _MixedLineCard extends StatelessWidget {
   final VoidCallback onRemove;
   final VoidCallback onChanged;
 
+  OutlineInputBorder _border(Color color) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: color),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.fieldFill,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        color: PosUi.deskCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: PosUi.deskLine),
       ),
       child: Column(
         children: [
@@ -945,11 +1140,33 @@ class _MixedLineCard extends StatelessWidget {
               Expanded(
                 flex: 5,
                 child: DropdownButtonFormField<String>(
-                  initialValue: available.any((method) => method.value == line.method) ? line.method : available.firstOrNull?.value,
+                  initialValue: available.any((method) => method.value == line.method)
+                      ? line.method
+                      : available.firstOrNull?.value,
                   isExpanded: true,
-                  decoration: InputDecoration(labelText: tr('Mode'), isDense: true),
+                  dropdownColor: PosUi.deskCard,
+                  decoration: InputDecoration(
+                    labelText: tr('Mode'),
+                    isDense: true,
+                    filled: true,
+                    fillColor: PosUi.deskField,
+                    labelStyle: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
+                    border: _border(PosUi.deskLine),
+                    enabledBorder: _border(PosUi.deskLine),
+                    focusedBorder: _border(PosUi.deskAccent),
+                  ),
+                  style: AppTypography.text(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: PosUi.deskText,
+                  ),
                   items: available
-                      .map((method) => DropdownMenuItem(value: method.value, child: Text(tr(method.displayLabel), overflow: TextOverflow.ellipsis)))
+                      .map(
+                        (method) => DropdownMenuItem(
+                          value: method.value,
+                          child: Text(tr(method.displayLabel), overflow: TextOverflow.ellipsis),
+                        ),
+                      )
                       .toList(),
                   onChanged: (value) {
                     if (value == null) return;
@@ -965,7 +1182,22 @@ class _MixedLineCard extends StatelessWidget {
                   controller: line.amount,
                   onChanged: (_) => onChanged(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: tr('Montant'), isDense: true),
+                  cursorColor: PosUi.deskAccent,
+                  style: AppTypography.text(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: PosUi.deskText,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: tr('Montant'),
+                    isDense: true,
+                    filled: true,
+                    fillColor: PosUi.deskField,
+                    labelStyle: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
+                    border: _border(PosUi.deskLine),
+                    enabledBorder: _border(PosUi.deskLine),
+                    focusedBorder: _border(PosUi.deskAccent),
+                  ),
                 ),
               ),
             ],
@@ -973,12 +1205,16 @@ class _MixedLineCard extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              TextButton(onPressed: onFillRemaining, child: Text(tr('= Reste'))),
+              TextButton(
+                onPressed: onFillRemaining,
+                style: TextButton.styleFrom(foregroundColor: PosUi.deskAccent),
+                child: Text(tr('= Reste')),
+              ),
               const Spacer(),
               IconButton(
                 tooltip: tr('Retirer'),
                 onPressed: canRemove ? onRemove : null,
-                icon: const Icon(Icons.delete_outline, size: 18),
+                icon: Icon(Icons.delete_outline, size: 18, color: PosUi.deskMuted),
               ),
             ],
           ),
@@ -987,7 +1223,22 @@ class _MixedLineCard extends StatelessWidget {
               controller: line.tendered,
               onChanged: (_) => onChanged(),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: tr('Montant reçu'), isDense: true),
+              cursorColor: PosUi.deskAccent,
+              style: AppTypography.text(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: PosUi.deskText,
+              ),
+              decoration: InputDecoration(
+                labelText: tr('Montant reçu'),
+                isDense: true,
+                filled: true,
+                fillColor: PosUi.deskField,
+                labelStyle: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
+                border: _border(PosUi.deskLine),
+                enabledBorder: _border(PosUi.deskLine),
+                focusedBorder: _border(PosUi.deskAccent),
+              ),
             ),
         ],
       ),
@@ -1015,7 +1266,10 @@ class _ChangeBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Text(tr('Monnaie'), style: AppTypography.text(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w600)),
           const Spacer(),
-          Text(tr(value), style: GoogleFonts.ibmPlexMono(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.success)),
+          Text(
+            tr(value),
+            style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.success),
+          ),
         ],
       ),
     );
@@ -1059,66 +1313,31 @@ class _ErrorBanner extends StatelessWidget {
   }
 }
 
-class _Footer extends StatelessWidget {
-  const _Footer({required this.onCancel, required this.onConfirm});
-
-  final VoidCallback onCancel;
-  final VoidCallback onConfirm;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: OutlinedButton(onPressed: onCancel, child: Text(tr('Annuler')))),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 2,
-            child: FilledButton.icon(
-              onPressed: onConfirm,
-              icon: const Icon(Icons.check, size: 18),
-              label: Text(tr('Encaisser')),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _ProcessHeader extends StatelessWidget {
-  const _ProcessHeader({required this.onClose});
+  const _ProcessHeader({required this.onClose, this.customer});
 
   final VoidCallback onClose;
+  final PosCustomer? customer;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF8B6CFF), Color(0xFF6D4AFF)],
-        ),
-      ),
+    final subtitle = customer == null
+        ? tr('Choose a method or split the total')
+        : customer!.displayLabel;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 12, 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              color: PosUi.deskPay.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF6D4AFF), size: 22),
+            child: const Icon(Icons.payments_outlined, color: PosUi.deskPay, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1127,19 +1346,25 @@ class _ProcessHeader extends StatelessWidget {
               children: [
                 Text(
                   tr('Process Payment'),
-                  style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white),
+                  style: AppTypography.text(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: PosUi.deskText,
+                  ),
                 ),
-                const SizedBox(height: 2),
                 Text(
-                  tr('Choose one payment method or split the total across multiple methods.'),
-                  style: AppTypography.text(fontSize: 12, height: 1.35, color: Color(0xFFF3EEFF)),
+                  tr(subtitle),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted),
                 ),
               ],
             ),
           ),
           IconButton(
+            tooltip: tr('Fermer'),
             onPressed: onClose,
-            icon: const Icon(Icons.close, color: Colors.white, size: 20),
+            icon: Icon(Icons.close_rounded, color: PosUi.deskMuted),
           ),
         ],
       ),
@@ -1161,18 +1386,18 @@ class _SheetAmountRow extends StatelessWidget {
         Text(
           tr(label),
           style: AppTypography.text(
-            fontSize: emphasize ? 16 : 14,
+            fontSize: emphasize ? 15 : 13.5,
             fontWeight: emphasize ? FontWeight.w800 : FontWeight.w500,
-            color: const Color(0xFFE8EEF6),
+            color: emphasize ? PosUi.deskText : PosUi.deskMuted,
           ),
         ),
         const Spacer(),
         Text(
           tr(value),
           style: AppTypography.text(
-            fontSize: emphasize ? 22 : 16,
+            fontSize: emphasize ? 22 : 15,
             fontWeight: FontWeight.w800,
-            color: emphasize ? const Color(0xFFC4B5FD) : const Color(0xFFF4F7FB),
+            color: emphasize ? PosUi.deskAccent : PosUi.deskText,
           ),
         ),
       ],
@@ -1181,45 +1406,65 @@ class _SheetAmountRow extends StatelessWidget {
 }
 
 class _ProcessModeTabs extends StatelessWidget {
-  const _ProcessModeTabs({required this.mode, required this.onChanged});
+  const _ProcessModeTabs({
+    required this.mode,
+    required this.onChanged,
+    this.creditEnabled = true,
+  });
 
   final String mode;
   final ValueChanged<String> onChanged;
+  final bool creditEnabled;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: const Color(0xFF121A28),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF2C3A50)),
+        color: PosUi.deskCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PosUi.deskLine),
       ),
       child: Row(
         children: [
-          for (final entry in const [('single', 'Single'), ('mixed', 'Mixed'), ('credit', 'Credit'), ('house', 'H. Offer')])
+          for (final entry in const [
+            ('single', 'Single'),
+            ('mixed', 'Mixed'),
+            ('credit', 'Credit'),
+            ('house', 'H. Offer'),
+          ])
             Expanded(
-              child: Material(
-                color: mode == entry.$1 ? const Color(0xFF3A455C) : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  onTap: () => onChanged(entry.$1),
-                  borderRadius: BorderRadius.circular(10),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
-                    child: Text(
-                      tr(entry.$2),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.text(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: mode == entry.$1 ? Colors.white : const Color(0xFF9AABBE),
+              child: Builder(
+                builder: (context) {
+                  final needsCustomer = entry.$1 == 'credit' || entry.$1 == 'house';
+                  final enabled = !needsCustomer || creditEnabled;
+                  final selected = mode == entry.$1;
+                  return Opacity(
+                    opacity: enabled ? 1 : 0.45,
+                    child: Material(
+                      color: selected ? PosUi.deskAccent : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9),
+                      child: InkWell(
+                        onTap: enabled ? () => onChanged(entry.$1) : null,
+                        borderRadius: BorderRadius.circular(9),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+                          child: Text(
+                            tr(entry.$2),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.text(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: selected ? PosUi.deskInk : PosUi.deskMuted,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
         ],
@@ -1236,18 +1481,18 @@ class _CustomerNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF3A2E14),
+        color: AppColors.warningBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC4A15A)),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.person_outline, size: 18, color: Color(0xFFE7C27A)),
+          Icon(Icons.person_outline, size: 18, color: AppColors.warning),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               tr('Select a customer on this order to use Credit or House offer.'),
-              style: AppTypography.text(fontSize: 12, height: 1.35, color: const Color(0xFFF3E2B8)),
+              style: AppTypography.text(fontSize: 12, height: 1.35, color: AppColors.warning),
             ),
           ),
         ],
@@ -1266,19 +1511,28 @@ class _RemainingBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF4D8),
+        color: AppColors.warningBg,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.28)),
       ),
       child: Row(
         children: [
           Text(
             tr('Remaining'),
-            style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFFE07A12)),
+            style: AppTypography.text(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppColors.warning,
+            ),
           ),
           const Spacer(),
           Text(
             tr(value),
-            style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFFE07A12)),
+            style: AppTypography.text(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.warning,
+            ),
           ),
         ],
       ),
@@ -1303,18 +1557,25 @@ class _MixMethodField extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF121A28),
+        color: PosUi.deskField,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF3A4A62)),
+        border: Border.all(color: PosUi.deskLine),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selected,
           isExpanded: true,
-          hint: const SizedBox.shrink(),
-          dropdownColor: const Color(0xFF1A2233),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF9AABBE)),
-          style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+          hint: Text(
+            tr('Select method'),
+            style: AppTypography.text(fontSize: 14, color: PosUi.deskMuted),
+          ),
+          dropdownColor: PosUi.deskCard,
+          icon: Icon(Icons.keyboard_arrow_down_rounded, color: PosUi.deskMuted),
+          style: AppTypography.text(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: PosUi.deskText,
+          ),
           items: [
             for (final method in methods)
               DropdownMenuItem(value: method.value, child: Text(tr(method.label))),
@@ -1343,19 +1604,33 @@ class _CommittedLine extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF121A28),
+        color: PosUi.deskCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2C3A50)),
+        border: Border.all(color: PosUi.deskLine),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Text(tr(label), style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+            child: Text(
+              tr(label),
+              style: AppTypography.text(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: PosUi.deskText,
+              ),
+            ),
           ),
-          Text(tr(amount), style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFFC4B5FD))),
+          Text(
+            tr(amount),
+            style: AppTypography.text(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: PosUi.deskAccent,
+            ),
+          ),
           IconButton(
             onPressed: onRemove,
-            icon: const Icon(Icons.close, size: 16, color: Color(0xFF9AABBE)),
+            icon: Icon(Icons.close, size: 16, color: PosUi.deskMuted),
           ),
         ],
       ),
@@ -1379,7 +1654,7 @@ class _MethodPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? const Color(0xFF2A2150) : const Color(0xFF121A28),
+      color: selected ? PosUi.deskRaised : PosUi.deskField,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -1388,19 +1663,27 @@ class _MethodPill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? const Color(0xFF8B6CFF) : const Color(0xFF2C3A50)),
+            border: Border.all(
+              color: selected
+                  ? PosUi.deskAccent.withValues(alpha: 0.55)
+                  : PosUi.deskLine,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: selected ? const Color(0xFFC4B5FD) : const Color(0xFF9AABBE)),
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? PosUi.deskAccent : PosUi.deskMuted,
+              ),
               const SizedBox(width: 6),
               Text(
                 tr(label),
                 style: AppTypography.text(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : const Color(0xFFE8EEF6),
+                  color: selected ? PosUi.deskText : PosUi.deskMuted,
                 ),
               ),
             ],
@@ -1421,43 +1704,49 @@ class _ProcessFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A2233),
-        border: Border(top: BorderSide(color: Color(0xFF2C3A50))),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      decoration: BoxDecoration(
+        color: PosUi.deskSoft,
+        border: Border(top: BorderSide(color: PosUi.deskLine)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: onCancel,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFE8EEF6),
-                side: const BorderSide(color: Color(0xFF3A4A62)),
-                minimumSize: const Size.fromHeight(46),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: onCancel,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: PosUi.deskText,
+                  side: BorderSide(color: PosUi.deskLine),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(tr('Cancel')),
               ),
-              child: Text(tr('Cancel')),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 2,
-            child: FilledButton.icon(
-              onPressed: enabled ? onConfirm : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF2A3348),
-                disabledBackgroundColor: const Color(0xFF2A3348),
-                foregroundColor: Colors.white,
-                disabledForegroundColor: const Color(0xFF8B97A8),
-                minimumSize: const Size.fromHeight(46),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: FilledButton.icon(
+                onPressed: enabled ? onConfirm : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: PosUi.deskPay,
+                  disabledBackgroundColor: PosUi.deskPay.withValues(alpha: 0.35),
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white70,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.check_rounded, size: 18),
+                label: Text(
+                  tr('Encaisser'),
+                  style: AppTypography.text(fontWeight: FontWeight.w800, color: Colors.white),
+                ),
               ),
-              icon: const Icon(Icons.arrow_forward, size: 18),
-              label: Text(tr('Continue'), style: TextStyle(fontWeight: FontWeight.w800)),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

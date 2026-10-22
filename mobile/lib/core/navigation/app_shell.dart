@@ -686,53 +686,57 @@ class AppShell extends StatelessWidget {
 
     if (form.isDesk) {
       return Scaffold(
-        body: Row(
-          children: [
-            if (!configuring)
-              _Sidebar(
-                activeRoute: location,
-                config: config,
-                tabs: tabs,
-                onTab: (item) {
-                  if (_lockedUntilConfigured(item)) {
-                    _openCompanySetup(context);
-                    return;
-                  }
-                  context.go(item.route);
-                },
-              ),
-            Expanded(
-              child: Column(
-                children: [
-                  if (configuring)
-                    ConfigTopBar(
-                      onHome: exitConfiguration,
-                      onFeatures: () => context.go(
-                        TerminalConfigRepository.instance.isCompanyConfigured
-                            ? AppRoutes.menu
-                            : AppRoutes.cashierSettings,
+        body: SafeArea(
+          child: Row(
+            children: [
+              if (!configuring)
+                _Sidebar(
+                  activeRoute: location,
+                  config: config,
+                  tabs: tabs,
+                  onTab: (item) {
+                    if (_lockedUntilConfigured(item)) {
+                      _openCompanySetup(context);
+                      return;
+                    }
+                    context.go(item.route);
+                  },
+                ),
+              Expanded(
+                child: Column(
+                  children: [
+                    if (configuring)
+                      ConfigTopBar(
+                        onHome: exitConfiguration,
+                        onFeatures: () => context.go(
+                          TerminalConfigRepository.instance.isCompanyConfigured
+                              ? AppRoutes.menu
+                              : AppRoutes.cashierSettings,
+                        ),
+                        onLogout: () => _confirmLogout(context),
+                      )
+                    else
+                      _TopBar(
+                        title: page.label,
+                        subtitle: page.hint,
+                        config: config,
                       ),
-                      onLogout: () => _confirmLogout(context),
-                    )
-                  else
-                    _TopBar(
-                      title: page.label,
-                      subtitle: page.hint,
-                      config: config,
+                    Expanded(
+                      child: KeyedSubtree(
+                        key: ValueKey(config.storeId),
+                        child: navigationShell,
+                      ),
                     ),
-                  Expanded(
-                    child: KeyedSubtree(
-                      key: ValueKey(config.storeId),
-                      child: navigationShell,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
+
+    final narrowPhone = MediaQuery.sizeOf(context).width < 380;
 
     return Scaffold(
       appBar: AppBar(
@@ -750,6 +754,8 @@ class AppShell extends StatelessWidget {
             Text(
               tr(page.label),
               style: AppTypography.titleSmall(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const _StoreSwitcher(style: _StoreSwitcherStyle.subtitle),
           ],
@@ -762,14 +768,19 @@ class AppShell extends StatelessWidget {
               onPressed: () => _confirmLogout(context),
             ),
           const SyncStatusBar(),
-          const SizedBox(width: 4),
-          const ThemeModeButton(),
-          const CalculatorButton(),
+          if (!narrowPhone) ...[
+            const SizedBox(width: 4),
+            const ThemeModeButton(),
+            const CalculatorButton(),
+          ],
         ],
       ),
-      body: KeyedSubtree(
-        key: ValueKey(config.storeId),
-        child: navigationShell,
+      body: SafeArea(
+        top: false,
+        child: KeyedSubtree(
+          key: ValueKey(config.storeId),
+          child: navigationShell,
+        ),
       ),
       bottomNavigationBar: configuring
           ? null
@@ -791,7 +802,12 @@ class AppShell extends StatelessWidget {
         ),
         child: NavigationBar(
         animationDuration: AppMotion.resolve(context, AppMotion.micro),
-        height: AndroidLayout.preferLite(context) ? 64 : 70,
+        height: narrowPhone
+            ? 58
+            : (AndroidLayout.preferLite(context) ? 64 : 70),
+        labelBehavior: narrowPhone
+            ? NavigationDestinationLabelBehavior.onlyShowSelected
+            : NavigationDestinationLabelBehavior.alwaysShow,
         backgroundColor: AppColors.surface,
         selectedIndex: () {
           final current = phoneTab < 0 ? 0 : phoneTab;

@@ -710,6 +710,16 @@ class LocalMasterServer extends ChangeNotifier {
         await _json(request, 201, {'data': {'id': id}});
         return;
       }
+      final heldSale = RegExp(r'^/api/v1/sales/([^/]+)$').firstMatch(path);
+      if (heldSale != null && request.method == 'PUT') {
+        final body = await _readJson(request);
+        final id = heldSale.group(1)!;
+        body['id'] = id;
+        body['server_id'] = id;
+        await OfflineStore.instance.acceptRemoteHold(body);
+        await _json(request, 200, {'data': {'id': id}});
+        return;
+      }
       await _json(request, 404, {'message': 'Not found.'});
     } catch (error) {
       if (!request.response.headers.persistentConnection) return;

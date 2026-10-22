@@ -43,7 +43,6 @@ const filtersVisible = computed(() => isSmUp.value || filtersOpen.value)
       @toggle-dark="toggle"
       @toggle-filters="filtersOpen = !filtersOpen"
     />
-
     <main class="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
       <div class="mb-6">
         <h2 class="text-2xl font-bold tracking-tight text-[var(--color-ink)] sm:text-3xl">

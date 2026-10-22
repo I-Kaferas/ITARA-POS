@@ -12,6 +12,7 @@ import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_cart_engine.dart';
 import 'customer_picker_dialog.dart';
+import 'pos_discount_dialog.dart';
 import 'pos_payment_dialog.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
@@ -392,65 +393,13 @@ class PosFooterPanel extends StatelessWidget {
   }
 
   Future<void> _showDiscountDialog(BuildContext context) async {
-    final amountController = TextEditingController();
-    final percentController = TextEditingController();
-
-    final result = await showDialog<String>(
+    await showPosDiscountDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Remise')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: amountController,
-              decoration: InputDecoration(
-                labelText: tr('Montant fixe (centimes)'),
-                hintText: tr('ex: 500 = 5.00'),
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: percentController,
-              decoration: InputDecoration(
-                labelText: tr('Pourcentage (%)'),
-                hintText: tr('ex: 10'),
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              cart.clearDiscount();
-              Navigator.pop(ctx, 'cleared');
-            },
-            child: Text(tr('Effacer')),
-          ),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Annuler'))),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'apply'),
-            child: Text(tr('Appliquer')),
-          ),
-        ],
-      ),
+      cart: cart,
+      money: _money,
+      major: _major,
+      parseMajor: _parseMajor,
     );
-
-    if (result == 'apply') {
-      final percent = double.tryParse(percentController.text);
-      final amount = int.tryParse(amountController.text);
-      if (percent != null && percent > 0) {
-        cart.setDiscountPercent(percent);
-      } else if (amount != null && amount > 0) {
-        cart.setDiscountAmount(amount);
-      }
-    }
-
-    amountController.dispose();
-    percentController.dispose();
   }
 
   Future<void> _showLoyaltyDialog(BuildContext context) async {
@@ -848,6 +797,27 @@ class PosFooterPanel extends StatelessWidget {
         PosPaymentMethod(value: 'mobile_money', label: tr('Mobile Money'), labelFr: 'Mobile Money'),
       );
     }
+    if (!list.any((method) => method.value == 'credit')) {
+      list.add(PosPaymentMethod(
+        value: 'credit',
+        label: tr('Credit'),
+        labelFr: 'Crédit client',
+        requiresCustomer: true,
+      ));
+    } else {
+      final index = list.indexWhere((method) => method.value == 'credit');
+      final existing = list[index];
+      if (!existing.requiresCustomer) {
+        list[index] = PosPaymentMethod(
+          value: existing.value,
+          label: existing.label,
+          labelFr: existing.labelFr,
+          requiresCustomer: true,
+          supportsChange: existing.supportsChange,
+          sortOrder: existing.sortOrder,
+        );
+      }
+    }
     return list.where((method) => method.value != 'room').toList();
   }
 
@@ -868,8 +838,13 @@ class PosFooterPanel extends StatelessWidget {
         return;
       }
       final atTable = cart.tableId != null && cart.tableId!.isNotEmpty;
+      final saleItems = cart.lines.map((line) => line.toSaleItem()).toList();
+      final previewStock = <Map<String, dynamic>>[
+        for (final line in cart.lines)
+          if (line.stockUpdatePreview != null) line.stockUpdatePreview!,
+      ];
       final saleResult = await api.createSale(
-        items: cart.lines.map((line) => line.toSaleItem()).toList(),
+        items: saleItems,
         payments: payments,
         customerId: cart.customer?.saleCustomerId,
         notes: cart.note,
@@ -882,6 +857,7 @@ class PosFooterPanel extends StatelessWidget {
       );
       cart.consumeActiveHold();
       cart.cancel();
+      final stockUpdates = saleResult.stockUpdates.isNotEmpty ? saleResult.stockUpdates : previewStock;
       onPayment(PosPaymentResult(
         success: true,
         total: saleResult.total,
@@ -893,7 +869,7 @@ class PosFooterPanel extends StatelessWidget {
         saleReference: saleResult.reference,
         receipt: saleResult.receipt,
         loyaltyEarned: saleResult.loyaltyEarned,
-        stockUpdates: saleResult.stockUpdates,
+        stockUpdates: stockUpdates,
         message: saleResult.pendingSync
             ? 'Vente ${saleResult.reference} enregistrée sur cet appareil. Paiement, stock et sync en file — internet non requis.'
             : 'Vente ${saleResult.reference} acceptée',
@@ -965,64 +941,80 @@ class PosFooterPanel extends StatelessWidget {
   }
 
   Future<void> _showPaymentDialog(BuildContext context) async {
-    PosCustomerBalance? customerBalance;
-    final paymentMethods = _usableMethods(await api.fetchPaymentMethods());
-
-    if (cart.customer != null && !cart.customer!.pending) {
+    try {
+      PosCustomerBalance? customerBalance;
+      List<PosPaymentMethod> paymentMethods;
       try {
-        customerBalance = await api.fetchCustomerBalance(cart.customer!.saleCustomerId);
-      } catch (_) {}
-    }
-
-    if (!context.mounted) return;
-    final result = await showPosPaymentDialog(
-      context: context,
-      total: cart.total,
-      subtotal: cart.subtotal,
-      currencyCode: AppConfig.currencyCode,
-      methods: paymentMethods,
-      customer: cart.customer,
-      customerBalance: customerBalance,
-      money: _money,
-      major: _major,
-      parseMajor: _parseMajor,
-      paymentIcon: _paymentIcon,
-    );
-
-    if (result == null || !context.mounted) return;
-
-    if (result.mode == 'single') {
-      final meta = paymentMethods.where((item) => item.value == result.selected).firstOrNull;
-      final change = (meta?.supportsChange == true || result.selected == 'cash') ? result.tendered - cart.total : 0;
-      await _submitPayments(
-        context,
-        payments: [
-          {
-            'method': result.selected,
-            'amount': cart.total,
-            if (change > 0) 'metadata': {'tendered': result.tendered},
-          },
-        ],
-        methodLabel: result.selected,
-        change: change,
-      );
-      return;
-    }
-
-    var change = 0;
-    final payments = <Map<String, dynamic>>[];
-    for (final line in result.mixed) {
-      final meta = paymentMethods.where((item) => item.value == line.method).firstOrNull;
-      if (meta?.supportsChange == true && line.tendered > line.amount) {
-        change += line.tendered - line.amount;
+        paymentMethods = _usableMethods(await api.fetchPaymentMethods());
+      } catch (_) {
+        paymentMethods = _usableMethods(const []);
       }
-      payments.add({
-        'method': line.method,
-        'amount': line.amount,
-        if (meta?.supportsChange == true) 'metadata': {'tendered': line.tendered},
-      });
+
+      if (cart.customer != null && !cart.customer!.pending) {
+        try {
+          customerBalance = await api.fetchCustomerBalance(cart.customer!.saleCustomerId);
+        } catch (_) {}
+      }
+
+      if (!context.mounted) return;
+      final result = await showPosPaymentDialog(
+        context: context,
+        total: cart.total,
+        subtotal: cart.subtotal,
+        currencyCode: AppConfig.currencyCode,
+        methods: paymentMethods,
+        customer: cart.customer,
+        customerBalance: customerBalance,
+        money: _money,
+        major: _major,
+        parseMajor: _parseMajor,
+        paymentIcon: _paymentIcon,
+      );
+
+      if (result == null || !context.mounted) return;
+
+      if (result.mode == 'single') {
+        final meta = paymentMethods.where((item) => item.value == result.selected).firstOrNull;
+        final change = (meta?.supportsChange == true || result.selected == 'cash')
+            ? result.tendered - cart.total
+            : 0;
+        await _submitPayments(
+          context,
+          payments: [
+            {
+              'method': result.selected,
+              'amount': cart.total,
+              if (change > 0) 'metadata': {'tendered': result.tendered},
+            },
+          ],
+          methodLabel: result.selected,
+          change: change,
+        );
+        return;
+      }
+
+      var change = 0;
+      final payments = <Map<String, dynamic>>[];
+      for (final line in result.mixed) {
+        final meta = paymentMethods.where((item) => item.value == line.method).firstOrNull;
+        if (meta?.supportsChange == true && line.tendered > line.amount) {
+          change += line.tendered - line.amount;
+        }
+        payments.add({
+          'method': line.method,
+          'amount': line.amount,
+          if (meta?.supportsChange == true) 'metadata': {'tendered': line.tendered},
+        });
+      }
+      await _submitPayments(context, payments: payments, methodLabel: 'mixed', change: change);
+    } catch (error) {
+      onPayment(PosPaymentResult(
+        success: false,
+        total: cart.total,
+        method: 'unknown',
+        message: error.toString().replaceFirst('Exception: ', ''),
+      ));
     }
-    await _submitPayments(context, payments: payments, methodLabel: 'mixed', change: change);
   }
 
   String _formatTime(DateTime dt) {

@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\PartyController;
 use App\Http\Controllers\Api\V1\PlatformAdminController;
 use App\Http\Controllers\Api\V1\PlatformSubscriptionController;
 use App\Http\Controllers\Api\V1\PlatformTenantController;
+use App\Http\Controllers\Api\V1\PublicSignupController;
 use App\Http\Controllers\Api\V1\CompanyPaymentMethodController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\CustomerAddressController;
@@ -116,6 +117,8 @@ Route::prefix('v1')->group(function () {
         ->middleware('throttle:60,1');
     Route::post('/public/stay-sign/{token}', [DeskController::class, 'staySignSubmit'])
         ->middleware('throttle:30,1');
+    Route::post('/public/signup', [PublicSignupController::class, 'store'])
+        ->middleware('throttle:10,1');
 
     Route::middleware('throttle:auth-login')->group(function () {
         Route::post('/auth/login', [AuthController::class, 'login']);
@@ -358,6 +361,7 @@ Route::prefix('v1')->group(function () {
         Route::post('platform/devices/{device}/revoke', [PlatformAdminController::class, 'revokeDevice']);
         Route::post('platform/devices/{device}/restore', [PlatformAdminController::class, 'restoreDevice']);
         Route::post('platform/tenants/{tenant}/impersonate', [PlatformAdminController::class, 'impersonate']);
+        Route::post('platform/tenants/{tenant}/signup/approve', [PlatformAdminController::class, 'approveSignup']);
         Route::get('platform/users', [PlatformAdminController::class, 'users']);
         Route::get('platform/support', [PlatformAdminController::class, 'support']);
         Route::post('platform/support', [PlatformAdminController::class, 'storeSupport']);

@@ -61,28 +61,11 @@ class _OnboardingBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.canvas,
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color.alphaBlend(
-              AppColors.brand600.withValues(alpha: 0.04),
-              AppColors.canvas,
-            ),
-            AppColors.canvas,
-            Color.alphaBlend(
-              AppColors.accent.withValues(alpha: 0.05),
-              AppColors.canvas,
-            ),
-          ],
-        ),
-      ),
+    return ColoredBox(
+      color: AppColors.canvas,
       child: CustomPaint(
         painter: _GridPainter(
-          color: AppColors.brand600.withValues(alpha: 0.035),
+          color: AppColors.brand600.withValues(alpha: 0.04),
         ),
         child: const SizedBox.expand(),
       ),

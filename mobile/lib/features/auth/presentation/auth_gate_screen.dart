@@ -11,6 +11,7 @@ import '../../../core/branding/branding_service.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_bloc.dart';
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../core/layout/android_form_factor.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/network/network_bloc.dart';
 import '../../../core/theme/app_colors.dart';
@@ -297,7 +298,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final wide = MediaQuery.sizeOf(context).width >= 960;
+    final wide = MediaQuery.sizeOf(context).width >= AndroidLayout.authSplit;
 
     return BlocConsumer<AuthenticationBloc, AuthenticationState>(
       listenWhen: (prev, next) => prev.status != next.status || prev.errorMessage != next.errorMessage,
@@ -336,60 +337,49 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
         );
 
         return Scaffold(
-          backgroundColor: AppColors.canvas,
+          backgroundColor: wide ? AppColors.canvas : AppColors.brand600,
           resizeToAvoidBottomInset: false,
           body: AnimatedPadding(
             padding: EdgeInsets.only(bottom: bottomInset),
             duration: AppMotion.resolve(context, const Duration(milliseconds: 420)),
             curve: AppMotion.emphasized,
             onEnd: _revealFocusedField,
-            child: SafeArea(
             child: wide
-                ? Row(
-                    children: [
-                      const Expanded(flex: 6, child: _AuthHero()),
-                      Expanded(
-                        flex: 5,
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(28, 18, 28, 0),
-                              child: Row(
-                                children: [
-                                  _ServerBadge(onTap: _editConnection),
-                                  const Spacer(),
-                                  _ModeSwitch(
-                                    root: _mode == AuthGateMode.root,
-                                    onChanged: (root) => _setMode(root ? AuthGateMode.root : AuthGateMode.staff),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(child: form),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : Column(
+                ? SafeArea(
+                    child: Row(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                          child: Row(
+                        const Expanded(flex: 6, child: _AuthHero()),
+                        Expanded(
+                          flex: 5,
+                          child: Column(
                             children: [
-                              Flexible(child: _ServerBadge(onTap: _editConnection)),
-                              const SizedBox(width: 8),
-                              _ModeSwitch(
-                                root: _mode == AuthGateMode.root,
-                                onChanged: (root) => _setMode(root ? AuthGateMode.root : AuthGateMode.staff),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(28, 18, 28, 0),
+                                child: Row(
+                                  children: [
+                                    _ServerBadge(onTap: _editConnection),
+                                    const Spacer(),
+                                    _ModeSwitch(
+                                      root: _mode == AuthGateMode.root,
+                                      onChanged: (root) => _setMode(root ? AuthGateMode.root : AuthGateMode.staff),
+                                    ),
+                                  ],
+                                ),
                               ),
+                              Expanded(child: form),
                             ],
                           ),
                         ),
-                        Expanded(child: form),
                       ],
                     ),
-            ),
+                  )
+                : _MobileAuthShell(
+                    mode: _mode,
+                    keyboardOpen: bottomInset > 0,
+                    onEditConnection: _editConnection,
+                    onModeChanged: (root) => _setMode(root ? AuthGateMode.root : AuthGateMode.staff),
+                    form: form,
+                  ),
           ),
         );
       },
@@ -619,6 +609,145 @@ class _ProductPoint extends StatelessWidget {
   }
 }
 
+/// Full-bleed mobile login: brand hero + elevated credential card.
+class _MobileAuthShell extends StatelessWidget {
+  const _MobileAuthShell({
+    required this.mode,
+    required this.keyboardOpen,
+    required this.onEditConnection,
+    required this.onModeChanged,
+    required this.form,
+  });
+
+  final AuthGateMode mode;
+  final bool keyboardOpen;
+  final VoidCallback onEditConnection;
+  final ValueChanged<bool> onModeChanged;
+  final Widget form;
+
+  @override
+  Widget build(BuildContext context) {
+    final config = context.watch<TerminalBloc>().state.config;
+    final brand = config.brandName.trim().isEmpty ? 'ITARA' : config.brandName.trim();
+    final motion = AppMotion.resolve(context, const Duration(milliseconds: 420));
+    final bottomSafe = MediaQuery.paddingOf(context).bottom;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppColors.brand500, AppColors.brand600, AppColors.brand800],
+                stops: [0.0, 0.45, 1.0],
+              ),
+            ),
+          ),
+        ),
+        const Positioned.fill(child: _ThinkingOrbs()),
+        SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: _ServerBadge(
+                        onTap: onEditConnection,
+                        onDark: true,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _ModeSwitch(
+                      root: mode == AuthGateMode.root,
+                      onChanged: onModeChanged,
+                      onDark: true,
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedSize(
+                duration: motion,
+                curve: AppMotion.emphasized,
+                child: keyboardOpen
+                    ? const SizedBox(width: double.infinity, height: 12)
+                    : Padding(
+                        padding: const EdgeInsets.fromLTRB(28, 28, 28, 8),
+                        child: ListenableBuilder(
+                          listenable: LocaleController.instance,
+                          builder: (context, _) {
+                            return Column(
+                              children: [
+                                _BrandMark(
+                                  logoUrl: config.brandLogoUrl,
+                                  initials: _initials(brand),
+                                  compact: false,
+                                ),
+                                const SizedBox(height: 18),
+                                Text(
+                                  tr(_greeting()),
+                                  style: AppTypography.plex(
+                                    color: AppColors.accent,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  tr(brand),
+                                  textAlign: TextAlign.center,
+                                  style: AppTypography.display(color: Colors.white).copyWith(
+                                    fontSize: 34,
+                                    height: 1.05,
+                                    letterSpacing: -0.6,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  tr('ITARA POS'),
+                                  style: AppTypography.plex(
+                                    color: AppColors.sidebarText.withValues(alpha: 0.9),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Container(
+                                  width: 36,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent,
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: form,
+                ),
+              ),
+              SizedBox(height: math.max(bottomSafe, 10)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _AuthForm extends StatelessWidget {
   const _AuthForm({
     required this.mode,
@@ -666,10 +795,10 @@ class _AuthForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 960;
-    final config = context.watch<TerminalBloc>().state.config;
-    final brand = config.brandName.trim().isEmpty ? 'ITARA' : config.brandName.trim();
+    final wide = MediaQuery.sizeOf(context).width >= AndroidLayout.authSplit;
     final motion = AppMotion.resolve(context, const Duration(milliseconds: 420));
+    final mobile = !wide;
+    final forcePad = mobile && mode == AuthGateMode.staff;
     final pane = mode == AuthGateMode.staff
         ? _StaffPane(
             key: const ValueKey('staff'),
@@ -678,8 +807,9 @@ class _AuthForm extends StatelessWidget {
             length: pinLength,
             loading: pinLoading,
             error: pinError,
-            showPad: showPad,
-            onTogglePad: onTogglePad,
+            showPad: forcePad || showPad,
+            compactMobile: mobile,
+            onTogglePad: forcePad ? null : onTogglePad,
             onDigit: onDigit,
             onBack: onBack,
             onClear: onClear,
@@ -696,134 +826,59 @@ class _AuthForm extends StatelessWidget {
             onSubmit: onSubmitRoot,
           );
 
+    final card = DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: mobile
+            ? const BorderRadius.vertical(top: Radius.circular(28))
+            : AppRadius.borderXl,
+        border: mobile
+            ? Border(
+                top: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+              )
+            : Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.brand900.withValues(alpha: mobile ? 0.35 : 0.08),
+            blurRadius: mobile ? 40 : 28,
+            offset: Offset(0, mobile ? -8 : 14),
+          ),
+          if (!mobile) ...AppColors.elevationSm,
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: mobile
+            ? const BorderRadius.vertical(top: Radius.circular(28))
+            : AppRadius.borderXl,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(22, mobile ? 20 : 22, 22, mobile ? 18 : 22),
+          child: AnimatedSwitcher(
+            duration: AppMotion.resolve(context, AppMotion.content),
+            child: pane,
+          ),
+        ),
+      ),
+    );
+
+    if (mobile) {
+      return AnimatedSlide(
+        duration: motion,
+        curve: AppMotion.emphasized,
+        offset: keyboardOpen ? const Offset(0, -0.02) : Offset.zero,
+        child: SingleChildScrollView(
+          reverse: true,
+          padding: EdgeInsets.zero,
+          child: card,
+        ),
+      );
+    }
+
     return Center(
       child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(24, wide ? 36 : 12, 24, 28),
+        padding: const EdgeInsets.fromLTRB(24, 36, 24, 28),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
-          child: AnimatedSlide(
-            duration: motion,
-            curve: AppMotion.emphasized,
-            offset: keyboardOpen && !wide ? const Offset(0, -0.06) : Offset.zero,
-            child: AnimatedScale(
-              duration: motion,
-              curve: AppMotion.emphasized,
-              scale: keyboardOpen && !wide ? 0.96 : 1,
-              alignment: Alignment.topCenter,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: AppRadius.borderXl,
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.brand900.withValues(alpha: 0.08),
-                      blurRadius: 28,
-                      offset: const Offset(0, 14),
-                    ),
-                    ...AppColors.elevationSm,
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: AppRadius.borderXl,
-                  child: Column(
-                    children: [
-                      if (!wide)
-                        AnimatedContainer(
-                          duration: motion,
-                          curve: AppMotion.emphasized,
-                          width: double.infinity,
-                          padding: EdgeInsets.fromLTRB(
-                            22,
-                            keyboardOpen ? 10 : 22,
-                            22,
-                            keyboardOpen ? 10 : 20,
-                          ),
-                          color: AppColors.brand600,
-                          child: ListenableBuilder(
-                            listenable: LocaleController.instance,
-                            builder: (context, _) {
-                              return Column(
-                                children: [
-                                  AnimatedCrossFade(
-                                    duration: motion,
-                                    firstCurve: AppMotion.exit,
-                                    secondCurve: AppMotion.enter,
-                                    sizeCurve: AppMotion.emphasized,
-                                    crossFadeState: keyboardOpen
-                                        ? CrossFadeState.showSecond
-                                        : CrossFadeState.showFirst,
-                                    firstChild: SizedBox(
-                                      width: double.infinity,
-                                      child: Column(
-                                        children: [
-                                          _BrandMark(
-                                            logoUrl: config.brandLogoUrl,
-                                            initials: _initials(brand),
-                                            compact: true,
-                                          ),
-                                          const SizedBox(height: 14),
-                                          Text(
-                                            tr(_greeting()),
-                                            style: AppTypography.plex(
-                                              color: AppColors.accent,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              letterSpacing: 0.3,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                        ],
-                                      ),
-                                    ),
-                                    secondChild: const SizedBox(width: double.infinity),
-                                  ),
-                                  AnimatedDefaultTextStyle(
-                                    duration: motion,
-                                    curve: AppMotion.emphasized,
-                                    style: AppTypography.plex(
-                                      color: Colors.white,
-                                      fontSize: keyboardOpen ? 18 : 24,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: -0.3,
-                                    ),
-                                    child: Text(tr(brand), textAlign: TextAlign.center),
-                                  ),
-                                  AnimatedSize(
-                                    duration: motion,
-                                    curve: AppMotion.emphasized,
-                                    child: keyboardOpen
-                                        ? const SizedBox(width: double.infinity)
-                                        : Padding(
-                                            padding: const EdgeInsets.only(top: 4),
-                                            child: Text(
-                                              AppCopy.get('loginHeadline'),
-                                              textAlign: TextAlign.center,
-                                              style: AppTypography.plex(
-                                                color: AppColors.sidebarText,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
-                        child: AnimatedSwitcher(
-                          duration: AppMotion.resolve(context, AppMotion.content),
-                          child: pane,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          child: card,
         ),
       ),
     );
@@ -831,9 +886,10 @@ class _AuthForm extends StatelessWidget {
 }
 
 class _ServerBadge extends StatelessWidget {
-  const _ServerBadge({required this.onTap});
+  const _ServerBadge({required this.onTap, this.onDark = false});
 
   final VoidCallback? onTap;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
@@ -844,8 +900,8 @@ class _ServerBadge extends StatelessWidget {
           builder: (context, net) {
             final running = LocalMasterServer.instance.listening || net.masterReachable || net.internetReachable;
             final label = AppCopy.get(running ? 'serverRunning' : 'serverOffline');
-            final dot = running ? AppColors.success : AppColors.brand300;
-            final foreground = AppColors.textPrimary;
+            final dot = running ? AppColors.success : (onDark ? AppColors.brand300 : AppColors.brand300);
+            final foreground = onDark ? Colors.white.withValues(alpha: 0.92) : AppColors.textPrimary;
             return Material(
               color: Colors.transparent,
               child: InkWell(
@@ -854,9 +910,11 @@ class _ServerBadge extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: onDark ? Colors.white.withValues(alpha: 0.08) : AppColors.surface,
                     borderRadius: AppRadius.borderPill,
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(
+                      color: onDark ? Colors.white.withValues(alpha: 0.16) : AppColors.border,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -867,11 +925,13 @@ class _ServerBadge extends StatelessWidget {
                         decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        tr(label),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.plex(color: foreground, fontSize: 12.5, fontWeight: FontWeight.w600),
+                      Flexible(
+                        child: Text(
+                          tr(label),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.plex(color: foreground, fontSize: 12.5, fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ],
                   ),
@@ -886,10 +946,11 @@ class _ServerBadge extends StatelessWidget {
 }
 
 class _ModeSwitch extends StatelessWidget {
-  const _ModeSwitch({required this.root, required this.onChanged});
+  const _ModeSwitch({required this.root, required this.onChanged, this.onDark = false});
 
   final bool root;
   final ValueChanged<bool> onChanged;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
@@ -899,9 +960,11 @@ class _ModeSwitch extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: AppColors.fieldFill,
+            color: onDark ? Colors.white.withValues(alpha: 0.08) : AppColors.fieldFill,
             borderRadius: AppRadius.borderPill,
-            border: Border.all(color: AppColors.border),
+            border: Border.all(
+              color: onDark ? Colors.white.withValues(alpha: 0.16) : AppColors.border,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -909,11 +972,13 @@ class _ModeSwitch extends StatelessWidget {
               _ModeChip(
                 label: AppCopy.get('staffMode'),
                 selected: !root,
+                onDark: onDark,
                 onTap: () => onChanged(false),
               ),
               _ModeChip(
                 label: AppCopy.get('rootMode'),
                 selected: root,
+                onDark: onDark,
                 onTap: () => onChanged(true),
               ),
             ],
@@ -925,16 +990,25 @@ class _ModeSwitch extends StatelessWidget {
 }
 
 class _ModeChip extends StatelessWidget {
-  const _ModeChip({required this.label, required this.selected, required this.onTap});
+  const _ModeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.onDark = false,
+  });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
+    final selectedBg = onDark ? AppColors.accent : AppColors.brand600;
+    final selectedFg = onDark ? AppColors.brand900 : Colors.white;
+    final idleFg = onDark ? Colors.white.withValues(alpha: 0.78) : AppColors.textSecondary;
     return Material(
-      color: selected ? AppColors.brand600 : Colors.transparent,
+      color: selected ? selectedBg : Colors.transparent,
       borderRadius: AppRadius.borderPill,
       child: InkWell(
         onTap: onTap,
@@ -944,7 +1018,7 @@ class _ModeChip extends StatelessWidget {
           child: Text(
             tr(label),
             style: AppTypography.plex(
-              color: selected ? Colors.white : AppColors.textSecondary,
+              color: selected ? selectedFg : idleFg,
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
             ),
@@ -1016,11 +1090,12 @@ class _StaffPane extends StatelessWidget {
     required this.loading,
     required this.error,
     required this.showPad,
-    required this.onTogglePad,
     required this.onDigit,
     required this.onBack,
     required this.onClear,
     required this.onSubmit,
+    this.onTogglePad,
+    this.compactMobile = false,
   });
 
   final TextEditingController controller;
@@ -1029,7 +1104,8 @@ class _StaffPane extends StatelessWidget {
   final bool loading;
   final String? error;
   final bool showPad;
-  final VoidCallback onTogglePad;
+  final bool compactMobile;
+  final VoidCallback? onTogglePad;
   final ValueChanged<String> onDigit;
   final VoidCallback onBack;
   final VoidCallback onClear;
@@ -1041,43 +1117,84 @@ class _StaffPane extends StatelessWidget {
       listenable: LocaleController.instance,
       builder: (context, _) {
         return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            if (compactMobile) ...[
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.borderStrong,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Text(
               AppCopy.get('pinTitle'),
               textAlign: TextAlign.center,
-              style: AppTypography.pageTitle(color: AppColors.brandInk),
+              style: AppTypography.pageTitle(color: AppColors.brandInk).copyWith(
+                fontSize: compactMobile ? 22 : null,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               AppCopy.get('pinHint'),
               textAlign: TextAlign.center,
               style: AppTypography.form(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 26),
-            _PinDots(length: length, hasError: error != null),
-            const SizedBox(height: 18),
-            _FieldShell(
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                enabled: !loading,
-                obscureText: true,
-                textAlign: TextAlign.center,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                style: AppTypography.plex(color: AppColors.textPrimary, fontSize: 20, letterSpacing: 10, fontWeight: FontWeight.w600),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '••••',
-                  hintStyle: AppTypography.plex(color: AppColors.textMuted, letterSpacing: 10, fontSize: 20),
-                  border: InputBorder.none,
-                  isCollapsed: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            SizedBox(height: compactMobile ? 20 : 26),
+            _PinDots(length: length, hasError: error != null, large: compactMobile),
+            if (!compactMobile) ...[
+              const SizedBox(height: 18),
+              _FieldShell(
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  enabled: !loading,
+                  obscureText: true,
+                  textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  style: AppTypography.plex(
+                    color: AppColors.textPrimary,
+                    fontSize: 20,
+                    letterSpacing: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: '••••',
+                    hintStyle: AppTypography.plex(
+                      color: AppColors.textMuted,
+                      letterSpacing: 10,
+                      fontSize: 20,
+                    ),
+                    border: InputBorder.none,
+                    isCollapsed: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onSubmitted: (_) => onSubmit(),
                 ),
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onSubmitted: (_) => onSubmit(),
               ),
-            ),
+            ] else
+              Offstage(
+                offstage: true,
+                child: SizedBox(
+                  width: 1,
+                  height: 1,
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    enabled: !loading,
+                    obscureText: true,
+                    keyboardType: TextInputType.none,
+                    maxLength: 4,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                ),
+              ),
             if (error != null) ...[
               const SizedBox(height: 14),
               Container(
@@ -1090,7 +1207,12 @@ class _StaffPane extends StatelessWidget {
                 child: Text(
                   tr(error!),
                   textAlign: TextAlign.center,
-                  style: AppTypography.plex(color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.w600, height: 1.35),
+                  style: AppTypography.plex(
+                    color: AppColors.danger,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
                 ),
               ),
             ],
@@ -1102,19 +1224,32 @@ class _StaffPane extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brandInk),
               ),
             ],
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: loading ? null : onTogglePad,
-              style: TextButton.styleFrom(foregroundColor: AppColors.brandInk),
-              icon: Icon(showPad ? Icons.keyboard_hide_outlined : Icons.dialpad_rounded, size: 18),
-              label: Text(
-                AppCopy.get(showPad ? 'hideKeypad' : 'useKeypad'),
-                style: AppTypography.plex(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.brandInk),
+            if (onTogglePad != null) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: loading ? null : onTogglePad,
+                style: TextButton.styleFrom(foregroundColor: AppColors.brandInk),
+                icon: Icon(showPad ? Icons.keyboard_hide_outlined : Icons.dialpad_rounded, size: 18),
+                label: Text(
+                  AppCopy.get(showPad ? 'hideKeypad' : 'useKeypad'),
+                  style: AppTypography.plex(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                    color: AppColors.brandInk,
+                  ),
+                ),
               ),
-            ),
+            ] else
+              const SizedBox(height: 14),
             if (showPad) ...[
-              const SizedBox(height: 4),
-              _Pad(enabled: !loading, onDigit: onDigit, onBack: onBack, onClear: onClear),
+              if (onTogglePad != null) const SizedBox(height: 4),
+              _Pad(
+                enabled: !loading,
+                onDigit: onDigit,
+                onBack: onBack,
+                onClear: onClear,
+                compact: compactMobile,
+              ),
             ],
           ],
         );
@@ -1268,13 +1403,16 @@ class _FieldShell extends StatelessWidget {
 }
 
 class _PinDots extends StatelessWidget {
-  const _PinDots({required this.length, required this.hasError});
+  const _PinDots({required this.length, required this.hasError, this.large = false});
 
   final int length;
   final bool hasError;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
+    final size = large ? 18.0 : 14.0;
+    final filledSize = large ? 20.0 : 16.0;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(4, (index) {
@@ -1283,16 +1421,25 @@ class _PinDots extends StatelessWidget {
         final color = hasError ? AppColors.danger : AppColors.brandInk;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          margin: const EdgeInsets.symmetric(horizontal: 7),
-          width: filled ? 16 : 14,
-          height: filled ? 16 : 14,
+          margin: EdgeInsets.symmetric(horizontal: large ? 10 : 7),
+          width: filled ? filledSize : size,
+          height: filled ? filledSize : size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: filled ? color : Colors.transparent,
             border: Border.all(
               color: filled ? color : (active ? AppColors.accent : AppColors.borderStrong),
-              width: active ? 2 : 1.6,
+              width: active ? 2.2 : 1.6,
             ),
+            boxShadow: filled && !hasError
+                ? [
+                    BoxShadow(
+                      color: AppColors.brand600.withValues(alpha: 0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
         );
       }),
@@ -1306,12 +1453,14 @@ class _Pad extends StatelessWidget {
     required this.onDigit,
     required this.onBack,
     required this.onClear,
+    this.compact = false,
   });
 
   final bool enabled;
   final ValueChanged<String> onDigit;
   final VoidCallback onBack;
   final VoidCallback onClear;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1319,16 +1468,16 @@ class _Pad extends StatelessWidget {
     return GridView.count(
       crossAxisCount: 3,
       shrinkWrap: true,
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 1.55,
+      mainAxisSpacing: compact ? 8 : 10,
+      crossAxisSpacing: compact ? 8 : 10,
+      childAspectRatio: compact ? 1.65 : 1.55,
       physics: const NeverScrollableScrollPhysics(),
       children: keys.map((key) {
         final utility = key == 'clear' || key == 'back';
         return Material(
-          color: utility ? AppColors.surfaceVariant : AppColors.surface,
+          color: utility ? AppColors.surfaceVariant : AppColors.fieldFill,
           elevation: 0,
-          borderRadius: AppRadius.borderLg,
+          borderRadius: BorderRadius.circular(compact ? 16 : AppRadius.lg),
           child: InkWell(
             onTap: !enabled
                 ? null
@@ -1342,21 +1491,21 @@ class _Pad extends StatelessWidget {
                       onDigit(key);
                     }
                   },
-            borderRadius: AppRadius.borderLg,
+            borderRadius: BorderRadius.circular(compact ? 16 : AppRadius.lg),
             child: Ink(
               decoration: BoxDecoration(
-                borderRadius: AppRadius.borderLg,
-                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(compact ? 16 : AppRadius.lg),
+                border: Border.all(color: AppColors.border.withValues(alpha: 0.9)),
               ),
               child: Center(
                 child: key == 'back'
-                    ? Icon(Icons.backspace_outlined, color: AppColors.brandInk, size: 20)
+                    ? Icon(Icons.backspace_outlined, color: AppColors.brandInk, size: compact ? 22 : 20)
                     : Text(
                         tr(key == 'clear' ? 'C' : key),
                         style: AppTypography.plex(
                           color: utility ? AppColors.brandInk : AppColors.textPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
+                          fontSize: compact ? 22 : 20,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
               ),

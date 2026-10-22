@@ -37,3 +37,12 @@ final class ProductCategoryFilterChanged extends ProductEvent {
 final class ProductSynced extends ProductEvent {
   const ProductSynced();
 }
+
+final class ProductStockAdjusted extends ProductEvent {
+  const ProductStockAdjusted(this.updates);
+
+  final List<Map<String, dynamic>> updates;
+
+  @override
+  List<Object?> get props => [updates];
+}

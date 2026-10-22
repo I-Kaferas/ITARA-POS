@@ -8,6 +8,7 @@ import LanguageSwitcher from '../../components/ui/LanguageSwitcher.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { setAppLocale } from '../../i18n'
 import { isAppLocale, type AppLocale } from '../../i18n/locales'
+import { api, extractApiErrorMessage } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
 import { useBackofficeStore } from '../../stores/backoffice'
 import { useBrandingStore } from '../../stores/branding'
@@ -33,9 +34,26 @@ const password = ref('')
 const twoFactorCode = ref('')
 const showTwoFactor = ref(false)
 const showPassword = ref(false)
+const showPasswordConfirm = ref(false)
 const logoFailed = ref(false)
 const showSplash = ref(false)
 const company = ref<Company | null>(null)
+const registering = computed(() => route.query.intent === 'register')
+const signupDone = ref(false)
+const signupError = ref('')
+const signupBusy = ref(false)
+const companyName = ref('')
+const adminName = ref('')
+const phone = ref('')
+const passwordConfirm = ref('')
+const plan = ref('starter')
+const plans = ['starter', 'professional', 'business', 'enterprise'] as const
+const planIcons = {
+  starter: 'device-pos',
+  professional: 'restaurant',
+  business: 'bed',
+  enterprise: 'layers',
+} as const
 
 const branding = computed(() => brandingStore.branding)
 const loginLogoUrl = computed(() => ITARA_LOGO_URL)
@@ -160,6 +178,10 @@ async function onSplashDone() {
 }
 
 async function submit() {
+  if (registering.value) {
+    if (!signupDone.value) await submitSignup()
+    return
+  }
   try {
     if (showTwoFactor.value) {
       await auth.verifyTwoFactor(twoFactorCode.value)
@@ -178,11 +200,39 @@ async function submit() {
     // error shown via store
   }
 }
+
+async function submitSignup() {
+  signupError.value = ''
+  if (password.value !== passwordConfirm.value) {
+    signupError.value = t('auth.signupPasswordMismatch')
+    return
+  }
+  signupBusy.value = true
+  try {
+    const response = await api.post<{ data: { message: string } }>('/public/signup', {
+      company_name: companyName.value.trim(),
+      admin_name: adminName.value.trim(),
+      email: email.value.trim(),
+      phone: phone.value.trim() || null,
+      password: password.value,
+      password_confirmation: passwordConfirm.value,
+      plan: plan.value,
+    }, { skipOffline: true })
+    signupDone.value = true
+    signupError.value = ''
+    void response
+  } catch (err) {
+    signupError.value = extractApiErrorMessage(err)
+  } finally {
+    signupBusy.value = false
+  }
+}
 </script>
 
 <template>
   <div
     class="login"
+    :class="{ 'login--signup': registering || signupDone }"
     :inert="showSplash"
     :style="{
       '--login-primary': branding?.primary_color || '#12243c',
@@ -198,6 +248,21 @@ async function submit() {
       />
       <div class="login__veil" aria-hidden="true" />
       <div class="login__brand-copy">
+        <div v-if="registering || signupDone" class="login__signup-bar">
+          <img
+            v-if="!logoFailed"
+            class="login__signup-mark"
+            :src="loginLogoUrl"
+            alt=""
+            @error="logoFailed = true"
+          />
+          <span v-else class="login__signup-fallback" aria-hidden="true">{{ initial }}</span>
+          <div class="login__signup-id">
+            <p class="login__eyebrow">Business CORE</p>
+            <p class="login__signup-name">{{ PRODUCT_NAME }}</p>
+          </div>
+          <LanguageSwitcher tone="glass" compact />
+        </div>
         <div class="login__brand-top">
           <p class="login__eyebrow">Business CORE</p>
           <h1 class="login__visually-hidden">{{ PRODUCT_NAME }}</h1>
@@ -228,11 +293,11 @@ async function submit() {
     </aside>
 
     <main class="login__panel">
-      <div class="login__tools">
-        <LanguageSwitcher />
-      </div>
+      <form class="login__form" :class="{ 'login__form--signup': registering || signupDone }" @submit.prevent="submit">
+        <div class="login__tools">
+          <LanguageSwitcher />
+        </div>
 
-      <form class="login__form" @submit.prevent="submit">
         <div class="login__form-brand">
           <img
             v-if="loginLogoUrl && !logoFailed"
@@ -246,14 +311,134 @@ async function submit() {
 
         <div class="login__form-head">
           <p class="login__form-kicker">{{ PRODUCT_NAME }}</p>
-          <h2>{{ showTwoFactor ? t('auth.twoFactorTitle') : t('auth.login') }}</h2>
+          <h2>{{ showTwoFactor ? t('auth.twoFactorTitle') : registering ? t('auth.signupTitle') : t('auth.login') }}</h2>
           <p class="login__lead">
-            {{ showTwoFactor ? t('auth.twoFactorSubtitle') : t('auth.loginSubtitle') }}
+            {{ showTwoFactor ? t('auth.twoFactorSubtitle') : registering ? t('auth.signupSubtitle') : t('auth.loginSubtitle') }}
           </p>
         </div>
 
         <div class="login__form-body">
-          <div v-if="showTwoFactor" class="ui-field">
+          <template v-if="signupDone">
+            <div class="signup-done">
+              <span class="signup-done__mark" aria-hidden="true"><AppIcon name="check" :size="22" /></span>
+              <h3>{{ t('auth.signupTitle') }}</h3>
+              <p>{{ t('auth.signupSent') }}</p>
+              <RouterLink class="ui-btn ui-btn--primary login__submit" to="/login">{{ t('auth.backToLogin') }}</RouterLink>
+            </div>
+          </template>
+          <template v-else-if="registering">
+            <section class="signup-section">
+              <header class="signup-section__head">
+                <span class="signup-section__step" aria-hidden="true">01</span>
+                <p class="signup-section__title">{{ t('auth.signupSectionOrg') }}</p>
+              </header>
+              <div class="signup-grid">
+                <div class="ui-field">
+                  <FieldLabel icon="building" for="company">{{ t('auth.signupCompany') }}</FieldLabel>
+                  <input id="company" v-model="companyName" class="ui-input" type="text" autocomplete="organization" required />
+                </div>
+                <div class="ui-field">
+                  <FieldLabel icon="account" for="admin-name">{{ t('auth.signupAdmin') }}</FieldLabel>
+                  <input id="admin-name" v-model="adminName" class="ui-input" type="text" autocomplete="name" required />
+                </div>
+                <div class="ui-field">
+                  <FieldLabel icon="mail" for="signup-email">{{ t('auth.email') }}</FieldLabel>
+                  <input id="signup-email" v-model="email" class="ui-input" type="email" autocomplete="email" required />
+                </div>
+                <div class="ui-field">
+                  <FieldLabel icon="phone" for="phone">{{ t('auth.signupPhone') }}</FieldLabel>
+                  <input id="phone" v-model="phone" class="ui-input" type="tel" autocomplete="tel" />
+                </div>
+              </div>
+            </section>
+
+            <section class="signup-section">
+              <header class="signup-section__head">
+                <span class="signup-section__step" aria-hidden="true">02</span>
+                <p class="signup-section__title">{{ t('auth.signupPlan') }}</p>
+              </header>
+              <div class="signup-plans" role="radiogroup" :aria-label="t('auth.signupPlan')">
+                <label
+                  v-for="item in plans"
+                  :key="item"
+                  class="signup-plan"
+                  :class="{ 'is-on': plan === item }"
+                >
+                  <input v-model="plan" type="radio" name="plan" :value="item" />
+                  <span class="signup-plan__icon" aria-hidden="true">
+                    <AppIcon :name="planIcons[item]" :size="16" />
+                  </span>
+                  <span class="signup-plan__copy">
+                    <span class="signup-plan__name">{{ t(`auth.signupPlans.${item}.name`) }}</span>
+                    <span class="signup-plan__hint">{{ t(`auth.signupPlans.${item}.hint`) }}</span>
+                  </span>
+                  <span class="signup-plan__radio" aria-hidden="true"></span>
+                </label>
+              </div>
+            </section>
+
+            <section class="signup-section">
+              <header class="signup-section__head">
+                <span class="signup-section__step" aria-hidden="true">03</span>
+                <p class="signup-section__title">{{ t('auth.signupSectionAccess') }}</p>
+              </header>
+              <p class="signup-note">{{ t('auth.signupPasswordHint') }}</p>
+              <div class="signup-grid">
+                <div class="ui-field">
+                  <FieldLabel icon="lock" for="signup-password">{{ t('auth.password') }}</FieldLabel>
+                  <div class="login__secret">
+                    <input
+                      id="signup-password"
+                      v-model="password"
+                      class="ui-input"
+                      :type="showPassword ? 'text' : 'password'"
+                      autocomplete="new-password"
+                      minlength="8"
+                      required
+                    />
+                    <button
+                      type="button"
+                      :aria-label="showPassword ? t('auth.hidePassword') : t('auth.showPassword')"
+                      @click="showPassword = !showPassword"
+                    >
+                      <AppIcon name="eye" :size="16" />
+                    </button>
+                  </div>
+                </div>
+                <div class="ui-field">
+                  <FieldLabel icon="lock" for="password-confirm">{{ t('auth.confirmPassword') }}</FieldLabel>
+                  <div class="login__secret">
+                    <input
+                      id="password-confirm"
+                      v-model="passwordConfirm"
+                      class="ui-input"
+                      :type="showPasswordConfirm ? 'text' : 'password'"
+                      autocomplete="new-password"
+                      minlength="8"
+                      required
+                    />
+                    <button
+                      type="button"
+                      :aria-label="showPasswordConfirm ? t('auth.hidePassword') : t('auth.showPassword')"
+                      @click="showPasswordConfirm = !showPasswordConfirm"
+                    >
+                      <AppIcon name="eye" :size="16" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div class="signup-actions">
+              <p v-if="signupError" class="login__error" role="alert">{{ signupError }}</p>
+              <button class="ui-btn ui-btn--primary login__submit" type="submit" :disabled="signupBusy">
+                <AppIcon name="check" :size="16" />
+                {{ signupBusy ? t('common.loading') : t('auth.signupSubmit') }}
+              </button>
+              <RouterLink class="login__quiet" to="/login">{{ t('auth.backToLogin') }}</RouterLink>
+            </div>
+          </template>
+          <div v-else-if="showTwoFactor" class="ui-field">
             <FieldLabel icon="lock" for="otp">{{ t('auth.twoFactorCode') }}</FieldLabel>
             <input
               id="otp"
@@ -314,16 +499,20 @@ async function submit() {
             </div>
           </template>
 
-          <p v-if="auth.error" class="login__error" role="alert">{{ auth.error }}</p>
+          <p v-if="!registering && !signupDone && auth.error" class="login__error" role="alert">{{ auth.error }}</p>
 
-          <button class="ui-btn ui-btn--primary login__submit" type="submit" :disabled="auth.loading">
+          <button v-if="!registering && !signupDone" class="ui-btn ui-btn--primary login__submit" type="submit" :disabled="auth.loading">
             <AppIcon :name="showTwoFactor ? 'lock' : 'key'" :size="16" />
             {{ auth.loading ? t('common.loading') : showTwoFactor ? t('auth.verify') : t('auth.login') }}
           </button>
         </div>
 
-        <div class="login__form-foot">
+        <div v-if="!registering && !signupDone" class="login__form-foot">
           <p class="login__secure">{{ t('auth.secureNote') }}</p>
+          <RouterLink class="login__quiet" :to="{ path: '/login', query: { intent: 'register' } }">
+            <AppIcon name="building" :size="14" />
+            {{ t('auth.signupLink') }}
+          </RouterLink>
           <button v-if="showTwoFactor" class="login__quiet" type="button" @click="useAnotherAccount">
             <AppIcon name="account" :size="14" />
             {{ t('auth.changeAccount') }}
@@ -414,8 +603,7 @@ async function submit() {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background:
-    linear-gradient(180deg, rgba(7, 16, 24, 0.62) 0%, rgba(7, 16, 24, 0.46) 32%, rgba(7, 16, 24, 0.46) 58%, rgba(7, 16, 24, 0.74) 78%, rgba(7, 16, 24, 0.94) 100%);
+  background: rgba(7, 16, 24, 0.72);
   pointer-events: none;
 }
 
@@ -919,6 +1107,424 @@ async function submit() {
   color: var(--color-ink-brand, var(--login-primary));
 }
 
+.login__signup-bar {
+  display: none;
+}
+
+.login--signup {
+  grid-template-columns: minmax(22rem, 0.78fr) minmax(34rem, 1.22fr);
+}
+
+.login--signup .login__scene {
+  filter: brightness(0.72) contrast(1.04);
+  object-position: center 46%;
+}
+
+.login--signup .login__veil {
+  background:
+    linear-gradient(180deg, rgba(7, 16, 24, 0.88) 0%, rgba(7, 16, 24, 0.46) 46%, rgba(7, 16, 24, 0.82) 100%);
+}
+
+.login--signup .login__brand-copy {
+  justify-content: flex-start;
+  padding: 2.4rem 2.25rem 1.6rem;
+  text-align: left;
+  overflow: auto;
+}
+
+.login--signup .login__brand-top,
+.login--signup .login__brand-bottom {
+  width: min(100%, 28rem);
+  margin-inline: 0;
+}
+
+.login--signup .login__brand-top {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.login--signup .login__brand-bottom {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 1.5rem;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.login--signup .login__trade,
+.login--signup .login__brand-lead,
+.login--signup .login__foot {
+  margin-inline: 0;
+  text-align: left;
+}
+
+.login--signup .login__trade {
+  max-width: 14ch;
+  font-size: clamp(1.9rem, 2.3vw, 2.4rem);
+}
+
+.login--signup .login__brand-lead {
+  max-width: 38ch;
+  margin-top: 0.7rem;
+}
+
+.login--signup .login__points {
+  gap: 0.55rem;
+}
+
+.login--signup .login__points li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "icon title"
+    "icon desc";
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.08rem;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+}
+
+.login--signup .login__point-icon {
+  grid-area: icon;
+}
+
+.login--signup .login__point-title,
+.login--signup .login__point-desc {
+  text-align: left;
+}
+
+.login--signup .login__point-title {
+  grid-area: title;
+}
+
+.login--signup .login__point-desc {
+  grid-area: desc;
+}
+
+.login--signup .login__foot {
+  margin-top: 1.15rem;
+  padding-top: 0;
+}
+
+.login--signup .login__form-brand {
+  display: none;
+}
+
+.login__form--signup {
+  flex: 0 1 auto;
+  width: min(100%, 46rem);
+  height: auto;
+  min-height: 0;
+  max-height: 100%;
+  margin: auto;
+  padding: 1.35rem 2.35rem 1.15rem;
+  overflow: hidden;
+  justify-content: flex-start;
+}
+
+.login--signup .login__tools {
+  top: 1.35rem;
+  right: 2.35rem;
+}
+
+.login--signup .login__form-head {
+  padding-right: 9.5rem;
+}
+
+.login--signup .login__form--signup .login__form-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  justify-content: flex-start;
+}
+
+.login__form--signup h2 {
+  font-size: clamp(1.45rem, 2vw, 1.75rem);
+}
+
+.login__form--signup .login__lead {
+  max-width: 46ch;
+  font-size: 0.95rem;
+}
+
+.login__form--signup .login__form-body {
+  justify-content: flex-start;
+  overflow: auto;
+  padding-top: 0.85rem;
+}
+
+.login__form--signup :deep(.ui-input) {
+  min-height: 2.75rem;
+}
+
+.signup-section + .signup-section {
+  margin-top: 0.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e6edf3;
+}
+
+.signup-section__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+}
+
+.signup-section__step {
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: rgba(227, 155, 43, 0.16);
+  color: #8a6430;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.signup-section__title {
+  margin: 0;
+  color: #8a6430;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.signup-note {
+  margin: -0.2rem 0 0.65rem;
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.signup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 0.75rem;
+}
+
+.signup-grid :deep(.ui-field) {
+  margin-bottom: 0.7rem;
+}
+
+.signup-plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.signup-plan {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 0;
+  padding: 0.8rem 0.85rem;
+  border: 1px solid #d7e0e8;
+  border-radius: 12px;
+  background: #f7f9fb;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.signup-plan__icon {
+  display: grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 8px;
+  background: #fff;
+  color: #12243c;
+  box-shadow: inset 0 0 0 1px #e3ebf2;
+}
+
+.signup-plan:hover {
+  border-color: #c3d0db;
+  background: #fff;
+}
+
+.signup-plan input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.signup-plan.is-on {
+  border-color: var(--login-accent, #e39b2b);
+  background: #fffdf8;
+  box-shadow: 0 0 0 1px var(--login-accent, #e39b2b);
+}
+
+.signup-plan.is-on .signup-plan__icon {
+  background: rgba(227, 155, 43, 0.16);
+  color: #8a6430;
+  box-shadow: none;
+}
+
+.signup-plan:focus-within {
+  outline: 2px solid rgba(18, 36, 60, 0.28);
+  outline-offset: 2px;
+}
+
+.signup-plan__radio {
+  display: grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 1.5px solid #b7c3cf;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.signup-plan.is-on .signup-plan__radio {
+  border-color: var(--login-accent, #e39b2b);
+  background: var(--login-accent, #e39b2b);
+}
+
+.signup-plan.is-on .signup-plan__radio::after {
+  content: "";
+  width: 0.38rem;
+  height: 0.22rem;
+  margin-top: -0.12rem;
+  border-bottom: 2px solid #12243c;
+  border-left: 2px solid #12243c;
+  transform: rotate(-45deg);
+}
+
+.signup-plan__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.signup-plan__name {
+  color: #12243c;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.signup-plan__hint {
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.signup-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  padding-top: 0.75rem;
+  background: linear-gradient(to top, #fff 72%, rgb(255 255 255 / 0));
+}
+
+.signup-actions .login__quiet {
+  margin-top: 0;
+  border: 0;
+  background: transparent;
+  padding: 0.4rem 0.5rem;
+}
+
+.signup-actions .login__quiet:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--login-primary, #12243c);
+}
+
+.login__signup-mark,
+.login__signup-fallback {
+  width: 2.35rem;
+  height: 2.35rem;
+  flex-shrink: 0;
+  border-radius: 0.55rem;
+  background: #fff;
+}
+
+.login__signup-mark {
+  object-fit: contain;
+  padding: 0.2rem;
+}
+
+.login__signup-fallback {
+  display: grid;
+  place-items: center;
+  color: #12243c;
+  font-weight: 700;
+}
+
+.login__signup-id {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.login__signup-bar .login__eyebrow {
+  margin: 0;
+}
+
+.login__signup-name {
+  margin: 0.05rem 0 0;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.login__signup-bar :deep(.lang) {
+  flex-shrink: 0;
+}
+
+.signup-done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  max-width: 28rem;
+  margin: auto 0;
+}
+
+.signup-done__mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.signup-done h3 {
+  margin: 0;
+  color: #12243c;
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+}
+
+.signup-done p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.signup-done .login__submit {
+  width: auto;
+  min-width: 12rem;
+  text-decoration: none;
+}
+
 @media (max-width: 1100px) {
   .login__trade {
     font-size: 1.85rem;
@@ -929,10 +1535,10 @@ async function submit() {
   .login {
     display: flex;
     flex-direction: column;
-    height: auto;
-    max-height: none;
-    min-height: 100%;
-    overflow: visible;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .login__brand {
@@ -976,19 +1582,95 @@ async function submit() {
     justify-content: stretch;
     padding: 0;
     min-height: 0;
+    height: auto;
     width: 100%;
+    overflow: hidden;
   }
 
   .login__form {
     width: 100%;
     max-width: none;
-    min-height: 100%;
+    min-height: 0;
+    height: auto;
+    flex: 1 1 auto;
     margin: 0;
     padding: 3.5rem 1.25rem 1.25rem;
+    overflow: hidden;
+  }
+
+  .login__form-body {
+    min-height: 0;
+    justify-content: flex-start;
+    overflow: auto;
+  }
+
+  .login__form-foot {
+    flex-shrink: 0;
   }
 
   .login__label-row {
     flex-wrap: wrap;
+  }
+
+  .signup-grid,
+  .signup-plans {
+    grid-template-columns: 1fr;
+  }
+
+  .login--signup .login__brand {
+    height: auto;
+    min-height: 0;
+    background: #071018;
+  }
+
+  .login--signup .login__scene,
+  .login--signup .login__veil,
+  .login--signup .login__brand-top,
+  .login--signup .login__brand-bottom,
+  .login--signup .login__tools,
+  .login--signup .login__form-kicker {
+    display: none;
+  }
+
+  .login--signup .login__brand-copy {
+    height: auto;
+    padding: 0;
+  }
+
+  .login--signup .login__signup-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+    padding: 0.7rem 0.85rem 0.72rem;
+    border-bottom: 2px solid var(--login-accent, #e39b2b);
+  }
+
+  .login--signup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .login--signup .login__brand-copy {
+    padding: 0;
+    overflow: visible;
+    text-align: center;
+  }
+
+  .login--signup .login__form,
+  .login--signup .login__form--signup {
+    width: 100%;
+    max-height: none;
+    margin: 0;
+    padding: 1.05rem 1.05rem 0.65rem;
+    justify-content: flex-start;
+  }
+
+  .login--signup .login__form-head {
+    padding-right: 0;
+  }
+
+  .login--signup .login__lead {
+    font-size: 0.9rem;
   }
 }
 

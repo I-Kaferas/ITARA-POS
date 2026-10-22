@@ -25,12 +25,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      final images = find.byType(Image);
-      if (size.height >= 600) {
-        expect(images, findsOneWidget);
-      } else {
-        expect(images, findsNothing);
-      }
+      // Produce / fruit hero must always be on screen (wide and phone).
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.text('Votre commande'), findsOneWidget);
+      expect(find.text('Tomates'), findsOneWidget);
     });
   }
 }

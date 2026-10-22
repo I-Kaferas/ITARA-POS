@@ -262,6 +262,38 @@ class PosProduct {
     );
   }
 
+  PosProduct withStock({required int quantityOnHand, required int stockVersion}) {
+    return PosProduct(
+      storeProductId: storeProductId,
+      productId: productId,
+      sku: sku,
+      name: name,
+      price: price,
+      categoryId: categoryId,
+      barcode: barcode,
+      barcodes: barcodes,
+      taxRate: taxRate,
+      taxInclusive: taxInclusive,
+      primaryImageUrl: primaryImageUrl,
+      isAvailable: isAvailable,
+      unit: unit,
+      productType: productType,
+      variants: variants,
+      quantityOnHand: quantityOnHand,
+      stockDisplay: stockDisplay,
+      stockVersion: stockVersion,
+      bundleItems: bundleItems,
+      categoryName: categoryName,
+      lowStockThreshold: lowStockThreshold,
+      costPrice: costPrice,
+      trackExpiration: trackExpiration,
+      expiresAt: expiresAt,
+      accompanimentEnabled: accompanimentEnabled,
+      accompaniments: accompaniments,
+      saleUnits: saleUnits,
+    );
+  }
+
   static String _text(dynamic value, {String fallback = ''}) {
     if (value == null) return fallback;
     final text = value.toString().trim();
@@ -550,7 +582,7 @@ class PosCartLine {
 
   final String lineId;
   final PosProduct product;
-  final int unitPrice;
+  int unitPrice;
   final String? variantId;
   final String? variantLabel;
   final String? saleUnitId;
@@ -562,6 +594,22 @@ class PosCartLine {
   int lineDiscountFixed;
 
   int get lineSubtotal => unitPrice * quantity;
+
+  /// Quantity to deduct from on-hand stock (matches server `stockQuantity()`).
+  /// Beverage sale units consume `quantity × volume_ml`; plain SKUs consume `quantity`.
+  int get stockQuantity {
+    final unitId = saleUnitId;
+    if (unitId != null && unitId.isNotEmpty) {
+      final unit = product.saleUnits.cast<PosSaleUnit?>().firstWhere(
+            (item) => item!.id == unitId,
+            orElse: () => null,
+          );
+      if (unit != null && unit.volumeMl > 0) {
+        return quantity * unit.volumeMl;
+      }
+    }
+    return quantity;
+  }
 
   int get lineTax {
     final base = (lineSubtotal - lineDiscountFixed).clamp(0, lineSubtotal);
@@ -580,13 +628,35 @@ class PosCartLine {
         'name': displayName,
         if (product.sku.isNotEmpty) 'sku': product.sku,
         'quantity': quantity,
+        'stock_quantity': stockQuantity,
         'unit_price': unitPrice,
+        'tax_rate': taxRate,
+        'tax_inclusive': taxInclusive,
+        if (product.storeProductId.isNotEmpty) 'store_product_id': product.storeProductId,
+        if (product.quantityOnHand != null) 'quantity_on_hand': product.quantityOnHand,
+        'stock_version': product.stockVersion,
+        if (product.bundleItems.isNotEmpty)
+          'bundle_items': product.bundleItems.map((item) => item.toJson()).toList(),
         if (variantId != null && variantId!.isNotEmpty) 'product_variant_id': variantId,
         if (saleUnitId != null && saleUnitId!.isNotEmpty) 'sale_unit_id': saleUnitId,
         if (isAccompaniment) 'is_accompaniment': true,
         if (parentLineId != null && parentLineId!.isNotEmpty) 'parent_line_id': parentLineId,
         if (lineDiscountFixed > 0) 'line_discount_fixed': lineDiscountFixed,
       };
+
+  /// Local stock snapshot used when SQLite has no `quantity_on_hand` yet.
+  Map<String, dynamic>? get stockUpdatePreview {
+    final onHand = product.quantityOnHand;
+    if (onHand == null || isAccompaniment) return null;
+    final qty = stockQuantity;
+    if (qty <= 0) return null;
+    return {
+      'product_id': product.productId,
+      if (product.storeProductId.isNotEmpty) 'store_product_id': product.storeProductId,
+      'quantity_on_hand': onHand - qty,
+      'stock_version': product.stockVersion + 1,
+    };
+  }
 
   Map<String, dynamic> toJson() => {
         'line_id': lineId,
@@ -671,6 +741,8 @@ class PosHeldSale {
     this.fees = const [],
     this.tableId,
     this.tableLabel,
+    this.uploadedAt,
+    this.syncError,
   });
 
   final String id;
@@ -685,6 +757,8 @@ class PosHeldSale {
   final List<int> fees;
   final String? tableId;
   final String? tableLabel;
+  final String? uploadedAt;
+  final String? syncError;
 
   int get itemCount => lines.fold(0, (sum, line) => sum + line.quantity);
 
@@ -699,6 +773,8 @@ class PosHeldSale {
         'fees': fees,
         if (tableId != null && tableId!.isNotEmpty) 'table_id': tableId,
         if (tableLabel != null && tableLabel!.isNotEmpty) 'table_label': tableLabel,
+        if (uploadedAt != null && uploadedAt!.isNotEmpty) 'uploaded_at': uploadedAt,
+        if (syncError != null && syncError!.isNotEmpty) 'sync_error': syncError,
         'customer': customer?.toJson(),
         'customer_id': customer?.saleCustomerId,
         'notes': note,
@@ -726,6 +802,8 @@ class PosHeldSale {
           .toList(),
       tableId: json['table_id']?.toString(),
       tableLabel: json['table_label']?.toString(),
+      uploadedAt: json['uploaded_at']?.toString(),
+      syncError: json['sync_error']?.toString(),
     );
   }
 

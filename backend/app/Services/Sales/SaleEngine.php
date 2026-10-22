@@ -201,9 +201,48 @@ class SaleEngine
         });
     }
 
+    /**
+     * A ticket with no settled tender is an unpaid order, not a completed sale.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function isUnpaidOrder(array $payload): bool
+    {
+        $payments = $payload['payments'] ?? null;
+        if (! is_array($payments) || $payments === []) {
+            return true;
+        }
+
+        $settled = 0;
+        foreach ($payments as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+            $method = strtolower((string) ($line['method'] ?? ''));
+            if (in_array($method, ['unpaid', 'on_account', 'house', 'house_offer', 'pending', 'held'], true)) {
+                continue;
+            }
+            $settled += (int) ($line['amount'] ?? 0);
+        }
+
+        return $settled <= 0;
+    }
+
     /** @param  array<string, mixed>  $payload */
     public function hold(Store $store, array $payload, User $user): Sale
     {
+        $key = trim((string) ($payload['idempotency_key'] ?? ''));
+        if ($key !== '') {
+            $existing = $this->findByIdempotencyKey($store->tenant_id, $key);
+            if ($existing !== null) {
+                if ($existing->status === SaleStatus::Pending) {
+                    return $this->updateHold($existing, $payload, $user);
+                }
+
+                return $existing->fresh(['items', 'customer', 'discounts']);
+            }
+        }
+
         $isTableOrder = ! empty($payload['table_id']);
         if (($payload['items'] ?? []) === [] && ! $isTableOrder) {
             throw ValidationException::withMessages([

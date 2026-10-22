@@ -276,8 +276,9 @@ class SyncEngine extends ChangeNotifier {
     return lastReport;
   }
 
-  /// Upload, verify nothing is left unsent, back up, then purge acknowledged
-  /// local movements. Nothing is deleted unless every operation is synced.
+  /// Upload, verify nothing is left unsent, then back up. Synced shifts and
+  /// orders stay on this device. Nothing is deleted unless every operation
+  /// is synced, and even then only the upload queue is cleared.
   Future<SyncReport> closePeriod({void Function(ClosePeriodStep step)? onStep}) async {
     onStep?.call(ClosePeriodStep.upload);
     await OfflineStore.instance.reconcileAckedSales();
@@ -288,7 +289,10 @@ class SyncEngine extends ChangeNotifier {
     onStep?.call(ClosePeriodStep.verify);
     await OfflineStore.instance.reconcileAckedSales();
     await refreshCounts();
-    final blocked = await OfflineStore.instance.blockingOperationLabels();
+    final blocked = [
+      ...await OfflineStore.instance.blockingOperationLabels(),
+      ...await OfflineStore.instance.unpushedHoldLabels(),
+    ];
     if (blocked.isNotEmpty) {
       final preview = blocked.take(6).join('\n');
       lastReport = SyncReport(
@@ -304,11 +308,10 @@ class SyncEngine extends ChangeNotifier {
     await BackupService.instance.create(upload: false);
     onStep?.call(ClosePeriodStep.clean);
     final purged = await OfflineStore.instance.purgeSyncedMovements();
-    final removed = purged.values.fold<int>(0, (sum, value) => sum + value);
     await OfflineStore.instance.log('info', 'Period closed · $purged');
     await refreshCounts(forceNotify: true);
     lastReport = SyncReport(
-      message: trf('Période clôturée · {0} ligne(s) locale(s) nettoyée(s)', [removed]),
+      message: tr('Période clôturée. Les shifts et les commandes restent sur cet appareil.'),
       sent: upload.sent,
     );
     notifyListeners();
@@ -331,8 +334,18 @@ class SyncEngine extends ChangeNotifier {
         connectivity = _connectivityForIdle();
         return lastReport = SyncReport(ok: false, message: lastError!);
       }
+      await OfflineStore.instance.log('info', 'Download · catalogue + stock (cloud + pending locaux)');
       final catalog = await _refreshCatalogCounts();
       final refs = await _pullReferenceCounts();
+      if (activeTarget == _internalBase) {
+        try {
+          await _pullMasterStock();
+        } catch (_) {}
+      } else if (CloudSyncEngine.instance.isAllowed) {
+        try {
+          await CloudSyncEngine.instance.syncModule(CloudSyncModule.stock);
+        } catch (_) {}
+      }
       lastSyncAt = DateTime.now();
       lastError = null;
       connectivity = _connectivityForIdle();
@@ -375,9 +388,20 @@ class SyncEngine extends ChangeNotifier {
         connectivity = _connectivityForIdle();
         return lastReport = SyncReport(ok: false, message: lastError!);
       }
+      // Ordre: upload → ACK (dans _drainQueue) → download → recalcul local (pending).
       final sent = await _drainQueue();
+      await _pushLocalHolds();
       final catalog = await _refreshCatalogCounts();
       final refs = await _pullReferenceCounts();
+      if (activeTarget == _internalBase) {
+        try {
+          await _pullMasterStock();
+        } catch (_) {}
+      } else if (CloudSyncEngine.instance.isAllowed) {
+        try {
+          await CloudSyncEngine.instance.syncModule(CloudSyncModule.stock);
+        } catch (_) {}
+      }
       lastSyncAt = DateTime.now();
       lastError = null;
       connectivity = _connectivityForIdle();
@@ -505,6 +529,17 @@ class SyncEngine extends ChangeNotifier {
         lastReport = cloud.toSyncReport();
         final productsPulled = cloud.pulled[CloudSyncEntity.products] ?? 0;
         if (cloud.totalPulled > 0 || productsPulled > 0) catalogRevision++;
+        if (pushOutbound) {
+          final unpaidLeft = await _pushLocalHolds();
+          if (unpaidLeft > 0) {
+            final note = trf('{0} commande(s) impayée(s) non synchronisée(s).', [unpaidLeft]);
+            lastError = cloud.ok ? note : '${cloud.message}\n$note';
+            connectivity = ConnectivityState.syncError;
+            lastReport = SyncReport(ok: false, message: lastError!, sent: cloud.totalPushed);
+            notifyListeners();
+            return;
+          }
+        }
         if (showBusy || !cloud.ok || cloud.totalPushed > 0 || cloud.totalPulled > 0) {
           notifyListeners();
         }
@@ -514,7 +549,14 @@ class SyncEngine extends ChangeNotifier {
       try {
         await _heartbeat();
       } catch (_) {}
+      // Ordre: upload → ACK → download → recalcul local (pending dans applyAuthoritativeStock).
+      if (pushOutbound) {
+        await OfflineStore.instance.log('info', 'Sync · upload file + ACK');
+        sent = await _drainQueue();
+        await _pushLocalHolds();
+      }
       try {
+        await OfflineStore.instance.log('info', 'Sync · download références / stock');
         if (forcePull || await _shouldPull()) {
           final catalog = await _pullCatalog(replaceAll: forcePull);
           products = catalog.products;
@@ -532,13 +574,6 @@ class SyncEngine extends ChangeNotifier {
           currencies = refs.currencies;
           taxes = refs.taxes;
         }
-      } catch (error) {
-        lastError = _syncFailure(error);
-        await OfflineStore.instance.log('error', lastError!);
-      }
-      if (pushOutbound) {
-        sent = await _drainQueue();
-        await _pushLocalHolds();
         if (activeTarget == _internalBase) {
           try {
             final stockTouched = await _pullMasterStock();
@@ -548,6 +583,9 @@ class SyncEngine extends ChangeNotifier {
             await pullMasterConfig();
           } catch (_) {}
         }
+      } catch (error) {
+        lastError = _syncFailure(error);
+        await OfflineStore.instance.log('error', lastError!);
       }
       lastSyncAt = DateTime.now();
       lastError = null;
@@ -872,51 +910,185 @@ class SyncEngine extends ChangeNotifier {
     return methods.length;
   }
 
-  Future<void> _pushLocalHolds() async {
+  /// Uploads parked tickets. Returns how many unpaid orders are still local.
+  Future<int> _pushLocalHolds() async {
     final target = activeTarget;
-    if (target == null) return;
+    if (target == null) return 0;
     final holds = await OfflineStore.instance.loadLocalHolds();
-    if (holds.isEmpty) return;
+    if (holds.isEmpty) return 0;
     final storeId = TerminalConfigRepository.instance.config.storeId;
-    if (storeId.isEmpty) return;
+    if (storeId.isEmpty) return 0;
 
     final updated = <Map<String, dynamic>>[];
+    var failed = 0;
     for (final hold in holds) {
-      final items = hold['items'];
-      if (items is! List || items.isEmpty) {
+      final items = _holdItems(hold);
+      final tableId = hold['table_id']?.toString().trim() ?? '';
+      if (items.isEmpty && tableId.isEmpty) {
         updated.add(hold);
         continue;
       }
-      final serverId = hold['server_id']?.toString();
-      final uri = serverId == null || serverId.isEmpty
-          ? Uri.parse('$target/stores/$storeId/sales/holds')
-          : Uri.parse('$target/sales/$serverId');
-      final payload = {
-        'items': items,
-        if (hold['customer_id'] != null) 'customer_id': hold['customer_id'],
-        if ((hold['notes']?.toString() ?? '').isNotEmpty) 'notes': hold['notes'],
-      };
+      final localId = hold['id']?.toString().trim() ?? '';
+      var serverId = hold['server_id']?.toString().trim() ?? '';
+      final payload = await _holdPayload(hold, items);
       try {
-        final response = await (serverId == null || serverId.isEmpty
-                ? _client.post(uri, headers: _headers, body: jsonEncode(payload))
-                : _client.put(uri, headers: _headers, body: jsonEncode(payload)))
-            .timeout(const Duration(seconds: 20));
+        var response = await _sendHold(target, storeId, serverId, payload);
+        if (response.statusCode == 404 && serverId.isNotEmpty) {
+          serverId = '';
+          response = await _sendHold(target, storeId, serverId, payload);
+        }
+        if (response.statusCode == 422) {
+          if (_holdAlreadySettled(_holdError(response))) {
+            updated.add({
+              ...hold,
+              if (serverId.isNotEmpty) 'server_id': serverId,
+              'uploaded_at': DateTime.now().toIso8601String(),
+            }..remove('sync_error'));
+            continue;
+          }
+          final relaxed = Map<String, dynamic>.from(payload)..remove('table_id')..remove('customer_id');
+          response = await _sendHold(target, storeId, serverId, relaxed);
+          if (_holdAlreadySettled(_holdError(response))) {
+            updated.add({
+              ...hold,
+              if (serverId.isNotEmpty) 'server_id': serverId,
+              'uploaded_at': DateTime.now().toIso8601String(),
+            }..remove('sync_error'));
+            continue;
+          }
+        }
         if (response.statusCode == 200 || response.statusCode == 201) {
           final body = jsonDecode(response.body) as Map<String, dynamic>;
           final data = body['data'] as Map<String, dynamic>? ?? body;
           final id = data['id']?.toString();
           updated.add({
             ...hold,
-            if (id != null && serverId == null) 'server_id': id,
-          });
+            if (serverId.isEmpty && id != null && id.isNotEmpty) 'server_id': id,
+            if (localId.isNotEmpty) 'idempotency_key': localId,
+            'uploaded_at': DateTime.now().toIso8601String(),
+          }..remove('sync_error'));
         } else {
-          updated.add(hold);
+          failed++;
+          final error = _holdError(response);
+          await OfflineStore.instance.log('error', 'Commande impayée : $error');
+          final failedHold = <String, dynamic>{
+            ...hold,
+            'sync_error': error,
+          };
+          if (serverId.isNotEmpty) failedHold['server_id'] = serverId;
+          failedHold.remove('uploaded_at');
+          updated.add(failedHold);
         }
-      } catch (_) {
-        updated.add(hold);
+      } catch (error) {
+        failed++;
+        updated.add({
+          ...hold,
+          'sync_error': _syncFailure(error),
+        }..remove('uploaded_at'));
       }
     }
     await OfflineStore.instance.saveLocalHolds(updated);
+    return failed;
+  }
+
+  Future<http.Response> _sendHold(
+    String target,
+    String storeId,
+    String serverId,
+    Map<String, dynamic> payload,
+  ) {
+    final creating = serverId.isEmpty;
+    final uri = creating
+        ? Uri.parse('$target/stores/$storeId/sales/holds')
+        : Uri.parse('$target/sales/$serverId');
+    final body = jsonEncode(payload);
+    final request = creating
+        ? _client.post(uri, headers: _headers, body: body)
+        : _client.put(uri, headers: _headers, body: body);
+    return request.timeout(const Duration(seconds: 20));
+  }
+
+  Future<Map<String, dynamic>> _holdPayload(Map<String, dynamic> hold, List<Map<String, dynamic>> items) async {
+    final notes = (hold['notes'] ?? hold['note'])?.toString().trim() ?? '';
+    final tableId = hold['table_id']?.toString().trim() ?? '';
+    final customerId = await _holdCustomerId(hold['customer_id']);
+    final localId = hold['id']?.toString().trim() ?? '';
+    final discountAmount = syncAsInt(hold['discount_amount']);
+    final discountPercent = double.tryParse('${hold['discount_percent'] ?? ''}') ?? 0;
+    return {
+      'items': items,
+      if (localId.isNotEmpty) 'idempotency_key': localId,
+      if (customerId != null) 'customer_id': customerId,
+      if (notes.isNotEmpty) 'notes': notes,
+      if (tableId.isNotEmpty) 'table_id': tableId,
+      if (discountAmount > 0) 'global_discount': {'type': 'fixed', 'value': discountAmount},
+      if (discountAmount <= 0 && discountPercent > 0)
+        'global_discount': {'type': 'percent', 'value': discountPercent},
+    };
+  }
+
+  List<Map<String, dynamic>> _holdItems(Map<String, dynamic> hold) {
+    final raw = hold['items'];
+    if (raw is! List) return const [];
+    final items = <Map<String, dynamic>>[];
+    for (final entry in raw) {
+      if (entry is! Map) continue;
+      final item = Map<String, dynamic>.from(entry);
+      final productId = item['product_id']?.toString().trim() ?? '';
+      final quantity = syncAsInt(item['quantity']);
+      if (productId.isEmpty || quantity < 1) continue;
+      final discount = syncAsInt(item['line_discount_fixed']);
+      items.add({
+        'product_id': productId,
+        'quantity': quantity,
+        if (item['unit_price'] != null) 'unit_price': syncAsInt(item['unit_price']),
+        if ((item['product_variant_id']?.toString().trim().isNotEmpty ?? false))
+          'product_variant_id': item['product_variant_id'],
+        if ((item['sale_unit_id']?.toString().trim().isNotEmpty ?? false))
+          'sale_unit_id': item['sale_unit_id'],
+        if (discount > 0) 'line_discount': {'type': 'fixed', 'value': discount},
+      });
+    }
+    return items;
+  }
+
+  Future<String?> _holdCustomerId(dynamic raw) async {
+    final id = raw?.toString().trim() ?? '';
+    if (id.isEmpty) return null;
+    final customer = await OfflineStore.instance.findCustomer(id);
+    if (customer == null) return id;
+    if (customer.pending || customer.serverId == null || customer.serverId!.isEmpty) return null;
+    return customer.serverId;
+  }
+
+  bool _holdAlreadySettled(String error) {
+    final text = error.toLowerCase();
+    return text.contains('en attente') ||
+        text.contains('peuvent être modifiées') ||
+        text.contains('déjà payée') ||
+        text.contains('already paid');
+  }
+
+  String _holdError(http.Response response) {
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map) {
+        final errors = body['errors'];
+        if (errors is Map) {
+          for (final value in errors.values) {
+            if (value is List && value.isNotEmpty) return value.first.toString();
+            if (value != null && value.toString().trim().isNotEmpty) return value.toString();
+          }
+        }
+        final message = body['message']?.toString().trim() ?? '';
+        if (message.isNotEmpty &&
+            message != 'The given data was invalid.' &&
+            !message.startsWith('errors.')) {
+          return message;
+        }
+      }
+    } catch (_) {}
+    return 'HTTP ${response.statusCode}';
   }
 
   Future<void> _pushShifts() async {
@@ -924,10 +1096,15 @@ class SyncEngine extends ChangeNotifier {
     if (target == null || target != _cloudBase) return;
     try {
       await ShiftSync.instance.push(
-        (body) => _authorized(
+        postPush: (body) => _authorized(
           () => _client
               .post(Uri.parse('$target/sync/push'), headers: _headers, body: body)
               .timeout(const Duration(seconds: 30)),
+        ),
+        postAck: (body) => _authorized(
+          () => _client
+              .post(Uri.parse('$target/sync/ack'), headers: _headers, body: body)
+              .timeout(const Duration(seconds: 20)),
         ),
       );
     } catch (error) {
@@ -1307,9 +1484,18 @@ class SyncEngine extends ChangeNotifier {
   }
 
   /// Local stock / catalog rows changed — POS reloads from the SQLite cache.
-  void markCatalogChanged({List<Map<String, dynamic>> stock = const []}) {
-    catalogRevision++;
-    notifyListeners();
+  ///
+  /// Set [bumpRevision] to false after a local sale when stock was already
+  /// applied to the product grid; bumping would reload the catalog and can
+  /// briefly restore the pre-sale quantity.
+  void markCatalogChanged({
+    List<Map<String, dynamic>> stock = const [],
+    bool bumpRevision = true,
+  }) {
+    if (bumpRevision) {
+      catalogRevision++;
+      notifyListeners();
+    }
     final config = TerminalConfigRepository.instance.config;
     if (!config.isMaster) return;
     LocalRealtimeHub.instance.publish(RealtimeEvent(

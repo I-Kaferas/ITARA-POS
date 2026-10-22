@@ -27,6 +27,16 @@ class CashRegister {
   final CashRegisterSession? openSession;
 
   bool get hasOpenSession => openSession != null;
+
+  CashRegister copyWithSession(CashRegisterSession? session) {
+    return CashRegister(
+      id: id,
+      name: name,
+      code: code,
+      isActive: isActive,
+      openSession: session,
+    );
+  }
 }
 
 class CashRegisterSession {
@@ -47,6 +57,8 @@ class CashRegisterSession {
     this.closedAt,
     this.openedByName,
     this.openedById,
+    this.cashRegisterId,
+    this.storeId,
   });
 
   factory CashRegisterSession.fromJson(Map<String, dynamic> json) {
@@ -70,6 +82,8 @@ class CashRegisterSession {
           : null,
       openedByName: openedBy?['name'] as String?,
       openedById: json['user_id']?.toString(),
+      cashRegisterId: json['cash_register_id']?.toString(),
+      storeId: json['store_id']?.toString(),
     );
   }
 
@@ -89,6 +103,8 @@ class CashRegisterSession {
   final DateTime? closedAt;
   final String? openedByName;
   final String? openedById;
+  final String? cashRegisterId;
+  final String? storeId;
 
   bool get isOpen => status.toLowerCase() == 'open' && closedAt == null;
 

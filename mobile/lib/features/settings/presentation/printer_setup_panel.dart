@@ -15,9 +15,8 @@ import '../../printers/services/printer_service.dart';
 import '../../printers/services/raw_printer_output.dart';
 import 'package:pos_mobile/core/theme/app_typography.dart';
 
-Color get _accent => AppColors.brandInk;
-Color get _onAccent =>
-    _accent.computeLuminance() > 0.5 ? AppColors.brand900 : Colors.white;
+Color get _accent => AppColors.accent;
+Color get _onAccent => AppColors.brand900;
 
 class _Status {
   const _Status(this.ok, this.message);

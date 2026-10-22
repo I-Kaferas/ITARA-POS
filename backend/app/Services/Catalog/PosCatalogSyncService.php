@@ -371,6 +371,7 @@ class PosCatalogSyncService
             'track_batch' => $product->track_batch,
             'track_expiration' => $product->track_expiration,
             'tax_rate' => $product->tax?->rate,
+            'tax_inclusive' => (bool) ($product->tax?->is_inclusive ?? false),
             'price' => $product->effectivePrice('retail', $store),
             'prices' => [],
             'default_price_type' => 'retail',

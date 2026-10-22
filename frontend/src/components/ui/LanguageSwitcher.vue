@@ -11,8 +11,10 @@ import LanguageFlag from './LanguageFlag.vue'
 
 withDefaults(defineProps<{
   tone?: 'light' | 'glass'
+  compact?: boolean
 }>(), {
   tone: 'light',
+  compact: false,
 })
 
 const { t, locale } = useI18n()
@@ -118,7 +120,7 @@ onBeforeUnmount(() => {
       <span class="lang__mark" aria-hidden="true">
         <LanguageFlag :locale="current" />
       </span>
-      <span class="lang__current">{{ currentMeta.native }}</span>
+      <span class="lang__current">{{ compact ? currentMeta.code : currentMeta.native }}</span>
       <svg class="lang__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M7 10l5 5 5-5" />
       </svg>

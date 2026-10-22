@@ -43,6 +43,11 @@ const bar = ref<HTMLElement | null>(null)
 const retryButton = ref<HTMLButtonElement | null>(null)
 const showImage = computed(() => Boolean(props.logoUrl) && !logoFailed.value)
 const mark = computed(() => (props.brandName.trim().charAt(0) || 'I').toUpperCase())
+const line = computed(() => props.tagline.trim())
+const edition = computed(() => {
+  const v = props.version.trim()
+  return v ? `v${v.replace(/^v/i, '')}` : ''
+})
 
 const statusText = computed(() => {
   if (failed.value) return t('auth.splashError')
@@ -117,7 +122,7 @@ function beginLeave() {
   if (leaving.value || finished || failed.value) return
   stopClock()
   leaving.value = true
-  const wait = reduced ? 0 : 220
+  const wait = reduced ? 0 : 320
   leaveId = window.setTimeout(() => {
     if (finished) return
     finished = true
@@ -191,26 +196,51 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       class="splash"
-      :class="{ 'splash--leaving': leaving }"
+      :class="{ 'splash--leaving': leaving, 'splash--failed': failed }"
       :aria-busy="!failed && !leaving"
       aria-labelledby="workspace-splash-title"
     >
-      <div class="splash__card">
-        <div class="splash__logo" aria-hidden="true">
-          <img
-            v-if="showImage"
-            class="splash__logo-img"
-            :src="logoUrl"
-            alt=""
-            @error="logoFailed = true"
-          />
-          <span v-else class="splash__mark">{{ mark }}</span>
+      <div class="splash__stage" aria-hidden="true">
+        <span class="splash__corner splash__corner--tl" />
+        <span class="splash__corner splash__corner--tr" />
+        <span class="splash__corner splash__corner--bl" />
+        <span class="splash__corner splash__corner--br" />
+        <span class="splash__rail splash__rail--v splash__rail--left" />
+        <span class="splash__rail splash__rail--v splash__rail--right" />
+        <span class="splash__rail splash__rail--h splash__rail--top" />
+        <span class="splash__rail splash__rail--h splash__rail--bottom" />
+      </div>
+
+      <div class="splash__core">
+        <div class="splash__mark-wrap" aria-hidden="true">
+          <div class="splash__logo">
+            <img
+              v-if="showImage"
+              class="splash__logo-img"
+              :src="logoUrl"
+              alt=""
+              @error="logoFailed = true"
+            />
+            <span v-else class="splash__glyph">{{ mark }}</span>
+          </div>
         </div>
 
         <p id="workspace-splash-title" class="splash__name">{{ brandName }}</p>
+        <span class="splash__rule" aria-hidden="true" />
 
-        <p v-if="failed" class="splash__status" role="alert">{{ statusText }}</p>
-        <p v-else class="splash__status" role="status" aria-live="polite">{{ statusText }}</p>
+        <p v-if="line" class="splash__tagline">{{ line }}</p>
+
+        <p
+          v-if="failed"
+          class="splash__status splash__status--alert"
+          role="alert"
+        >{{ statusText }}</p>
+        <p
+          v-else
+          class="splash__status"
+          role="status"
+          aria-live="polite"
+        >{{ statusText }}</p>
 
         <div
           v-if="!failed"
@@ -235,127 +265,339 @@ onBeforeUnmount(() => {
           {{ t('auth.splashRetry') }}
         </button>
       </div>
+
+      <footer class="splash__foot">
+        <span class="splash__product">ITARA</span>
+        <span v-if="edition" class="splash__sep" aria-hidden="true" />
+        <span v-if="edition" class="splash__edition">{{ edition }}</span>
+      </footer>
     </div>
   </Teleport>
 </template>
 
 <style scoped>
 .splash {
+  --splash-ink: #0a1523;
+  --splash-ink-lift: #12243c;
+  --splash-paper: #f4f6f8;
+  --splash-mute: rgba(244, 246, 248, 0.48);
+  --splash-line: rgba(244, 246, 248, 0.14);
+  --splash-gold: #e39b2b;
+  --splash-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   z-index: 120;
   box-sizing: border-box;
   display: grid;
   place-items: center;
-  /* html zoom shrinks 100vh, so divide it back out to cover the real window. */
   width: calc(100vw / var(--ui-zoom, 1));
   min-width: calc(100vw / var(--ui-zoom, 1));
   height: calc(100vh / var(--ui-zoom, 1));
   height: calc(100dvh / var(--ui-zoom, 1));
   min-height: calc(100vh / var(--ui-zoom, 1));
   min-height: calc(100dvh / var(--ui-zoom, 1));
-  padding: 1.5rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
   overflow: hidden;
-  background: #e7edf3;
-  color: #12243c;
+  background: var(--splash-ink);
+  color: var(--splash-paper);
+  font-family: var(--font-display, "Plus Jakarta Sans", "IBM Plex Sans", sans-serif);
 }
 
 .splash--leaving {
   pointer-events: none;
-  animation: splash-out 220ms ease forwards;
+  animation: splash-out 320ms var(--splash-ease) forwards;
 }
 
-.splash__card {
+.splash__stage {
+  position: absolute;
+  inset: clamp(1rem, 2.8vw, 2rem);
+  pointer-events: none;
+}
+
+.splash__corner {
+  position: absolute;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-color: var(--splash-line);
+  border-style: solid;
+  border-width: 0;
+  opacity: 0;
+  animation: splash-rise 700ms var(--splash-ease) 40ms forwards;
+}
+
+.splash__corner--tl {
+  top: 0;
+  left: 0;
+  border-top-width: 1px;
+  border-left-width: 1px;
+}
+
+.splash__corner--tr {
+  top: 0;
+  right: 0;
+  border-top-width: 1px;
+  border-right-width: 1px;
+}
+
+.splash__corner--bl {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+}
+
+.splash__corner--br {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: 1px;
+  border-right-width: 1px;
+}
+
+.splash__rail {
+  position: absolute;
+  background: var(--splash-line);
+  opacity: 0;
+  animation: splash-fade 900ms var(--splash-ease) 120ms forwards;
+}
+
+.splash__rail--v {
+  top: 1.65rem;
+  bottom: 1.65rem;
+  width: 1px;
+}
+
+.splash__rail--h {
+  left: 1.65rem;
+  right: 1.65rem;
+  height: 1px;
+}
+
+.splash__rail--left { left: 0; }
+.splash__rail--right { right: 0; }
+.splash__rail--top { top: 0; }
+.splash__rail--bottom { bottom: 0; }
+
+.splash__core {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: min(100%, 18rem);
+  width: min(100%, 28rem);
   text-align: center;
+}
+
+.splash__mark-wrap {
+  margin-bottom: 1.65rem;
+  opacity: 0;
+  animation: splash-rise 720ms var(--splash-ease) 80ms forwards;
 }
 
 .splash__logo {
   display: grid;
   place-items: center;
-  width: 3.25rem;
-  height: 3.25rem;
-  margin-bottom: 0.9rem;
-  border-radius: 0.8rem;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(18, 36, 60, 0.08);
+  width: 4.25rem;
+  height: 4.25rem;
+  border: 1px solid var(--splash-line);
+  background: var(--splash-ink-lift);
 }
 
 .splash__logo-img {
   display: block;
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 2.55rem;
+  height: 2.55rem;
   object-fit: contain;
 }
 
-.splash__mark {
-  font-size: 1.15rem;
-  font-weight: 650;
-  color: #12243c;
+.splash__glyph {
+  font-size: 1.55rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--splash-paper);
+  line-height: 1;
 }
 
 .splash__name {
   margin: 0;
-  font-size: 1.15rem;
+  max-width: 100%;
+  font-size: clamp(1.85rem, 4.2vw, 2.85rem);
   font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-  color: #12243c;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  color: var(--splash-paper);
+  opacity: 0;
+  animation: splash-rise 760ms var(--splash-ease) 160ms forwards;
+}
+
+.splash__rule {
+  display: block;
+  width: 2rem;
+  height: 2px;
+  margin-top: 1.15rem;
+  background: var(--splash-gold);
+  opacity: 0;
+  animation: splash-rule 700ms var(--splash-ease) 280ms forwards;
+}
+
+.splash__tagline {
+  margin: 0.95rem 0 0;
+  max-width: 22rem;
+  font-size: 0.95rem;
+  font-weight: 450;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  color: var(--splash-mute);
+  opacity: 0;
+  animation: splash-rise 720ms var(--splash-ease) 320ms forwards;
 }
 
 .splash__status {
-  margin: 0.4rem 0 0;
+  margin: 1.35rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 550;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--splash-mute);
+  opacity: 0;
+  animation: splash-rise 700ms var(--splash-ease) 380ms forwards;
+}
+
+.splash__status--alert {
+  color: #f0b4af;
+  letter-spacing: 0.08em;
+  text-transform: none;
   font-size: 0.9rem;
-  line-height: 1.4;
-  color: #5c6b7a;
 }
 
 .splash__meter {
-  width: 8.5rem;
-  height: 3px;
-  margin-top: 1.1rem;
+  width: 9.5rem;
+  height: 1px;
+  margin-top: 1.45rem;
   overflow: hidden;
-  border-radius: 999px;
-  background: rgba(18, 36, 60, 0.12);
+  background: rgba(244, 246, 248, 0.16);
+  opacity: 0;
+  animation: splash-fade 700ms var(--splash-ease) 420ms forwards;
 }
 
 .splash__meter-fill {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: inherit;
-  background: #12243c;
+  background: var(--splash-paper);
   transform: scaleX(0.04);
   transform-origin: left center;
 }
 
 .splash__retry {
-  margin-top: 1rem;
-  padding: 0.55rem 0.9rem;
-  border: 0;
-  border-radius: 8px;
-  background: #12243c;
-  color: #fff;
+  margin-top: 1.4rem;
+  padding: 0.72rem 1.35rem;
+  border: 1px solid rgba(244, 246, 248, 0.28);
+  background: var(--splash-paper);
+  color: var(--splash-ink);
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.88rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
   cursor: pointer;
+  opacity: 0;
+  animation: splash-rise 560ms var(--splash-ease) 120ms forwards;
 }
 
 .splash__retry:disabled {
-  opacity: 0.7;
+  opacity: 0.65;
   cursor: default;
 }
 
+.splash__retry:focus-visible {
+  outline: 2px solid var(--splash-gold);
+  outline-offset: 3px;
+}
+
+.splash__foot {
+  position: absolute;
+  bottom: clamp(1.35rem, 3.5vh, 2.4rem);
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: splash-fade 800ms var(--splash-ease) 480ms forwards;
+}
+
+.splash__product {
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(244, 246, 248, 0.38);
+}
+
+.splash__sep {
+  width: 1px;
+  height: 0.7rem;
+  background: rgba(244, 246, 248, 0.22);
+}
+
+.splash__edition {
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: rgba(244, 246, 248, 0.32);
+}
+
+@keyframes splash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes splash-rule {
+  from {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
 @keyframes splash-out {
-  to { opacity: 0; }
+  to {
+    opacity: 0;
+    transform: scale(1.015);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .splash__corner,
+  .splash__rail,
+  .splash__mark-wrap,
+  .splash__name,
+  .splash__rule,
+  .splash__tagline,
+  .splash__status,
+  .splash__meter,
+  .splash__retry,
+  .splash__foot {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
   .splash--leaving {
     animation: none;
   }

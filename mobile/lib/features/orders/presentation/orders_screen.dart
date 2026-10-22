@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/config/terminal_config_repository.dart';
+import '../../../core/layout/android_form_factor.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
@@ -67,6 +68,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     super.initState();
     _boundStoreId = TerminalConfigRepository.instance.config.storeId;
     OfflineStore.instance.holdsRevision.addListener(_onHoldsChanged);
+    OfflineStore.instance.salesRevision.addListener(_onSalesChanged);
     TerminalConfigRepository.instance.addListener(_onStoreChanged);
     _load();
   }
@@ -74,6 +76,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void dispose() {
     OfflineStore.instance.holdsRevision.removeListener(_onHoldsChanged);
+    OfflineStore.instance.salesRevision.removeListener(_onSalesChanged);
     TerminalConfigRepository.instance.removeListener(_onStoreChanged);
     _search.dispose();
     super.dispose();
@@ -91,17 +94,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
     _load();
   }
 
-  void _onHoldsChanged() {
-    if (!mounted) return;
-    _refreshHolds();
-  }
+  Future<void> _ventesReload = Future<void>.value();
 
-  Future<void> _refreshHolds() async {
-    final storeId = TerminalConfigRepository.instance.config.storeId;
-    final holds = OfflineStore.instance.holdsForStore(await OfflineStore.instance.loadLocalHolds(), storeId);
-    if (!mounted || TerminalConfigRepository.instance.config.storeId != storeId) return;
-    setState(() {
-      _holds = holds.map(_SaleRow.fromHold).where((sale) => sale.reference.isNotEmpty).toList();
+  void _onHoldsChanged() => _scheduleVentesReload();
+
+  void _onSalesChanged() => _scheduleVentesReload();
+
+  void _scheduleVentesReload() {
+    if (!mounted) return;
+    _ventesReload = _ventesReload.then((_) async {
+      if (!mounted) return;
+      await _loadLocalSales();
     });
   }
 
@@ -584,6 +587,44 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return name.isEmpty ? '—' : name;
   }
 
+  Future<void> _hydrateSaleLines(String id) async {
+    final sale = _venteRows.where((item) => item.id == id).firstOrNull;
+    if (sale == null || sale.lines.isNotEmpty) return;
+
+    final remoteId = sale.detailId;
+    Map<String, dynamic>? detail;
+    if (remoteId != null && remoteId.isNotEmpty && _canReachNetwork) {
+      try {
+        detail = await _posApi.fetchSale(remoteId);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+
+    final lines = detail == null
+        ? _linesFromMatchingHold(sale)
+        : _lineDetailsFromItems(detail['items'], _catalogNames);
+    if (lines.isEmpty) return;
+
+    final updated = sale.withLines(
+      lines,
+      note: sale.note ?? detail?['notes']?.toString(),
+      taxTotal: detail == null ? null : _moneyInt(detail['tax_total']),
+      subtotalAmount: detail == null ? null : _moneyInt(detail['subtotal']),
+    );
+    setState(() {
+      _sales = [for (final row in _sales) if (row.id == sale.id) updated else row];
+      _holds = [for (final row in _holds) if (row.id == sale.id) updated else row];
+    });
+  }
+
+  List<_LineDetail> _linesFromMatchingHold(_SaleRow sale) {
+    for (final hold in _holds) {
+      final same = hold.id == sale.id || (sale.serverId != null && hold.serverId == sale.serverId) || hold.serverId == sale.id || hold.id == sale.serverId;
+      if (same && hold.lines.isNotEmpty) return hold.lines;
+    }
+    return const [];
+  }
+
   String _laneLabel(String lane) => switch (lane) {
         'open' => 'Open',
         'progress' => 'In Progress',
@@ -634,10 +675,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   Future<void> _open(String id) async {
     setState(() => _selectedId = id);
+    if (_section == 0) await _hydrateSaleLines(id);
     if (!mounted) return;
     final detail = _detail;
     if (detail == null) return;
-    final narrow = MediaQuery.sizeOf(context).width < 700;
+    final narrow =
+        MediaQuery.sizeOf(context).width < AndroidLayout.ordersDetailDialog;
     if (narrow) {
       await Navigator.of(context, rootNavigator: true).push<void>(
         MaterialPageRoute<void>(
@@ -693,7 +736,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 980;
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width >= AndroidLayout.contentWide;
+    final mobile = width < AndroidLayout.tabletMax;
     final items = _items;
     final config = TerminalConfigRepository.instance.config;
     final place = config.deviceName.trim().isEmpty
@@ -715,7 +760,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
           if (!config.canManageOrders)
             const SlaveModeBanner(message: 'Consultation seule — les achats sont gérés par le master.'),
           Padding(
-            padding: EdgeInsets.fromLTRB(wide ? 20 : 14, 16, wide ? 20 : 14, 0),
+            padding: EdgeInsets.fromLTRB(
+              wide ? 20 : (mobile ? 12 : 14),
+              mobile ? 10 : 16,
+              wide ? 20 : (mobile ? 12 : 14),
+              0,
+            ),
             child: _OrdersChrome(
               search: _search,
               place: place,
@@ -776,76 +826,120 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     children: [
                       Expanded(
                         child: Padding(
-                          padding: EdgeInsets.fromLTRB(wide ? 20 : 14, 12, wide ? 12 : 14, 16),
+                          padding: EdgeInsets.fromLTRB(
+                            wide ? 20 : (mobile ? 12 : 14),
+                            mobile ? 10 : 12,
+                            wide ? 12 : (mobile ? 12 : 14),
+                            mobile ? 12 : 16,
+                          ),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
-                              final tableWidth = constraints.maxWidth < 760 ? 920.0 : constraints.maxWidth;
+                              Widget rowFor(_ListItem item) {
+                                final sale = _section == 0
+                                    ? _venteRows.where((row) => row.id == item.id).firstOrNull
+                                    : null;
+                                final invoiceId = sale == null
+                                    ? null
+                                    : (!sale.isRemote && sale.id.isNotEmpty
+                                        ? sale.id
+                                        : (sale.detailId ?? sale.id));
+                                final busy = _docBusyId != null &&
+                                    (sale?.detailId == _docBusyId || invoiceId == _docBusyId);
+                                final onReceipt = sale != null && sale.canIssueDocs && !busy
+                                    ? () => _createReceipt(sale)
+                                    : null;
+                                final onInvoice = sale != null && sale.isPaidOrder && !busy
+                                    ? () => _createInvoice(sale)
+                                    : null;
+                                final onMerge = sale != null && sale.canMerge
+                                    ? () => _mergeSale(sale)
+                                    : null;
+                                final onResume = sale != null && sale.canResume
+                                    ? () => _resumeSale(sale)
+                                    : null;
+                                if (constraints.maxWidth < AndroidLayout.ordersTableMin) {
+                                  return _OrderCard(
+                                    item: item,
+                                    selected: _selectedId == item.id,
+                                    busy: busy,
+                                    onTap: () => _open(item.id),
+                                    onView: () => _open(item.id),
+                                    onReceipt: onReceipt,
+                                    onInvoice: onInvoice,
+                                    onMerge: onMerge,
+                                    onResume: onResume,
+                                  );
+                                }
+                                return _OrderTableRow(
+                                  item: item,
+                                  selected: _selectedId == item.id,
+                                  busy: busy,
+                                  onTap: () => _open(item.id),
+                                  onView: () => _open(item.id),
+                                  onReceipt: onReceipt,
+                                  onInvoice: onInvoice,
+                                  onMerge: onMerge,
+                                  onResume: onResume,
+                                );
+                              }
+
+                              if (constraints.maxWidth < AndroidLayout.ordersTableMin) {
+                                return RefreshIndicator(
+                                  color: PosUi.deskAccent,
+                                  onRefresh: _load,
+                                  child: items.isEmpty
+                                      ? ListView(
+                                          physics: const AlwaysScrollableScrollPhysics(),
+                                          children: [
+                                            SizedBox(
+                                              height: constraints.maxHeight - 8,
+                                              child: const _Empty(),
+                                            ),
+                                          ],
+                                        )
+                                      : ListView.separated(
+                                          physics: const AlwaysScrollableScrollPhysics(),
+                                          itemCount: items.length,
+                                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                                          itemBuilder: (context, index) => rowFor(items[index]),
+                                        ),
+                                );
+                              }
+
                               return RefreshIndicator(
                                 color: PosUi.deskAccent,
                                 onRefresh: _load,
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: SizedBox(
-                                    width: tableWidth,
-                                    height: constraints.maxHeight,
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: PosUi.deskPanel,
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(color: PosUi.deskLine),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          const _OrdersTableHeader(),
-                                          Expanded(
-                                            child: items.isEmpty
-                                                ? ListView(
-                                                    children: [
-                                                      SizedBox(
-                                                        height: constraints.maxHeight - 52,
-                                                        child: const _Empty(),
-                                                      ),
-                                                    ],
-                                                  )
-                                                : ListView.separated(
-                                                    itemCount: items.length,
-                                                    separatorBuilder: (_, _) => Divider(height: 1, color: PosUi.deskLine),
-                                                    itemBuilder: (context, index) {
-                                                      final item = items[index];
-                                                      final sale = _section == 0
-                                                          ? _venteRows.where((row) => row.id == item.id).firstOrNull
-                                                          : null;
-                                                      final invoiceId = sale == null
-                                                          ? null
-                                                          : (!sale.isRemote && sale.id.isNotEmpty
-                                                              ? sale.id
-                                                              : (sale.detailId ?? sale.id));
-                                                      final busy = _docBusyId != null &&
-                                                          (sale?.detailId == _docBusyId || invoiceId == _docBusyId);
-                                                      return _OrderTableRow(
-                                                        item: item,
-                                                        selected: _selectedId == item.id,
-                                                        busy: busy,
-                                                        onTap: () => _open(item.id),
-                                                        onView: () => _open(item.id),
-                                                        onReceipt: sale != null && sale.canIssueDocs && !busy
-                                                            ? () => _createReceipt(sale)
-                                                            : null,
-                                                        onInvoice: sale != null && sale.isPaidOrder && !busy
-                                                            ? () => _createInvoice(sale)
-                                                            : null,
-                                                        onMerge: sale != null && sale.canMerge
-                                                            ? () => _mergeSale(sale)
-                                                            : null,
-                                                        onResume: sale != null && sale.canResume
-                                                            ? () => _resumeSale(sale)
-                                                            : null,
-                                                      );
-                                                    },
-                                                  ),
-                                          ),
-                                        ],
-                                      ),
+                                child: SizedBox(
+                                  width: constraints.maxWidth,
+                                  height: constraints.maxHeight,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: PosUi.deskPanel,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: PosUi.deskLine),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        const _OrdersTableHeader(),
+                                        Expanded(
+                                          child: items.isEmpty
+                                              ? ListView(
+                                                  children: [
+                                                    SizedBox(
+                                                      height: constraints.maxHeight - 52,
+                                                      child: const _Empty(),
+                                                    ),
+                                                  ],
+                                                )
+                                              : ListView.separated(
+                                                  itemCount: items.length,
+                                                  separatorBuilder: (_, _) =>
+                                                      Divider(height: 1, color: PosUi.deskLine),
+                                                  itemBuilder: (context, index) =>
+                                                      rowFor(items[index]),
+                                                ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -908,9 +1002,137 @@ class _OrdersChrome extends StatelessWidget {
   final ValueChanged<int> onSection;
 
   static const _lanes = ['All', 'Open', 'In Progress', 'Completed', 'Cancelled'];
+  static const _sections = ['POS', 'Purchases', 'Invoices'];
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < AndroidLayout.tabletMax;
+    if (mobile) return _buildMobile(context);
+    return _buildDesk(context);
+  }
+
+  Widget _buildMobile(BuildContext context) {
+    final subtitle = switch (section) {
+      1 => 'Purchase orders',
+      2 => 'Supplier invoices',
+      _ => 'POS sales & holds',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Orders',
+                    style: AppTypography.text(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                      color: PosUi.deskText,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTypography.text(fontSize: 12.5, color: PosUi.deskMuted),
+                  ),
+                ],
+              ),
+            ),
+            _IconAction(
+              icon: Icons.refresh_rounded,
+              tooltip: 'Refresh',
+              busy: refreshing,
+              onPressed: onRefresh,
+            ),
+            const SizedBox(width: 4),
+            _IconAction(
+              icon: Icons.warning_amber_rounded,
+              tooltip: 'Quarantine',
+              selected: quarantine,
+              onPressed: onQuarantine,
+            ),
+            const SizedBox(width: 4),
+            ValueListenableBuilder<bool>(
+              valueListenable: previewBusy,
+              builder: (context, busy, _) {
+                return PopupMenuButton<String>(
+                  tooltip: 'More',
+                  color: PosUi.deskCard,
+                  enabled: !busy,
+                  onSelected: (value) {
+                    if (value == 'preview') onPreviewDisplay();
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: 'preview',
+                      child: Text('Preview customer display'),
+                    ),
+                  ],
+                  child: const _OutlineIcon(icon: Icons.more_horiz),
+                );
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SegmentBar(
+          labels: _sections,
+          selected: section,
+          onSelected: onSection,
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: search,
+          onChanged: onSearch,
+          style: AppTypography.text(fontSize: 14, color: PosUi.deskText),
+          cursorColor: PosUi.deskAccent,
+          decoration: InputDecoration(
+            hintText: 'Search order, customer, waiter…',
+            hintStyle: AppTypography.text(color: PosUi.deskMuted, fontSize: 13.5),
+            prefixIcon: Icon(Icons.search, color: PosUi.deskMuted, size: 20),
+            filled: true,
+            fillColor: PosUi.deskField,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            border: _fieldBorder(PosUi.deskLine),
+            enabledBorder: _fieldBorder(PosUi.deskLine),
+            focusedBorder: _fieldBorder(PosUi.deskAccent),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (var i = 0; i < _lanes.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                _StatusChip(
+                  label: _lanes[i],
+                  selected: !quarantine && lane == i,
+                  onTap: () => onLane(i),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _waiterFilter()),
+            const SizedBox(width: 8),
+            Expanded(child: _storeFilter()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesk(BuildContext context) {
     final subtitle = switch (section) {
       1 => 'Purchase orders',
       2 => 'Supplier invoices',
@@ -1001,38 +1223,9 @@ class _OrdersChrome extends StatelessWidget {
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(
-              child: _FilterMenu(
-                icon: Icons.person_outline,
-                value: waiterFilterEnabled
-                    ? (waiters.contains(waiter) || waiter == 'all' ? waiter : 'all')
-                    : (waiter == 'all' && waiters.isNotEmpty ? waiters.first : waiter),
-                items: waiterFilterEnabled
-                    ? [
-                        const DropdownMenuItem(value: 'all', child: Text('All waiters')),
-                        for (final name in waiters) DropdownMenuItem(value: name, child: Text(name)),
-                      ]
-                    : [
-                        DropdownMenuItem(
-                          value: waiter == 'all' && waiters.isNotEmpty ? waiters.first : waiter,
-                          child: Text(waiter == 'all' ? 'Mes commandes' : waiter),
-                        ),
-                      ],
-                onChanged: waiterFilterEnabled ? onWaiter : null,
-              ),
-            ),
+            Expanded(child: _waiterFilter()),
             const SizedBox(width: 10),
-            Expanded(
-              child: _FilterMenu(
-                icon: Icons.storefront_outlined,
-                value: storeKey,
-                items: [
-                  const DropdownMenuItem(value: 'all', child: Text('All stores')),
-                  DropdownMenuItem(value: 'current', child: Text(place)),
-                ],
-                onChanged: onStore,
-              ),
-            ),
+            Expanded(child: _storeFilter()),
           ],
         ),
         const SizedBox(height: 10),
@@ -1084,6 +1277,39 @@ class _OrdersChrome extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _waiterFilter() {
+    return _FilterMenu(
+      icon: Icons.person_outline,
+      value: waiterFilterEnabled
+          ? (waiters.contains(waiter) || waiter == 'all' ? waiter : 'all')
+          : (waiter == 'all' && waiters.isNotEmpty ? waiters.first : waiter),
+      items: waiterFilterEnabled
+          ? [
+              const DropdownMenuItem(value: 'all', child: Text('All waiters')),
+              for (final name in waiters) DropdownMenuItem(value: name, child: Text(name)),
+            ]
+          : [
+              DropdownMenuItem(
+                value: waiter == 'all' && waiters.isNotEmpty ? waiters.first : waiter,
+                child: Text(waiter == 'all' ? 'Mes commandes' : waiter),
+              ),
+            ],
+      onChanged: waiterFilterEnabled ? onWaiter : null,
+    );
+  }
+
+  Widget _storeFilter() {
+    return _FilterMenu(
+      icon: Icons.storefront_outlined,
+      value: storeKey,
+      items: [
+        const DropdownMenuItem(value: 'all', child: Text('All stores')),
+        DropdownMenuItem(value: 'current', child: Text(place)),
+      ],
+      onChanged: onStore,
     );
   }
 }
@@ -1193,6 +1419,153 @@ class _LaneTab extends StatelessWidget {
     );
     if (expanded) return Expanded(child: tab);
     return tab;
+  }
+}
+
+class _SegmentBar extends StatelessWidget {
+  const _SegmentBar({
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: PosUi.deskCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PosUi.deskLine),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < labels.length; i++)
+            Expanded(
+              child: Material(
+                color: selected == i ? PosUi.deskAccent : Colors.transparent,
+                borderRadius: BorderRadius.circular(9),
+                child: InkWell(
+                  onTap: () => onSelected(i),
+                  borderRadius: BorderRadius.circular(9),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      labels[i],
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.text(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: selected == i ? PosUi.deskInk : PosUi.deskMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? PosUi.deskRaised : PosUi.deskField,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? PosUi.deskAccent.withValues(alpha: 0.5) : PosUi.deskLine,
+            ),
+          ),
+          child: Text(
+            label,
+            style: AppTypography.text(
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? PosUi.deskText : PosUi.deskMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IconAction extends StatelessWidget {
+  const _IconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.selected = false,
+    this.busy = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final bool selected;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: selected ? AppColors.warning : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: busy ? null : onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected ? AppColors.warning : PosUi.deskLine,
+              ),
+            ),
+            child: busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: PosUi.deskAccent),
+                  )
+                : Icon(
+                    icon,
+                    size: 18,
+                    color: selected ? PosUi.deskInk : PosUi.deskText,
+                  ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1439,34 +1812,27 @@ class _OrderTableRow extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (onInvoice != null)
-                      TextButton(
-                        onPressed: busy ? null : onInvoice,
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF4C8DFF),
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(0, 32),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Print Invoice',
-                          style: AppTypography.text(fontSize: 12, fontWeight: FontWeight.w800, color: const Color(0xFF4C8DFF)),
-                        ),
-                      ),
                     if (busy)
                       const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2, color: PosUi.deskAccent),
                       )
-                    else
+                    else ...[
+                      if (onInvoice != null)
+                        IconButton(
+                          tooltip: 'Print Invoice',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: onInvoice,
+                          icon: const Icon(Icons.print_outlined, size: 18, color: Color(0xFF4C8DFF)),
+                        ),
                       IconButton(
                         tooltip: 'View',
                         visualDensity: VisualDensity.compact,
                         onPressed: onView,
                         icon: Icon(Icons.visibility_outlined, size: 18, color: PosUi.deskMuted),
                       ),
+                    ],
                     if (_hasMenu)
                       PopupMenuButton<String>(
                         tooltip: 'More',
@@ -1498,6 +1864,256 @@ class _OrderTableRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _OrderCard extends StatelessWidget {
+  const _OrderCard({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+    required this.onView,
+    this.onReceipt,
+    this.onInvoice,
+    this.onMerge,
+    this.onResume,
+    this.busy = false,
+  });
+
+  final _ListItem item;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onView;
+  final VoidCallback? onReceipt;
+  final VoidCallback? onInvoice;
+  final VoidCallback? onMerge;
+  final VoidCallback? onResume;
+  final bool busy;
+
+  bool get _hasMenu =>
+      onReceipt != null || onInvoice != null || onMerge != null || onResume != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = _statusColor(item.statusKey);
+    final paymentColor = _paymentColor(item.paymentKey);
+    return Material(
+      color: selected ? PosUi.deskRaised : PosUi.deskPanel,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? PosUi.deskAccent.withValues(alpha: 0.45) : PosUi.deskLine,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  item.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.text(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: PosUi.deskText,
+                                  ),
+                                ),
+                              ),
+                              if (item.badge != null) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: PosUi.deskAccent,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    item.badge!,
+                                    style: AppTypography.text(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: PosUi.deskInk,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.customer,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.text(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: PosUi.deskMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          MoneyFormatter.format(item.amount, currencyCode: item.currency),
+                          style: AppTypography.text(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: PosUi.deskText,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          item.meta,
+                          style: AppTypography.text(fontSize: 11.5, color: PosUi.deskMuted),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _ChipDot(label: item.status, color: statusColor),
+                    const SizedBox(width: 10),
+                    Text(
+                      item.payment,
+                      style: AppTypography.text(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: paymentColor,
+                      ),
+                    ),
+                    if (item.servedBy.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${item.servedPrefix}: ${item.servedBy}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: AppTypography.text(fontSize: 11.5, color: PosUi.deskMuted),
+                        ),
+                      ),
+                    ] else
+                      const Spacer(),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Divider(height: 1, color: PosUi.deskLine),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: onView,
+                      style: TextButton.styleFrom(
+                        foregroundColor: PosUi.deskText,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child: const Text('View'),
+                    ),
+                    const Spacer(),
+                    if (busy)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 8),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: PosUi.deskAccent),
+                        ),
+                      )
+                    else ...[
+                      if (onInvoice != null)
+                        IconButton(
+                          tooltip: 'Print Invoice',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: onInvoice,
+                          icon: const Icon(Icons.print_outlined, size: 20, color: Color(0xFF4C8DFF)),
+                        ),
+                      if (_hasMenu)
+                        PopupMenuButton<String>(
+                          tooltip: 'More',
+                          color: PosUi.deskCard,
+                          onSelected: (value) {
+                            switch (value) {
+                              case 'receipt':
+                                onReceipt?.call();
+                              case 'invoice':
+                                onInvoice?.call();
+                              case 'merge':
+                                onMerge?.call();
+                              case 'resume':
+                                onResume?.call();
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            if (onReceipt != null)
+                              const PopupMenuItem(value: 'receipt', child: Text('Souche')),
+                            if (onInvoice != null)
+                              const PopupMenuItem(value: 'invoice', child: Text('Print Invoice')),
+                            if (onMerge != null)
+                              const PopupMenuItem(value: 'merge', child: Text('Merge')),
+                            if (onResume != null)
+                              const PopupMenuItem(value: 'resume', child: Text('Resume')),
+                          ],
+                          icon: Icon(Icons.more_horiz, size: 20, color: PosUi.deskMuted),
+                        ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChipDot extends StatelessWidget {
+  const _ChipDot({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: AppTypography.text(fontSize: 12.5, fontWeight: FontWeight.w700, color: color),
+        ),
+      ],
     );
   }
 }
@@ -1823,7 +2439,7 @@ class _DetailBody extends StatelessWidget {
                           foregroundColor: Colors.white,
                           visualDensity: VisualDensity.compact,
                         ),
-                        icon: const Icon(Icons.description_outlined, size: 16),
+                        icon: const Icon(Icons.print_outlined, size: 16),
                         label: const Text('Print Invoice'),
                       ),
                     if (detail.onPrintKitchen != null)
@@ -2261,6 +2877,26 @@ class _PaymentEntry {
   final String? treatedBy;
 }
 
+int _moneyInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.round();
+  return int.tryParse(value?.toString().split('.').first ?? '') ?? 0;
+}
+
+List<_LineDetail> _lineDetailsFromItems(dynamic raw, [Map<String, String> catalog = const {}]) {
+  if (raw is! List) return const [];
+  return raw.whereType<Map>().map((entry) {
+    final item = Map<String, dynamic>.from(entry);
+    final lineTotal = item['line_total'];
+    return _LineDetail(
+      name: _saleLineName(item, catalog),
+      quantity: _moneyInt(item['quantity'] == null ? 1 : item['quantity']),
+      unitPrice: _moneyInt(item['unit_price']),
+      totalOverride: lineTotal == null ? null : _moneyInt(lineTotal),
+    );
+  }).where((line) => line.name.isNotEmpty && line.quantity > 0).toList();
+}
+
 String _saleLineName(Map<String, dynamic> item, [Map<String, String> catalog = const {}]) {
   String? useful(dynamic value) {
     final text = value?.toString().trim() ?? '';
@@ -2479,6 +3115,17 @@ class _SaleRow {
     final held = PosHeldSale.fromLocalJson(row);
     final config = TerminalConfigRepository.instance.config;
     final currency = config.currencyCode;
+    final lines = held.lines.isNotEmpty
+        ? held.lines
+            .map(
+              (line) => _LineDetail(
+                name: line.displayName,
+                quantity: line.quantity,
+                unitPrice: line.unitPrice,
+              ),
+            )
+            .toList()
+        : _lineDetailsFromItems(row['items']);
     return _SaleRow(
       id: held.id,
       serverId: held.serverId,
@@ -2492,21 +3139,49 @@ class _SaleRow {
       currency: currency,
       customerName: held.customer?.displayLabel,
       note: held.note,
-      itemCount: held.itemCount,
+      itemCount: lines.fold<int>(0, (sum, line) => sum + line.quantity),
       isHold: true,
       paymentStatusRaw: 'unpaid',
       cashierId: config.cashierId.trim().isEmpty ? null : config.cashierId.trim(),
       cashierName: config.cashierName,
       tableId: held.tableId,
-      lines: held.lines
-          .map(
-            (line) => _LineDetail(
-              name: line.displayName,
-              quantity: line.quantity,
-              unitPrice: line.unitPrice,
-            ),
-          )
-          .toList(),
+      lines: lines,
+    );
+  }
+
+  _SaleRow withLines(
+    List<_LineDetail> lines, {
+    String? note,
+    int? taxTotal,
+    int? subtotalAmount,
+  }) {
+    return _SaleRow(
+      id: id,
+      serverId: serverId,
+      reference: reference,
+      total: total,
+      paid: paid,
+      outstanding: outstanding,
+      method: method,
+      status: status,
+      createdAt: createdAt,
+      currency: currency,
+      customerName: customerName,
+      note: note ?? this.note,
+      itemCount: lines.fold<int>(0, (sum, line) => sum + line.quantity),
+      isHold: isHold,
+      isRemote: isRemote,
+      paymentStatusRaw: paymentStatusRaw,
+      lines: lines,
+      serviceMode: serviceMode,
+      cashierId: cashierId,
+      cashierName: cashierName,
+      ticket: ticket,
+      tableId: tableId,
+      taxTotal: taxTotal ?? this.taxTotal,
+      subtotalAmount: subtotalAmount ?? this.subtotalAmount,
+      payments: payments,
+      hydrated: true,
     );
   }
 

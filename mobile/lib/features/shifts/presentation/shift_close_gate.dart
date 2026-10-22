@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../sync/sync_engine.dart';
 import '../../pos/domain/pos_models.dart';
@@ -111,63 +110,99 @@ class _ShiftCloseGateState extends State<_ShiftCloseGate> {
   @override
   Widget build(BuildContext context) {
     final count = widget.holds.length + widget.unpaid.length;
+    final tone = _syncing
+        ? PosUi.deskAccent
+        : _syncOk
+            ? PosUi.deskStock
+            : const Color(0xFFE23D3D);
     return Dialog(
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(PosUi.radiusXl)),
+      backgroundColor: PosUi.deskCard,
+      surfaceTintColor: Colors.transparent,
+      elevation: 24,
+      shadowColor: const Color(0x99000000),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: PosUi.deskLine),
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: 560, maxHeight: MediaQuery.sizeOf(context).height * 0.88),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                tr('Synchronisation avant clôture'),
-                style: AppTypography.text(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                tr('Les commandes encore ouvertes ou non payées. Touchez une ligne pour le détail.'),
-                style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary, height: 1.35),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: (_syncing ? AppColors.info : (_syncOk ? AppColors.success : AppColors.warning)).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: (_syncing ? AppColors.info : (_syncOk ? AppColors.success : AppColors.warning)).withValues(alpha: 0.35),
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: PosUi.deskAccent,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.sync_rounded, color: PosUi.deskInk, size: 24),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('Synchronisation avant clôture'),
+                          style: AppTypography.text(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                            color: PosUi.deskText,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          tr('Les commandes encore ouvertes ou non payées. Touchez une ligne pour le détail.'),
+                          style: AppTypography.text(fontSize: 13, height: 1.35, color: PosUi.deskMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: tone.withValues(alpha: 0.45)),
                 ),
                 child: Row(
                   children: [
                     if (_syncing)
-                      const SizedBox(
+                      SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: tone),
                       )
                     else
                       Icon(
                         _syncOk ? Icons.cloud_done_rounded : Icons.sync_problem_rounded,
                         size: 18,
-                        color: _syncOk ? AppColors.success : AppColors.warning,
+                        color: tone,
                       ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         tr(_syncMessage),
-                        style: AppTypography.text(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: PosUi.deskText),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Text(
                 trf('Commandes en attente ({0})', [count]),
-                style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700),
+                style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w800, color: PosUi.deskText),
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -176,7 +211,7 @@ class _ShiftCloseGateState extends State<_ShiftCloseGate> {
                         alignment: Alignment.topLeft,
                         child: Text(
                           tr('Aucune commande en attente.'),
-                          style: AppTypography.text(fontSize: 13, color: AppColors.textSecondary),
+                          style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted),
                         ),
                       )
                     : ListView(
@@ -200,24 +235,56 @@ class _ShiftCloseGateState extends State<_ShiftCloseGate> {
                         ],
                       ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: PosUi.deskText,
+                        backgroundColor: PosUi.deskCard,
+                        side: BorderSide(color: PosUi.deskLine),
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
                       child: Text(tr('Annuler')),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     flex: 2,
-                    child: SizedBox(
-                      height: PosUi.ctaHeight - 4,
-                      child: FilledButton(
-                        onPressed: _syncing ? null : () => Navigator.pop(context, true),
-                        child: Text(tr('Continuer vers Fermer le shift')),
+                    child: FilledButton.icon(
+                      onPressed: _syncing
+                          ? null
+                          : () {
+                              if (!_syncOk) {
+                                // Still allow close, but warn — post-close sync will retry.
+                                ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      tr(
+                                        'Sync incomplète : le shift sera fermé en local, puis renvoyé au prochain Sync.',
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              Navigator.pop(context, true);
+                            },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFE23D3D),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: const Color(0xFFE23D3D).withValues(alpha: 0.4),
+                        disabledForegroundColor: Colors.white70,
+                        minimumSize: const Size.fromHeight(48),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w800),
                       ),
+                      icon: const Icon(Icons.stop_rounded, size: 18),
+                      label: Text(tr('Continuer vers Fermer le shift')),
                     ),
                   ),
                 ],
@@ -248,13 +315,17 @@ class _OrderTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: AppColors.fieldFill,
+        color: PosUi.deskField,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: PosUi.deskLine),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
               children: [
                 Expanded(
@@ -265,14 +336,14 @@ class _OrderTile extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w700),
+                        style: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w800, color: PosUi.deskText),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary),
+                        style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
                       ),
                     ],
                   ),
@@ -280,10 +351,10 @@ class _OrderTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   MoneyFormatter.format(amount),
-                  style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700),
+                  style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w800, color: PosUi.deskAccent),
                 ),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                const SizedBox(width: 2),
+                Icon(Icons.chevron_right_rounded, color: PosUi.deskMuted),
               ],
             ),
           ),
@@ -309,54 +380,84 @@ class _OrderDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(PosUi.radiusXl)),
+      backgroundColor: PosUi.deskCard,
+      surfaceTintColor: Colors.transparent,
+      elevation: 24,
+      shadowColor: const Color(0x99000000),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: PosUi.deskLine),
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(title, style: AppTypography.text(fontSize: 17, fontWeight: FontWeight.w700)),
+              Text(
+                title,
+                style: AppTypography.text(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: PosUi.deskText,
+                ),
+              ),
               if (subtitle.trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(subtitle, style: AppTypography.text(fontSize: 12.5, color: AppColors.textSecondary)),
+                Text(subtitle, style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted)),
               ],
               const SizedBox(height: 14),
               Expanded(
                 child: lines.isEmpty
                     ? Text(
                         tr('Aucun article (commande distante sans détail local).'),
-                        style: AppTypography.text(fontSize: 13, color: AppColors.textSecondary),
+                        style: AppTypography.text(fontSize: 13, color: PosUi.deskMuted),
                       )
                     : ListView(
                         children: [
                           for (final line in lines)
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          line.name,
-                                          style: AppTypography.text(fontSize: 13.5, fontWeight: FontWeight.w600),
-                                        ),
-                                        Text(
-                                          trf('{0} × {1}', [line.quantity, MoneyFormatter.format(line.unitPrice)]),
-                                          style: AppTypography.text(fontSize: 12, color: AppColors.textMuted),
-                                        ),
-                                      ],
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: PosUi.deskField,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: PosUi.deskLine),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            line.name,
+                                            style: AppTypography.text(
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: PosUi.deskText,
+                                            ),
+                                          ),
+                                          Text(
+                                            trf('{0} × {1}', [line.quantity, MoneyFormatter.format(line.unitPrice)]),
+                                            style: AppTypography.text(fontSize: 12, color: PosUi.deskMuted),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    MoneyFormatter.format(line.unitPrice * line.quantity),
-                                    style: AppTypography.text(fontWeight: FontWeight.w700),
-                                  ),
-                                ],
+                                    Text(
+                                      MoneyFormatter.format(line.unitPrice * line.quantity),
+                                      style: AppTypography.text(
+                                        fontWeight: FontWeight.w800,
+                                        color: PosUi.deskAccent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                         ],
@@ -368,17 +469,28 @@ class _OrderDetailDialog extends StatelessWidget {
                   Expanded(
                     child: Text(
                       tr('Total'),
-                      style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700),
+                      style: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700, color: PosUi.deskMuted),
                     ),
                   ),
                   Text(
                     MoneyFormatter.format(total),
-                    style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: AppTypography.text(fontSize: 16, fontWeight: FontWeight.w800, color: PosUi.deskText),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              FilledButton(onPressed: () => Navigator.pop(context), child: Text(tr('Fermer'))),
+              const SizedBox(height: 14),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: PosUi.deskText,
+                  backgroundColor: PosUi.deskCard,
+                  side: BorderSide(color: PosUi.deskLine),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  textStyle: AppTypography.text(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                child: Text(tr('Fermer')),
+              ),
             ],
           ),
         ),
