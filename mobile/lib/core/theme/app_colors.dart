@@ -109,6 +109,8 @@ abstract final class AppColors {
   static const cashierNavy = brand600;
 
   static const accent = Color(0xFFE39B2B);
+  /// Gold sampled from the ITARA logo circuits.
+  static const logoGold = Color(0xFFF0A010);
   static const violet500 = accent;
   static const violet600 = Color(0xFFB86E09);
 

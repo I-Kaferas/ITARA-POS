@@ -37,6 +37,7 @@ const exportOpen = ref(false)
 const importing = ref(false)
 const importNotice = ref('')
 const importError = ref('')
+const importRowErrors = ref<string[]>([])
 
 onMounted(async () => {
   await context.loadStores()
@@ -112,9 +113,11 @@ async function onImport(event: Event) {
   importing.value = true
   importNotice.value = ''
   importError.value = ''
+  importRowErrors.value = []
   try {
     const result = await store.importProducts(selectedCatalog.value.id, file, true)
-    importNotice.value = t('products.importDone', result)
+    importNotice.value = t('products.importDone', { created: result.created, updated: result.updated, skipped: result.skipped })
+    importRowErrors.value = result.errors ?? []
     await loadPage(1)
   } catch (error) {
     importError.value = extractApiErrorMessage(error, t('products.importFailed'))
@@ -129,6 +132,16 @@ async function exportExcel() {
   importError.value = ''
   try {
     await store.exportProducts(selectedCatalog.value.id, 'xlsx')
+  } catch (error) {
+    importError.value = extractApiErrorMessage(error, t('products.importFailed'))
+  }
+}
+
+async function downloadTemplate() {
+  exportOpen.value = false
+  importError.value = ''
+  try {
+    await store.downloadProductTemplate()
   } catch (error) {
     importError.value = extractApiErrorMessage(error, t('products.importFailed'))
   }
@@ -202,9 +215,14 @@ async function exportPdf() {
             <AppIcon name="download" :size="16" />
             {{ t('products.exportPdfExcel') }}
           </button>
-          <div v-if="exportOpen" class="products-export__menu">
+          <div class="fold-panel fold-panel--pop products-export__pop" :class="{ 'is-open': exportOpen }">
+          <div class="fold-panel__body" :inert="!exportOpen">
+          <div class="products-export__menu">
             <button type="button" @click="exportPdf">{{ t('products.exportPdf') }}</button>
             <button type="button" @click="exportExcel">{{ t('products.exportExcel') }}</button>
+            <button type="button" @click="downloadTemplate">{{ t('products.downloadTemplate') }}</button>
+          </div>
+          </div>
           </div>
         </div>
         <button
@@ -221,6 +239,12 @@ async function exportPdf() {
 
     <p v-if="importNotice" class="products-note" role="status">{{ importNotice }}</p>
     <p v-if="importError" class="products-note products-note--error" role="alert">{{ importError }}</p>
+    <div v-if="importRowErrors.length" class="products-note products-note--error products-import-errors" role="alert">
+      <p>{{ t('products.importRowErrors', { count: importRowErrors.length }) }}</p>
+      <ul>
+        <li v-for="(message, i) in importRowErrors" :key="i">{{ message }}</li>
+      </ul>
+    </div>
 
     <DataTableShell
       :title="t('nav.products')"
@@ -336,11 +360,14 @@ async function exportPdf() {
   position: relative;
 }
 
-.products-export__menu {
+.products-export__pop {
   position: absolute;
   z-index: 20;
   top: calc(100% + 0.35rem);
   right: 0;
+}
+
+.products-export__menu {
   min-width: 8rem;
   display: flex;
   flex-direction: column;
@@ -373,6 +400,26 @@ async function exportPdf() {
 
 .products-note--error {
   color: var(--color-danger, #b91c1c);
+}
+
+.products-import-errors {
+  max-height: 12rem;
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--color-danger, #b91c1c) 25%, transparent);
+  border-radius: 12px;
+  background: var(--color-danger-bg, #fef2f2);
+}
+
+.products-import-errors p {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+
+.products-import-errors ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
 }
 
 .sr-only {

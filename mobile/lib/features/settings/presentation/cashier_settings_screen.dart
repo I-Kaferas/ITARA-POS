@@ -49,7 +49,7 @@ class CashierSettingsScreen extends StatelessWidget {
       ]),
       builder: (context, _) {
         return BlocBuilder<ThemeCubit, ThemeState>(
-          builder: (context, themeState) {
+          builder: (context, _) {
             final config = TerminalConfigRepository.instance.config;
             final prefs = CashierPreferences.instance;
             final theme = Theme.of(context);
@@ -99,7 +99,6 @@ class CashierSettingsScreen extends StatelessWidget {
                   final page = _Page(
                     config: config,
                     prefs: prefs,
-                    themeMode: themeState.mode,
                     wide: wide,
                   );
                   return SingleChildScrollView(
@@ -126,56 +125,16 @@ class _Page extends StatelessWidget {
   const _Page({
     required this.config,
     required this.prefs,
-    required this.themeMode,
     required this.wide,
   });
 
   final TerminalConfig config;
   final CashierPreferences prefs;
-  final ThemeMode themeMode;
   final bool wide;
 
   @override
   Widget build(BuildContext context) {
     final left = <Widget>[
-      _SectionLabel('Apparence'),
-      _Card(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _CardTitle(
-              icon: Icons.palette_outlined,
-              title: tr('Thème'),
-              subtitle: tr('Choisissez votre schéma de couleurs'),
-            ),
-            const SizedBox(height: 16),
-            _ChoiceBar(
-              options: const [
-                _Choice('light', 'Clair', Icons.light_mode_outlined),
-                _Choice('dark', 'Sombre', Icons.dark_mode_outlined),
-                _Choice(
-                  'system',
-                  'Système',
-                  Icons.settings_brightness_outlined,
-                ),
-              ],
-              selected: switch (themeMode) {
-                ThemeMode.light => 'light',
-                ThemeMode.dark => 'dark',
-                ThemeMode.system => 'system',
-              },
-              onSelected: (id) {
-                final mode = switch (id) {
-                  'light' => ThemeMode.light,
-                  'dark' => ThemeMode.dark,
-                  _ => ThemeMode.system,
-                };
-                context.read<ThemeCubit>().setMode(mode);
-              },
-            ),
-          ],
-        ),
-      ),
       _SectionLabel('Langue'),
       _LanguageCard(selected: LocaleController.instance.code),
       _SectionLabel('Visibilité du menu'),

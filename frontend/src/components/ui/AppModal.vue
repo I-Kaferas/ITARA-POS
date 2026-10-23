@@ -233,7 +233,7 @@ onBeforeUnmount(() => {
             <slot v-else />
           </div>
 
-          <div v-if="$slots.footer && !loading && !error" class="app-modal__footer">
+          <div v-if="$slots.footer && !loading && !error" class="app-modal__footer action-bar">
             <slot name="footer" />
           </div>
         </div>

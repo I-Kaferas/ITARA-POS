@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../api/client'
 import PageFrame from '../../components/layout/PageFrame.vue'
@@ -110,7 +110,7 @@ async function cancelTicket(ticket: Doc) {
   const table = String(ticket.table_label || t('desk.table'))
   const ok = await confirmDialog(t('desk.cancelTicket', { table }), {
     title: t('desk.cancelTicketTitle'),
-    confirmLabel: t('common.cancel'),
+    confirmLabel: t('desk.cancelTicketConfirm'),
     danger: true,
   })
   if (!ok) return
@@ -376,6 +376,7 @@ function folioTotal(room: Doc) {
           <div class="flex flex-wrap gap-2">
             <button type="button" class="btn-secondary" @click="openCreateZone"><AppIcon name="plus" :size="16" /> {{ t('desk.addZone') }}</button>
             <button type="button" class="btn-primary" @click="openCreateTable()"><AppIcon name="plus" :size="16" /> {{ t('desk.addTable') }}</button>
+            <RouterLink class="btn-secondary" to="/admin/pos/qr-orders">{{ t('nav.posQrOrders') }}</RouterLink>
           </div>
         </div>
 

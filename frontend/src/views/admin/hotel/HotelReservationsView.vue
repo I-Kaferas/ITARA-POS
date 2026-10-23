@@ -52,7 +52,7 @@ const statusFilter = ref<StatusFilter>('all')
 const datePreset = ref<DatePreset>('all')
 const dateFrom = ref('')
 const dateTo = ref('')
-const filtersOpen = ref(false)
+const filtersOpen = ref(true)
 
 const formTitle = computed(() =>
   editingId.value ? t('hotel.reservations.editTitle') : t('hotel.reservations.createTitle'),
@@ -605,7 +605,8 @@ async function remove(row: Doc) {
           </button>
         </div>
 
-        <div v-show="filtersOpen" class="rsv__filters">
+        <div class="fold-panel" :class="{ 'is-open': filtersOpen }">
+        <div class="fold-panel__body rsv__filters" :inert="!filtersOpen">
           <div class="rsv__chips">
             <button
               v-for="item in statusFilters"
@@ -650,6 +651,7 @@ async function remove(row: Doc) {
               {{ t('hotel.reservations.filters.clear') }}
             </button>
           </div>
+        </div>
         </div>
       </div>
 

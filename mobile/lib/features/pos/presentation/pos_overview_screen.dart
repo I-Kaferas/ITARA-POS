@@ -171,7 +171,7 @@ class _OverviewBody extends StatelessWidget {
         final wide = constraints.maxWidth >= 980;
         final statsWide = constraints.maxWidth >= 720;
         final top = [
-          _TodaySalesCard(name: name, revenueLabel: money(revenue)),
+          _TodaySalesCard(name: name, revenue: revenue, money: money),
           _PaymentsCard(payments: payments, money: money),
           _DailySummaryCard(days: days, money: money),
         ];
@@ -185,7 +185,12 @@ class _OverviewBody extends StatelessWidget {
                   children: [
                     for (var i = 0; i < top.length; i++) ...[
                       if (i > 0) const SizedBox(width: 14),
-                      Expanded(child: top[i]),
+                      Expanded(
+                        child: AppFadeIn(
+                          delay: Duration(milliseconds: 60 * i),
+                          child: AppHoverLift(child: top[i]),
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -193,14 +198,18 @@ class _OverviewBody extends StatelessWidget {
             else
               for (var i = 0; i < top.length; i++) ...[
                 if (i > 0) const SizedBox(height: 12),
-                top[i],
+                AppFadeIn(
+                  delay: Duration(milliseconds: 60 * i),
+                  child: AppHoverLift(child: top[i]),
+                ),
               ],
             const SizedBox(height: 14),
             _StatStrip(
               wide: statsWide,
               orders: orders,
-              average: money(average),
+              average: average,
               active: active,
+              money: money,
             ),
             const SizedBox(height: 14),
             if (wide)
@@ -208,16 +217,34 @@ class _OverviewBody extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(flex: 3, child: _HourlyCard(hours: hours)),
+                    Expanded(
+                      flex: 3,
+                      child: AppFadeIn(
+                        delay: const Duration(milliseconds: 240),
+                        child: AppHoverLift(child: _HourlyCard(hours: hours)),
+                      ),
+                    ),
                     const SizedBox(width: 14),
-                    Expanded(flex: 2, child: _BreakdownCard(payments: payments, money: money)),
+                    Expanded(
+                      flex: 2,
+                      child: AppFadeIn(
+                        delay: const Duration(milliseconds: 300),
+                        child: AppHoverLift(child: _BreakdownCard(payments: payments, money: money)),
+                      ),
+                    ),
                   ],
                 ),
               )
             else ...[
-              _HourlyCard(hours: hours),
+              AppFadeIn(
+                delay: const Duration(milliseconds: 240),
+                child: AppHoverLift(child: _HourlyCard(hours: hours)),
+              ),
               const SizedBox(height: 12),
-              _BreakdownCard(payments: payments, money: money),
+              AppFadeIn(
+                delay: const Duration(milliseconds: 300),
+                child: AppHoverLift(child: _BreakdownCard(payments: payments, money: money)),
+              ),
             ],
           ],
         );
@@ -297,10 +324,11 @@ class _GreetingHeader extends StatelessWidget {
 }
 
 class _TodaySalesCard extends StatelessWidget {
-  const _TodaySalesCard({required this.name, required this.revenueLabel});
+  const _TodaySalesCard({required this.name, required this.revenue, required this.money});
 
   final String name;
-  final String revenueLabel;
+  final int revenue;
+  final String Function(int) money;
 
   @override
   Widget build(BuildContext context) {
@@ -343,16 +371,14 @@ class _TodaySalesCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          AppValueFade(
-            value: revenueLabel,
-            child: Text(
-              tr(revenueLabel),
-              style: AppTypography.text(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.6,
-                color: AppColors.brandInk,
-              ),
+          AppCountUp(
+            value: revenue,
+            format: money,
+            style: AppTypography.text(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+              color: AppColors.brandInk,
             ),
           ),
           const SizedBox(height: 4),
@@ -506,20 +532,22 @@ class _StatStrip extends StatelessWidget {
     required this.orders,
     required this.average,
     required this.active,
+    required this.money,
   });
 
   final bool wide;
   final int orders;
-  final String average;
+  final int average;
   final int active;
+  final String Function(int) money;
 
   @override
   Widget build(BuildContext context) {
     final tiles = [
-      _StatTile(icon: Icons.shopping_bag_outlined, value: '$orders', label: tr('Orders Today')),
-      _StatTile(icon: Icons.show_chart_rounded, value: average, label: tr('Average Value')),
-      _StatTile(icon: Icons.local_mall_outlined, value: '$active', label: tr('Active Orders')),
-      _StatTile(icon: Icons.flag_outlined, value: '0', label: tr('Daily Target')),
+      _StatTile(icon: Icons.shopping_bag_outlined, value: orders, format: (n) => '$n', label: tr('Orders Today')),
+      _StatTile(icon: Icons.show_chart_rounded, value: average, format: money, label: tr('Average Value')),
+      _StatTile(icon: Icons.local_mall_outlined, value: active, format: (n) => '$n', label: tr('Active Orders')),
+      _StatTile(icon: Icons.flag_outlined, value: 0, format: (n) => '$n', label: tr('Daily Target')),
     ];
     if (!wide) {
       return GridView.count(
@@ -544,10 +572,16 @@ class _StatStrip extends StatelessWidget {
 }
 
 class _StatTile extends StatelessWidget {
-  const _StatTile({required this.icon, required this.value, required this.label});
+  const _StatTile({
+    required this.icon,
+    required this.value,
+    required this.format,
+    required this.label,
+  });
 
   final IconData icon;
-  final String value;
+  final int value;
+  final String Function(int) format;
   final String label;
 
   @override
@@ -571,17 +605,13 @@ class _StatTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppValueFade(
+                AppCountUp(
                   value: value,
-                  child: Text(
-                    tr(value),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.text(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.brandInk,
-                    ),
+                  format: format,
+                  style: AppTypography.text(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.brandInk,
                   ),
                 ),
                 Text(
@@ -641,14 +671,22 @@ class _HourBars extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 2),
                     child: Align(
                       alignment: Alignment.bottomCenter,
-                      child: Container(
-                        height: maxRevenue == 0
-                            ? 6
-                            : 8 + 110 * (point.revenue / maxRevenue),
-                        decoration: BoxDecoration(
-                          color: point.revenue == 0 ? AppColors.brand200 : AppColors.accent,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: AppMotion.reduceMotion(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 600),
+                        curve: AppMotion.standard,
+                        builder: (context, t, _) {
+                          final full = maxRevenue == 0 ? 6.0 : 8 + 110 * (point.revenue / maxRevenue);
+                          return Container(
+                            height: full * t,
+                            decoration: BoxDecoration(
+                              color: point.revenue == 0 ? AppColors.brand200 : AppColors.accent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),

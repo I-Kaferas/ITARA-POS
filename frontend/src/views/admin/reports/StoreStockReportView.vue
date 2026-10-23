@@ -404,7 +404,7 @@ onMounted(async () => {
           <table class="table">
             <thead>
               <tr>
-                <th>{{ t('products.category') }}</th>
+                <th>{{ t('inventory.category') }}</th>
                 <th>{{ t('reports.storeStock.sku') }}</th>
                 <th>{{ t('products.name') }}</th>
                 <th>{{ t('reports.storeStock.unit') }}</th>

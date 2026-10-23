@@ -236,6 +236,7 @@ function toggle() {
   </div>
 
   <Teleport to="body">
+    <Transition name="menu-pop">
     <div
       v-if="open"
       ref="panel"
@@ -377,6 +378,7 @@ function toggle() {
         </template>
       </div>
     </div>
+    </Transition>
   </Teleport>
 </template>
 

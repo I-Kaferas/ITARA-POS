@@ -5,50 +5,45 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Catalog;
 use App\Models\Product;
-use App\Models\Tenant;
-use App\Services\Platform\SaasLimitGuard;
+use App\Services\Catalog\ProductSpreadsheet;
 use App\Support\SimpleXlsx;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ImportExportController extends Controller
 {
+    public function __construct(private ProductSpreadsheet $sheet) {}
+
     public function exportProducts(Request $request): Response
     {
         $catalogId = $request->string('catalog_id')->toString() ?: null;
 
-        $query = Product::query()->orderBy('sku');
+        $query = Product::query()
+            ->with(['barcodes', 'category:id,name', 'brand:id,name', 'unitModel:id,name', 'tax:id,name'])
+            ->orderBy('sku');
         if ($catalogId) {
             $query->where('catalog_id', $catalogId);
         }
 
-        $header = [
-            'sku', 'name', 'description', 'barcode', 'product_type',
-            'base_price', 'cost_price', 'is_active', 'track_batch',
-            'is_serialized', 'low_stock_threshold', 'category_id', 'brand_id', 'unit_id', 'tax_id',
-        ];
-
         if ($request->string('format')->toString() === 'xlsx') {
-            $rows = [$header];
-            foreach ($query->cursor() as $product) {
-                $rows[] = $this->productExportRow($product);
+            $rows = [$this->sheet->headers()];
+            foreach ($query->lazy(200) as $product) {
+                $rows[] = $this->sheet->exportRow($product);
             }
 
-            return response(SimpleXlsx::binary($rows), 200, [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition' => 'attachment; filename="products-export.xlsx"',
-            ]);
+            return $this->xlsxResponse($rows, 'products-export.xlsx');
         }
 
-        return response()->streamDownload(function () use ($query, $header) {
+        return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, $header);
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, $this->sheet->headers(), ';');
 
-            foreach ($query->cursor() as $product) {
-                fputcsv($out, $this->productExportRow($product));
+            foreach ($query->lazy(200) as $product) {
+                fputcsv($out, $this->sheet->exportRow($product), ';');
             }
 
             fclose($out);
@@ -67,208 +62,75 @@ class ImportExportController extends Controller
 
         $extension = strtolower((string) $request->file('file')?->getClientOriginalExtension());
         if (! in_array($extension, ['csv', 'txt', 'xlsx'], true)) {
-            return response()->json(['message' => 'Use an Excel (.xlsx) or CSV file.'], 422);
+            return response()->json(['message' => 'Utilisez un fichier Excel (.xlsx) ou CSV.'], 422);
         }
 
         $catalog = Catalog::query()->findOrFail($data['catalog_id']);
-        $updateExisting = $request->boolean('update_existing', true);
         $path = $request->file('file')->getRealPath();
         if ($path === false) {
-            return response()->json(['message' => 'Unable to read file.'], 422);
+            return response()->json(['message' => 'Fichier illisible.'], 422);
         }
 
-        if ($extension === 'xlsx') {
-            try {
-                $table = SimpleXlsx::readRows($path);
-            } catch (\Throwable $exception) {
-                return response()->json(['message' => $exception->getMessage()], 422);
-            }
-
-            $header = array_map(fn ($h) => strtolower(trim((string) $h)), array_shift($table) ?: []);
-            if ($header === []) {
-                return response()->json(['message' => 'Empty Excel file.'], 422);
-            }
-
-            $records = [];
-            foreach ($table as $row) {
-                $mapped = [];
-                foreach ($header as $i => $key) {
-                    $mapped[$key] = $row[$i] ?? null;
-                }
-                $records[] = $mapped;
-            }
-
-            return response()->json(['data' => $this->importRecords($catalog, $records, $updateExisting)]);
+        try {
+            $table = $extension === 'xlsx' ? SimpleXlsx::readRows($path) : $this->readCsv($path);
+        } catch (\Throwable $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        $handle = fopen($path, 'r');
-        if ($handle === false) {
-            return response()->json(['message' => 'Unable to read file.'], 422);
+        $header = array_shift($table) ?: [];
+        if ($header === []) {
+            return response()->json(['message' => 'Fichier vide.'], 422);
         }
 
-        $header = fgetcsv($handle);
-        if (! $header) {
-            fclose($handle);
-
-            return response()->json(['message' => 'Empty CSV file.'], 422);
+        try {
+            $result = $this->sheet->import($catalog, $header, $table, $request->boolean('update_existing', true));
+        } catch (InvalidArgumentException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        $header = array_map(fn ($h) => strtolower(trim((string) $h)), $header);
-        $records = [];
-        while (($row = fgetcsv($handle)) !== false) {
-            $mapped = [];
-            foreach ($header as $i => $key) {
-                $mapped[$key] = $row[$i] ?? null;
-            }
-            $records[] = $mapped;
-        }
-        fclose($handle);
-
-        return response()->json(['data' => $this->importRecords($catalog, $records, $updateExisting)]);
+        return response()->json(['data' => $result]);
     }
 
-    public function productTemplate(): StreamedResponse
+    public function productTemplate(): Response
     {
-        return response()->streamDownload(function () {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, [
-                'sku', 'name', 'description', 'barcode', 'product_type',
-                'base_price', 'cost_price', 'is_active', 'track_batch',
-                'is_serialized', 'low_stock_threshold', 'category_id', 'brand_id', 'unit_id', 'tax_id',
-            ]);
-            fputcsv($out, [
-                'DEMO-001', 'Produit exemple', 'Description', '', 'standard',
-                1500, 1000, 1, 0, 0, 5, '', '', '', '',
-            ]);
-            fclose($out);
-        }, 'products-import-template.csv', [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+        return $this->xlsxResponse($this->sheet->templateRows(), 'products-import-template.xlsx');
+    }
+
+    /** @param  list<list<string|int|float|null>>  $rows */
+    private function xlsxResponse(array $rows, string $filename): Response
+    {
+        return response(SimpleXlsx::binary($rows), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 
-    private function nullableUuid(mixed $value): ?string
+    /**
+     * Excel saves CSV with ";" in French locales and often in Windows-1252.
+     *
+     * @return list<list<string|null>>
+     */
+    private function readCsv(string $path): array
     {
-        $value = is_string($value) ? trim($value) : $value;
-        if (! $value) {
-            return null;
+        $content = (string) file_get_contents($path);
+        $content = preg_replace('/^\xEF\xBB\xBF/', '', $content) ?? $content;
+        if (! mb_check_encoding($content, 'UTF-8')) {
+            $content = mb_convert_encoding($content, 'UTF-8', 'Windows-1252');
         }
 
-        return (string) $value;
-    }
+        $firstLine = strtok($content, "\r\n") ?: '';
+        $delimiter = substr_count($firstLine, ';') > substr_count($firstLine, ',') ? ';' : ',';
 
-    /**
-     * @return list<string|int|null>
-     */
-    private function productExportRow(Product $product): array
-    {
-        return [
-            $product->sku,
-            $product->name,
-            $product->description,
-            $product->barcode,
-            $product->product_type,
-            $product->base_price,
-            $product->cost_price,
-            $product->is_active ? 1 : 0,
-            $product->track_batch ? 1 : 0,
-            $product->is_serialized ? 1 : 0,
-            $product->low_stock_threshold,
-            $product->category_id,
-            $product->brand_id,
-            $product->unit_id,
-            $product->tax_id,
-        ];
-    }
+        $handle = fopen('php://temp', 'r+');
+        fwrite($handle, $content);
+        rewind($handle);
 
-    /**
-     * @param  list<array<string, mixed>>  $records
-     * @return array{created: int, updated: int, skipped: int, errors: list<string>}
-     */
-    private function importRecords(Catalog $catalog, array $records, bool $updateExisting): array
-    {
-        $created = 0;
-        $updated = 0;
-        $skipped = 0;
-        $errors = [];
-        $rowNumber = 1;
-
-        foreach ($records as $mapped) {
-            $rowNumber++;
-            if (count(array_filter($mapped, fn ($v) => $v !== null && $v !== '')) === 0) {
-                continue;
-            }
-
-            $sku = trim((string) ($mapped['sku'] ?? ''));
-            $name = trim((string) ($mapped['name'] ?? ''));
-
-            if ($sku === '' || $name === '') {
-                $skipped++;
-                $errors[] = "Row {$rowNumber}: sku and name are required.";
-                continue;
-            }
-
-            $payload = [
-                'name' => $name,
-                'description' => $mapped['description'] ?? null,
-                'barcode' => $mapped['barcode'] ?? null,
-                'product_type' => $mapped['product_type'] ?? 'standard',
-                'base_price' => (int) ($mapped['base_price'] ?? 0),
-                'cost_price' => (int) ($mapped['cost_price'] ?? 0),
-                'is_active' => filter_var($mapped['is_active'] ?? true, FILTER_VALIDATE_BOOLEAN),
-                'track_batch' => filter_var($mapped['track_batch'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'is_serialized' => filter_var($mapped['is_serialized'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'low_stock_threshold' => isset($mapped['low_stock_threshold']) && $mapped['low_stock_threshold'] !== ''
-                    ? (int) $mapped['low_stock_threshold']
-                    : null,
-                'category_id' => $this->nullableUuid($mapped['category_id'] ?? null),
-                'brand_id' => $this->nullableUuid($mapped['brand_id'] ?? null),
-                'unit_id' => $this->nullableUuid($mapped['unit_id'] ?? null),
-                'tax_id' => $this->nullableUuid($mapped['tax_id'] ?? null),
-            ];
-
-            $existing = Product::query()
-                ->where('catalog_id', $catalog->id)
-                ->where('sku', $sku)
-                ->first();
-
-            try {
-                if ($existing) {
-                    if ($updateExisting) {
-                        $existing->update($payload);
-                        $updated++;
-                    } else {
-                        $skipped++;
-                    }
-                } else {
-                    $tenant = Tenant::query()->find($catalog->tenant_id);
-                    if ($tenant) {
-                        try {
-                            app(SaasLimitGuard::class)->assertWithin($tenant, 'products');
-                        } catch (ValidationException) {
-                            $skipped++;
-                            $errors[] = "Row {$rowNumber}: saas.limit_products";
-                            break;
-                        }
-                    }
-                    Product::query()->create([
-                        ...$payload,
-                        'tenant_id' => $catalog->tenant_id,
-                        'catalog_id' => $catalog->id,
-                        'sku' => $sku,
-                    ]);
-                    $created++;
-                }
-            } catch (\Throwable $e) {
-                $skipped++;
-                $errors[] = "Row {$rowNumber}: ".$e->getMessage();
-            }
+        $rows = [];
+        while (($row = fgetcsv($handle, null, $delimiter)) !== false) {
+            $rows[] = $row === [null] ? [] : $row;
         }
+        fclose($handle);
 
-        return [
-            'created' => $created,
-            'updated' => $updated,
-            'skipped' => $skipped,
-            'errors' => array_slice($errors, 0, 50),
-        ];
+        return $rows;
     }
 }

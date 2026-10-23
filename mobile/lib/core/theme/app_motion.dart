@@ -189,6 +189,103 @@ class _AppTapScaleState extends State<AppTapScale> {
   }
 }
 
+/// Counts an integer up. The first run lasts 1.2s from zero.
+/// Later changes ease from the current value in at most 400ms.
+class AppCountUp extends StatefulWidget {
+  const AppCountUp({
+    super.key,
+    required this.value,
+    required this.format,
+    this.style,
+  });
+
+  final int value;
+  final String Function(int value) format;
+  final TextStyle? style;
+
+  @override
+  State<AppCountUp> createState() => _AppCountUpState();
+}
+
+class _AppCountUpState extends State<AppCountUp> with SingleTickerProviderStateMixin {
+  late int _shown = 0;
+  bool _first = true;
+  AnimationController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _animateTo(widget.value, first: true));
+  }
+
+  @override
+  void didUpdateWidget(covariant AppCountUp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) _animateTo(widget.value, first: false);
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _animateTo(int next, {required bool first}) {
+    if (!mounted) return;
+    if (AppMotion.reduceMotion(context)) {
+      setState(() => _shown = next);
+      _first = false;
+      return;
+    }
+    final from = first || _first ? 0 : _shown;
+    _first = false;
+    _controller?.dispose();
+    final duration = first ? const Duration(milliseconds: 1200) : const Duration(milliseconds: 400);
+    final controller = AnimationController(vsync: this, duration: AppMotion.resolve(context, duration));
+    _controller = controller;
+    controller.addListener(() {
+      if (!mounted) return;
+      final t = AppMotion.standard.transform(controller.value);
+      setState(() => _shown = from + ((next - from) * t).round());
+    });
+    controller.forward();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(widget.format(_shown), style: widget.style);
+  }
+}
+
+/// Raises a card 4px on pointer hover. Touch presses stay still.
+class AppHoverLift extends StatefulWidget {
+  const AppHoverLift({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<AppHoverLift> createState() => _AppHoverLiftState();
+}
+
+class _AppHoverLiftState extends State<AppHoverLift> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final lift = _hover && !AppMotion.reduceMotion(context);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: AppMotion.resolve(context, AppMotion.fast),
+        curve: AppMotion.standard,
+        transform: Matrix4.translationValues(0, lift ? -4 : 0, 0),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 /// Lightweight fade+slide entrance for lists and sheets.
 class AppFadeIn extends StatelessWidget {
   const AppFadeIn({

@@ -2145,6 +2145,16 @@ class HospitalityDesk
         $status = $this->normalizeKitchenStatus($this->required($action, 'status'));
         $ticket['status'] = $status;
         $this->save($store, 'ticket', (string) $ticket['id'], $ticket, $ticket['order_id'] ?? null, $status);
+        if (! empty($ticket['qr_order_id'])) {
+            $this->realtime->notify(
+                'qr.order.updated',
+                $store->tenant_id,
+                $store->id,
+                'qr_order',
+                (string) $ticket['qr_order_id'],
+                $status,
+            );
+        }
 
         $order = $this->doc($store, (string) $ticket['order_id']);
         $tickets = DeskDocument::query()
@@ -3541,5 +3551,52 @@ class HospitalityDesk
             'has_signature' => $hasSignature,
             'has_id_document' => $hasIdDocument,
         ]);
+    }
+
+    /**
+     * Ticket cuisine créé depuis une commande QR approuvée.
+     * Même format que « Envoyer en cuisine », pour l'onglet Cuisine.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     */
+    public function receiveQrTicket(Store $store, string $tableLabel, string $sessionId, string $qrOrderId, array $lines): string
+    {
+        $orderId = 'qr-'.$sessionId;
+        $existing = DeskDocument::query()->where('store_id', $store->id)->where('code', $orderId)->first();
+        $payload = is_array($existing?->payload) ? $existing->payload : [];
+        $orderLines = is_array($payload['lines'] ?? null) ? $payload['lines'] : [];
+        $ticketId = (string) Str::uuid();
+        $snapshots = array_map(
+            fn ($line) => $this->kitchenLineSnapshot(is_array($line) ? $line : []),
+            $lines,
+        );
+        foreach ($snapshots as $line) {
+            $orderLines[] = array_merge($line, [
+                'id' => (string) Str::uuid(),
+                'course' => 'plat',
+                'ticket_id' => $ticketId,
+                'product_id' => null,
+            ]);
+        }
+
+        $this->save($store, 'order', $orderId, [
+            'table_label' => $tableLabel,
+            'status' => 'kitchen',
+            'lines' => $orderLines,
+            'checks' => $payload['checks'] ?? [['id' => $orderId, 'label' => 'QR', 'status' => 'open']],
+            'source' => 'qr_client',
+        ], null, 'kitchen');
+
+        $this->save($store, 'ticket', $ticketId, [
+            'order_id' => $orderId,
+            'table_label' => $tableLabel,
+            'course' => 'plat',
+            'status' => 'new',
+            'sent_at' => now()->toIso8601String(),
+            'qr_order_id' => $qrOrderId,
+            'lines' => $snapshots,
+        ], $orderId, 'new');
+
+        return $ticketId;
     }
 }

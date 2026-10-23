@@ -315,13 +315,15 @@ onBeforeUnmount(() => {
 
 .lang-pop-enter-active,
 .lang-pop-leave-active {
-  transition: opacity var(--motion-fast) var(--ease-in-out), transform var(--motion-fast) var(--ease-out);
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lang-pop-enter-from,
 .lang-pop-leave-to {
   opacity: 0;
-  transform: translateY(-4px) scale(0.98);
+  transform: translateY(-6px);
 }
 
 .lang--glass .lang__trigger {

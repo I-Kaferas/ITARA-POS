@@ -19,7 +19,7 @@ const warehouseId = ref('')
 const suppliers = ref<Supplier[]>([])
 const warehouses = ref<Warehouse[]>([])
 const data = ref<Record<string, any>>({})
-const showFilters = ref(false)
+const showFilters = ref(true)
 const loading = ref(false)
 
 function range() {
@@ -103,7 +103,8 @@ const shortcuts = [
         </button>
       </div>
 
-      <div v-show="showFilters" class="purchase-hub__filters">
+      <div class="fold-panel" :class="{ 'is-open': showFilters }">
+      <div class="fold-panel__body purchase-hub__filters" :inert="!showFilters">
         <select v-model="period" class="ui-select" @change="load">
           <option value="today">{{ t('purchases.hub.today') }}</option>
           <option value="week">{{ t('purchases.hub.week') }}</option>
@@ -122,6 +123,7 @@ const shortcuts = [
           <option value="">{{ t('purchases.hub.allWarehouses') }}</option>
           <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">{{ warehouse.name }}</option>
         </select>
+      </div>
       </div>
 
       <div class="signal-row stagger-in" :aria-busy="loading">

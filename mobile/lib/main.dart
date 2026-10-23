@@ -157,7 +157,7 @@ class PosApp extends StatelessWidget {
         BlocProvider<DashboardBloc>.value(value: sl<DashboardBloc>()),
       ],
       child: BlocBuilder<ThemeCubit, ThemeState>(
-        builder: (context, themeState) {
+        builder: (context, _) {
           return ListenableBuilder(
             listenable: LocaleController.instance,
             builder: (context, _) {
@@ -166,8 +166,8 @@ class PosApp extends StatelessWidget {
                 debugShowCheckedModeBanner: false,
                 locale: LocaleController.instance.locale,
                 theme: AppTheme.light,
-                darkTheme: AppTheme.dark,
-                themeMode: themeState.mode,
+                darkTheme: AppTheme.light,
+                themeMode: ThemeMode.light,
                 localizationsDelegates: const [
                   GlobalMaterialLocalizations.delegate,
                   GlobalWidgetsLocalizations.delegate,

@@ -29,6 +29,7 @@ const modules = computed<ModuleItem[]>(() => [
   { to: '/admin/pos/overview', label: t('nav.posOverview'), group: t('nav.group.posOps'), keywords: 'apercu caisse pos dashboard' },
   { to: '/admin/pos/terminal', label: t('nav.posTerminal'), group: t('nav.group.posOps'), keywords: 'caisse terminal vente encaisser pos' },
   { to: '/admin/pos/orders', label: t('nav.posOrders'), group: t('nav.group.posOps'), keywords: 'commandes ventes factures tickets' },
+  { to: '/admin/pos/qr-orders', label: t('nav.posQrOrders'), group: t('nav.group.posOps'), keywords: 'commandes qr table client attente' },
   { to: '/admin/pos/shifts', label: t('nav.posShifts'), group: t('nav.group.posOps'), keywords: 'shift caisse caissier ouverture cloture' },
   { to: '/admin/pos/reservations', label: t('nav.posReservations'), group: t('nav.group.posOps'), keywords: 'reservation table' },
   { to: '/admin/hospitality', label: t('nav.restaurant'), group: t('nav.group.posOps'), keywords: 'tables restaurant salle commande hospitality' },

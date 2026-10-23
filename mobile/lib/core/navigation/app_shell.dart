@@ -786,10 +786,10 @@ class AppShell extends StatelessWidget {
           ? null
           : NavigationBarTheme(
         data: NavigationBarThemeData(
-          indicatorColor: AppColors.cashierBlue,
+          indicatorColor: AppColors.logoGold.withValues(alpha: 0.46),
           iconTheme: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
-            return IconThemeData(color: selected ? Colors.white : AppColors.textSecondary);
+            return IconThemeData(color: selected ? AppColors.brandInk : AppColors.textSecondary);
           }),
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
@@ -1426,7 +1426,7 @@ class _SidebarItem extends StatelessWidget {
     final tile = Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: selected ? AppColors.accent.withValues(alpha: 0.22) : Colors.transparent,
+        color: selected ? AppColors.logoGold.withValues(alpha: 0.46) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           // Keep tap when locked so we can route to company setup.

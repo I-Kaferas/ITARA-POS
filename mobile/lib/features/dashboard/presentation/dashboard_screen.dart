@@ -5,6 +5,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/config/terminal_config_repository.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../sync/sync_engine.dart';
 import '../../../sync/sync_models.dart';
 import '../../pos/presentation/widgets/pos_ui.dart';
@@ -59,6 +60,45 @@ class DashboardScreen extends StatelessWidget {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final columns = constraints.maxWidth >= PosUi.phoneBreakpoint ? 3 : 2;
+                        final shortcuts = <Widget>[
+                          _Shortcut(
+                            icon: Icons.receipt_long_outlined,
+                            title: tr('Commandes'),
+                            subtitle: tr('Ventes & attente'),
+                            onTap: () => onNavigate(2),
+                          ),
+                          _Shortcut(
+                            icon: Icons.schedule_outlined,
+                            title: tr('Shifts'),
+                            subtitle: tr('Ouvrir ou fermer'),
+                            onTap: () => onNavigate(3),
+                          ),
+                          _Shortcut(
+                            icon: Icons.sync,
+                            title: tr('Synchroniser'),
+                            subtitle: sync.pending == 0 ? 'À jour' : '${sync.pending} en attente',
+                            onTap: () => context.go(AppRoutes.sync),
+                            accent: sync.pending > 0 || sync.failed > 0,
+                          ),
+                          _Shortcut(
+                            icon: Icons.qr_code_scanner,
+                            title: tr('Codes-barres'),
+                            subtitle: tr('Scanner et imprimer'),
+                            onTap: onBarcodeTap ?? () => context.go(AppRoutes.barcode),
+                          ),
+                          _Shortcut(
+                            icon: Icons.point_of_sale_outlined,
+                            title: tr('Caisse'),
+                            subtitle: tr('Vente rapide'),
+                            onTap: () => onNavigate(1),
+                          ),
+                          _Shortcut(
+                            icon: Icons.settings_outlined,
+                            title: tr('Réglages'),
+                            subtitle: tr('Terminal et connexion'),
+                            onTap: onConfigurationTap ?? () => onNavigate(4),
+                          ),
+                        ];
                         return GridView.count(
                           crossAxisCount: columns,
                           shrinkWrap: true,
@@ -67,43 +107,11 @@ class DashboardScreen extends StatelessWidget {
                           crossAxisSpacing: 10,
                           childAspectRatio: wide ? 2.2 : 1.4,
                           children: [
-                            _Shortcut(
-                              icon: Icons.receipt_long_outlined,
-                              title: tr('Commandes'),
-                              subtitle: tr('Ventes & attente'),
-                              onTap: () => onNavigate(2),
-                            ),
-                            _Shortcut(
-                              icon: Icons.schedule_outlined,
-                              title: tr('Shifts'),
-                              subtitle: tr('Ouvrir ou fermer'),
-                              onTap: () => onNavigate(3),
-                            ),
-                            _Shortcut(
-                              icon: Icons.sync,
-                              title: tr('Synchroniser'),
-                              subtitle: sync.pending == 0 ? 'À jour' : '${sync.pending} en attente',
-                              onTap: () => context.go(AppRoutes.sync),
-                              accent: sync.pending > 0 || sync.failed > 0,
-                            ),
-                            _Shortcut(
-                              icon: Icons.qr_code_scanner,
-                              title: tr('Codes-barres'),
-                              subtitle: tr('Scanner et imprimer'),
-                              onTap: onBarcodeTap ?? () => context.go(AppRoutes.barcode),
-                            ),
-                            _Shortcut(
-                              icon: Icons.point_of_sale_outlined,
-                              title: tr('Caisse'),
-                              subtitle: tr('Vente rapide'),
-                              onTap: () => onNavigate(1),
-                            ),
-                            _Shortcut(
-                              icon: Icons.settings_outlined,
-                              title: tr('Réglages'),
-                              subtitle: tr('Terminal et connexion'),
-                              onTap: onConfigurationTap ?? () => onNavigate(4),
-                            ),
+                            for (var i = 0; i < shortcuts.length; i++)
+                              AppFadeIn(
+                                delay: Duration(milliseconds: 60 * i),
+                                child: AppHoverLift(child: shortcuts[i]),
+                              ),
                           ],
                         );
                       },

@@ -47,14 +47,14 @@ watchLiveSearch([from, to], load, 0)
       </div>
     </div>
 
-    <div v-if="report" class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="stat"><p class="label">{{ t('reports.revenue') }}</p><p class="value">{{ formatMoney(report.revenue) }}</p></div>
-      <div class="stat"><p class="label">{{ t('reports.cogs') }}</p><p class="value">{{ formatMoney(report.cogs) }}</p></div>
-      <div class="stat"><p class="label">{{ t('reports.expenses') }}</p><p class="value">{{ formatMoney(report.expenses ?? 0) }}</p></div>
-      <div class="stat"><p class="label">{{ t('reports.margin') }}</p><p class="value">{{ formatMoney(report.gross_margin) }}</p></div>
-      <div class="stat"><p class="label">{{ t('reports.profit') }}</p><p class="value">{{ formatMoney(report.profit ?? 0) }}</p></div>
-      <div class="stat"><p class="label">{{ t('reports.credit') }}</p><p class="value">{{ formatMoney(report.credit ?? 0) }}</p></div>
-      <div class="stat"><p class="label">{{ t('reports.debts') }}</p><p class="value">{{ formatMoney(report.debts ?? 0) }}</p></div>
+    <div v-if="report" class="fin__kpis mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <article class="kpi"><p class="kpi__label">{{ t('reports.revenue') }}</p><p class="kpi__value">{{ formatMoney(report.revenue) }}</p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.cogs') }}</p><p class="kpi__value">{{ formatMoney(report.cogs) }}</p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.expenses') }}</p><p class="kpi__value">{{ formatMoney(report.expenses ?? 0) }}</p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.margin') }}</p><p class="kpi__value">{{ formatMoney(report.gross_margin) }}</p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.profit') }}</p><p class="kpi__value">{{ formatMoney(report.profit ?? 0) }}</p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.credit') }}</p><p class="kpi__value">{{ formatMoney(report.credit ?? 0) }}</p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.debts') }}</p><p class="kpi__value">{{ formatMoney(report.debts ?? 0) }}</p></article>
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -83,7 +83,4 @@ watchLiveSearch([from, to], load, 0)
 <style scoped>
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.stat { border-radius: 0.75rem; background: var(--color-surface); padding: 1rem; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);}
-.label { margin: 0; font-size: 0.75rem; color: var(--color-text-muted);}
-.value { margin: 0.25rem 0 0; font-size: 1.25rem; font-weight: 700; }
 </style>

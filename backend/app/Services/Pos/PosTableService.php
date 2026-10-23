@@ -67,6 +67,7 @@ class PosTableService
                     ->orderBy('reserved_at')
                     ->with('customer:id,name,phone'),
             ])
+            ->withCount('submittedQrOrders as pending_qr_count')
             ->where('store_id', $store->id)
             ->orderBy('name')
             ->get();
@@ -277,6 +278,10 @@ class PosTableService
                     'is_active' => true,
                     'status' => $status,
                 ]);
+            }
+
+            if (in_array($status, [PosTableStatus::Cleaning, PosTableStatus::Inactive], true)) {
+                $locked->closeQrSessions();
             }
 
             PosTableEvent::record(

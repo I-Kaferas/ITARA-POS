@@ -44,12 +44,16 @@ const lastType = computed(() => realtime.lastEvent?.type || '—')
     >
       <AppIcon name="wifi" :size="14" />
     </button>
-    <div v-if="open" class="rt-panel" role="status">
+    <div class="fold-panel fold-panel--pop rt-pop" :class="{ 'is-open': open }">
+    <div class="fold-panel__body" :inert="!open">
+    <div class="rt-panel" role="status">
       <p class="rt-panel__status">{{ label }}</p>
       <p>{{ t('realtime.lastEvent') }}: {{ lastType }}</p>
       <p>{{ t('realtime.lastSync') }}: {{ realtime.lastSyncAt || '—' }}</p>
       <p>{{ t('realtime.online') }}: {{ realtime.onlineCount }}</p>
       <p v-if="realtime.notice">{{ t(`realtime.${realtime.notice === 'stock.out' ? 'stockOut' : 'stockLow'}`) }}</p>
+    </div>
+    </div>
     </div>
   </span>
 </template>
@@ -79,11 +83,14 @@ const lastType = computed(() => realtime.lastEvent?.type || '—')
 .rt-dot--connecting,
 .rt-dot--reconnecting { color: light-dark(#d97706, #e9b06f);}
 .rt-dot--disconnected { color: var(--color-text-faint);}
-.rt-panel {
+.rt-pop {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   z-index: 30;
+}
+
+.rt-panel {
   width: 16rem;
   padding: 12px;
   border: 1px solid var(--color-border);

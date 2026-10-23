@@ -34,6 +34,10 @@ class SimpleXlsx
         $rows = [];
 
         foreach ($xml->xpath('//m:sheetData/m:row') ?: [] as $row) {
+            $rowNumber = (int) ($row['r'] ?? 0);
+            while ($rowNumber > 0 && count($rows) < $rowNumber - 1) {
+                $rows[] = [];
+            }
             $line = [];
             $col = 0;
             foreach ($row->children('http://schemas.openxmlformats.org/spreadsheetml/2006/main')->c as $cell) {
@@ -181,6 +185,11 @@ class SimpleXlsx
             $cells = '';
             foreach (array_values($row) as $c => $value) {
                 $ref = self::columnName($c).($r + 1);
+                if ((is_int($value) || is_float($value)) && is_finite((float) $value)) {
+                    $cells .= '<c r="'.$ref.'"><v>'.$value.'</v></c>';
+
+                    continue;
+                }
                 $text = htmlspecialchars((string) ($value ?? ''), ENT_XML1 | ENT_QUOTES, 'UTF-8');
                 $cells .= '<c r="'.$ref.'" t="inlineStr"><is><t>'.$text.'</t></is></c>';
             }

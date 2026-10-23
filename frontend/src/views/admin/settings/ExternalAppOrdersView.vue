@@ -37,7 +37,7 @@ const query = ref('')
 const typeFilter = ref<OrderType | ''>('')
 const statusFilter = ref<OrderStatus | ''>('')
 const sourceFilter = ref<OrderSource | ''>('')
-const filtersOpen = ref(false)
+const filtersOpen = ref(true)
 const refreshing = ref(false)
 const exporting = ref(false)
 const loaded = ref(true)
@@ -287,7 +287,8 @@ function exportCsv() {
       </div>
       </div>
 
-      <div v-if="filtersOpen" class="ext__filters">
+      <div class="fold-panel" :class="{ 'is-open': filtersOpen }">
+      <div class="fold-panel__body ext__filters" :inert="!filtersOpen">
         <label>
           <span>{{ t('externalAppOrdersPage.col.status') }}</span>
           <select v-model="statusFilter" class="field">
@@ -309,6 +310,7 @@ function exportCsv() {
             <option value="web">{{ t('externalAppOrdersPage.source.web') }}</option>
           </select>
         </label>
+      </div>
       </div>
 
       <div class="xo-table">

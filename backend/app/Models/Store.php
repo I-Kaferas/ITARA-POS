@@ -24,6 +24,7 @@ class Store extends Model
         'kind',
         'is_active',
         'is_main',
+        'qr_approval_mode',
     ];
 
     protected function casts(): array

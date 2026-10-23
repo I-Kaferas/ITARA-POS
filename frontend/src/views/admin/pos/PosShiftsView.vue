@@ -393,11 +393,15 @@ function toggleMenu(id: string) {
                 <button type="button" class="shift-menu__btn" :aria-label="t('pointOfSale.shifts.details')" @click.stop="toggleMenu(shift.id)">
                   ···
                 </button>
-                <div v-if="menuId === shift.id" class="shift-menu__panel" @click.stop>
+                <div class="fold-panel fold-panel--pop shift-menu__pop" :class="{ 'is-open': menuId === shift.id }" @click.stop>
+                <div class="fold-panel__body" :inert="menuId !== shift.id">
+                <div class="shift-menu__panel">
                   <button type="button" @click="goDetail(shift.id)">{{ t('pointOfSale.shifts.details') }}</button>
                   <button v-if="isMine(shift) && shift.status === 'open'" type="button" @click="menuId = null; closeModal()">
                     {{ t('pointOfSale.shifts.closeAction') }}
                   </button>
+                </div>
+                </div>
                 </div>
               </div>
             </div>
@@ -857,11 +861,14 @@ function toggleMenu(id: string) {
   cursor: pointer;
 }
 
-.app-content .shift-menu__panel {
+.app-content .shift-menu__pop {
   position: absolute;
   right: 0;
   top: 28px;
   z-index: 4;
+}
+
+.app-content .shift-menu__panel {
   min-width: 160px;
   padding: 6px;
   border-radius: 12px;

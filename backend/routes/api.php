@@ -22,7 +22,9 @@ use App\Http\Controllers\Api\V1\PartyController;
 use App\Http\Controllers\Api\V1\PlatformAdminController;
 use App\Http\Controllers\Api\V1\PlatformSubscriptionController;
 use App\Http\Controllers\Api\V1\PlatformTenantController;
+use App\Http\Controllers\Api\V1\PublicQrOrderController;
 use App\Http\Controllers\Api\V1\PublicSignupController;
+use App\Http\Controllers\Api\V1\QrOrderingController;
 use App\Http\Controllers\Api\V1\CompanyPaymentMethodController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\CustomerAddressController;
@@ -117,6 +119,16 @@ Route::prefix('v1')->group(function () {
         ->middleware('throttle:60,1');
     Route::post('/public/stay-sign/{token}', [DeskController::class, 'staySignSubmit'])
         ->middleware('throttle:30,1');
+    Route::get('/public/qr/{token}', [PublicQrOrderController::class, 'show'])
+        ->middleware('throttle:60,1');
+    Route::post('/public/qr/{token}/orders', [PublicQrOrderController::class, 'store'])
+        ->middleware('throttle:20,1');
+    Route::get('/public/qr/{token}/orders/{order}', [PublicQrOrderController::class, 'order'])
+        ->middleware('throttle:60,1');
+    Route::patch('/public/qr/{token}/orders/{order}', [PublicQrOrderController::class, 'update'])
+        ->middleware('throttle:20,1');
+    Route::post('/public/qr/{token}/orders/{order}/cancel', [PublicQrOrderController::class, 'cancel'])
+        ->middleware('throttle:20,1');
     Route::post('/public/signup', [PublicSignupController::class, 'store'])
         ->middleware('throttle:10,1');
 
@@ -1324,6 +1336,28 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:pos.tables.view,sales.view');
         Route::get('stores/{store}/pos/table-zones', [PosTableController::class, 'zones'])
             ->middleware('permission:pos.tables.view,sales.view');
+        Route::get('stores/{store}/qr-tokens', [QrOrderingController::class, 'tokens'])
+            ->middleware('permission:pos.tables.view,sales.view');
+        Route::post('stores/{store}/pos-tables/{posTable}/qr-token', [QrOrderingController::class, 'issue'])
+            ->middleware('permission:pos.tables.manage,sales.create');
+        Route::post('stores/{store}/pos-tables/{posTable}/qr-token/rotate', [QrOrderingController::class, 'rotate'])
+            ->middleware('permission:pos.tables.manage,sales.create');
+        Route::patch('qr-tokens/{tableQrToken}', [QrOrderingController::class, 'toggle'])
+            ->middleware('permission:pos.tables.manage,sales.create');
+        Route::get('qr-tokens/{tableQrToken}/svg', [QrOrderingController::class, 'svg'])
+            ->middleware('permission:pos.tables.view,sales.view');
+        Route::patch('stores/{store}/qr-settings', [QrOrderingController::class, 'settings'])
+            ->middleware('permission:pos.tables.manage,settings.manage,sales.create');
+        Route::get('stores/{store}/qr-orders', [QrOrderingController::class, 'index'])
+            ->middleware('permission:sales.view,sales.create');
+        Route::post('stores/{store}/qr-orders/approve-all', [QrOrderingController::class, 'approveAll'])
+            ->middleware('permission:sales.create');
+        Route::post('qr-orders/{qrOrder}/approve', [QrOrderingController::class, 'approve'])
+            ->middleware('permission:sales.create');
+        Route::post('qr-orders/{qrOrder}/reject', [QrOrderingController::class, 'reject'])
+            ->middleware('permission:sales.create');
+        Route::patch('qr-orders/{qrOrder}', [QrOrderingController::class, 'update'])
+            ->middleware('permission:sales.create');
         Route::post('stores/{store}/pos/table-zones', [PosTableController::class, 'storeZone'])
             ->middleware('permission:pos.tables.manage');
         Route::put('pos-table-zones/{posTableZone}', [PosTableController::class, 'updateZone'])

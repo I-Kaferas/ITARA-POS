@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PosTableStatus;
+use App\Enums\QrSessionStatus;
 use App\Enums\SaleStatus;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -66,6 +67,22 @@ class PosTable extends Model
         return $this->hasMany(PosReservation::class, 'table_id');
     }
 
+    public function submittedQrOrders(): HasMany
+    {
+        return $this->hasMany(QrOrder::class, 'pos_table_id')->where('status', 'submitted');
+    }
+
+    public function closeQrSessions(): void
+    {
+        QrTableSession::query()
+            ->where('pos_table_id', $this->id)
+            ->where('status', QrSessionStatus::Open)
+            ->update([
+                'status' => QrSessionStatus::Closed->value,
+                'closed_at' => now(),
+            ]);
+    }
+
     public function activeReservation(): ?PosReservation
     {
         if ($this->relationLoaded('reservations')) {
@@ -123,6 +140,7 @@ class PosTable extends Model
                 ? $table->currentSale
                 : Sale::query()->find($saleId);
             $table->release();
+            $table->closeQrSessions();
             PosTableEvent::record(
                 table: $table,
                 type: $reason,
@@ -210,6 +228,7 @@ class PosTable extends Model
             'description' => $this->description,
             'status' => $this->status->value,
             'is_active' => $this->is_active,
+            'pending_qr_count' => (int) ($this->pending_qr_count ?? 0),
             'current_sale_id' => $sale?->id,
             'current_sale' => $sale ? [
                 'id' => $sale->id,

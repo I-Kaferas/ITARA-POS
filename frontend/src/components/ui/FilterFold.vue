@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from './AppIcon.vue'
 
-const open = ref(false)
+const open = ref(true)
 const { t } = useI18n()
 </script>
 
@@ -13,8 +13,10 @@ const { t } = useI18n()
       <AppIcon name="filter" :size="15" />
       {{ open ? t('filters.hide') : t('filters.show') }}
     </button>
-    <div v-show="open" class="filter-fold__body">
-      <slot />
+    <div class="fold-panel" :class="{ 'is-open': open }">
+      <div class="fold-panel__body" :inert="!open">
+        <slot />
+      </div>
     </div>
   </div>
 </template>
@@ -23,14 +25,11 @@ const { t } = useI18n()
 .filter-fold {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 0.75rem;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
-}
-.filter-fold.is-open {
-  width: 100%;
-  align-items: stretch;
 }
 .filter-fold__toggle {
   display: inline-flex;
@@ -45,6 +44,7 @@ const { t } = useI18n()
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+  align-self: flex-start;
 }
 .filter-fold__body {
   width: 100%;

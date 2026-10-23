@@ -7,6 +7,7 @@ import LanguageSwitcher from '../ui/LanguageSwitcher.vue'
 import AppCalculator from './AppCalculator.vue'
 import ModuleSearch from './ModuleSearch.vue'
 import StockAlertBell from './StockAlertBell.vue'
+import QrOrderBanner from './QrOrderBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 import { usePosStore } from '../../stores/pos'
 import { moduleEnabled, moduleRequiredForPath } from '../../modules/registry'
@@ -172,6 +173,7 @@ const navSections = computed(() => [
           { name: 'pos-orders', to: '/admin/pos/orders', label: t('nav.posOrders'), icon: 'sales' },
           { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts'), icon: 'shift' },
           { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations'), icon: 'calendar' },
+          { name: 'pos-qr-codes', to: '/admin/pos/qr-codes', label: t('nav.posQrCodes'), icon: 'tables' },
         ],
       },
       {
@@ -440,6 +442,7 @@ function matchesChild(child: NavChild) {
   if (child.to === '/admin/customers') return route.path.startsWith('/admin/customers')
   if (child.to === '/admin/pos/orders') {
     return route.path.startsWith('/admin/pos/orders')
+      || route.path.startsWith('/admin/pos/qr-orders')
       || (route.path.startsWith('/admin/sales') && !route.path.startsWith('/admin/sales/returns'))
   }
   if (child.to === '/admin/sales/returns') return route.path.startsWith('/admin/sales/returns')
@@ -1237,6 +1240,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
         <span>{{ billingBanner }}</span>
         <RouterLink to="/admin/settings/subscription">{{ t('subscriptionPage.bannerAction') }}</RouterLink>
       </p>
+      <QrOrderBanner />
 
       <main class="app-content">
         <Transition :name="pageMotion" mode="out-in">

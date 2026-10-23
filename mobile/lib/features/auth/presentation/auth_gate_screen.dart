@@ -20,6 +20,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/app_buttons.dart';
+import '../../../core/widgets/brand_flip_loader.dart';
 import '../../../core/widgets/app_dialogs.dart';
 import '../../../sync/local_master_server.dart';
 import 'bloc/authentication_bloc.dart';
@@ -336,10 +337,13 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
           keyboardOpen: bottomInset > 0,
         );
 
+        final busy = loading || _rootLoading;
         return Scaffold(
           backgroundColor: wide ? AppColors.canvas : AppColors.brand600,
           resizeToAvoidBottomInset: false,
-          body: AnimatedPadding(
+          body: Stack(
+            children: [
+              AnimatedPadding(
             padding: EdgeInsets.only(bottom: bottomInset),
             duration: AppMotion.resolve(context, const Duration(milliseconds: 420)),
             curve: AppMotion.emphasized,
@@ -380,6 +384,9 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
                     onModeChanged: (root) => _setMode(root ? AuthGateMode.root : AuthGateMode.staff),
                     form: form,
                   ),
+              ),
+              if (busy) const Positioned.fill(child: BrandFlipLoader()),
+            ],
           ),
         );
       },

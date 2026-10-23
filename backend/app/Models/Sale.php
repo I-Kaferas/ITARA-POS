@@ -38,6 +38,7 @@ class Sale extends Model
         'currency',
         'payment_transaction_number',
         'idempotency_key',
+        'source',
         'completed_at',
         'notes',
         'table_id',
@@ -210,6 +211,7 @@ class Sale extends Model
             'created_at' => $this->created_at?->toIso8601String(),
             'table_id' => $this->table_id,
             'service_mode' => $this->service_mode,
+            'source' => $this->source ?: 'cashier',
             'delivery_address' => $this->delivery_address,
             'table' => $this->relationLoaded('diningTable') && $this->diningTable
                 ? $this->diningTable->only(['id', 'name', 'code'])

@@ -19,6 +19,7 @@ import { useContextStore } from '../../../stores/context'
 import { formatDate, formatMoney } from '../../../utils/format'
 import { openPrintWindow, printSaleDocument, type SaleDocPayload } from '../../../utils/printSaleDocument'
 import MergeOrdersModal from '../../../components/pos/MergeOrdersModal.vue'
+import OrderSectionTabs from '../../../components/pos/OrderSectionTabs.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -209,6 +210,8 @@ watch(
   <PageFrame>
     <template #title>{{ t('nav.posOrders') }}</template>
     <template #subtitle>{{ t('pointOfSale.orders.subtitle') }}</template>
+
+    <OrderSectionTabs />
 
     <div v-if="!storeId" class="ui-toast ui-toast--warning mb-4">
       {{ t('sales.selectStore') }}

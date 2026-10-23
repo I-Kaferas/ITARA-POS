@@ -1,0 +1,282 @@
+/* Button system. One height, one gap, one radius for every admin action.
+   Loaded last so it wins over older min-heights and manual margins. */
+
+:root {
+  --btn-height-sm: 32px;
+  --btn-height-md: 40px;
+  --btn-height-lg: 48px;
+  --btn-pad-sm: 16px;
+  --btn-pad-md: 20px;
+  --btn-pad-lg: 24px;
+  --btn-min-width: 88px;
+  --btn-gap: 8px;
+  --btn-group-gap: 12px;
+  --btn-radius: 10px;
+  --btn-icon: 40px;
+  --btn-icon-hit: 44px;
+  --btn-font: 0.875rem;
+  --btn-font-lg: 1rem;
+  --btn-weight: 600;
+}
+
+/* ─── Base ──────────────────────────────────────────────────────── */
+:is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success):not(.ui-btn--link) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--btn-gap);
+  height: var(--btn-height-md);
+  min-height: var(--btn-height-md);
+  min-width: var(--btn-min-width);
+  padding: 0 var(--btn-pad-md);
+  border-radius: var(--btn-radius);
+  font-size: var(--btn-font);
+  font-weight: var(--btn-weight);
+  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
+}
+
+:is(.ui-btn--sm, .btn-sm) {
+  height: var(--btn-height-sm);
+  min-height: var(--btn-height-sm);
+  padding: 0 var(--btn-pad-sm);
+  border-radius: 8px;
+  font-size: var(--btn-font);
+}
+
+:is(.ui-btn--lg, .btn-lg) {
+  height: var(--btn-height-lg);
+  min-height: var(--btn-height-lg);
+  padding: 0 var(--btn-pad-lg);
+  font-size: var(--btn-font-lg);
+}
+
+:is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success) svg {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Icon-only: 40px face, 44px hit target, no text min-width. */
+:is(.ui-btn--icon, .btn-icon) {
+  width: var(--btn-icon);
+  min-width: var(--btn-icon);
+  height: var(--btn-icon);
+  min-height: var(--btn-icon);
+  padding: 0;
+  position: relative;
+}
+
+:is(.ui-btn--icon, .btn-icon)::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--btn-icon) - var(--btn-icon-hit)) / 2);
+}
+
+.ui-btn--block,
+.btn-block {
+  width: 100%;
+}
+
+/* ─── Loading: spinner overlays the label, width stays ─────────── */
+.ui-btn--loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.ui-btn--loading .ui-btn__label {
+  visibility: hidden;
+}
+
+.ui-btn__spinner {
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin 0.6s linear infinite;
+}
+
+:is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success):disabled,
+:is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success)[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+:is(.ui-btn:not(.ui-btn--link), .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success):hover:not(:disabled) {
+  transform: translateY(-1px);
+  transition-duration: 150ms;
+}
+
+:is(.ui-btn:not(.ui-btn--link), .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success):active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+:is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success):focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+/* Fields that sit beside a button share the medium height. */
+:is(.ui-input, .ui-select, input.field, select.field):not(textarea) {
+  box-sizing: border-box;
+  height: var(--btn-height-md);
+  min-height: var(--btn-height-md);
+}
+
+/* ─── Groups ────────────────────────────────────────────────────── */
+.btn-group,
+.page-header__actions,
+.page-header-bar__actions,
+.ui-toolbar,
+.ui-table__actions,
+.app-modal__footer,
+.action-bar,
+.action-bar__start,
+.action-bar__end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--btn-group-gap);
+}
+
+.btn-group--end,
+.page-header__actions,
+.page-header-bar__actions,
+.ui-table__actions {
+  justify-content: flex-end;
+}
+
+.page-header,
+.page-header-bar,
+.action-bar {
+  justify-content: space-between;
+}
+
+.action-bar__end,
+.app-modal__footer {
+  justify-content: flex-end;
+}
+
+/* Cancel stays left, the primary action stays right. A lone button stays right. */
+.app-modal__footer > :first-child:not(:last-child) {
+  margin-right: auto;
+}
+
+.ui-toolbar {
+  align-items: center;
+}
+
+.ui-toolbar :is(input, select, .ui-input, .ui-select) {
+  height: var(--btn-height-md);
+  min-height: var(--btn-height-md);
+}
+
+/* Table action cells: drop the old margin-left between buttons. */
+:is([class*="row-actions"], .ui-table__actions) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--btn-gap);
+  white-space: nowrap;
+}
+
+:is([class*="row-actions"], .ui-table__actions) :is(button, a) {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .page-header,
+  .page-header-bar {
+    align-items: stretch;
+  }
+
+  .page-header__actions,
+  .page-header-bar__actions,
+  .app-modal__footer,
+  .action-bar,
+  .action-bar__start,
+  .action-bar__end,
+  .btn-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--btn-gap);
+  }
+
+  /* Primary is the last control in the row; show it first when stacked. */
+  .app-modal__footer,
+  .action-bar,
+  .page-header__actions,
+  .page-header-bar__actions,
+  .btn-group {
+    flex-direction: column-reverse;
+  }
+
+  .page-header__actions :is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success),
+  .page-header-bar__actions :is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success),
+  .app-modal__footer :is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success),
+  .action-bar :is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success),
+  .btn-group :is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success) {
+    width: 100%;
+  }
+}
+
+/* Filter panels: open by default, height eases both ways. */
+.fold-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  width: 100%;
+  transition: grid-template-rows 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fold-panel.is-open {
+  grid-template-rows: 1fr;
+}
+
+.fold-panel__body {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fold-panel.is-open .fold-panel__body {
+  opacity: 1;
+  transform: none;
+}
+
+/* Same motion for floating menus: the card stays in flow inside the grid. */
+.fold-panel.fold-panel--pop {
+  width: max-content;
+  pointer-events: none;
+}
+
+.fold-panel.fold-panel--pop.is-open {
+  pointer-events: auto;
+  filter: drop-shadow(0 10px 24px rgba(18, 36, 60, 0.14));
+}
+
+.fold-panel.fold-panel--pop.is-open .fold-panel__body {
+  overflow: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success):hover:not(:disabled),
+  :is(.ui-btn, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success):active:not(:disabled) {
+    transform: none;
+  }
+
+  .fold-panel,
+  .fold-panel__body {
+    transition: none;
+  }
+}

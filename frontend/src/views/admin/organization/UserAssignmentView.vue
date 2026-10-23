@@ -695,6 +695,7 @@ function openAssign(user: TenantUser) {
 }
 .users__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
 .users__kpi {
+  gap: var(--space-2);
   width: 100%;
   text-align: left;
   cursor: pointer;

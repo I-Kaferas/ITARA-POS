@@ -13,11 +13,11 @@ import '../../domain/pos_models.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
-const double _cardBodyHeight = 98;
+const double _cardBodyHeight = 76;
 const BorderRadius _cardRadius = BorderRadius.all(Radius.circular(18));
 const BorderRadius _photoRadius = BorderRadius.all(Radius.circular(13));
 
-double _cardExtent(double width) => width >= 520 ? 248 : 232;
+double _cardExtent(double width) => width >= 520 ? 204 : 188;
 
 class PosCatalogSkeleton extends StatelessWidget {
   const PosCatalogSkeleton({super.key});
@@ -360,7 +360,7 @@ class _ProductCardState extends State<_ProductCard> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.plex(
-                              fontSize: 13.5,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               height: 1.22,
                               color: available ? PosUi.deskText : PosUi.deskMuted,
@@ -391,7 +391,7 @@ class _ProductCardState extends State<_ProductCard> {
                                       TextSpan(
                                         text: price,
                                         style: PosUi.money(
-                                          size: 16,
+                                          size: 14,
                                           weight: FontWeight.w800,
                                           color: available ? PosUi.deskText : PosUi.deskMuted,
                                         ),

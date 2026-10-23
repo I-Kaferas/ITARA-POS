@@ -6,6 +6,7 @@ withDefaults(defineProps<{
   disabled?: boolean
   loading?: boolean
   icon?: boolean
+  fullWidth?: boolean
 }>(), {
   variant: 'primary',
   size: 'md',
@@ -13,6 +14,7 @@ withDefaults(defineProps<{
   disabled: false,
   loading: false,
   icon: false,
+  fullWidth: false,
 })
 </script>
 
@@ -27,10 +29,13 @@ withDefaults(defineProps<{
         'ui-btn--lg': size === 'lg',
         'ui-btn--icon': icon,
         'ui-btn--loading': loading,
+        'ui-btn--block': fullWidth,
       },
     ]"
     :disabled="disabled || loading"
+    :aria-busy="loading || undefined"
   >
-    <slot />
+    <span v-if="loading" class="ui-btn__spinner" aria-hidden="true" />
+    <span class="ui-btn__label"><slot /></span>
   </button>
 </template>

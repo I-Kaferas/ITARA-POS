@@ -40,6 +40,7 @@ const customerLoading = ref(false)
 const showResults = ref(false)
 
 const itemCount = computed(() => props.lines.reduce((sum, line) => sum + line.quantity, 0))
+const customerDropOpen = computed(() => showResults.value && (customerLoading.value || customerResults.value.length > 0 || customerQuery.value.trim().length > 0))
 
 async function runCustomerSearch() {
   const q = customerQuery.value.trim()
@@ -185,7 +186,9 @@ function lineImage(line: PosCartLine) {
       </label>
     </div>
 
-    <div v-if="showResults && (customerLoading || customerResults.length || customerQuery.trim())" class="pos-cart__customer-dropdown">
+    <div class="fold-panel pos-customer-fold" :class="{ 'is-open': customerDropOpen }">
+    <div class="fold-panel__body">
+    <div class="pos-cart__customer-dropdown" :inert="!customerDropOpen">
       <p v-if="customerLoading" class="pos-cart__customer-empty">…</p>
       <template v-else>
         <button
@@ -210,6 +213,8 @@ function lineImage(line: PosCartLine) {
           + {{ t('pos.createCustomer') }} « {{ customerQuery.trim() }} »
         </button>
       </template>
+    </div>
+    </div>
     </div>
 
     <div class="pos-cart__section-head">
@@ -416,8 +421,12 @@ function lineImage(line: PosCartLine) {
   text-align: left;
 }
 
-.pos-cart__customer-dropdown {
+.pos-customer-fold .pos-cart__customer-dropdown {
   margin: -0.35rem 1.1rem 0.65rem;
+}
+
+.pos-cart__customer-dropdown {
+  margin: 0;
   max-height: 12rem;
   overflow: auto;
   border: 1px solid var(--color-border);

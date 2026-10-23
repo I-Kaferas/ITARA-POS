@@ -81,7 +81,9 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="root" class="stock-bell">
-    <div v-if="open" class="stock-bell__panel" role="dialog" :aria-label="t('stockAlerts.title')">
+    <div class="fold-panel fold-panel--pop stock-bell__pop" :class="{ 'is-open': open }">
+    <div class="fold-panel__body" :inert="!open">
+    <div class="stock-bell__panel" role="dialog" :aria-label="t('stockAlerts.title')">
       <div class="stock-bell__head">
         <p class="stock-bell__title">{{ t('notifications.title') }}</p>
         <p class="stock-bell__count">{{ t('notifications.unread', { count: unread }) }}</p>
@@ -100,6 +102,8 @@ onBeforeUnmount(() => {
       <button type="button" class="stock-bell__all" @click="seeAll">
         {{ t('notifications.openCenter') }}
       </button>
+    </div>
+    </div>
     </div>
 
     <button
@@ -153,13 +157,16 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-.stock-bell__panel {
+.stock-bell__pop {
   position: absolute;
   top: calc(100% + var(--space-2));
   right: 0;
   z-index: 40;
   width: 18.5rem;
-  overflow: hidden;
+}
+
+.stock-bell__panel {
+  width: 18.5rem;
   padding: var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);

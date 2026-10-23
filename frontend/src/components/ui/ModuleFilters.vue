@@ -60,7 +60,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const open = ref(false)
+const open = ref(true)
 const liveApply = debounceFn(() => emit('apply'), 280)
 onBeforeUnmount(() => liveApply.cancel())
 
@@ -82,11 +82,12 @@ function reset() {
 
 <template>
   <div class="filters-wrap">
-    <button type="button" class="toggle" @click="open = !open">
+    <button type="button" class="toggle" :aria-expanded="open" @click="open = !open">
       <AppIcon name="filter" :size="15" />
       {{ open ? t('filters.hide') : t('filters.show') }}
     </button>
-    <div v-show="open" class="filters">
+    <div class="fold-panel" :class="{ 'is-open': open }">
+    <div class="fold-panel__body filters" :inert="!open">
     <input
       v-if="showSearch"
       :value="modelValue.search"
@@ -147,6 +148,7 @@ function reset() {
     <input v-if="showCostCenter" :value="modelValue.cost_center" class="field" :placeholder="t('expenses.costCenter')" @input="patchLive({ cost_center: ($event.target as HTMLInputElement).value })" />
     <button type="button" class="ui-btn ui-btn--primary" @click="emit('apply')"><AppIcon name="check" :size="16" /> {{ t('filters.apply') }}</button>
     <button type="button" class="ui-btn ui-btn--secondary" @click="reset">{{ t('filters.reset') }}</button>
+    </div>
     </div>
   </div>
 </template>

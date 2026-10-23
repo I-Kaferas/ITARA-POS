@@ -1446,6 +1446,7 @@ class SaleEngine
             'payment_status' => SalePaymentStatus::Unpaid,
             'currency' => $cart->currency,
             'idempotency_key' => $payload['idempotency_key'] ?? null,
+            'source' => ($payload['source'] ?? null) === 'qr_client' ? 'qr_client' : 'cashier',
             'order_date' => $this->orderDateFromPayload($payload),
             'completed_at' => null,
             'notes' => $payload['notes'] ?? null,

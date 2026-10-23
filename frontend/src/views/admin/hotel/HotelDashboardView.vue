@@ -5,7 +5,6 @@ import { RouterLink } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { hospitalitySnapshotPath } from '../../../api/hospitality'
 import AnimatedCard from '../../../components/motion/AnimatedCard.vue'
-import CountUp from '../../../components/motion/CountUp.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import KpiCard from '../../../components/ui/KpiCard.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
@@ -94,12 +93,14 @@ const kpis = computed(() => {
   const checkOutPrev = countCheckOuts(previous.from, previous.to)
   const revenueNow = revenueBetween(current.from, current.to)
   const revenuePrev = revenueBetween(previous.from, previous.to)
+  const days = Array.from({ length: 7 }, (_, i) => addDaysIso(current.to, i - 6))
+  const daily = (count: (day: string) => number) => days.map(count)
 
   return [
-    { key: 'bookings', label: t('hotel.dashboard.newBookings'), value: String(bookingsNow), numeric: bookingsNow, format: 'integer' as const, ...comparison(bookingsNow, bookingsPrev), icon: 'calendar' },
-    { key: 'in', label: t('hotel.dashboard.checkIn'), value: String(checkInNow), numeric: checkInNow, format: 'integer' as const, ...comparison(checkInNow, checkInPrev), icon: 'key' },
-    { key: 'out', label: t('hotel.dashboard.checkOut'), value: String(checkOutNow), numeric: checkOutNow, format: 'integer' as const, ...comparison(checkOutNow, checkOutPrev), icon: 'logout' },
-    { key: 'revenue', label: t('hotel.dashboard.totalRevenue'), value: formatMoney(revenueNow), numeric: revenueNow, format: 'money' as const, ...comparison(revenueNow, revenuePrev), icon: 'receipt' },
+    { key: 'bookings', label: t('hotel.dashboard.newBookings'), value: String(bookingsNow), numeric: bookingsNow, format: 'integer' as const, ...comparison(bookingsNow, bookingsPrev), icon: 'calendar', tone: 'violet' as const, chart: 'area' as const, series: daily(day => countCreated(day, day, () => true)) },
+    { key: 'in', label: t('hotel.dashboard.checkIn'), value: String(checkInNow), numeric: checkInNow, format: 'integer' as const, ...comparison(checkInNow, checkInPrev), icon: 'key', tone: 'amber' as const, chart: 'bars' as const, series: daily(day => countCheckIns(day, day)) },
+    { key: 'out', label: t('hotel.dashboard.checkOut'), value: String(checkOutNow), numeric: checkOutNow, format: 'integer' as const, ...comparison(checkOutNow, checkOutPrev), icon: 'logout', tone: 'coral' as const, chart: 'area' as const, series: daily(day => countCheckOuts(day, day)) },
+    { key: 'revenue', label: t('hotel.dashboard.totalRevenue'), value: formatMoney(revenueNow), numeric: revenueNow, format: 'money' as const, ...comparison(revenueNow, revenuePrev), icon: 'coins', tone: 'pink' as const, chart: 'dots' as const, series: daily(day => revenueBetween(day, day)) },
   ]
 })
 
@@ -293,7 +294,7 @@ function formatPct(value: number | null) {
   return `${body}%`
 }
 
-function deltaTone(value: number | null) {
+function deltaTone(value: number | null): 'up' | 'down' | 'flat' {
   if (value == null || value === 0) return 'flat'
   return value > 0 ? 'up' : 'down'
 }
@@ -346,28 +347,23 @@ function compactNumber(value: number) {
     <LoadingBlock v-else-if="loading && !docs.length" variant="cards" :rows="4" :label="t('common.loading')" />
 
     <template v-else>
-      <section class="home-kpis">
-        <AnimatedCard
-          v-for="(card, index) in kpis"
+      <section class="home-kpis stagger-in">
+        <KpiCard
+          v-for="card in kpis"
           :key="card.key"
-          :index="index"
-          class="hkpi"
-          :class="`hkpi--${card.key}`"
-        >
-          <div class="hkpi__top">
-            <span class="hkpi__icon" aria-hidden="true">
-              <AppIcon :name="card.key === 'out' ? 'bed' : card.key === 'revenue' ? 'coins' : card.icon" :size="18" />
-            </span>
-            <span v-if="card.pct" class="hkpi__badge" :class="`is-${card.deltaTone}`">
-              {{ card.deltaTone === 'down' ? '↓' : '↑' }} {{ card.pct }}
-            </span>
-          </div>
-          <p class="hkpi__label">{{ card.label }}</p>
-          <p class="hkpi__value">
-            <CountUp :value="card.numeric" :format="card.format" />
-          </p>
-          <p class="hkpi__hint">{{ t('hotel.dashboard.vsLastWeek') }}</p>
-        </AnimatedCard>
+          :label="card.label"
+          :hint="t('hotel.dashboard.last7Days')"
+          :info="t('hotel.dashboard.vsLastWeek')"
+          :value="card.value"
+          :count-to="card.numeric"
+          :count-format="card.format"
+          :icon="card.key === 'out' ? 'bed' : card.icon"
+          :tone="card.tone"
+          :spark="card.series"
+          :chart="card.chart"
+          :delta="card.delta"
+          :delta-tone="card.deltaTone"
+        />
       </section>
 
       <div class="home-grid">
@@ -451,15 +447,20 @@ function compactNumber(value: number) {
       <LoadingBlock v-else-if="loading && !docs.length" variant="cards" :rows="4" :label="t('common.loading')" />
 
       <template v-else>
-        <section class="hd-kpis stagger-in kpi-plain">
+        <section class="hd-kpis stagger-in">
           <KpiCard
             v-for="card in kpis"
             :key="card.key"
             :label="card.label"
+            :hint="t('hotel.dashboard.last7Days')"
+            :info="t('hotel.dashboard.vsLastWeek')"
             :value="card.value"
             :count-to="card.numeric"
             :count-format="card.format"
             :icon="card.icon"
+            :tone="card.tone"
+            :spark="card.series"
+            :chart="card.chart"
             :delta="card.delta"
             :delta-tone="card.deltaTone"
           />
@@ -915,103 +916,11 @@ function compactNumber(value: number) {
   }
 }
 
-.hkpi,
 .home-panel {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background: var(--gradient-card, var(--color-surface));
   box-shadow: var(--shadow-sm);
-}
-
-.hkpi {
-  position: relative;
-  overflow: hidden;
-  padding: var(--space-6, 24px);
-  transition:
-    box-shadow var(--motion-normal) var(--ease-out),
-    transform var(--motion-normal) var(--ease-out);
-}
-
-.hkpi::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(90deg, var(--hkpi-tone), color-mix(in srgb, var(--hkpi-tone) 20%, transparent));
-}
-
-.hkpi { --hkpi-tone: var(--color-brand-600); --hkpi-tint: var(--color-brand-50); }
-.hkpi--out { --hkpi-tone: var(--color-warning); --hkpi-tint: var(--color-warning-bg); }
-.hkpi--revenue { --hkpi-tone: var(--color-success); --hkpi-tint: var(--color-success-bg); }
-
-.hkpi__top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-2, 8px);
-}
-
-.hkpi__icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  background: var(--hkpi-tint);
-  color: var(--hkpi-tone);
-}
-
-/* Arrow + percentage carry the meaning; color only reinforces it. */
-.hkpi__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1, 4px);
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.hkpi__badge.is-up,
-.hkpi__badge.is-flat {
-  border-color: color-mix(in srgb, var(--color-success) 22%, transparent);
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.hkpi__badge.is-down {
-  border-color: color-mix(in srgb, var(--color-danger) 22%, transparent);
-  background: var(--color-danger-bg);
-  color: var(--color-danger-strong);
-}
-
-.hkpi__label {
-  margin: var(--space-4, 16px) 0 0;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.hkpi__value {
-  margin: var(--space-1, 4px) 0 0;
-  color: var(--color-text-primary);
-  font-family: var(--font-numeric);
-  font-size: clamp(1.625rem, 1.3rem + 1vw, 2rem);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.025em;
-  line-height: 1.15;
-}
-
-.hkpi__hint {
-  margin: var(--space-1, 4px) 0 0;
-  color: var(--color-text-faint);
-  font-size: var(--text-xs);
 }
 
 .home-grid {
@@ -1212,7 +1121,6 @@ function compactNumber(value: number) {
 
 @media (prefers-reduced-motion: reduce) {
   .home-hero,
-  .hkpi,
   .home-panel,
   .chart__bar,
   .line-chart polyline,
@@ -1224,7 +1132,6 @@ function compactNumber(value: number) {
     stroke-dashoffset: 0;
   }
 
-  .hkpi:hover,
   .home-refresh:hover:not(:disabled),
   .home-book:hover {
     transform: none;

@@ -46,6 +46,7 @@ interface FloorTableOption {
     party_size: number
     reserved_at?: string | null
   } | null
+  pending_qr_count?: number
 }
 
 const { t } = useI18n()
@@ -1030,6 +1031,7 @@ onUnmounted(() => {
                   {
                     'pos-table-picker__card--active': pos.activeTable?.id === table.id,
                     'pos-table-picker__card--locked': !isTableSelectable(table),
+                    'pos-table-picker__card--qr': (table.pending_qr_count || 0) > 0,
                   },
                 ]"
                 :disabled="tablePickerSaving || !isTableSelectable(table)"
@@ -1039,6 +1041,7 @@ onUnmounted(() => {
                 <header>
                   <strong>{{ table.name }}</strong>
                   <Badge :variant="tableStatusVariant(table.status)">{{ tableStatusLabel(table.status) }}</Badge>
+                  <Badge v-if="(table.pending_qr_count || 0) > 0" variant="warning">QR {{ table.pending_qr_count }}</Badge>
                 </header>
                 <p class="pos-table-picker__meta">
                   {{ t('pointOfSale.tables.seats', { count: table.capacity ?? 0 }) }}
@@ -1625,6 +1628,14 @@ onUnmounted(() => {
   border-color: #fdba74;
   box-shadow: inset 4px 0 0 #d97706;
   cursor: not-allowed;
+}
+
+.pos-table-picker__card--qr {
+  animation: qr-wait 1.2s ease-in-out infinite;
+}
+
+@keyframes qr-wait {
+  50% { box-shadow: inset 4px 0 0 #d97706; }
 }
 
 .pos-table-picker__card--reserved {

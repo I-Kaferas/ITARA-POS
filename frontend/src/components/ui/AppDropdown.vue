@@ -96,7 +96,9 @@ onBeforeUnmount(() => {
       <span>{{ label }}</span>
       <AppIcon name="chevron-down" :size="16" />
     </button>
-    <div v-if="open" class="ui-dropdown__menu" role="menu">
+    <div class="fold-panel fold-panel--pop ui-dropdown__pop" :class="{ 'is-open': open }">
+    <div class="fold-panel__body" :inert="!open">
+    <div class="ui-dropdown__menu" role="menu">
       <button
         v-for="(item, index) in items"
         :key="item.id"
@@ -114,6 +116,8 @@ onBeforeUnmount(() => {
         <span>{{ item.label }}</span>
         <span v-if="item.hint" class="ui-dropdown__hint">{{ item.hint }}</span>
       </button>
+    </div>
+    </div>
     </div>
   </div>
 </template>

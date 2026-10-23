@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import { intlLocale } from '../../../i18n/locales'
+import UserGuide from './UserGuide.vue'
 
 const sections = ['guide', 'tutorials', 'faqs', 'support', 'about'] as const
 type Section = (typeof sections)[number]
@@ -14,47 +15,40 @@ const openFaq = ref('q1')
 const subject = ref('')
 const message = ref('')
 const articleQuery = ref('')
+const watchingId = ref<string | null>(null)
 
 const section = computed<Section>(() => {
   const value = String(route.params.section || 'guide')
   return (sections as readonly string[]).includes(value) ? (value as Section) : 'guide'
 })
 
+function openWatch(id: string) {
+  watchingId.value = id
+}
+
+function closeWatch() {
+  watchingId.value = null
+}
+
+function onWatchKey(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeWatch()
+}
+
+watch(watchingId, (id) => {
+  document.body.style.overflow = id ? 'hidden' : ''
+  if (id) window.addEventListener('keydown', onWatchKey)
+  else window.removeEventListener('keydown', onWatchKey)
+})
+
+onBeforeUnmount(() => {
+  document.body.style.overflow = ''
+  window.removeEventListener('keydown', onWatchKey)
+})
+
 watch(section, () => {
   openFaq.value = 'q1'
   articleQuery.value = ''
-})
-
-const articles = computed(() => [
-  {
-    id: 'start',
-    title: t('helpCenter.articles.start.title'),
-    body: t('helpCenter.articles.start.body'),
-    tags: ['getting-started', 'beginner', 'navigation'],
-    date: '2026-03-01',
-  },
-  {
-    id: 'roles',
-    title: t('helpCenter.articles.roles.title'),
-    body: t('helpCenter.articles.roles.body'),
-    tags: ['users', 'roles', 'permissions'],
-    date: '2026-03-01',
-  },
-  {
-    id: 'reports',
-    title: t('helpCenter.articles.reports.title'),
-    body: t('helpCenter.articles.reports.body'),
-    tags: ['reports', 'analytics', 'export'],
-    date: '2026-03-01',
-  },
-])
-
-const visibleArticles = computed(() => {
-  const q = articleQuery.value.trim().toLowerCase()
-  if (!q) return articles.value
-  return articles.value.filter(article =>
-    [article.title, article.body, ...article.tags].join(' ').toLowerCase().includes(q),
-  )
+  closeWatch()
 })
 
 const visibleFaqs = computed(() => {
@@ -106,6 +100,8 @@ const visibleVideos = computed(() => {
   return videos.value.filter(video => `${video.title} ${video.body}`.toLowerCase().includes(q))
 })
 
+const watching = computed(() => videos.value.find(video => video.id === watchingId.value) ?? null)
+
 const announcements = computed(() => [
   {
     id: 'performance',
@@ -153,34 +149,7 @@ function toggleFaq(key: string) {
     <template #subtitle>{{ t(`helpCenter.${section}Subtitle`) }}</template>
 
     <div class="help">
-      <section v-if="section === 'guide'" class="help-center">
-        <header class="help-center__head">
-          <div>
-            <h2>{{ t('helpCenter.centerTitle') }}</h2>
-            <p>{{ t('helpCenter.guideSubtitle') }}</p>
-          </div>
-          <label class="help-search">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M20 20l-3.5-3.5" stroke-linecap="round" />
-            </svg>
-            <input v-model="articleQuery" type="search" :placeholder="t('helpCenter.searchPlaceholder')" />
-          </label>
-        </header>
-        <ul v-if="visibleArticles.length" class="help-articles">
-          <li v-for="article in visibleArticles" :key="article.id">
-            <h3>{{ article.title }}</h3>
-            <p>{{ article.body }}</p>
-            <div class="help-articles__meta">
-              <ul>
-                <li v-for="tag in article.tags" :key="tag">{{ tag }}</li>
-              </ul>
-              <time :datetime="article.date">{{ articleDate(article.date) }}</time>
-            </div>
-          </li>
-        </ul>
-        <p v-else class="help-empty">{{ t('helpCenter.noArticles') }}</p>
-      </section>
+      <UserGuide v-if="section === 'guide'" />
 
       <section v-else-if="section === 'tutorials'" class="help-center">
         <header class="help-center__head">
@@ -198,10 +167,10 @@ function toggleFaq(key: string) {
         </header>
         <ul v-if="visibleVideos.length" class="help-articles help-videos">
           <li v-for="video in visibleVideos" :key="video.id">
-            <button type="button" class="help-poster" :aria-label="t('helpCenter.watchVideo')">
+            <button type="button" class="help-poster" :aria-label="t('helpCenter.watchVideo')" @click="openWatch(video.id)">
               <span class="help-video-badge">{{ t('helpCenter.videoBadge') }}</span>
               <span class="help-play" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                   <path d="M9 7.5v9l8-4.5-8-4.5z" />
                 </svg>
               </span>
@@ -210,8 +179,13 @@ function toggleFaq(key: string) {
               <h3>{{ video.title }}</h3>
               <p>{{ video.body }}</p>
               <div class="help-articles__meta">
-                <button type="button" class="help-watch">{{ t('helpCenter.watchVideo') }}</button>
                 <time :datetime="video.date">{{ articleDate(video.date) }}</time>
+                <button type="button" class="help-watch" @click="openWatch(video.id)">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                    <path d="M9 7.5v9l8-4.5-8-4.5z" />
+                  </svg>
+                  {{ t('helpCenter.watchVideo') }}
+                </button>
               </div>
             </div>
           </li>
@@ -219,7 +193,7 @@ function toggleFaq(key: string) {
         <p v-else class="help-empty">{{ t('helpCenter.noArticles') }}</p>
       </section>
 
-      <section v-else-if="section === 'faqs'" class="help-center">
+      <section v-if="section === 'faqs'" class="help-center">
         <header class="help-center__head">
           <div>
             <h2>{{ t('helpCenter.centerTitle') }}</h2>
@@ -244,7 +218,11 @@ function toggleFaq(key: string) {
                 </svg>
               </button>
             </h3>
-            <p v-if="openFaq === key">{{ t(`helpCenter.faq.a${key.slice(1)}`) }}</p>
+            <div class="fold-panel" :class="{ 'is-open': openFaq === key }">
+              <div class="fold-panel__body" :inert="openFaq !== key">
+                <p>{{ t(`helpCenter.faq.a${key.slice(1)}`) }}</p>
+              </div>
+            </div>
           </li>
         </ul>
         <p v-else class="help-empty">{{ t('helpCenter.noArticles') }}</p>
@@ -303,6 +281,33 @@ function toggleFaq(key: string) {
         <p v-else class="help-empty">{{ t('helpCenter.noArticles') }}</p>
       </section>
     </div>
+
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="watching" class="watch-backdrop" @mousedown.self="closeWatch">
+          <div class="watch" role="dialog" aria-modal="true" :aria-labelledby="`watch-${watching.id}`">
+            <div class="watch__stage">
+              <span class="help-video-badge">{{ t('helpCenter.videoBadge') }}</span>
+              <button type="button" class="watch__close" :aria-label="t('common.close')" @click="closeWatch">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" />
+                </svg>
+              </button>
+              <span class="help-play help-play--stage" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                  <path d="M9 7.5v9l8-4.5-8-4.5z" />
+                </svg>
+              </span>
+            </div>
+            <div class="watch__copy">
+              <h3 :id="`watch-${watching.id}`">{{ watching.title }}</h3>
+              <p>{{ watching.body }}</p>
+              <p class="watch__note">{{ t('helpCenter.tutorialNote') }}</p>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </PageFrame>
 </template>
 
@@ -452,7 +457,8 @@ function toggleFaq(key: string) {
 }
 
 .help-videos {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 17.5rem));
+  justify-content: start;
 }
 
 .news {
@@ -573,11 +579,16 @@ function toggleFaq(key: string) {
 .help-play {
   display: grid;
   place-items: center;
-  width: 58px;
-  height: 58px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
   background: #fff;
   color: #12243c;
+}
+
+.help-play svg {
+  width: 16px;
+  height: 16px;
 }
 
 .help-poster .help-video-badge {
@@ -593,7 +604,17 @@ function toggleFaq(key: string) {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 14px 16px 16px;
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
+
+.help-video-body h3 {
+  font-size: 14px;
+}
+
+.help-video-body p {
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .help-video-badge {
@@ -610,7 +631,19 @@ function toggleFaq(key: string) {
   text-transform: uppercase;
 }
 
+.help-video-body .help-articles__meta {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding-top: 4px;
+}
+
 .help-watch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
   height: 32px;
   padding: 0 12px;
   border: 0;
@@ -618,8 +651,120 @@ function toggleFaq(key: string) {
   background: var(--color-brand-600);
   color: #fff;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 650;
+  line-height: 1;
   cursor: pointer;
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.help-watch:hover {
+  background: var(--color-brand-700);
+  transform: translateY(-1px);
+}
+
+.help-watch:active {
+  transform: scale(0.98);
+}
+
+.help-watch:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+.help-play--stage {
+  width: 64px;
+  height: 64px;
+}
+
+.help-play--stage svg {
+  width: 28px;
+  height: 28px;
+}
+
+.watch-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(18, 36, 60, 0.46);
+}
+
+.watch {
+  width: min(40rem, 100%);
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 24px 60px rgba(18, 36, 60, 0.28);
+}
+
+.watch__stage .help-video-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.watch__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(240, 160, 16, 0.22), transparent 42%),
+    #12243c;
+  color: #fff;
+}
+
+.watch__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  cursor: pointer;
+}
+
+.watch__close:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.watch__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px 18px;
+}
+
+.watch__copy h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 1.15rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.watch__copy p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.watch__note {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-canvas);
+  color: var(--color-text-secondary);
+  font-size: 13px;
 }
 
 .help-empty {
@@ -733,7 +878,7 @@ function toggleFaq(key: string) {
 
 .help-faq-chevron {
   color: var(--color-text-muted);
-  transition: transform 0.15s ease;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .help-faq-grid button[aria-expanded='true'] .help-faq-chevron {
@@ -813,9 +958,12 @@ function toggleFaq(key: string) {
   .help-lessons,
   .help-support,
   .help-articles,
-  .help-videos,
   .help-faq-grid {
     grid-template-columns: 1fr;
+  }
+
+  .help-videos {
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 16.5rem));
   }
 
   .news > li {

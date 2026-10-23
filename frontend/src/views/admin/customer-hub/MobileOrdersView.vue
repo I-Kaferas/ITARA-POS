@@ -6,6 +6,7 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import FilterFold from '../../../components/ui/FilterFold.vue'
 import Badge from '../../../components/ui/Badge.vue'
+import KpiCard from '../../../components/ui/KpiCard.vue'
 import { intlLocale } from '../../../i18n/locales'
 import { useContextStore } from '../../../stores/context'
 import {
@@ -55,14 +56,34 @@ const paidRevenue = computed(() =>
   orders.value.filter(order => order.payment === 'paid').reduce((sum, order) => sum + order.amount, 0),
 )
 
+const statMeta = {
+  '': { icon: 'receipt', tone: 'navy', chart: 'area' },
+  new: { icon: 'sales', tone: 'blue', chart: 'dots' },
+  processing: { icon: 'clock', tone: 'amber', chart: 'bars' },
+  completed: { icon: 'check', tone: 'green', chart: 'area' },
+  cancelled: { icon: 'alert', tone: 'coral', chart: 'dots' },
+} as const
+
+const trendDays = computed(() => {
+  const days = [...new Set(orders.value.map(order => order.at.slice(0, 10)))].sort()
+  return days.slice(-7)
+})
+
+function sparkFor(key: OrderStatus | '') {
+  return trendDays.value.map(day =>
+    orders.value.filter(order => order.at.startsWith(day) && (!key || order.status === key)).length,
+  )
+}
+
 const stats = computed(() => [
-  { key: '' as const, label: t('mobileOrdersPage.total'), value: orders.value.length },
+  { key: '' as const, label: t('mobileOrdersPage.total'), value: orders.value.length, ...statMeta[''] },
   ...statusKeys.map(key => ({
     key,
     label: t(`mobileOrdersPage.${key}`),
     value: orders.value.filter(order => order.status === key).length,
+    ...statMeta[key],
   })),
-])
+].map(stat => ({ ...stat, spark: sparkFor(stat.key) })))
 
 const visible = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -164,19 +185,29 @@ onMounted(loadOrders)
         </p>
       </div>
 
-      <section class="orders__stats">
-        <button
+      <section class="orders__kpis" :aria-label="t('mobileOrdersPage.status')">
+        <div
           v-for="stat in stats"
           :key="stat.label"
-          type="button"
-          class="orders__stat"
+          class="orders__kpi"
           :class="{ 'is-on': status === stat.key }"
+          role="button"
+          tabindex="0"
           :aria-pressed="status === stat.key"
           @click="selectStatus(stat.key)"
+          @keydown.enter.prevent="selectStatus(stat.key)"
+          @keydown.space.prevent="selectStatus(stat.key)"
         >
-          <span class="orders__value">{{ stat.value }}</span>
-          <span class="orders__label">{{ stat.label }}</span>
-        </button>
+          <KpiCard
+            :label="stat.label"
+            :value="stat.value"
+            :count-to="stat.value"
+            :icon="stat.icon"
+            :tone="stat.tone"
+            :chart="stat.chart"
+            :spark="stat.spark"
+          />
+        </div>
       </section>
 
       <FilterFold>
@@ -351,7 +382,10 @@ onMounted(loadOrders)
   flex-direction: column;
   gap: var(--space-5);
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: calc(100vh - 11rem);
+  overflow-x: clip;
 }
 
 .orders__toolbar {
@@ -380,58 +414,37 @@ onMounted(loadOrders)
   min-width: 11rem;
 }
 
-.orders__stats {
+.orders__kpis {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
-  overflow: hidden;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  gap: 0.85rem;
 }
 
-.orders__stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
+.orders__kpi {
   min-width: 0;
-  padding: var(--space-4) var(--space-5);
-  border: 0;
-  border-right: 1px solid var(--color-border);
-  background: transparent;
-  text-align: left;
+  border-radius: 24px;
   cursor: pointer;
 }
 
-.orders__stat:last-child {
-  border-right: 0;
+.orders__kpi :deep(.kpi-card) {
+  height: 100%;
 }
 
-.orders__stat:hover {
-  background: var(--color-table-header);
+.orders__kpi.is-on :deep(.kpi-card) {
+  outline: 2px solid var(--kpi-accent);
+  outline-offset: 3px;
 }
 
-.orders__stat.is-on {
-  background: var(--color-canvas);
-  box-shadow: inset 0 -2px 0 #1c2430;
+.orders__kpi:focus-visible {
+  outline: 2px solid #12243c;
+  outline-offset: 3px;
 }
 
-.orders__stat:focus-visible,
 .orders__view:focus-visible {
   outline: 2px solid #1c2430;
   outline-offset: 2px;
 }
 
-.orders__value {
-  font-size: 1.5rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
-  color: var(--color-text-primary);
-}
-
-.orders__label,
 .orders__meta,
 .orders__revenue span {
   font-size: var(--text-sm);
@@ -538,34 +551,14 @@ onMounted(loadOrders)
 }
 
 @media (max-width: 960px) {
-  .orders__stats {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .orders__stat {
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .orders__stat:nth-child(2n) {
-    border-right: 0;
-  }
-
-  .orders__stat:last-child {
-    border-bottom: 0;
-  }
-
   .orders__facts {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 520px) {
-  .orders__stats {
+@media (max-width: 640px) {
+  .orders__kpis {
     grid-template-columns: 1fr;
-  }
-
-  .orders__stat {
-    border-right: 0;
   }
 }
 </style>

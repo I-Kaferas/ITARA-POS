@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<{
   firstName: '',
   companyName: '',
   version: '1.0.1',
-  minDurationMs: 3000,
+  minDurationMs: 4500,
   timeoutMs: 10_000,
   messages: () => [],
 })

@@ -35,7 +35,7 @@ const detailRow = ref<Doc | null>(null)
 const search = ref('')
 const categoryFilter = ref<Category | 'all'>('all')
 const statusFilter = ref<Status | 'all'>('all')
-const filtersOpen = ref(false)
+const filtersOpen = ref(true)
 
 const categories: { id: Category; icon: string; color: string }[] = [
   { id: 'room_service', icon: 'products', color: '#0e7490' },
@@ -485,11 +485,12 @@ onMounted(load)
           @click="filtersOpen = !filtersOpen"
         >
           <AppIcon name="filter" :size="13" />
-          {{ t('filters.show') }}
+          {{ filtersOpen ? t('filters.hide') : t('filters.show') }}
         </button>
       </div>
 
-      <div v-show="filtersOpen" class="cg__filters">
+      <div class="fold-panel" :class="{ 'is-open': filtersOpen }">
+      <div class="fold-panel__body cg__filters" :inert="!filtersOpen">
         <button
           type="button"
           class="cg__chip"
@@ -508,6 +509,7 @@ onMounted(load)
         >
           {{ statusLabel(st) }}
         </button>
+      </div>
       </div>
 
       <div class="cg__table-wrap">

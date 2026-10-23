@@ -38,6 +38,11 @@ const router = createRouter({
       component: () => import('../views/public/MerchantQrPublicView.vue'),
     },
     {
+      path: '/order',
+      name: 'table-order',
+      component: () => import('../views/public/TableOrderView.vue'),
+    },
+    {
       path: '/admin',
       component: () => import('../components/layout/AdminLayout.vue'),
       meta: { requiresAuth: true },
@@ -170,6 +175,18 @@ const router = createRouter({
               name: 'pos-reservations',
               component: () => import('../views/admin/pos/PosReservationsView.vue'),
               meta: { requiresAuth: true },
+            },
+        {
+              path: 'pos/qr-orders',
+              name: 'pos-qr-orders',
+              component: () => import('../views/admin/pos/QrOrdersView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.posQrOrders' },
+            },
+        {
+              path: 'pos/qr-codes',
+              name: 'pos-qr-codes',
+              component: () => import('../views/admin/pos/QrCodesView.vue'),
+              meta: { requiresAuth: true, titleKey: 'nav.posQrCodes' },
             },
         {
               path: 'sales',
@@ -908,7 +925,7 @@ router.beforeEach(async (to) => {
     }
     const platformAdmin = auth.user?.is_super_admin === true && !auth.user.tenant_id
     const platformRoute = typeof to.name === 'string' && (to.name === 'platform' || to.name.startsWith('platform-'))
-    if (platformAdmin && !platformRoute && to.name !== 'merchant-qr-public') {
+    if (platformAdmin && !platformRoute && to.name !== 'merchant-qr-public' && to.name !== 'table-order') {
       return { name: 'platform' }
     }
     if (auth.user?.tenant_id && !context.stores.length) {

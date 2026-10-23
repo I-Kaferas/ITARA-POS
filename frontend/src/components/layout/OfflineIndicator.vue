@@ -41,7 +41,9 @@ const label = computed(() => {
         {{ offline.pending.length + offline.conflicts.length }}
       </span>
     </button>
-    <div v-if="open" class="off-panel" role="status">
+    <div class="fold-panel fold-panel--pop off-pop" :class="{ 'is-open': open }">
+    <div class="fold-panel__body" :inert="!open">
+    <div class="off-panel" role="status">
       <p class="off-panel__title">{{ label }}</p>
       <p class="off-panel__hint">{{ t('offline.architecture') }}</p>
       <p v-if="!offline.transactions.length" class="off-empty">{{ t('offline.empty') }}</p>
@@ -65,6 +67,8 @@ const label = computed(() => {
           </div>
         </li>
       </ul>
+    </div>
+    </div>
     </div>
   </span>
 </template>
@@ -101,11 +105,14 @@ const label = computed(() => {
   font-size: 10px;
   line-height: 16px;
 }
-.off-panel {
+.off-pop {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   z-index: 40;
+}
+
+.off-panel {
   width: min(360px, 80vw);
   max-height: 420px;
   overflow: auto;

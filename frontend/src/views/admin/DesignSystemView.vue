@@ -344,8 +344,25 @@ onBeforeUnmount(() => sectionObserver?.disconnect())
             <p class="ui-body">{{ t('design.lead.cards') }}</p>
           </header>
           <div class="ds-cards">
-            <KpiCard :label="t('design.samples.kpiSales')" :value="formatMoney(18420000)" icon="sales" delta="+8%" delta-tone="up" />
-            <KpiCard :label="t('design.samples.kpiOrders')" value="46" icon="receipt" accent="var(--color-accent)" icon-bg="var(--color-accent-soft)" />
+            <KpiCard
+              :label="t('design.samples.kpiSales')"
+              :value="formatMoney(18420000)"
+              icon="sales"
+              tone="violet"
+              delta="+8%"
+              delta-tone="up"
+              :spark="[12, 18, 15, 22, 19, 26, 31]"
+            />
+            <KpiCard
+              :label="t('design.samples.kpiOrders')"
+              value="46"
+              icon="receipt"
+              tone="amber"
+              chart="bars"
+              delta="−3%"
+              delta-tone="down"
+              :spark="[6, 9, 7, 11, 5, 8, 12]"
+            />
             <AppCard :title="t('design.samples.cardTitle')" :description="t('design.samples.cardBody')" />
           </div>
         </section>

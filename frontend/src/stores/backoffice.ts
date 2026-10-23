@@ -2063,7 +2063,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   }
 
   async function downloadProductTemplate() {
-    await api.download('/import-export/products/template', 'products-import-template.csv')
+    await api.download('/import-export/products/template', 'products-import-template.xlsx')
   }
 
   async function importProducts(catalogId: string, file: File, updateExisting = true) {

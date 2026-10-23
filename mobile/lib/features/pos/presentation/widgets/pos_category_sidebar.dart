@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/pos_models.dart';
@@ -7,6 +8,7 @@ import '../../services/pos_favorites_store.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
+/// Compact category tiles, matching the web POS: icon, name, count.
 class PosCategorySidebar extends StatelessWidget {
   const PosCategorySidebar({
     super.key,
@@ -28,28 +30,30 @@ class PosCategorySidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
+      height: 86,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 8, 12, 6),
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
         children: [
-          _CategoryChip(
+          _CategoryTile(
             label: tr('All'),
             count: totalCount,
+            icon: Icons.grid_view_rounded,
             selected: selectedCategoryId == null,
             onTap: () => onCategorySelected(null),
           ),
-          _CategoryChip(
+          _CategoryTile(
             label: tr('Favorites'),
             count: favoritesCount,
+            icon: Icons.star_rounded,
             selected: selectedCategoryId == PosFavoritesStore.favoritesCategoryId,
             onTap: () => onCategorySelected(PosFavoritesStore.favoritesCategoryId),
-            icon: Icons.star_rounded,
           ),
           for (final category in categories)
-            _CategoryChip(
+            _CategoryTile(
               label: category.name,
               count: counts[category.id] ?? 0,
+              icon: Icons.category_outlined,
               selected: selectedCategoryId == category.id,
               onTap: () => onCategorySelected(category.id),
             ),
@@ -59,56 +63,64 @@ class PosCategorySidebar extends StatelessWidget {
   }
 }
 
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
     required this.label,
     required this.count,
+    required this.icon,
     required this.selected,
     required this.onTap,
-    this.icon,
   });
 
   final String label;
   final int count;
+  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
-  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? PosUi.deskInk : PosUi.deskText;
+    final fg = selected ? Colors.white : PosUi.deskText;
+    final muted = selected ? Colors.white.withValues(alpha: 0.78) : PosUi.deskMuted;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(12),
           child: AnimatedContainer(
             duration: AppMotion.resolve(context, AppMotion.micro),
             curve: AppMotion.standard,
-            constraints: const BoxConstraints(minHeight: 36),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            width: 68,
+            padding: const EdgeInsets.fromLTRB(4, 6, 4, 5),
             decoration: BoxDecoration(
-              color: selected ? PosUi.deskAccent : Colors.transparent,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: selected ? PosUi.deskAccent : PosUi.deskLine,
-              ),
+              color: selected ? AppColors.brand600 : PosUi.deskCard,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: selected ? AppColors.brand600 : PosUi.deskLine),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 14, color: fg),
-                  const SizedBox(width: 6),
-                ],
+                Icon(icon, size: 16, color: fg),
+                const SizedBox(height: 3),
                 Text(
-                  '$label ($count)',
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style: AppTypography.plex(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
                     color: fg,
+                  ),
+                ),
+                Text(
+                  '$count',
+                  style: AppTypography.plex(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: muted,
                   ),
                 ),
               ],
