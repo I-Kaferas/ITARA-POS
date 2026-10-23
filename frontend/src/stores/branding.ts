@@ -57,9 +57,36 @@ function mixToward(hex: string, toward: [number, number, number], amount: number
   return `#${mixed.map(channel => channel.toString(16).padStart(2, '0')).join('')}`
 }
 
+// Server-side defaults (TenantBranding.php). Tenants still on them get the stylesheet palette.
+const LEGACY_DEFAULT_PRIMARY = '#12243c'
+const LEGACY_DEFAULT_ACCENT = '#e39b2b'
+const BRAND_STEPS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900']
+
+function isLegacyDefault(color: string | null | undefined, legacy: string): boolean {
+  return !color || color.trim().toLowerCase() === legacy
+}
+
 function applyCss(branding: TenantBranding) {
   const root = document.documentElement
   const primary = branding.primary_color
+  if (isLegacyDefault(primary, LEGACY_DEFAULT_PRIMARY)) {
+    for (const step of BRAND_STEPS) root.style.removeProperty(`--color-brand-${step}`)
+    root.style.removeProperty('--color-focus-ring')
+    root.style.removeProperty('--shadow-glow')
+  } else {
+    applyBrandScale(root, primary)
+  }
+  if (isLegacyDefault(branding.accent_color, LEGACY_DEFAULT_ACCENT)) {
+    root.style.removeProperty('--color-accent')
+    root.style.removeProperty('--color-accent-soft')
+  } else {
+    const white: [number, number, number] = [255, 255, 255]
+    root.style.setProperty('--color-accent', branding.accent_color)
+    root.style.setProperty('--color-accent-soft', mixToward(branding.accent_color, white, 0.88))
+  }
+}
+
+function applyBrandScale(root: HTMLElement, primary: string) {
   const white: [number, number, number] = [255, 255, 255]
   const black: [number, number, number] = [0, 0, 0]
   const scale: Record<string, string> = {
@@ -77,8 +104,6 @@ function applyCss(branding: TenantBranding) {
   for (const [step, color] of Object.entries(scale)) {
     root.style.setProperty(`--color-brand-${step}`, color)
   }
-  root.style.setProperty('--color-accent', branding.accent_color)
-  root.style.setProperty('--color-accent-soft', mixToward(branding.accent_color, white, 0.88))
   const rgb = parseHex(primary)
   if (rgb) {
     root.style.setProperty('--color-focus-ring', `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.22)`)

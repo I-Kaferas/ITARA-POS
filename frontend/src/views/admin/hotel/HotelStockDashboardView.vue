@@ -434,46 +434,86 @@ function qtyLabel(quantity: number) {
 }
 
 .sd-hero {
+  flex-wrap: wrap;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  animation: bright-slide-up var(--motion-slow) var(--ease-out) backwards;
 }
 
 .sd-hero__mark {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  background: #e8f1ff;
-  color: #3b82f6;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-brand-50), var(--color-brand-100));
+  color: var(--color-brand-700);
+  box-shadow: inset 0 0 0 1px var(--color-brand-100);
 }
 
 .sd-hero h2 {
   margin: 0;
-  color: #0f172a;
-  font-size: 1.35rem;
-  font-weight: 750;
-  letter-spacing: -0.03em;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: clamp(1.375rem, 1.1rem + 1vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
 }
 
 .sd-hero p {
-  margin: 2px 0 0;
-  color: #94a3b8;
-  font-size: 0.84rem;
+  max-width: 65ch;
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-base);
+  line-height: 1.6;
 }
 
 .sd-hero__refresh {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  height: 38px;
-  padding: 0 0.85rem;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: #64748b;
-  font-weight: 650;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  box-shadow: var(--shadow-xs);
   cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    transform var(--motion-normal) var(--ease-out);
+}
+
+.sd-hero__refresh:hover:not(:disabled) {
+  border-color: var(--color-brand-300);
+  background: var(--color-brand-50);
+  color: var(--color-ink-brand);
+  transform: var(--lift);
+}
+
+.sd-hero__refresh:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--color-focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-hero,
+  .chart__bar {
+    animation: none;
+  }
+
+  .sd-hero__refresh:hover:not(:disabled) {
+    transform: none;
+  }
 }
 
 .sd__toolbar {
@@ -712,7 +752,7 @@ function qtyLabel(quantity: number) {
   background: var(--color-brand-600);
   transform: scaleY(var(--bar, 0));
   transform-origin: bottom;
-  animation: bar-in var(--motion-slow) var(--ease-out) backwards;
+  animation: bar-in var(--motion-chart, 600ms) var(--ease-out) both;
 }
 
 .chart__col:nth-child(2) .chart__bar { animation-delay: 30ms; }

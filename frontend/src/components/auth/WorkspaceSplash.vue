@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 export type SplashReport = {
@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<{
   firstName: '',
   companyName: '',
   version: '1.0.1',
-  minDurationMs: 900,
+  minDurationMs: 3000,
   timeoutMs: 10_000,
   messages: () => [],
 })
@@ -33,7 +33,9 @@ const emit = defineEmits<{ done: [] }>()
 
 const { t } = useI18n()
 
-const logoFailed = ref(false)
+const PRODUCT_LOGO_URL = '/brand/itara-nexus-logo.png?v=3'
+
+const logoStep = ref(0)
 const leaving = ref(false)
 const failed = ref(false)
 const bootDone = ref(false)
@@ -41,7 +43,12 @@ const announced = ref(4)
 const retrying = ref(false)
 const bar = ref<HTMLElement | null>(null)
 const retryButton = ref<HTMLButtonElement | null>(null)
-const showImage = computed(() => Boolean(props.logoUrl) && !logoFailed.value)
+
+const logoSources = computed(() => {
+  const tenant = props.logoUrl.trim()
+  return tenant && tenant !== PRODUCT_LOGO_URL ? [tenant, PRODUCT_LOGO_URL] : [PRODUCT_LOGO_URL]
+})
+const logoSrc = computed(() => logoSources.value[logoStep.value] ?? '')
 const mark = computed(() => (props.brandName.trim().charAt(0) || 'I').toUpperCase())
 const line = computed(() => props.tagline.trim())
 const edition = computed(() => {
@@ -54,6 +61,12 @@ const statusText = computed(() => {
   if (bootDone.value) return t('auth.splashStatusReady')
   return t('auth.splashLoadingLabel')
 })
+
+watch(() => props.logoUrl, () => { logoStep.value = 0 })
+
+function onLogoError() {
+  logoStep.value += 1
+}
 
 let frame = 0
 let timeoutId = 0
@@ -150,6 +163,7 @@ async function run() {
   announced.value = 4
   started = performance.now()
   stopClock()
+  await nextTick()
   applyBar()
 
   timeoutId = window.setTimeout(() => {
@@ -200,58 +214,38 @@ onBeforeUnmount(() => {
       :aria-busy="!failed && !leaving"
       aria-labelledby="workspace-splash-title"
     >
-      <div class="splash__stage" aria-hidden="true">
-        <span class="splash__corner splash__corner--tl" />
-        <span class="splash__corner splash__corner--tr" />
-        <span class="splash__corner splash__corner--bl" />
-        <span class="splash__corner splash__corner--br" />
-        <span class="splash__rail splash__rail--v splash__rail--left" />
-        <span class="splash__rail splash__rail--v splash__rail--right" />
-        <span class="splash__rail splash__rail--h splash__rail--top" />
-        <span class="splash__rail splash__rail--h splash__rail--bottom" />
-      </div>
-
-      <div class="splash__core">
-        <div class="splash__mark-wrap" aria-hidden="true">
-          <div class="splash__logo">
-            <img
-              v-if="showImage"
-              class="splash__logo-img"
-              :src="logoUrl"
-              alt=""
-              @error="logoFailed = true"
-            />
-            <span v-else class="splash__glyph">{{ mark }}</span>
-          </div>
+      <main class="splash__core">
+        <div class="splash__mark" aria-hidden="true">
+          <span v-if="!failed" class="splash__orbit" />
+          <img
+            v-if="logoSrc"
+            :key="logoSrc"
+            class="splash__logo"
+            :src="logoSrc"
+            alt=""
+            width="72"
+            height="72"
+            @error="onLogoError"
+          />
+          <span v-else class="splash__logo splash__glyph">{{ mark }}</span>
         </div>
 
         <p id="workspace-splash-title" class="splash__name">{{ brandName }}</p>
-        <span class="splash__rule" aria-hidden="true" />
-
         <p v-if="line" class="splash__tagline">{{ line }}</p>
 
-        <p
-          v-if="failed"
-          class="splash__status splash__status--alert"
-          role="alert"
-        >{{ statusText }}</p>
-        <p
-          v-else
-          class="splash__status"
-          role="status"
-          aria-live="polite"
-        >{{ statusText }}</p>
+        <p v-if="failed" class="splash__alert" role="alert">{{ statusText }}</p>
+        <p v-else class="splash__status" role="status" aria-live="polite">{{ statusText }}</p>
 
         <div
           v-if="!failed"
-          class="splash__meter"
+          class="splash__track"
           role="progressbar"
           aria-valuemin="0"
           aria-valuemax="100"
           :aria-valuenow="announced"
           :aria-label="t('auth.splashLoadingLabel')"
         >
-          <span ref="bar" class="splash__meter-fill" />
+          <span ref="bar" class="splash__track-fill" />
         </div>
 
         <button
@@ -264,7 +258,7 @@ onBeforeUnmount(() => {
         >
           {{ t('auth.splashRetry') }}
         </button>
-      </div>
+      </main>
 
       <footer class="splash__foot">
         <span class="splash__product">ITARA</span>
@@ -277,13 +271,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .splash {
-  --splash-ink: #0a1523;
-  --splash-ink-lift: #12243c;
-  --splash-paper: #f4f6f8;
-  --splash-mute: rgba(244, 246, 248, 0.48);
-  --splash-line: rgba(244, 246, 248, 0.14);
-  --splash-gold: #e39b2b;
-  --splash-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --splash-bg: #f6f7f9;
+  --splash-ink: #12243c;
+  --splash-accent: #e39b2b;
+  --splash-muted: #5c6d7c;
+  --splash-line: rgba(18, 36, 60, 0.08);
 
   position: fixed;
   inset: 0;
@@ -297,211 +289,150 @@ onBeforeUnmount(() => {
   height: calc(100dvh / var(--ui-zoom, 1));
   min-height: calc(100vh / var(--ui-zoom, 1));
   min-height: calc(100dvh / var(--ui-zoom, 1));
-  padding: clamp(1.5rem, 4vw, 3rem);
+  padding: 2rem 1.25rem 3rem;
   overflow: hidden;
-  background: var(--splash-ink);
-  color: var(--splash-paper);
+  background: var(--splash-bg);
+  color: var(--splash-ink);
   font-family: var(--font-display, "Plus Jakarta Sans", "IBM Plex Sans", sans-serif);
+  animation: splash-in 240ms ease-out both;
 }
 
 .splash--leaving {
   pointer-events: none;
-  animation: splash-out 320ms var(--splash-ease) forwards;
+  animation: splash-out 320ms ease forwards;
 }
-
-.splash__stage {
-  position: absolute;
-  inset: clamp(1rem, 2.8vw, 2rem);
-  pointer-events: none;
-}
-
-.splash__corner {
-  position: absolute;
-  width: 1.15rem;
-  height: 1.15rem;
-  border-color: var(--splash-line);
-  border-style: solid;
-  border-width: 0;
-  opacity: 0;
-  animation: splash-rise 700ms var(--splash-ease) 40ms forwards;
-}
-
-.splash__corner--tl {
-  top: 0;
-  left: 0;
-  border-top-width: 1px;
-  border-left-width: 1px;
-}
-
-.splash__corner--tr {
-  top: 0;
-  right: 0;
-  border-top-width: 1px;
-  border-right-width: 1px;
-}
-
-.splash__corner--bl {
-  bottom: 0;
-  left: 0;
-  border-bottom-width: 1px;
-  border-left-width: 1px;
-}
-
-.splash__corner--br {
-  bottom: 0;
-  right: 0;
-  border-bottom-width: 1px;
-  border-right-width: 1px;
-}
-
-.splash__rail {
-  position: absolute;
-  background: var(--splash-line);
-  opacity: 0;
-  animation: splash-fade 900ms var(--splash-ease) 120ms forwards;
-}
-
-.splash__rail--v {
-  top: 1.65rem;
-  bottom: 1.65rem;
-  width: 1px;
-}
-
-.splash__rail--h {
-  left: 1.65rem;
-  right: 1.65rem;
-  height: 1px;
-}
-
-.splash__rail--left { left: 0; }
-.splash__rail--right { right: 0; }
-.splash__rail--top { top: 0; }
-.splash__rail--bottom { bottom: 0; }
 
 .splash__core {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: min(100%, 28rem);
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  max-width: min(100%, 34rem);
   text-align: center;
 }
 
-.splash__mark-wrap {
-  margin-bottom: 1.65rem;
-  opacity: 0;
-  animation: splash-rise 720ms var(--splash-ease) 80ms forwards;
+.splash__mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 11.5rem;
+  height: 11.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.splash__orbit {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--splash-line);
+  border-top-color: var(--splash-accent);
+  border-right-color: var(--splash-ink);
+  animation: splash-spin 0.95s cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
+}
+
+.splash__orbit::after {
+  content: "";
+  position: absolute;
+  inset: 0.85rem;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-bottom-color: var(--splash-accent);
+  animation: splash-spin 1.35s linear infinite reverse;
 }
 
 .splash__logo {
-  display: grid;
-  place-items: center;
-  width: 4.25rem;
-  height: 4.25rem;
-  border: 1px solid var(--splash-line);
-  background: var(--splash-ink-lift);
-}
-
-.splash__logo-img {
-  display: block;
-  width: 2.55rem;
-  height: 2.55rem;
+  box-sizing: border-box;
+  width: 7.25rem;
+  height: 7.25rem;
+  padding: 0.8rem;
+  border-radius: 1.6rem;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(18, 36, 60, 0.1);
   object-fit: contain;
 }
 
 .splash__glyph {
-  font-size: 1.55rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--splash-paper);
-  line-height: 1;
+  display: grid;
+  place-items: center;
+  font-size: 2.6rem;
+  font-weight: 700;
 }
 
 .splash__name {
   margin: 0;
   max-width: 100%;
-  font-size: clamp(1.85rem, 4.2vw, 2.85rem);
-  font-weight: 650;
-  letter-spacing: -0.045em;
-  line-height: 1.05;
-  color: var(--splash-paper);
-  opacity: 0;
-  animation: splash-rise 760ms var(--splash-ease) 160ms forwards;
-}
-
-.splash__rule {
-  display: block;
-  width: 2rem;
-  height: 2px;
-  margin-top: 1.15rem;
-  background: var(--splash-gold);
-  opacity: 0;
-  animation: splash-rule 700ms var(--splash-ease) 280ms forwards;
+  overflow: hidden;
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .splash__tagline {
-  margin: 0.95rem 0 0;
-  max-width: 22rem;
-  font-size: 0.95rem;
-  font-weight: 450;
-  letter-spacing: 0.01em;
+  margin: -0.35rem 0 0;
+  font-size: 1.1rem;
   line-height: 1.45;
-  color: var(--splash-mute);
-  opacity: 0;
-  animation: splash-rise 720ms var(--splash-ease) 320ms forwards;
+  color: var(--splash-muted);
 }
 
 .splash__status {
-  margin: 1.35rem 0 0;
-  font-size: 0.72rem;
-  font-weight: 550;
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 650;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--splash-mute);
-  opacity: 0;
-  animation: splash-rise 700ms var(--splash-ease) 380ms forwards;
+  color: var(--splash-muted);
 }
 
-.splash__status--alert {
-  color: #f0b4af;
-  letter-spacing: 0.08em;
-  text-transform: none;
-  font-size: 0.9rem;
+.splash__alert {
+  margin: 0.15rem 0 0;
+  max-width: 22rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #b42318;
 }
 
-.splash__meter {
-  width: 9.5rem;
-  height: 1px;
-  margin-top: 1.45rem;
+.splash__track {
+  width: 12.5rem;
+  height: 4px;
+  margin-top: 0.5rem;
   overflow: hidden;
-  background: rgba(244, 246, 248, 0.16);
-  opacity: 0;
-  animation: splash-fade 700ms var(--splash-ease) 420ms forwards;
+  border-radius: 999px;
+  background: var(--splash-line);
 }
 
-.splash__meter-fill {
+.splash__track-fill {
   display: block;
   width: 100%;
   height: 100%;
-  background: var(--splash-paper);
+  border-radius: inherit;
+  background: var(--splash-accent);
   transform: scaleX(0.04);
   transform-origin: left center;
 }
 
 .splash__retry {
-  margin-top: 1.4rem;
-  padding: 0.72rem 1.35rem;
-  border: 1px solid rgba(244, 246, 248, 0.28);
-  background: var(--splash-paper);
-  color: var(--splash-ink);
+  min-height: 44px;
+  margin-top: 0.4rem;
+  padding: 0 1.4rem;
+  border: 1px solid var(--splash-ink);
+  border-radius: 999px;
+  background: var(--splash-ink);
+  color: #fff;
   font: inherit;
-  font-size: 0.88rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
+  font-size: 0.92rem;
+  font-weight: 600;
   cursor: pointer;
-  opacity: 0;
-  animation: splash-rise 560ms var(--splash-ease) 120ms forwards;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.splash__retry:hover:not(:disabled) {
+  background: #0f1f34;
+}
+
+.splash__retry:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .splash__retry:disabled {
@@ -510,95 +441,52 @@ onBeforeUnmount(() => {
 }
 
 .splash__retry:focus-visible {
-  outline: 2px solid var(--splash-gold);
+  outline: 2px solid var(--splash-accent);
   outline-offset: 3px;
 }
 
 .splash__foot {
   position: absolute;
-  bottom: clamp(1.35rem, 3.5vh, 2.4rem);
+  bottom: clamp(1.1rem, 3vh, 2rem);
   left: 50%;
-  z-index: 1;
   display: flex;
   align-items: center;
   gap: 0.55rem;
   transform: translateX(-50%);
-  opacity: 0;
-  animation: splash-fade 800ms var(--splash-ease) 480ms forwards;
 }
 
-.splash__product {
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.28em;
+.splash__product,
+.splash__edition {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(244, 246, 248, 0.38);
+  color: rgba(18, 36, 60, 0.5);
 }
 
 .splash__sep {
   width: 1px;
   height: 0.7rem;
-  background: rgba(244, 246, 248, 0.22);
+  background: rgba(18, 36, 60, 0.2);
 }
 
-.splash__edition {
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  color: rgba(244, 246, 248, 0.32);
+@keyframes splash-spin {
+  to { transform: rotate(360deg); }
 }
 
-@keyframes splash-rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes splash-fade {
+@keyframes splash-in {
   from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes splash-rule {
-  from {
-    opacity: 0;
-    transform: scaleX(0.2);
-  }
-  to {
-    opacity: 1;
-    transform: scaleX(1);
-  }
 }
 
 @keyframes splash-out {
-  to {
-    opacity: 0;
-    transform: scale(1.015);
-  }
+  to { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .splash__corner,
-  .splash__rail,
-  .splash__mark-wrap,
-  .splash__name,
-  .splash__rule,
-  .splash__tagline,
-  .splash__status,
-  .splash__meter,
-  .splash__retry,
-  .splash__foot {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
-
-  .splash--leaving {
+  .splash,
+  .splash--leaving,
+  .splash__orbit,
+  .splash__orbit::after {
     animation: none;
   }
 }

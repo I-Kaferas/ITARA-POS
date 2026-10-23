@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../api/client'
@@ -11,7 +11,7 @@ import EmptyState from '../../components/ui/EmptyState.vue'
 import FieldLabel from '../../components/ui/FieldLabel.vue'
 import { useConfirm } from '../../composables/useConfirm'
 import { realtimeTopics, useRealtimeSync } from '../../composables/useRealtimeSync'
-import { formatMoney } from '../../utils/format'
+import { formatMoney, formatRelativePast } from '../../utils/format'
 import { useAuthStore } from '../../stores/auth'
 
 type Doc = Record<string, any>
@@ -68,17 +68,53 @@ function normalizeKitchenStatus(status: unknown): string {
 function kitchenIsNew(status: unknown): boolean {
   return normalizeKitchenStatus(status) === 'new'
 }
-function kitchenStatusLabel(status: unknown): string {
-  const key = normalizeKitchenStatus(status)
-  if (key === 'new') return t('desk.kitchenNew')
-  if (key === 'preparing') return t('desk.preparing')
-  if (key === 'ready') return t('desk.ready')
-  if (key === 'served') return t('desk.served')
-  if (key === 'cancelled') return t('desk.cancelled')
-  return String(status ?? '')
-}
 function kitchenTicketsByStatus(status: string): Doc[] {
-  return tickets.value.filter(ticket => normalizeKitchenStatus(ticket.status) === status)
+  return tickets.value
+    .filter(ticket => normalizeKitchenStatus(ticket.status) === status)
+    .slice()
+    .sort((a, b) => String(a.sent_at ?? '').localeCompare(String(b.sent_at ?? '')))
+}
+function courseLabel(course: unknown): string {
+  const key = String(course ?? '').toLowerCase()
+  if (key === 'entree' || key === 'starter') return t('desk.starter')
+  if (key === 'plat' || key === 'main') return t('desk.main')
+  if (key === 'dessert') return t('desk.dessert')
+  return String(course ?? '')
+}
+const now = ref(Date.now())
+const LATE_AFTER_MS = 10 * 60 * 1000
+function ticketWait(ticket: Doc): string {
+  void now.value
+  return ticket.sent_at ? formatRelativePast(String(ticket.sent_at)) : ''
+}
+function ticketIsLate(ticket: Doc): boolean {
+  if (!ticket.sent_at) return false
+  const then = new Date(String(ticket.sent_at)).getTime()
+  if (Number.isNaN(then)) return false
+  return now.value - then >= LATE_AFTER_MS
+}
+function textBits(value: unknown): string[] {
+  if (typeof value === 'string') return value.split(',').map(item => item.trim()).filter(Boolean)
+  if (!Array.isArray(value)) return []
+  return value
+    .map(item => (item && typeof item === 'object' ? String(item.name ?? '') : String(item ?? '')).trim())
+    .filter(Boolean)
+}
+function lineDetail(line: Doc): string {
+  const extras = textBits(line.extras)
+  const sides = textBits(line.sides?.length ? line.sides : line.accompagnements)
+  const notes = String(line.notes ?? line.note ?? '').trim()
+  return [...textBits(line.modifiers), ...sides, ...extras, notes].filter(Boolean).join(' · ')
+}
+async function cancelTicket(ticket: Doc) {
+  const table = String(ticket.table_label || t('desk.table'))
+  const ok = await confirmDialog(t('desk.cancelTicket', { table }), {
+    title: t('desk.cancelTicketTitle'),
+    confirmLabel: t('common.cancel'),
+    danger: true,
+  })
+  if (!ok) return
+  await run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'cancelled' })
 }
 const rooms = computed(() => docs.value.filter(doc => doc.kind === 'room'))
 const reservations = computed(() => docs.value.filter(doc => doc.kind === 'reservation' && doc.status !== 'checked_out'))
@@ -217,7 +253,14 @@ async function removeZone(zone: Doc) {
   await run({ action: 'delete_zone', id: zone.id })
 }
 
-onMounted(() => load())
+let kitchenClock: number | undefined
+onMounted(() => {
+  load()
+  kitchenClock = window.setInterval(() => { now.value = Date.now() }, 30_000)
+})
+onUnmounted(() => {
+  if (kitchenClock) window.clearInterval(kitchenClock)
+})
 useRealtimeSync(
   [...realtimeTopics.restaurant, ...realtimeTopics.hotel],
   () => load(true),
@@ -475,52 +518,64 @@ function folioTotal(room: Doc) {
         </section>
       </div>
 
-      <div v-else-if="section === 'kitchen' && canRestaurant" class="space-y-4">
-        <div class="grid gap-3 md:grid-cols-3">
+      <div v-else-if="section === 'kitchen' && canRestaurant" class="kitchen-scroll">
+        <div class="kitchen-board">
           <section
             v-for="column in kitchenColumns"
             :key="column.status"
-            class="rounded-2xl border border-slate-200 bg-slate-50/80 p-3"
+            class="kitchen-col"
+            :class="`kitchen-col--${column.status}`"
           >
-            <header class="mb-3 flex items-center justify-between gap-2">
-              <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-slate-600">{{ column.label }}</h3>
+            <header class="kitchen-col__head">
+              <h3>{{ column.label }}</h3>
               <Badge>{{ kitchenTicketsByStatus(column.status).length }}</Badge>
             </header>
-            <div class="grid gap-3">
+            <div class="kitchen-col__list">
               <article
                 v-for="ticket in kitchenTicketsByStatus(column.status)"
                 :key="ticket.id"
-                class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                class="kitchen-ticket"
+                :class="{ 'kitchen-ticket--late': ticketIsLate(ticket) }"
               >
-                <p class="m-0 text-xs uppercase tracking-wide text-slate-400">{{ ticket.table_label }} · {{ ticket.course }}</p>
-                <p class="mt-1 font-semibold">{{ kitchenStatusLabel(ticket.status) }}</p>
-                <ul class="mt-2 space-y-1 text-sm">
-                  <li v-for="(line, index) in ticket.lines" :key="index">{{ line.quantity }} × {{ line.name }}</li>
+                <h4 class="kitchen-ticket__table">{{ ticket.table_label || t('desk.table') }}</h4>
+                <p class="kitchen-ticket__meta">
+                  <span>{{ courseLabel(ticket.course) }}</span>
+                  <time v-if="ticket.sent_at" :datetime="ticket.sent_at">{{ ticketWait(ticket) }}</time>
+                </p>
+                <ul class="kitchen-ticket__lines">
+                  <li v-for="(line, index) in ticket.lines" :key="index">
+                    {{ line.quantity }} × {{ line.name }}
+                    <span v-if="lineDetail(line)" class="kitchen-ticket__detail">{{ lineDetail(line) }}</span>
+                  </li>
                 </ul>
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div class="kitchen-ticket__actions">
                   <button
                     v-if="kitchenIsNew(ticket.status)"
-                    class="btn-secondary"
+                    type="button"
+                    class="btn-primary kitchen-ticket__go"
                     @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'preparing' })"
                   >{{ t('desk.preparing') }}</button>
                   <button
-                    v-if="ticket.status === 'preparing'"
-                    class="btn-secondary"
+                    v-if="normalizeKitchenStatus(ticket.status) === 'preparing'"
+                    type="button"
+                    class="btn-primary kitchen-ticket__go"
                     @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'ready' })"
                   >{{ t('desk.ready') }}</button>
                   <button
-                    v-if="ticket.status === 'ready'"
-                    class="btn-primary"
+                    v-if="normalizeKitchenStatus(ticket.status) === 'ready'"
+                    type="button"
+                    class="btn-primary kitchen-ticket__go"
                     @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'served' })"
                   >{{ t('desk.served') }}</button>
                   <button
                     v-if="!['served', 'cancelled'].includes(normalizeKitchenStatus(ticket.status))"
-                    class="btn-secondary"
-                    @click="run({ action: 'set_ticket_status', ticket_id: ticket.id, status: 'cancelled' })"
-                  ><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+                    type="button"
+                    class="btn-ghost kitchen-ticket__cancel"
+                    @click="cancelTicket(ticket)"
+                  >{{ t('common.cancel') }}</button>
                 </div>
               </article>
-              <p v-if="!kitchenTicketsByStatus(column.status).length" class="m-0 text-sm text-slate-500">{{ t('desk.noTickets') }}</p>
+              <p v-if="!kitchenTicketsByStatus(column.status).length" class="kitchen-col__empty">{{ t('desk.noTickets') }}</p>
             </div>
           </section>
         </div>
@@ -946,6 +1001,119 @@ function folioTotal(room: Doc) {
   .table-form__row {
     grid-template-columns: 1fr;
   }
+}
+.kitchen-scroll {
+  overflow-x: auto;
+}
+.kitchen-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(16rem, 1fr));
+  gap: 12px;
+  align-items: stretch;
+  min-width: 48rem;
+}
+.kitchen-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 16rem;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-canvas);
+}
+.kitchen-col--new { box-shadow: inset 0 3px 0 var(--color-warning); }
+.kitchen-col--preparing { box-shadow: inset 0 3px 0 var(--color-info); }
+.kitchen-col--ready { box-shadow: inset 0 3px 0 var(--color-success); }
+.kitchen-col__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.kitchen-col__head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.kitchen-col__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+}
+.kitchen-col__empty {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  margin: 0;
+  min-height: 4.5rem;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.kitchen-ticket {
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+.kitchen-ticket--late {
+  border-color: color-mix(in srgb, var(--color-danger) 42%, var(--color-border));
+  background: var(--color-danger-bg);
+}
+.kitchen-ticket__table {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--color-text-primary);
+}
+.kitchen-ticket__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+.kitchen-ticket--late .kitchen-ticket__meta time {
+  color: var(--color-danger-strong);
+}
+.kitchen-ticket__lines {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.kitchen-ticket__lines li {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--color-text-primary);
+}
+.kitchen-ticket__lines li + li { margin-top: 8px; }
+.kitchen-ticket__detail {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.kitchen-ticket__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.kitchen-ticket__go { flex: 1; }
+.kitchen-ticket__cancel {
+  color: var(--color-danger);
 }
 </style>
 

@@ -2018,6 +2018,10 @@ class HospitalityDesk
             'course' => (string) ($action['course'] ?? 'plat'),
             'product_id' => $action['product_id'] ?? null,
             'check_id' => $check['id'],
+            'modifiers' => $this->textList($action['modifiers'] ?? []),
+            'sides' => $this->textList($action['sides'] ?? $action['accompagnements'] ?? []),
+            'extras' => $this->extraList($action['extras'] ?? []),
+            'notes' => trim((string) ($action['notes'] ?? $action['note'] ?? '')),
         ];
         $order['lines'] = $lines;
         if (in_array($order['status'] ?? '', ['served', 'ready'], true)) {
@@ -2049,10 +2053,89 @@ class HospitalityDesk
             'course' => $course,
             'status' => 'new',
             'sent_at' => now()->toIso8601String(),
-            'lines' => $pending->map(fn ($line) => ['name' => $line['name'], 'quantity' => $line['quantity']])->all(),
+            'lines' => $pending->map(fn ($line) => $this->kitchenLineSnapshot(is_array($line) ? $line : []))->all(),
         ], (string) $order['id'], 'new');
         $order['status'] = 'kitchen';
         $this->save($store, 'order', (string) $order['id'], $order, $order['table_id'] ?? null, 'kitchen');
+    }
+
+    /** @param  array<string, mixed>  $line */
+    private function kitchenLineSnapshot(array $line): array
+    {
+        $snapshot = [
+            'name' => (string) ($line['name'] ?? ''),
+            'quantity' => (int) ($line['quantity'] ?? 1),
+        ];
+        $modifiers = $this->textList($line['modifiers'] ?? []);
+        $sides = $this->textList($line['sides'] ?? $line['accompagnements'] ?? []);
+        $extras = $this->extraList($line['extras'] ?? []);
+        $notes = trim((string) ($line['notes'] ?? $line['note'] ?? ''));
+        if ($modifiers !== []) {
+            $snapshot['modifiers'] = $modifiers;
+        }
+        if ($sides !== []) {
+            $snapshot['sides'] = $sides;
+        }
+        if ($extras !== []) {
+            $snapshot['extras'] = $extras;
+        }
+        if ($notes !== '') {
+            $snapshot['notes'] = $notes;
+        }
+
+        return $snapshot;
+    }
+
+    /** @return list<string> */
+    private function textList(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = array_map('trim', explode(',', $value));
+        }
+        if (! is_array($value)) {
+            return [];
+        }
+        $out = [];
+        foreach ($value as $item) {
+            $text = trim((string) (is_array($item) ? ($item['name'] ?? '') : $item));
+            if ($text !== '') {
+                $out[] = $text;
+            }
+        }
+
+        return array_values($out);
+    }
+
+    /** @return list<array{name: string, unit_price: int}> */
+    private function extraList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+        $out = [];
+        foreach ($value as $item) {
+            if (is_string($item)) {
+                $name = trim($item);
+                if ($name !== '') {
+                    $out[] = ['name' => $name, 'unit_price' => 0];
+                }
+
+                continue;
+            }
+            if (! is_array($item)) {
+                continue;
+            }
+            $name = trim((string) ($item['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $out[] = [
+                'name' => $name,
+                'unit_price' => (int) ($item['unit_price'] ?? 0),
+            ];
+        }
+
+        return $out;
     }
 
     /** @param  array<string, mixed>  $action */

@@ -512,13 +512,19 @@ onBeforeUnmount(() => window.clearInterval(timer))
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease, transform var(--motion-spring) var(--ease-spring);
 }
 
 .eco__tab:hover {
   color: var(--ink-strong, #0a1523);
   background: color-mix(in srgb, var(--ink, #14202b) 6%, var(--surface, #eef1f5));
   transform: translateY(-1px);
+}
+
+.eco__tab:active {
+  transform: perspective(28rem) translate3d(0, 1px, 0) scale(0.97);
+  transition-duration: var(--motion-sink);
+  transition-timing-function: var(--ease-press);
 }
 
 .eco__tab.is-active {

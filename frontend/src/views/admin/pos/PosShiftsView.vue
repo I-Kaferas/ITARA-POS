@@ -435,6 +435,7 @@ function toggleMenu(id: string) {
             {{ t('pointOfSale.shifts.openAction') }}
           </button>
         </div>
+      </template>
     </div>
 
     <AppModal :open="showOpen" :title="t('pointOfSale.shifts.openAction')" @close="showOpen = false">

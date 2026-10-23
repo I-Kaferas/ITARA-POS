@@ -16,7 +16,6 @@ import SupportBot from './components/SupportBot.vue'
 import ModuleIcon from './components/ModuleIcon.vue'
 import { useI18n, type Locale } from './i18n'
 import { initReveal } from './reveal'
-import { useTheme } from './theme'
 
 const route = useRoute()
 const branding = ref<TenantBranding | null>(null)
@@ -26,7 +25,6 @@ const menuOpen = ref(false)
 const botOpen = ref(false)
 const activeSection = ref('branding')
 const { locale, setLocale, t, locales } = useI18n()
-const { isDark, toggleTheme } = useTheme()
 
 const slug = computed(() => {
   const param = route.params.slug
@@ -90,10 +88,12 @@ const localeNames: Record<Locale, string> = {
   sw: 'Kiswahili',
 }
 let stopReveal: (() => void) | undefined
+const BOOT_MIN_MS = 3000
 
 async function load() {
   loading.value = true
   error.value = null
+  const started = performance.now()
   try {
     const data = await fetchPublicBranding(slug.value)
     branding.value = data
@@ -102,6 +102,8 @@ async function load() {
     branding.value = null
     error.value = e instanceof Error ? e.message : 'Erreur'
   } finally {
+    const hold = BOOT_MIN_MS - (performance.now() - started)
+    if (hold > 0) await new Promise((resolve) => window.setTimeout(resolve, hold))
     loading.value = false
     requestAnimationFrame(() => {
       stopReveal?.()
@@ -161,7 +163,31 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="shell">
+  <div
+    v-if="loading"
+    class="boot"
+    role="status"
+    aria-live="polite"
+    :aria-label="String(t('state', 'loading'))"
+  >
+    <div class="boot__mark" aria-hidden="true">
+      <span class="boot__orbit" />
+      <img
+        v-if="!logoFailed"
+        class="boot__logo"
+        :src="logoSrc"
+        alt=""
+        width="72"
+        height="72"
+        @error="logoFailed = true"
+      />
+      <span v-else class="boot__fallback">{{ productName.trim()[0]?.toUpperCase() || 'I' }}</span>
+    </div>
+    <p class="boot__name">{{ productName }}</p>
+    <p class="boot__status">{{ t('state', 'loading') }}</p>
+    <div class="boot__track" aria-hidden="true"><span /></div>
+  </div>
+  <div v-else class="shell">
     <header class="topbar">
       <a class="brand-lockup" href="#branding" @click.prevent="scrollToHash('#branding')">
         <img
@@ -217,15 +243,6 @@ onBeforeUnmount(() => {
               {{ localeLabels[code] }}
             </button>
           </div>
-          <button
-            type="button"
-            class="theme-toggle"
-            :aria-label="isDark ? String(t('actions', 'themeLight')) : String(t('actions', 'themeDark'))"
-            :title="isDark ? String(t('actions', 'themeLight')) : String(t('actions', 'themeDark'))"
-            @click="toggleTheme"
-          >
-            <span class="theme-toggle__icon" :class="isDark ? 'is-sun' : 'is-moon'" aria-hidden="true" />
-          </button>
         </div>
         <a v-if="branding" class="btn btn-ghost topbar__auth" :href="loginHref">{{ t('actions', 'login') }}</a>
         <a v-if="branding" class="btn btn-light topbar__auth" :href="registerHref">{{ t('actions', 'register') }}</a>
@@ -281,9 +298,6 @@ onBeforeUnmount(() => {
             <span>{{ localeNames[code] }}</span>
           </button>
         </div>
-        <button type="button" class="theme-toggle" @click="toggleTheme">
-          {{ isDark ? t('actions', 'themeLight') : t('actions', 'themeDark') }}
-        </button>
       </div>
       <a class="btn btn-ghost" :href="loginHref">{{ t('actions', 'login') }}</a>
       <a class="btn btn-light" :href="registerHref">{{ t('actions', 'register') }}</a>
@@ -291,15 +305,14 @@ onBeforeUnmount(() => {
     </div>
 
     <main class="main">
-      <div v-if="loading" class="state">{{ t('state', 'loading') }}</div>
-      <div v-else-if="error" class="state">
+      <div v-if="error" class="state">
         <h2>{{ t('state', 'notFound') }}</h2>
         <p>{{ error }}</p>
       </div>
       <RouterView v-else />
     </main>
 
-    <footer v-if="branding && !loading && !error" class="footer">
+    <footer v-if="branding && !error" class="footer">
       <div class="footer__grid">
         <div>
           <div class="footer__brand">
@@ -340,7 +353,7 @@ onBeforeUnmount(() => {
     </footer>
 
     <button
-      v-if="branding && !loading && !error"
+      v-if="branding && !error"
       type="button"
       class="bot-fab"
       :aria-label="t('bot.open')"

@@ -239,6 +239,11 @@
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Elastic press from the clay control: sink fast, spring back with overshoot. */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-press: cubic-bezier(0.01, -0.22, 1, -1.1);
+  --motion-spring: 440ms;
+  --motion-sink: 110ms;
   --dur-fast: var(--motion-fast);
   --dur: var(--motion-normal);
 }
@@ -1233,7 +1238,7 @@ kbd {
   background: var(--color-surface);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-in-out), border-color var(--motion-fast) var(--ease-in-out), transform var(--motion-fast) var(--ease-out);
+  transition: background var(--motion-fast) var(--ease-in-out), border-color var(--motion-fast) var(--ease-in-out), transform var(--motion-spring) var(--ease-spring);
 }
 
 .topbar-icon-btn:hover,
@@ -1244,7 +1249,9 @@ kbd {
 
 .topbar-icon-btn:active,
 .topbar-menu-btn:active {
-  transform: scale(0.96);
+  transform: perspective(28rem) translate3d(0, 1px, 0) scale(0.94);
+  transition-duration: var(--motion-sink);
+  transition-timing-function: var(--ease-press);
 }
 
 .topbar-icon-btn {
@@ -1328,7 +1335,8 @@ kbd {
   overflow: hidden;
   transition:
     box-shadow var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out);
+    border-color var(--motion-fast) var(--ease-out),
+    transform var(--motion-spring) var(--ease-spring);
 }
 
 .ui-card--elevated {
@@ -1344,7 +1352,10 @@ a.ui-card:hover,
 a.ui-card:active,
 .ui-card--interactive:active {
   border-color: var(--color-border-strong);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 0 2px 6px rgba(20, 32, 43, 0.08);
+  transform: perspective(40rem) translate3d(0, 1px, 0) scale(0.985);
+  transition-duration: var(--motion-sink);
+  transition-timing-function: var(--ease-press);
 }
 
 .ui-card--compact {
@@ -1476,7 +1487,7 @@ a.ui-card:active,
     box-shadow var(--motion-fast) var(--ease-out),
     color var(--motion-fast) var(--ease-out),
     border-color var(--motion-fast) var(--ease-out),
-    transform var(--motion-fast) var(--ease-out);
+    transform var(--motion-spring) var(--ease-spring);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -1607,14 +1618,17 @@ a.ui-card:active,
   box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
-.ui-btn:active:not(:disabled),
+.ui-btn:active:not(:disabled):not(.ui-btn--link),
 .btn-primary:active:not(:disabled),
 .btn-secondary:active:not(:disabled),
 .btn-danger:active:not(:disabled),
 .btn-ghost:active:not(:disabled),
 .btn-outline:active:not(:disabled),
 .btn-success:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: perspective(28rem) translate3d(0, 2px, 0) scale(0.96);
+  box-shadow: inset 0 2px 6px rgba(20, 32, 43, 0.16);
+  transition-duration: var(--motion-sink);
+  transition-timing-function: var(--ease-press);
 }
 
 .ui-btn--link {
@@ -2058,7 +2072,8 @@ select.ui-input {
   cursor: pointer;
   transition:
     background-color var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out);
+    color var(--motion-fast) var(--ease-out),
+    transform var(--motion-spring) var(--ease-spring);
 }
 
 .sub-nav__link {
@@ -2092,6 +2107,9 @@ select.ui-input {
 .ui-tabs__tab:active,
 .tab-btn:active {
   background-color: var(--color-canvas);
+  transform: translate3d(0, 1px, 0) scale(0.985);
+  transition-duration: var(--motion-sink);
+  transition-timing-function: var(--ease-press);
 }
 
 .sub-nav__link--toned:hover {
@@ -3132,7 +3150,7 @@ html[data-theme="dark"] .app-sidebar__logo {
     border-color var(--motion-fast) var(--ease-in-out),
     box-shadow var(--motion-fast) var(--ease-in-out),
     background var(--motion-fast) var(--ease-in-out),
-    transform var(--motion-fast) var(--ease-out);
+    transform var(--motion-spring) var(--ease-spring);
 }
 
 .action-tile:hover {
@@ -3142,7 +3160,9 @@ html[data-theme="dark"] .app-sidebar__logo {
 }
 
 .action-tile:active {
-  transform: scale(0.985);
+  transform: perspective(40rem) translate3d(0, 1px, 0) scale(0.985);
+  transition-duration: var(--motion-sink);
+  transition-timing-function: var(--ease-press);
 }
 
 .action-list {
@@ -3163,7 +3183,7 @@ html[data-theme="dark"] .app-sidebar__logo {
   border-bottom: 1px solid var(--color-border);
   text-decoration: none;
   color: inherit;
-  transition: background var(--motion-fast) var(--ease-in-out), transform var(--motion-fast) var(--ease-out);
+  transition: background var(--motion-fast) var(--ease-in-out), transform var(--motion-spring) var(--ease-spring);
 }
 
 .action-list__item:last-child {
@@ -3175,7 +3195,9 @@ html[data-theme="dark"] .app-sidebar__logo {
 }
 
 .action-list__item:active {
-  transform: scale(0.99);
+  transform: translate3d(0, 1px, 0) scale(0.99);
+  transition-duration: var(--motion-sink);
+  transition-timing-function: var(--ease-press);
 }
 
 .action-list__title {
@@ -3920,7 +3942,7 @@ html[data-theme="dark"] .app-sidebar__logo {
   color: var(--color-text-primary);
   text-align: left;
   cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-in-out), color var(--motion-fast) var(--ease-in-out), transform var(--motion-fast) var(--ease-out);
+  transition: background var(--motion-fast) var(--ease-in-out), color var(--motion-fast) var(--ease-in-out), transform var(--motion-spring) var(--ease-spring);
 }
 
 .ui-menu__item:hover,
@@ -3930,7 +3952,9 @@ html[data-theme="dark"] .app-sidebar__logo {
 
 .ui-menu__item:active,
 .user-menu__item:active {
-  transform: scale(0.98);
+  transform: translate3d(0, 1px, 0) scale(0.98);
+  transition-duration: var(--motion-sink);
+  transition-timing-function: var(--ease-press);
 }
 
 /* ─── Page motion & shared surfaces ─────────────────────────────── */
@@ -4522,6 +4546,77 @@ code,
 
 }
 
+/* Elastic press on every real control. Scoped button styles lose to this
+   so a tap feels the same in admin, POS, and menus. Text links stay still. */
+button:not(.ui-btn--link),
+[role="button"],
+a.ui-btn:not(.ui-btn--link),
+a.btn,
+a.btn-primary,
+a.btn-secondary,
+a.btn-danger,
+a.btn-ghost,
+a.btn-outline,
+a.btn-success,
+summary {
+  transition:
+    transform var(--motion-spring) var(--ease-spring),
+    background-color var(--motion-fast) var(--ease-out),
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    opacity var(--motion-fast) var(--ease-out),
+    filter var(--motion-fast) var(--ease-out) !important;
+}
+
+button:not(:disabled):not(.ui-btn--link):active,
+[role="button"]:not([aria-disabled="true"]):active,
+a.ui-btn:not(.ui-btn--link):active,
+a.btn:active,
+a.btn-primary:active,
+a.btn-secondary:active,
+a.btn-danger:active,
+a.btn-ghost:active,
+a.btn-outline:active,
+a.btn-success:active {
+  transform: perspective(28rem) translate3d(0, 2px, 0) scale(0.96) !important;
+  transition-duration: var(--motion-sink) !important;
+  transition-timing-function: var(--ease-press) !important;
+}
+
+button.ui-menu__item:not(:disabled):active,
+button.user-menu__item:not(:disabled):active,
+button.app-nav-link:not(:disabled):active,
+button.sub-nav__link:not(:disabled):active,
+button.form-tabs__btn:not(:disabled):active,
+button.ui-tabs__tab:not(:disabled):active,
+button.tab-btn:not(:disabled):active,
+button.sidebar-toggle:not(:disabled):active,
+button.topbar-icon-btn:not(:disabled):active,
+button.topbar-menu-btn:not(:disabled):active,
+a.app-nav-link:active,
+a.sub-nav__link:active,
+a.form-tabs__btn:active,
+a.ui-tabs__tab:active,
+a.tab-btn:active,
+a.ui-card:active,
+.ui-card--interactive:active,
+a.kpi-card:active,
+a.stat-card:active,
+a.signal-tile:active,
+a.quick-link:active,
+a.action-tile:active,
+.action-tile:active,
+a.action-list__item:active {
+  transform: perspective(40rem) translate3d(0, 1px, 0) scale(0.985) !important;
+}
+
+button.ui-btn--link:active,
+a.ui-btn--link:active {
+  transform: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -4530,6 +4625,50 @@ code,
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  button:not(.ui-btn--link),
+  [role="button"],
+  a.ui-btn:not(.ui-btn--link),
+  a.btn,
+  a.btn-primary,
+  a.btn-secondary,
+  a.btn-danger,
+  a.btn-ghost,
+  a.btn-outline,
+  a.btn-success,
+  a.app-nav-link,
+  a.sub-nav__link,
+  a.ui-card,
+  .ui-card--interactive,
+  a.action-tile,
+  .action-tile,
+  a.action-list__item,
+  summary {
+    transition-duration: 0.01ms !important;
+  }
+
+  button:not(:disabled):not(.ui-btn--link):active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  a.ui-btn:not(.ui-btn--link):active,
+  a.btn:active,
+  a.btn-primary:active,
+  a.btn-secondary:active,
+  a.btn-danger:active,
+  a.btn-ghost:active,
+  a.btn-outline:active,
+  a.btn-success:active,
+  button.ui-menu__item:not(:disabled):active,
+  button.user-menu__item:not(:disabled):active,
+  button.sidebar-toggle:not(:disabled):active,
+  button.topbar-icon-btn:not(:disabled):active,
+  a.app-nav-link:active,
+  a.ui-card:active,
+  .ui-card--interactive:active,
+  .action-tile:active,
+  a.action-tile:active,
+  a.action-list__item:active {
+    transform: none !important;
   }
 }
 

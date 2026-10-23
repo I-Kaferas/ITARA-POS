@@ -212,15 +212,16 @@ function onMinus(event: Event, product: PosProduct) {
 
 .pos-products__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
-  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fill, minmax(8.1rem, 9.7rem));
+  justify-content: start;
+  gap: 0.6rem;
 }
 
 .pos-products__card {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border, #dbe3ea);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--color-surface, #fff);
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(18, 36, 60, 0.04);
@@ -264,7 +265,7 @@ function onMinus(event: Event, product: PosProduct) {
 
 .pos-products__photo {
   position: relative;
-  aspect-ratio: 1.2 / 1;
+  aspect-ratio: 1.5 / 1;
   background: var(--color-canvas, #eef1f5);
   display: grid;
   place-items: center;
@@ -306,14 +307,14 @@ function onMinus(event: Event, product: PosProduct) {
 .pos-products__body {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem 0.85rem 0.35rem;
+  gap: 0.15rem;
+  padding: 0.45rem 0.55rem 0.2rem;
 }
 
 .pos-products__name {
   margin: 0;
   font-family: var(--font-display, var(--font-brand, inherit));
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--color-text-primary);
@@ -340,13 +341,13 @@ function onMinus(event: Event, product: PosProduct) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.35rem 0.85rem 0.85rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem 0.5rem;
 }
 
 .pos-products__price {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 750;
   color: var(--color-brand-600, #12243c);
 }
@@ -368,8 +369,8 @@ function onMinus(event: Event, product: PosProduct) {
 }
 
 .pos-products__qty-btn {
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 1.45rem;
+  height: 1.45rem;
   border: 0;
   border-radius: 999px;
   background: var(--color-surface, #fff);
@@ -415,7 +416,7 @@ function onMinus(event: Event, product: PosProduct) {
 
 @media (max-width: 900px) {
   .pos-products__grid {
-    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(7.3rem, 8.6rem));
   }
 }
 </style>

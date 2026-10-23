@@ -4,11 +4,17 @@ import App from './App.vue'
 import i18n, { ensureI18nReady } from './i18n'
 import router from './router'
 import './style.css'
+import './styles/bright-theme.css'
+import './styles/motion.css'
+import { applyMotionTokens } from './motion/tokens'
 import { initTheme } from './composables/useTheme'
 import { resolveApiError } from './errors/resolveApiError'
 import { pushToast } from './composables/useToast'
+import { installSelectMenu } from './utils/selectMenu'
 
 initTheme()
+applyMotionTokens()
+installSelectMenu()
 
 function reportUnexpected(error: unknown, source: string) {
   if (import.meta.env.DEV) {

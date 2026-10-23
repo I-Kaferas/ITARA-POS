@@ -328,6 +328,8 @@ function refresh() {
   padding: 2.5rem 1rem !important;
   text-align: center;
   color: var(--color-text-muted);
+}
+
 .versions__view {
   min-height: var(--control-md);
   padding-inline: var(--space-3);

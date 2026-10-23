@@ -1151,10 +1151,14 @@ const discountLabel = () => {
     border-color var(--motion-fast) var(--ease-out),
     color var(--motion-fast) var(--ease-out),
     box-shadow var(--motion-fast) var(--ease-out),
-    transform var(--motion-fast) var(--ease-out);
+    transform var(--motion-spring) var(--ease-spring);
 }
 .pos-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.pos-btn:active:not(:disabled) { transform: scale(0.98); }
+.pos-btn:active:not(:disabled) {
+  transform: perspective(28rem) translate3d(0, 2px, 0) scale(0.96);
+  transition-duration: var(--motion-sink);
+  transition-timing-function: var(--ease-press);
+}
 .pos-btn--outline {
   border: 1px solid color-mix(in srgb, #fff 40%, #dbe3ea);
   background: color-mix(in srgb, var(--color-surface) 86%, transparent);

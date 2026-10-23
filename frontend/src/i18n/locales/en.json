@@ -117,6 +117,10 @@
       "point4": "Reports for the store and the company"
     }
   },
+  "selectMenu": {
+    "search": "Search…",
+    "empty": "No results"
+  },
   "filters": {
     "search": "Search",
     "apply": "Filter",
@@ -4592,6 +4596,8 @@
     "served": "Served",
     "cancelled": "Cancelled",
     "noTickets": "No kitchen tickets.",
+    "cancelTicket": "Cancel the ticket for {table}?",
+    "cancelTicketTitle": "Cancel ticket",
     "postCharge": "Add a charge",
     "minibar": "Minibar",
     "roomService": "Room service",

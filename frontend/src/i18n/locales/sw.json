@@ -117,6 +117,10 @@
       "point4": "Ripoti za duka na kampuni"
     }
   },
+  "selectMenu": {
+    "search": "Tafuta…",
+    "empty": "Hakuna matokeo"
+  },
   "filters": {
     "search": "Tafuta",
     "apply": "Chuja",
@@ -4506,6 +4510,8 @@
     "served": "Imehudumiwa",
     "cancelled": "Imefutwa",
     "noTickets": "Hakuna tiketi ya jikoni.",
+    "cancelTicket": "Ghairi tiketi ya {table}?",
+    "cancelTicketTitle": "Ghairi tiketi",
     "postCharge": "Ongeza matumizi",
     "minibar": "Minibar",
     "roomService": "Huduma ya chumba",

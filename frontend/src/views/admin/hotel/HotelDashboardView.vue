@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import { hospitalitySnapshotPath } from '../../../api/hospitality'
+import AnimatedCard from '../../../components/motion/AnimatedCard.vue'
+import CountUp from '../../../components/motion/CountUp.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import KpiCard from '../../../components/ui/KpiCard.vue'
 import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
@@ -94,10 +96,10 @@ const kpis = computed(() => {
   const revenuePrev = revenueBetween(previous.from, previous.to)
 
   return [
-    { key: 'bookings', label: t('hotel.dashboard.newBookings'), value: String(bookingsNow), ...comparison(bookingsNow, bookingsPrev), icon: 'calendar' },
-    { key: 'in', label: t('hotel.dashboard.checkIn'), value: String(checkInNow), ...comparison(checkInNow, checkInPrev), icon: 'key' },
-    { key: 'out', label: t('hotel.dashboard.checkOut'), value: String(checkOutNow), ...comparison(checkOutNow, checkOutPrev), icon: 'logout' },
-    { key: 'revenue', label: t('hotel.dashboard.totalRevenue'), value: formatMoney(revenueNow), ...comparison(revenueNow, revenuePrev), icon: 'receipt' },
+    { key: 'bookings', label: t('hotel.dashboard.newBookings'), value: String(bookingsNow), numeric: bookingsNow, format: 'integer' as const, ...comparison(bookingsNow, bookingsPrev), icon: 'calendar' },
+    { key: 'in', label: t('hotel.dashboard.checkIn'), value: String(checkInNow), numeric: checkInNow, format: 'integer' as const, ...comparison(checkInNow, checkInPrev), icon: 'key' },
+    { key: 'out', label: t('hotel.dashboard.checkOut'), value: String(checkOutNow), numeric: checkOutNow, format: 'integer' as const, ...comparison(checkOutNow, checkOutPrev), icon: 'logout' },
+    { key: 'revenue', label: t('hotel.dashboard.totalRevenue'), value: formatMoney(revenueNow), numeric: revenueNow, format: 'money' as const, ...comparison(revenueNow, revenuePrev), icon: 'receipt' },
   ]
 })
 
@@ -345,7 +347,13 @@ function compactNumber(value: number) {
 
     <template v-else>
       <section class="home-kpis">
-        <article v-for="card in kpis" :key="card.key" class="hkpi" :class="`hkpi--${card.key}`">
+        <AnimatedCard
+          v-for="(card, index) in kpis"
+          :key="card.key"
+          :index="index"
+          class="hkpi"
+          :class="`hkpi--${card.key}`"
+        >
           <div class="hkpi__top">
             <span class="hkpi__icon" aria-hidden="true">
               <AppIcon :name="card.key === 'out' ? 'bed' : card.key === 'revenue' ? 'coins' : card.icon" :size="18" />
@@ -355,13 +363,15 @@ function compactNumber(value: number) {
             </span>
           </div>
           <p class="hkpi__label">{{ card.label }}</p>
-          <p class="hkpi__value">{{ card.value }}</p>
+          <p class="hkpi__value">
+            <CountUp :value="card.numeric" :format="card.format" />
+          </p>
           <p class="hkpi__hint">{{ t('hotel.dashboard.vsLastWeek') }}</p>
-        </article>
+        </AnimatedCard>
       </section>
 
       <div class="home-grid">
-        <section class="home-panel">
+        <AnimatedCard tag="section" class="home-panel" :index="kpis.length">
           <header class="home-panel__head">
             <h3>
               <AppIcon name="pin" :size="16" />
@@ -378,9 +388,9 @@ function compactNumber(value: number) {
               </li>
             </ul>
           </div>
-        </section>
+        </AnimatedCard>
 
-        <section class="home-panel">
+        <AnimatedCard tag="section" class="home-panel" :index="kpis.length + 1">
           <header class="home-panel__head">
             <h3>
               <AppIcon name="sales" :size="16" />
@@ -408,7 +418,7 @@ function compactNumber(value: number) {
                     :y1="(index / Math.max(revenueLine.ticks.length - 1, 1)) * 100"
                     :y2="(index / Math.max(revenueLine.ticks.length - 1, 1)) * 100"
                   />
-                  <polyline v-if="!revenueLine.empty" :points="revenueLine.points" />
+                  <polyline v-if="!revenueLine.empty" pathLength="1" :points="revenueLine.points" />
                 </svg>
                 <div class="line-chart__labels">
                   <span v-for="point in revenueLine.coords" :key="point.label">{{ point.label }}</span>
@@ -416,7 +426,7 @@ function compactNumber(value: number) {
               </div>
             </div>
           </div>
-        </section>
+        </AnimatedCard>
       </div>
     </template>
   </div>
@@ -447,6 +457,8 @@ function compactNumber(value: number) {
             :key="card.key"
             :label="card.label"
             :value="card.value"
+            :count-to="card.numeric"
+            :count-format="card.format"
             :icon="card.icon"
             :delta="card.delta"
             :delta-tone="card.deltaTone"
@@ -491,7 +503,7 @@ function compactNumber(value: number) {
                 <div class="chart__plot">
                   <div v-for="bar in revenueBars.rows" :key="bar.key" class="chart__col">
                     <div class="chart__track">
-                      <span class="chart__bar" :style="{ transform: `scaleY(${bar.pct})` }" />
+                      <span class="chart__bar" :style="{ '--bar': bar.pct }" />
                     </div>
                     <span class="chart__label">{{ bar.label }}</span>
                   </div>
@@ -522,8 +534,8 @@ function compactNumber(value: number) {
                 <div class="chart__plot">
                   <div v-for="bar in reservationBars.rows" :key="bar.key" class="chart__col">
                     <div class="chart__track chart__track--pair">
-                      <span class="chart__bar" :style="{ transform: `scaleY(${bar.bookedPct})` }" />
-                      <span class="chart__bar chart__bar--danger" :style="{ transform: `scaleY(${bar.cancelledPct})` }" />
+                      <span class="chart__bar" :style="{ '--bar': bar.bookedPct }" />
+                      <span class="chart__bar chart__bar--danger" :style="{ '--bar': bar.cancelledPct }" />
                     </div>
                     <span class="chart__label">{{ bar.label }}</span>
                   </div>
@@ -721,7 +733,8 @@ function compactNumber(value: number) {
   border-radius: 5px 5px 0 0;
   background: var(--color-brand-600);
   transform-origin: bottom;
-  transform: scaleY(0);
+  transform: scaleY(var(--bar, 0));
+  animation: chart-rise var(--motion-chart, 600ms) var(--ease-out) both;
 }
 
 .chart__bar--danger { background: var(--color-danger); }
@@ -746,17 +759,16 @@ function compactNumber(value: number) {
 
 @media (max-width: 720px) {
   .hd-kpis,
-  .hd-grid,
-  .home-kpis,
-  .home-grid {
+  .hd-grid {
     grid-template-columns: 1fr;
   }
 }
 
+/* Home variant — mobile-first, token-driven. */
 .home-hotel {
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
+  gap: var(--space-6, 24px);
 }
 
 .home-hero,
@@ -765,142 +777,255 @@ function compactNumber(value: number) {
 .home-panel__head {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: var(--space-4, 16px);
 }
 
 .home-hero {
   justify-content: space-between;
   flex-wrap: wrap;
+  animation: bright-slide-up var(--motion-slow) var(--ease-out) backwards;
+}
+
+.home-hero__actions {
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
 }
 
 .home-hero__mark {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  background: #e8f1ff;
-  color: #3b82f6;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-brand-50), var(--color-brand-100));
+  color: var(--color-brand-700);
+  box-shadow: inset 0 0 0 1px var(--color-brand-100);
 }
 
 .home-hero h2 {
   margin: 0;
-  color: #0f172a;
-  font-size: 1.35rem;
-  font-weight: 750;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: clamp(1.375rem, 1.1rem + 1vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
 }
 
-.home-hero p,
-.hkpi__hint {
-  margin: 2px 0 0;
-  color: #94a3b8;
-  font-size: 0.84rem;
+.home-hero p {
+  max-width: 65ch;
+  margin: var(--space-1, 4px) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-base);
+  line-height: 1.6;
 }
 
 .home-refresh,
 .home-book {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  height: 38px;
-  padding: 0 0.95rem;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 650;
+  justify-content: center;
+  gap: var(--space-2, 8px);
+  min-height: var(--touch-min, 44px);
+  padding: 0 var(--space-4, 16px);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-normal) var(--ease-out),
+    transform var(--motion-normal) var(--ease-out);
 }
 
 .home-refresh {
-  border: 0;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-xs);
 }
 
-.home-refresh:disabled { opacity: 0.55; }
+.home-refresh:hover:not(:disabled) {
+  border-color: var(--color-brand-300);
+  background: var(--color-brand-50);
+  color: var(--color-ink-brand);
+  transform: var(--lift);
+}
+
+.home-refresh:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.home-refresh:disabled :deep(svg) {
+  animation: home-spin 900ms linear infinite;
+}
+
+@keyframes home-spin {
+  to { transform: rotate(360deg); }
+}
 
 .home-book {
-  background: #2563eb;
-  color: #fff;
+  border: 1px solid var(--color-brand-700);
+  background: var(--gradient-brand);
+  color: #ffffff;
+  box-shadow: var(--shadow-brand);
 }
 
-.home-book:hover { filter: brightness(1.05); }
+.home-book:hover {
+  transform: var(--lift);
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--color-brand-700) 20%, transparent),
+    0 10px 24px -6px color-mix(in srgb, var(--color-brand-600) 50%, transparent);
+}
+
+.home-refresh:active:not(:disabled),
+.home-book:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.home-refresh:focus-visible,
+.home-book:focus-visible,
+.home-panel__head a:focus-visible,
+.home-range select:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--color-focus-ring);
+}
 
 .home-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.9rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4, 16px);
+}
+
+@media (min-width: 560px) {
+  .home-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .home-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .hkpi,
 .home-panel {
-  border: 1px solid #e8eef6;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--gradient-card, var(--color-surface));
+  box-shadow: var(--shadow-sm);
 }
 
-.hkpi { padding: 1rem 1.05rem 0.95rem; }
+.hkpi {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-6, 24px);
+  transition:
+    box-shadow var(--motion-normal) var(--ease-out),
+    transform var(--motion-normal) var(--ease-out);
+}
+
+.hkpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--hkpi-tone), color-mix(in srgb, var(--hkpi-tone) 20%, transparent));
+}
+
+.hkpi { --hkpi-tone: var(--color-brand-600); --hkpi-tint: var(--color-brand-50); }
+.hkpi--out { --hkpi-tone: var(--color-warning); --hkpi-tint: var(--color-warning-bg); }
+.hkpi--revenue { --hkpi-tone: var(--color-success); --hkpi-tint: var(--color-success-bg); }
 
 .hkpi__top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--space-2, 8px);
 }
 
 .hkpi__icon {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: #e8f1ff;
-  color: #3b82f6;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--hkpi-tint);
+  color: var(--hkpi-tone);
 }
 
-.hkpi--out .hkpi__icon { background: #fef3c7; color: #d97706; }
-.hkpi--revenue .hkpi__icon { background: #d1fae5; color: #059669; }
-
+/* Arrow + percentage carry the meaning; color only reinforces it. */
 .hkpi__badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
+  gap: var(--space-1, 4px);
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .hkpi__badge.is-up,
-.hkpi__badge.is-flat { background: #ecfdf5; color: #059669; }
-.hkpi__badge.is-down { background: #fef2f2; color: #e11d48; }
+.hkpi__badge.is-flat {
+  border-color: color-mix(in srgb, var(--color-success) 22%, transparent);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.hkpi__badge.is-down {
+  border-color: color-mix(in srgb, var(--color-danger) 22%, transparent);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-strong);
+}
 
 .hkpi__label {
-  margin: 0.85rem 0 0;
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 750;
+  margin: var(--space-4, 16px) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .hkpi__value {
-  margin: 0.15rem 0 0;
-  color: #0f172a;
-  font-size: 1.65rem;
-  font-weight: 750;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  margin: var(--space-1, 4px) 0 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-numeric);
+  font-size: clamp(1.625rem, 1.3rem + 1vw, 2rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.hkpi__hint {
+  margin: var(--space-1, 4px) 0 0;
+  color: var(--color-text-faint);
+  font-size: var(--text-xs);
 }
 
 .home-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.9rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4, 16px);
   align-items: stretch;
+}
+
+@media (min-width: 900px) {
+  .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-6, 24px);
+  }
 }
 
 .home-panel {
@@ -908,30 +1033,45 @@ function compactNumber(value: number) {
   flex-direction: column;
   min-width: 0;
   min-height: 280px;
-  padding: 1rem 1.05rem 0.9rem;
+  padding: var(--space-6, 24px);
 }
 
 .home-panel__head {
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: var(--space-2, 8px);
 }
 
 .home-panel__head h3 {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-2, 8px);
   margin: 0;
-  color: #0f172a;
-  font-size: 0.98rem;
-  font-weight: 700;
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
-.home-panel__head h3 :deep(svg) { color: #2563eb; }
+.home-panel__head h3 :deep(svg) { color: var(--color-brand-600); }
 
 .home-panel__head a {
-  color: #2563eb;
-  font-size: 0.9rem;
-  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-min, 44px);
+  padding: 0 var(--space-2, 8px);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-brand);
+  font-size: var(--text-sm);
+  font-weight: 600;
   text-decoration: none;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.home-panel__head a:hover {
+  background: var(--color-brand-50);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .home-panel__body {
@@ -939,45 +1079,66 @@ function compactNumber(value: number) {
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding-top: 0.85rem;
+  padding-top: var(--space-4, 16px);
 }
 
 .avail-tiles {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.55rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2, 8px);
   margin: auto 0 0;
   padding: 0;
   list-style: none;
 }
 
+@media (min-width: 480px) {
+  .avail-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .avail-tiles li {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  min-height: 42px;
-  padding: 0.45rem 0.65rem;
-  border-radius: 12px;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 0.86rem;
+  gap: var(--space-2, 8px);
+  min-height: 52px;
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+  border: 1px solid var(--color-table-border);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+.avail-tiles li:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
 }
 
 .avail-tiles strong {
   margin-left: auto;
-  color: #0f172a;
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .home-range select {
-  height: 34px;
-  padding: 0 1.6rem 0 0.75rem;
-  border: 1px solid #e6ebf2;
-  border-radius: 999px;
-  background: #fff;
-  color: #334155;
-  font-size: 0.82rem;
-  font-weight: 650;
+  min-height: var(--touch-min, 44px);
+  padding: 0 2rem 0 var(--space-4, 16px);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-out);
+}
+
+.home-range select:hover {
+  border-color: var(--color-brand-300);
 }
 
 .line-chart {
@@ -993,9 +1154,10 @@ function compactNumber(value: number) {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  color: #94a3b8;
-  font-size: 0.75rem;
-  font-weight: 650;
+  color: var(--color-text-faint);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
@@ -1011,7 +1173,7 @@ function compactNumber(value: number) {
 }
 
 .line-chart line {
-  stroke: #e2e8f0;
+  stroke: var(--color-border);
   stroke-dasharray: 3 3;
   stroke-width: 0.6;
   vector-effect: non-scaling-stroke;
@@ -1019,21 +1181,53 @@ function compactNumber(value: number) {
 
 .line-chart polyline {
   fill: none;
-  stroke: #3b82f6;
-  stroke-width: 2;
+  stroke: var(--color-brand-600);
+  stroke-width: 2.5;
   stroke-linejoin: round;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: chart-draw var(--motion-chart, 600ms) var(--ease-out) forwards;
+}
+
+@keyframes chart-rise {
+  from { transform: scaleY(0); }
+}
+
+@keyframes chart-draw {
+  to { stroke-dashoffset: 0; }
 }
 
 .line-chart__labels {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  margin-top: 0.35rem;
-  color: #94a3b8;
-  font-size: 0.72rem;
-  font-weight: 650;
+  margin-top: var(--space-2, 8px);
+  color: var(--color-text-faint);
+  font-size: var(--text-2xs);
+  font-weight: 600;
   text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-hero,
+  .hkpi,
+  .home-panel,
+  .chart__bar,
+  .line-chart polyline,
+  .home-refresh:disabled :deep(svg) {
+    animation: none;
+  }
+
+  .line-chart polyline {
+    stroke-dashoffset: 0;
+  }
+
+  .hkpi:hover,
+  .home-refresh:hover:not(:disabled),
+  .home-book:hover {
+    transform: none;
+  }
 }
 </style>

@@ -117,6 +117,10 @@
       "point4": "Rapports du magasin et de la société"
     }
   },
+  "selectMenu": {
+    "search": "Rechercher…",
+    "empty": "Aucun résultat"
+  },
   "filters": {
     "search": "Rechercher",
     "apply": "Filtrer",
@@ -4595,6 +4599,8 @@
     "served": "Servi",
     "cancelled": "Annulé",
     "noTickets": "Aucun ticket cuisine.",
+    "cancelTicket": "Annuler le ticket de {table} ?",
+    "cancelTicketTitle": "Annuler le ticket",
     "postCharge": "Ajouter une consommation",
     "minibar": "Minibar",
     "roomService": "Room service",

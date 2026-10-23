@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppIcon from './AppIcon.vue'
+import CountUp from '../motion/CountUp.vue'
 
 withDefaults(defineProps<{
   label: string
@@ -10,6 +11,8 @@ withDefaults(defineProps<{
   delta?: string | number | null
   deltaTone?: 'up' | 'down' | 'flat'
   spark?: number[]
+  countTo?: number | null
+  countFormat?: 'integer' | 'money'
 }>(), {
   icon: 'dashboard',
   accent: 'var(--color-brand-600)',
@@ -17,6 +20,8 @@ withDefaults(defineProps<{
   delta: null,
   deltaTone: 'flat',
   spark: () => [],
+  countTo: null,
+  countFormat: 'integer',
 })
 </script>
 
@@ -25,7 +30,10 @@ withDefaults(defineProps<{
     <div class="kpi-card__top">
       <div>
         <p class="kpi-card__label">{{ label }}</p>
-        <p class="kpi-card__value" :key="String(value)">{{ value }}</p>
+        <p class="kpi-card__value">
+          <CountUp v-if="countTo != null" :value="countTo" :format="countFormat" />
+          <template v-else>{{ value }}</template>
+        </p>
         <span
           v-if="delta != null && delta !== ''"
           class="kpi-card__delta"

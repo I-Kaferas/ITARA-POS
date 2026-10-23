@@ -61,7 +61,7 @@ function iconFor(index: number) {
         @click="emit('select', null)"
       >
         <span class="pos-cats__icon">
-          <AppIcon name="menu" :size="20" />
+          <AppIcon name="menu" :size="14" />
         </span>
         <span class="pos-cats__label">{{ allLabel }}</span>
         <span class="pos-cats__count">{{ totalCount ?? 0 }}</span>
@@ -77,7 +77,7 @@ function iconFor(index: number) {
         @click="emit('select', category.id)"
       >
         <span class="pos-cats__icon">
-          <AppIcon :name="iconFor(index)" :size="20" />
+          <AppIcon :name="iconFor(index)" :size="14" />
         </span>
         <span class="pos-cats__label">{{ category.name }}</span>
         <span class="pos-cats__count">{{ counts?.[category.id] ?? 0 }}</span>
@@ -94,7 +94,7 @@ function iconFor(index: number) {
 .pos-cats__row {
   display: flex;
   flex-wrap: nowrap;
-  gap: 0.65rem;
+  gap: 0.4rem;
   overflow-x: auto;
   padding: 0.15rem 0.1rem 0.35rem;
   scrollbar-width: thin;
@@ -105,12 +105,12 @@ function iconFor(index: number) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  min-width: 4.6rem;
-  max-width: 5.6rem;
-  padding: 0.7rem 0.55rem 0.55rem;
+  gap: 0.2rem;
+  min-width: 3.35rem;
+  max-width: 4.15rem;
+  padding: 0.4rem 0.35rem 0.35rem;
   border: 1px solid var(--color-border, #dbe3ea);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--color-surface, #fff);
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -134,8 +134,8 @@ function iconFor(index: number) {
 }
 
 .pos-cats__tile--skel {
-  width: 4.8rem;
-  height: 5.1rem;
+  width: 3.5rem;
+  height: 3.7rem;
   pointer-events: none;
   border: 0;
 }
@@ -150,9 +150,9 @@ function iconFor(index: number) {
 .pos-cats__icon {
   display: grid;
   place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: 11px;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--color-brand-600, #12243c) 8%, var(--color-canvas, #eef1f5));
   color: var(--color-brand-600, #12243c);
 }
@@ -163,7 +163,7 @@ function iconFor(index: number) {
 }
 
 .pos-cats__label {
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.2;
@@ -175,7 +175,7 @@ function iconFor(index: number) {
 }
 
 .pos-cats__count {
-  font-size: 0.65rem;
+  font-size: 0.58rem;
   font-weight: 600;
   opacity: 0.7;
 }

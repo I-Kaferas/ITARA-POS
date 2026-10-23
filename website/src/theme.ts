@@ -4,12 +4,6 @@ export type ThemeMode = 'light' | 'dark'
 
 const STORAGE_KEY = 'itara_website_theme'
 
-function readTheme(): ThemeMode {
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
-
 const theme = ref<ThemeMode>('light')
 
 export function applyTheme(mode: ThemeMode) {
@@ -20,8 +14,9 @@ export function applyTheme(mode: ThemeMode) {
 }
 
 export function initTheme() {
-  theme.value = readTheme()
-  applyTheme(theme.value)
+  theme.value = 'light'
+  localStorage.removeItem(STORAGE_KEY)
+  applyTheme('light')
 }
 
 export function useTheme() {

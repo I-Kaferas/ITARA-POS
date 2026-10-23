@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
               :aria-label="t('common.close')"
               @click="requestClose"
             >
-              ×
+              <AppIcon name="close" :size="18" />
             </button>
           </div>
 
