@@ -7,7 +7,6 @@ import 'package:intl/intl.dart';
 
 import '../config/terminal_config_repository.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_radius.dart';
 import '../theme/app_typography.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
@@ -223,26 +222,34 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      border: Border(top: BorderSide(color: AppColors.brand600, width: 3)),
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 8, 2),
                     child: Row(
                       children: [
-                        Text(tr('Calculatrice'), style: AppTypography.plex(fontSize: 14, fontWeight: FontWeight.w700)),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: AppColors.logoGold,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(color: AppColors.logoGold.withValues(alpha: 0.28), blurRadius: 0, spreadRadius: 3),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(tr('Calculatrice'), style: AppTypography.plex(fontSize: 15, fontWeight: FontWeight.w700)),
                         const Spacer(),
                         Material(
-                          color: AppColors.dangerBg,
+                          color: AppColors.canvas,
                           shape: const CircleBorder(),
                           child: InkWell(
                             customBorder: const CircleBorder(),
                             onTap: () => Navigator.pop(context),
-                            child: const SizedBox(
-                              width: 26,
-                              height: 26,
-                              child: Icon(Icons.close, size: 16, color: AppColors.danger),
+                            child: SizedBox(
+                              width: 30,
+                              height: 30,
+                              child: Icon(Icons.close, size: 16, color: AppColors.textMuted),
                             ),
                           ),
                         ),
@@ -304,8 +311,18 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-          decoration: BoxDecoration(color: AppColors.brand600, borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                Color.alphaBlend(AppColors.logoGold.withValues(alpha: 0.22), AppColors.brand600),
+                AppColors.brand600,
+              ],
+            ),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -313,24 +330,47 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
                 tr(_expression.isEmpty ? '0' : _expression),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.text(fontSize: 11, color: const Color(0x8CFFFFFF)),
+                style: GoogleFonts.ibmPlexMono(fontSize: 12, color: const Color(0x9EFFFFFF)),
               ),
+              const SizedBox(height: 4),
               Text(
                 tr(_display),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.ibmPlexMono(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
+                style: GoogleFonts.ibmPlexMono(fontSize: 30, fontWeight: FontWeight.w600, color: AppColors.logoGold, letterSpacing: -0.6),
+              ),
+              const SizedBox(height: 8),
+              Container(height: 1, color: const Color(0x1FFFFFFF)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      trf('M {0}', [formatCalcNumber(_memory)]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.ibmPlexMono(fontSize: 11, color: const Color(0xB8FFFFFF)),
+                    ),
+                  ),
+                  _mini('MC', () => setState(() => _memory = 0)),
+                  _mini('MR', () => setState(() => _append(formatCalcNumber(_memory)))),
+                  _mini('M+', () => setState(() => _memory += double.tryParse(_display) ?? 0)),
+                ],
               ),
             ],
           ),
         ),
         if (_mode == 'scientific') ...[
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
+          GridView.count(
+            crossAxisCount: 5,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            childAspectRatio: 1.7,
             children: [
-              _chip(_angle == 'deg' ? 'DEG' : 'RAD', () => setState(() => _angle = _angle == 'deg' ? 'rad' : 'deg')),
+              _chip(_angle == 'deg' ? 'DEG' : 'RAD', () => setState(() => _angle = _angle == 'deg' ? 'rad' : 'deg'), on: _angle == 'rad'),
               for (final key in _scientificKeys) _chip(key, () => _press(key)),
             ],
           ),
@@ -348,16 +388,6 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
                 ),
             ],
           ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Text(trf('M {0}', [formatCalcNumber(_memory)]), style: AppTypography.text(fontSize: 11, color: AppColors.textSecondary)),
-            const Spacer(),
-            _mini('MC', () => setState(() => _memory = 0)),
-            _mini('MR', () => setState(() => _append(formatCalcNumber(_memory)))),
-            _mini('M+', () => setState(() => _memory += double.tryParse(_display) ?? 0)),
-          ],
-        ),
       ],
     );
   }
@@ -378,62 +408,71 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
           _field(_cost, 'Coût'),
           _field(_price, 'Prix de vente'),
           _results([
-            ('Bénéfice', _money(_num(_price.text) - _num(_cost.text))),
             ('Marge sur coût', '${_num(_cost.text) > 0 ? ((_num(_price.text) - _num(_cost.text)) / _num(_cost.text) * 100).toStringAsFixed(2) : '0.00'}%'),
             ('Taux de marge', '${_num(_price.text) > 0 ? ((_num(_price.text) - _num(_cost.text)) / _num(_price.text) * 100).toStringAsFixed(2) : '0.00'}%'),
-          ]),
+            ('Bénéfice', _money(_num(_price.text) - _num(_cost.text))),
+          ], hero: 'Bénéfice'),
         ] else if (_biz == 'tax') ...[
           _field(_cost, 'Montant HT'),
           _field(_taxRate, 'Taux de taxe %'),
           _results([
             ('Taxe', _money(_num(_cost.text) * _num(_taxRate.text) / 100)),
             ('Montant TTC', _money(_num(_cost.text) + _num(_cost.text) * _num(_taxRate.text) / 100)),
-          ]),
+          ], hero: 'Montant TTC'),
         ] else if (_biz == 'discount') ...[
           _field(_listPrice, 'Prix'),
           _field(_discountRate, 'Remise %'),
           _results([
             ('Économie', _money(_num(_listPrice.text) * _num(_discountRate.text) / 100)),
             ('Prix remisé', _money(_num(_listPrice.text) - _num(_listPrice.text) * _num(_discountRate.text) / 100)),
-          ]),
+          ], hero: 'Prix remisé'),
         ] else ...[
           _field(_due, 'Total dû'),
           _field(_tendered, 'Montant reçu'),
           _results([
             ('Monnaie', _money(_num(_tendered.text) - _num(_due.text))),
-          ]),
+          ], hero: 'Monnaie'),
         ],
       ],
     );
   }
 
   Widget _tabs(List<String> values, String current, ValueChanged<String> onChanged, Map<String, String> labels) {
-    return Row(
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(color: AppColors.canvas, borderRadius: BorderRadius.circular(99)),
+      child: Row(
       children: [
         for (final value in values)
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 1),
               child: InkWell(
                 onTap: () => onChanged(value),
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 7),
                   decoration: BoxDecoration(
-                    color: current == value ? AppColors.brand50 : AppColors.surface,
+                    color: current == value ? AppColors.brand600 : Colors.transparent,
                     borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: current == value ? AppColors.brand600 : AppColors.border),
                   ),
                   child: Text(
                     tr(labels[value] ?? value),
                     textAlign: TextAlign.center,
-                    style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w600, color: current == value ? AppColors.brandInk : AppColors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.plex(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: current == value ? Colors.white : AppColors.textMuted,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
       ],
+      ),
     );
   }
 
@@ -449,25 +488,38 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
     );
   }
 
-  Widget _results(List<(String, String)> rows) {
+  Widget _results(List<(String, String)> rows, {required String hero}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
       decoration: BoxDecoration(
-        color: AppColors.fieldFill,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
           for (final row in rows)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(
-                children: [
-                  Text(tr(row.$1), style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary)),
-                  const Spacer(),
-                  Text(tr(row.$2), style: AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                ],
+              padding: EdgeInsets.only(top: row.$1 == hero ? 8 : 4),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: row.$1 == hero ? Border(top: BorderSide(color: AppColors.border)) : null,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(top: row.$1 == hero ? 8 : 0),
+                  child: Row(
+                    children: [
+                      Text(tr(row.$1), style: AppTypography.text(fontSize: 12, color: AppColors.textSecondary)),
+                      const Spacer(),
+                      Text(
+                        tr(row.$2),
+                        style: row.$1 == hero
+                            ? GoogleFonts.ibmPlexMono(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.brand600)
+                            : AppTypography.text(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
         ],
@@ -475,17 +527,21 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
     );
   }
 
-  Widget _chip(String label, VoidCallback onTap) {
+  Widget _chip(String label, VoidCallback onTap, {bool on = false}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
+          color: on ? AppColors.logoGold.withValues(alpha: 0.22) : AppColors.canvas,
+          border: Border.all(color: on ? AppColors.logoGold : AppColors.border),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(tr(label), style: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w600)),
+        child: Text(
+          tr(label),
+          style: AppTypography.text(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brand600),
+        ),
       ),
     );
   }
@@ -495,14 +551,15 @@ class _CalculatorPanelState extends State<_CalculatorPanel> {
       padding: const EdgeInsets.only(left: 4),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(99),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(6),
+            color: AppColors.logoGold.withValues(alpha: 0.16),
+            border: Border.all(color: AppColors.logoGold.withValues(alpha: 0.45)),
+            borderRadius: BorderRadius.circular(99),
           ),
-          child: Text(tr(label), style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.brandInk)),
+          child: Text(tr(label), style: GoogleFonts.ibmPlexMono(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.logoGold)),
         ),
       ),
     );
@@ -526,29 +583,40 @@ class _KeyButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (kind) {
-      'eq' => AppColors.brand600,
-      'op' => AppColors.brand50,
+      'eq' => AppColors.logoGold,
+      'op' => AppColors.brand600,
       'clear' => AppColors.dangerBg,
-      _ => AppColors.fieldFill,
+      _ => AppColors.surface,
     };
     final foreground = switch (kind) {
-      'eq' => Colors.white,
-      'op' => AppColors.brandInk,
+      'eq' => AppColors.brand600,
+      'op' => Colors.white,
       'clear' => AppColors.danger,
       _ => AppColors.textPrimary,
+    };
+    final border = switch (kind) {
+      'eq' => AppColors.logoGold,
+      'op' => AppColors.brand600,
+      'clear' => Colors.transparent,
+      _ => AppColors.border,
     };
     return Material(
       color: color,
       shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.borderMd,
-        side: BorderSide(color: kind == 'eq' ? AppColors.brand600 : AppColors.border),
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: border),
       ),
       child: InkWell(
         onTap: onTap,
-        customBorder: RoundedRectangleBorder(borderRadius: AppRadius.borderMd),
+        customBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: SizedBox(
-          height: 42,
-          child: Center(child: Text(tr(label), style: AppTypography.plex(fontSize: 15, fontWeight: FontWeight.w600, color: foreground))),
+          height: 48,
+          child: Center(
+            child: Text(
+              tr(label),
+              style: AppTypography.plex(fontSize: kind == 'eq' ? 20 : 16, fontWeight: FontWeight.w700, color: foreground),
+            ),
+          ),
         ),
       ),
     );

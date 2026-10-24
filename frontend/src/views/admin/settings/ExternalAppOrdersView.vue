@@ -397,7 +397,7 @@ function exportCsv() {
   --xo-title: #f4f7ff;
   --xo-text: #e8eefc;
   --xo-muted: #9aa6bf;
-  --xo-primary: #7c5cff;
+  --xo-primary: var(--color-brand-600);
   --xo-done: #3ddc97;
 }
 

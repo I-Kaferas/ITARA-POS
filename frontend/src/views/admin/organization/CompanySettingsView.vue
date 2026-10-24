@@ -1217,11 +1217,12 @@ async function save() {
 
 .co__tab--active {
   color: var(--color-ink-brand, var(--color-brand-700));
-  border-bottom-color: var(--color-accent);}
+  border-bottom-color: var(--color-brand-600);
+}
 
 .co__tab--active .co__tab-icon {
-  background: color-mix(in srgb, var(--color-accent) 24%, transparent);
-  color: var(--color-accent);
+  background: var(--color-brand-50);
+  color: var(--color-brand-600);
 }
 
 .co__panel {

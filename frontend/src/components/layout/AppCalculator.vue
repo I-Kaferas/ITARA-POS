@@ -245,17 +245,22 @@ function toggle() {
       :aria-label="t('calculator.title')"
     >
       <div class="calc-panel__head">
-        <p class="calc-panel__title">{{ t('calculator.title') }}</p>
+        <div class="calc-panel__brand">
+          <span class="calc-panel__mark" aria-hidden="true" />
+          <p class="calc-panel__title">{{ t('calculator.title') }}</p>
+        </div>
         <button type="button" class="calc-panel__close" :aria-label="t('common.cancel')" @click="open = false">×</button>
       </div>
 
-      <div class="calc-tabs">
+      <div class="calc-modes" role="tablist">
         <button
           v-for="item in modes"
           :key="item"
           type="button"
-          class="calc-tab"
-          :class="{ 'calc-tab--active': mode === item }"
+          class="calc-mode"
+          role="tab"
+          :aria-selected="mode === item"
+          :class="{ 'is-active': mode === item }"
           @click="mode = item"
         >
           {{ t(`calculator.${item}`) }}
@@ -266,17 +271,28 @@ function toggle() {
         <div class="calc-screen">
           <p class="calc-screen__expr">{{ expression || '0' }}</p>
           <p class="calc-screen__value">{{ display }}</p>
+          <div class="calc-memory">
+            <span>M {{ formatCalcNumber(memory) }}</span>
+            <button type="button" @click="memory = 0">MC</button>
+            <button type="button" @click="append(formatCalcNumber(memory))">MR</button>
+            <button type="button" @click="memory += Number(display) || 0">M+</button>
+          </div>
         </div>
 
-        <div v-if="mode === 'scientific'" class="calc-tools">
-          <button type="button" class="calc-chip" @click="angle = angle === 'deg' ? 'rad' : 'deg'">
+        <div v-if="mode === 'scientific'" class="calc-fns">
+          <button
+            type="button"
+            class="calc-fn"
+            :class="{ 'is-on': angle === 'rad' }"
+            @click="angle = angle === 'deg' ? 'rad' : 'deg'"
+          >
             {{ angle === 'deg' ? t('calculator.deg') : t('calculator.rad') }}
           </button>
           <button
             v-for="key in scientificKeys"
             :key="key"
             type="button"
-            class="calc-chip"
+            class="calc-fn"
             @click="press(key)"
           >
             {{ key }}
@@ -294,23 +310,18 @@ function toggle() {
             {{ key }}
           </button>
         </div>
-
-        <div class="calc-memory">
-          <span>M {{ formatCalcNumber(memory) }}</span>
-          <button type="button" @click="memory = 0">MC</button>
-          <button type="button" @click="append(formatCalcNumber(memory))">MR</button>
-          <button type="button" @click="memory += Number(display) || 0">M+</button>
-        </div>
       </template>
 
       <div v-else class="calc-business">
-        <div class="calc-tabs calc-tabs--sub">
+        <div class="calc-modes calc-modes--sub" role="tablist">
           <button
             v-for="tab in (['margin', 'tax', 'discount', 'change'] as BusinessTab[])"
             :key="tab"
             type="button"
-            class="calc-tab"
-            :class="{ 'calc-tab--active': businessTab === tab }"
+            class="calc-mode"
+            role="tab"
+            :aria-selected="businessTab === tab"
+            :class="{ 'is-active': businessTab === tab }"
             @click="businessTab = tab"
           >
             {{ t(`calculator.tabs.${tab}`) }}
@@ -327,9 +338,9 @@ function toggle() {
             <input v-model="price" inputmode="decimal" />
           </label>
           <div class="calc-results">
-            <p><span>{{ t('calculator.profit') }}</span><strong>{{ money(marginResult.profit) }}</strong></p>
             <p><span>{{ t('calculator.markup') }}</span><strong>{{ marginResult.markup.toFixed(2) }}%</strong></p>
             <p><span>{{ t('calculator.margin') }}</span><strong>{{ marginResult.margin.toFixed(2) }}%</strong></p>
+            <p class="is-hero"><span>{{ t('calculator.profit') }}</span><strong>{{ money(marginResult.profit) }}</strong></p>
           </div>
         </template>
 
@@ -344,7 +355,7 @@ function toggle() {
           </label>
           <div class="calc-results">
             <p><span>{{ t('calculator.taxAmount') }}</span><strong>{{ money(taxResult.tax) }}</strong></p>
-            <p><span>{{ t('calculator.amountTtc') }}</span><strong>{{ money(taxResult.ttc) }}</strong></p>
+            <p class="is-hero"><span>{{ t('calculator.amountTtc') }}</span><strong>{{ money(taxResult.ttc) }}</strong></p>
           </div>
         </template>
 
@@ -359,7 +370,7 @@ function toggle() {
           </label>
           <div class="calc-results">
             <p><span>{{ t('calculator.savings') }}</span><strong>{{ money(discountResult.savings) }}</strong></p>
-            <p><span>{{ t('calculator.discounted') }}</span><strong>{{ money(discountResult.net) }}</strong></p>
+            <p class="is-hero"><span>{{ t('calculator.discounted') }}</span><strong>{{ money(discountResult.net) }}</strong></p>
           </div>
         </template>
 
@@ -373,7 +384,7 @@ function toggle() {
             <input v-model="tendered" inputmode="decimal" />
           </label>
           <div class="calc-results">
-            <p><span>{{ t('calculator.change') }}</span><strong>{{ money(changeResult) }}</strong></p>
+            <p class="is-hero"><span>{{ t('calculator.change') }}</span><strong>{{ money(changeResult) }}</strong></p>
           </div>
         </template>
       </div>
@@ -398,31 +409,43 @@ function toggle() {
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-ink-brand, var(--color-brand-600));
-  cursor: pointer;}
+  cursor: pointer;
+}
 
 .calc-btn:hover,
 .calc-btn--open {
-  border-color: var(--color-brand-600);
-  background: var(--color-brand-50);
-  color: var(--color-ink-brand, var(--color-brand-600));}
+  border-color: #e39b2b;
+  background: color-mix(in srgb, #f0a010 18%, var(--color-surface));
+  color: var(--color-ink-brand, var(--color-brand-600));
+}
 </style>
 
 <style>
 /* Unscoped: panel is teleported to body so it must pin to the viewport corner. */
 .calc-panel {
+  --calc-navy: #12243c;
+  --calc-gold: #f0a010;
+  --calc-ink: var(--color-text-primary);
   position: fixed !important;
   top: auto !important;
   left: auto !important;
   right: 16px !important;
   bottom: 16px !important;
   z-index: 9999 !important;
-  width: min(22.5rem, calc(100vw - 2rem));
-  max-height: min(78dvh, 40rem);
+  display: flex;
+  flex-direction: column;
+  width: min(22.75rem, calc(100vw - 2rem));
+  max-height: min(82dvh, 44rem);
   overflow: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1.25rem;
   background: var(--color-surface);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);}
+  box-shadow:
+    0 24px 48px rgba(10, 21, 35, 0.18),
+    0 2px 6px rgba(10, 21, 35, 0.06);
+  color: var(--calc-ink);
+  font-family: var(--font-sans, "IBM Plex Sans", sans-serif);
+}
 
 @media (max-width: 480px) {
   .calc-panel {
@@ -437,176 +460,347 @@ function toggle() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 0.85rem;
-  border-top: 3px solid var(--color-brand-600);
-  background: #f7f9fb;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem 0.35rem;
+}
+
+.calc-panel__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.calc-panel__mark {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--calc-gold);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--calc-gold) 22%, transparent);
 }
 
 .calc-panel__title {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: var(--color-text-primary);}
+  letter-spacing: -0.01em;
+  color: var(--calc-ink);
+}
 
 .calc-panel__close {
   display: inline-flex;
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 1.85rem;
+  height: 1.85rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: var(--color-danger-bg);
-  color: light-dark(#dc2626, #f0a4a4);
-  font-size: 1.05rem;
-  font-weight: 700;
+  background: var(--color-canvas, #f4f6f8);
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
   line-height: 1;
-  cursor: pointer;}
+  cursor: pointer;
+}
 
 .calc-panel__close:hover {
-  background: #dc2626;
-  border-color: #dc2626;
+  background: var(--calc-navy);
+  border-color: var(--calc-navy);
   color: #fff;
 }
 
-.calc-tabs {
+.calc-modes {
   display: flex;
-  gap: 0.35rem;
-  padding: 0.7rem 0.75rem 0;
+  gap: 0.2rem;
+  margin: 0.45rem 0.75rem 0;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: var(--color-canvas, #f4f6f8);
 }
 
-.calc-tabs--sub { padding-top: 0; }
+.calc-modes--sub {
+  margin: 0 0 0.75rem;
+}
 
-.calc-tab {
+.calc-mode {
   flex: 1;
-  border: 1px solid #e2e8f0;
+  min-width: 0;
+  border: 0;
   border-radius: 999px;
-  background: var(--color-surface);
+  background: transparent;
   color: var(--color-text-muted);
-  padding: 0.35rem 0.4rem;
-  font-size: 0.7rem;
+  padding: 0.42rem 0.35rem;
+  font-size: 0.72rem;
   font-weight: 650;
-  cursor: pointer;}
+  cursor: pointer;
+}
 
-.calc-tab--active {
-  border-color: var(--color-brand-600);
-  background: var(--color-brand-50);
-  color: var(--color-ink-brand, var(--color-brand-600));}
+.calc-mode.is-active {
+  background: var(--calc-navy);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(18, 36, 60, 0.18);
+}
 
 .calc-screen {
-  margin: 0.7rem 0.75rem 0.55rem;
-  padding: 0.7rem 0.8rem;
-  border-radius: 0.8rem;
-  background: var(--color-inverse);
+  margin: 0.7rem 0.75rem 0.65rem;
+  padding: 0.85rem 0.9rem 0.65rem;
+  border-radius: 1rem;
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--calc-gold) 28%, transparent), transparent 55%),
+    var(--calc-navy);
   color: #fff;
-  text-align: right;}
+  text-align: right;
+}
 
 .calc-screen__expr {
   margin: 0;
-  min-height: 1rem;
+  min-height: 1.05rem;
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .calc-screen__value {
-  margin: 0.15rem 0 0;
-  font-size: 1.45rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-}
-
-.calc-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  padding: 0 0.75rem 0.45rem;
-}
-
-.calc-chip {
-  border: 1px solid #e2e8f0;
-  border-radius: 0.45rem;
-  background: #f7f9fb;
-  color: var(--color-ink-brand, var(--color-brand-600));
-  padding: 0.28rem 0.45rem;
-  font-size: 0.68rem;
+  margin: 0.2rem 0 0.55rem;
+  overflow: hidden;
+  color: var(--calc-gold);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 1.85rem;
   font-weight: 650;
-  cursor: pointer;}
-
-.calc-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.35rem;
-  padding: 0 0.75rem 0.55rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.calc-key {
-  height: 2.35rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.65rem;
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  font-size: 0.95rem;
-  font-weight: 650;
-  cursor: pointer;}
-
-.calc-key:hover { background: #f7f9fb; }
-.calc-key--op { background: var(--color-brand-50); color: var(--color-ink-brand, var(--color-brand-600));}
-html[data-theme="dark"] .calc-key--op { background: #24384c; color: var(--color-ink-brand);}
-.calc-key--clear { background: #fff8f8; color: light-dark(#dc2626, #f0a4a4);}
-.calc-key--eq { background: var(--color-brand-600); border-color: var(--color-brand-600); color: #fff; }
 
 .calc-memory {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0 0.75rem 0.8rem;
-  color: var(--color-text-muted);
-  font-size: 0.68rem;}
-
-.calc-memory span { flex: 1; }
-.calc-memory button {
-  border: 1px solid #e2e8f0;
-  border-radius: 0.4rem;
-  background: var(--color-surface);
-  color: var(--color-ink-brand, var(--color-brand-600));
-  padding: 0.2rem 0.4rem;
+  gap: 0.3rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.68rem;
-  cursor: pointer;}
+}
 
-.calc-business { padding: 0.75rem; }
+.calc-memory span {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calc-memory button {
+  border: 1px solid rgba(240, 160, 16, 0.45);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--calc-gold) 16%, transparent);
+  color: var(--calc-gold);
+  padding: 0.18rem 0.45rem;
+  font-family: inherit;
+  font-size: 0.66rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.calc-memory button:hover {
+  background: var(--calc-gold);
+  color: var(--calc-navy);
+}
+
+.calc-fns {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.3rem;
+  padding: 0 0.75rem 0.55rem;
+}
+
+.calc-fn {
+  height: 1.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.55rem;
+  background: var(--color-canvas, #f4f6f8);
+  color: var(--calc-navy);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.calc-fn:hover,
+.calc-fn.is-on {
+  border-color: color-mix(in srgb, var(--calc-gold) 70%, var(--color-border));
+  background: color-mix(in srgb, var(--calc-gold) 22%, var(--color-surface));
+  color: var(--calc-navy);
+}
+
+.calc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding: 0 0.75rem 0.85rem;
+}
+
+.calc-key {
+  height: 2.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.85rem;
+  background: var(--color-surface);
+  color: var(--calc-ink);
+  font-size: 1.05rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: transform 80ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.calc-key:hover {
+  background: var(--color-canvas, #f4f6f8);
+}
+
+.calc-key:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.calc-key--op {
+  border-color: var(--calc-navy);
+  background: var(--calc-navy);
+  color: #fff;
+}
+
+.calc-key--op:hover {
+  background: #1b3354;
+}
+
+.calc-key--clear {
+  border-color: transparent;
+  background: var(--color-danger-bg, #fbedec);
+  color: var(--color-danger, #c2413a);
+}
+
+.calc-key--eq {
+  border-color: var(--calc-gold);
+  background: var(--calc-gold);
+  color: var(--calc-navy);
+  font-size: 1.25rem;
+}
+
+.calc-key--eq:hover {
+  background: #ffb11a;
+}
+
+.calc-key:focus-visible,
+.calc-fn:focus-visible,
+.calc-mode:focus-visible,
+.calc-panel__close:focus-visible,
+.calc-memory button:focus-visible,
+.calc-field input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--calc-gold) 45%, transparent);
+}
+
+.calc-business {
+  padding: 0.75rem;
+}
 
 .calc-field {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 0.55rem;
+  gap: 0.3rem;
+  margin-bottom: 0.65rem;
   color: var(--color-text-muted);
   font-size: 0.72rem;
-  font-weight: 650;}
+  font-weight: 650;
+}
 
 .calc-field input {
-  border: 1px solid #cbd5e1;
-  border-radius: 0.55rem;
-  padding: 0.5rem 0.65rem;
-  font-size: 0.9rem;
-  color: var(--color-text-primary);}
+  border: 1px solid var(--color-border-strong, #d0d6dc);
+  border-radius: 0.7rem;
+  background: var(--color-surface);
+  padding: 0.6rem 0.75rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--calc-ink);
+}
 
 .calc-results {
-  border-radius: 0.75rem;
-  background: #f7f9fb;
-  padding: 0.65rem 0.75rem;
+  border-radius: 0.9rem;
+  background: var(--color-canvas, #f4f6f8);
+  padding: 0.35rem 0.85rem 0.7rem;
 }
 
 .calc-results p {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 0.75rem;
-  margin: 0.3rem 0;
+  margin: 0.45rem 0 0;
   color: var(--color-text-muted);
-  font-size: 0.78rem;}
+  font-size: 0.78rem;
+}
 
-.calc-results strong { color: var(--color-text-primary);}
+.calc-results strong {
+  color: var(--calc-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.calc-results p.is-hero {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary, var(--color-text-muted));
+  font-size: 0.8rem;
+}
+
+.calc-results p.is-hero strong {
+  color: var(--calc-navy);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+html[data-theme="dark"] .calc-panel {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+}
+
+html[data-theme="dark"] .calc-panel .calc-key,
+html[data-theme="dark"] .calc-panel .calc-fn,
+html[data-theme="dark"] .calc-panel .calc-field input {
+  background: color-mix(in srgb, var(--color-surface) 70%, #000);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+html[data-theme="dark"] .calc-panel .calc-key--op {
+  background: #1c334c;
+  border-color: #1c334c;
+  color: #fff;
+}
+
+html[data-theme="dark"] .calc-panel .calc-key--eq {
+  background: var(--calc-gold);
+  border-color: var(--calc-gold);
+  color: var(--calc-navy);
+}
+
+html[data-theme="dark"] .calc-panel .calc-key--clear {
+  background: var(--color-danger-bg);
+  color: #f3c7c4;
+}
+
+html[data-theme="dark"] .calc-panel .calc-mode.is-active {
+  background: var(--calc-gold);
+  color: var(--calc-navy);
+}
+
+html[data-theme="dark"] .calc-panel .calc-results p.is-hero strong {
+  color: var(--calc-gold);
+}
 </style>

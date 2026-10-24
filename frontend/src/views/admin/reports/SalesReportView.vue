@@ -763,16 +763,16 @@ onMounted(() => {
 }
 
 .sales__tab.is-active {
-  color: light-dark(#0f766e, #9ac5c2);
+  color: var(--color-ink-brand);
   background: var(--color-surface);
-  border-color: #ccfbf1;
+  border-color: var(--color-brand-200);
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.06),
-    0 4px 12px rgba(15, 118, 110, 0.08);}
+    0 4px 12px color-mix(in srgb, var(--color-brand-600) 16%, transparent);}
 
 .sales__tab.is-active .sales__tab-icon {
-  background: var(--color-success-bg);
-  color: light-dark(#0f766e, #9ac5c2);}
+  background: var(--color-brand-50);
+  color: var(--color-brand-600);}
 
 .sales__tab.is-active::after {
   content: '';
@@ -782,7 +782,7 @@ onMounted(() => {
   bottom: 0.2rem;
   height: 2px;
   border-radius: 999px;
-  background: #0f766e;
+  background: var(--color-brand-600);
   opacity: 0.85;
 }
 

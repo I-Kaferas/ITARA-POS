@@ -1204,117 +1204,31 @@ async function submitSignup() {
 }
 
 .login--signup {
-  grid-template-columns: minmax(22rem, 0.78fr) minmax(34rem, 1.22fr);
-}
-
-.login--signup .login__scene {
-  filter: brightness(0.72) contrast(1.04);
-  object-position: center 46%;
-}
-
-.login--signup .login__veil {
-  background:
-    linear-gradient(180deg, rgba(7, 16, 24, 0.88) 0%, rgba(7, 16, 24, 0.46) 46%, rgba(7, 16, 24, 0.82) 100%);
+  grid-template-columns: minmax(0, 1.2fr) minmax(24rem, 0.8fr);
 }
 
 .login--signup .login__brand-copy {
-  justify-content: flex-start;
-  padding: 2.4rem 2.25rem 1.6rem;
-  text-align: left;
-  overflow: auto;
-}
-
-.login--signup .login__brand-top,
-.login--signup .login__brand-bottom {
-  width: min(100%, 28rem);
-  margin-inline: 0;
-}
-
-.login--signup .login__brand-top {
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-.login--signup .login__brand-bottom {
-  display: flex;
-  flex: 0 1 auto;
-  flex-direction: column;
-  min-height: 0;
-  margin-top: 1.5rem;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-.login--signup .login__trade,
-.login--signup .login__brand-lead,
-.login--signup .login__foot {
-  margin-inline: 0;
-  text-align: left;
-}
-
-.login--signup .login__trade {
-  max-width: 14ch;
-  font-size: clamp(1.9rem, 2.3vw, 2.4rem);
-}
-
-.login--signup .login__brand-lead {
-  max-width: 38ch;
-  margin-top: 0.7rem;
-}
-
-.login--signup .login__points {
-  gap: 0.55rem;
-}
-
-.login--signup .login__points li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas:
-    "icon title"
-    "icon desc";
-  align-items: center;
-  column-gap: 0.75rem;
-  row-gap: 0.08rem;
-  padding: 0.7rem 0.85rem;
-  text-align: left;
-}
-
-.login--signup .login__point-icon {
-  grid-area: icon;
-}
-
-.login--signup .login__point-title,
-.login--signup .login__point-desc {
-  text-align: left;
-}
-
-.login--signup .login__point-title {
-  grid-area: title;
-}
-
-.login--signup .login__point-desc {
-  grid-area: desc;
-}
-
-.login--signup .login__foot {
-  margin-top: 1.15rem;
-  padding-top: 0;
+  overflow: hidden;
 }
 
 .login--signup .login__form-brand {
   display: none;
 }
 
+.login--signup .login__panel {
+  overflow: hidden;
+}
+
 .login__form--signup {
-  flex: 0 1 auto;
-  width: min(100%, 46rem);
-  height: auto;
+  flex: 1 1 auto;
+  width: min(100%, 52rem);
+  height: 100%;
   min-height: 0;
   max-height: 100%;
-  margin: auto;
-  padding: 1.35rem 2.35rem 1.15rem;
+  margin: 0 auto;
+  padding: clamp(0.7rem, 1.6vh, 1.15rem) clamp(1.25rem, 2vw, 2.15rem) clamp(0.45rem, 1.2vh, 0.85rem);
   overflow: hidden;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .login--signup .login__tools {
@@ -1327,41 +1241,52 @@ async function submitSignup() {
 }
 
 .login--signup .login__form--signup .login__form-body {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   justify-content: flex-start;
+  overflow: hidden;
 }
 
 .login__form--signup h2 {
-  font-size: clamp(1.45rem, 2vw, 1.75rem);
+  font-size: clamp(1.28rem, 1.7vw, 1.6rem);
+}
+
+.login__form--signup .login__form-kicker {
+  margin-bottom: 0.35rem;
 }
 
 .login__form--signup .login__lead {
-  max-width: 46ch;
-  font-size: 0.95rem;
+  max-width: 52ch;
+  margin-top: 0.2rem;
+  font-size: 0.84rem;
+  line-height: 1.35;
 }
 
 .login__form--signup .login__form-body {
+  flex: 0 1 auto;
   justify-content: flex-start;
-  overflow: auto;
-  padding-top: 0.85rem;
+  overflow: hidden;
+  padding-top: 0.45rem;
+  scrollbar-width: none;
 }
 
 .login__form--signup :deep(.ui-input) {
-  min-height: 2.75rem;
+  min-height: 2.35rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
 }
 
 .signup-section + .signup-section {
-  margin-top: var(--space-1);
-  padding-top: var(--space-4);
+  margin-top: 0.15rem;
+  padding-top: 0.55rem;
   border-top: 1px solid var(--color-table-border);
 }
 
 .signup-section__head {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin: 0 0 0.75rem;
+  gap: 0.5rem;
+  margin: 0 0 0.4rem;
 }
 
 .signup-section__step {
@@ -1391,37 +1316,37 @@ async function submitSignup() {
 }
 
 .signup-note {
-  margin: calc(var(--space-1) * -1) 0 var(--space-3);
+  margin: 0 0 0.35rem;
   color: var(--color-text-muted);
   font-size: var(--text-xs);
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 .signup-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 0.75rem;
+  gap: 0 0.65rem;
 }
 
 .signup-grid :deep(.ui-field) {
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.4rem;
 }
 
 .signup-plans {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.55rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
   margin: 0;
 }
 
 .signup-plan {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-3);
-  min-height: 3.5rem;
-  padding: var(--space-3) var(--space-4);
+  gap: 0.1rem 0.5rem;
+  min-height: 0;
+  padding: 0.55rem 1.65rem 0.55rem 0.6rem;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -1436,9 +1361,9 @@ async function submitSignup() {
 .signup-plan__icon {
   display: grid;
   place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: var(--radius-md);
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: var(--radius-sm, 8px);
   background: var(--color-surface-muted);
   color: var(--color-text-secondary);
   transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
@@ -1474,10 +1399,13 @@ async function submitSignup() {
 
 /* Selected state is shown by the check mark, not by color alone. */
 .signup-plan__radio {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.4rem;
   display: grid;
   place-items: center;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.05rem;
+  height: 1.05rem;
   border: 1.5px solid var(--color-border-strong);
   border-radius: 50%;
   background: var(--color-surface);
@@ -1515,19 +1443,22 @@ async function submitSignup() {
 
 .signup-plan__hint {
   color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  line-height: 1.4;
+  font-size: 0.72rem;
+  line-height: 1.3;
 }
 
 .signup-actions {
-  position: sticky;
-  bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-  padding-top: var(--space-3);
-  background: linear-gradient(to top, var(--color-surface) 72%, transparent);
+  gap: 0.1rem;
+  margin-top: 0.15rem;
+  padding-top: 0.15rem;
+  background: transparent;
+}
+
+.login__form--signup .login__submit {
+  min-height: 2.55rem;
+  margin-top: 0.2rem;
 }
 
 .signup-actions .login__quiet {

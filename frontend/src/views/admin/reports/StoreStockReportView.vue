@@ -933,9 +933,9 @@ onMounted(async () => {
   width: 1.35rem; height: 1.35rem; border-radius: 0.45rem; background: rgba(148,163,184,0.16);
 }
 .ss__tab.is-active {
-  color: light-dark(#0f766e, #9ac5c2); background: var(--color-surface); border-color: #ccfbf1;
-  box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 4px 12px rgba(15,118,110,0.08);}
-.ss__tab.is-active .ss__tab-icon { background: var(--color-success-bg); color: light-dark(#0f766e, #9ac5c2);}
+  color: var(--color-ink-brand); background: var(--color-surface); border-color: var(--color-brand-200);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 4px 12px color-mix(in srgb, var(--color-brand-600) 16%, transparent);}
+.ss__tab.is-active .ss__tab-icon { background: var(--color-brand-50); color: var(--color-brand-600);}
 
 .field--narrow { min-width: 6rem; max-width: 7rem; }
 .btn-secondary {

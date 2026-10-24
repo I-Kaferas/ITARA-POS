@@ -911,15 +911,15 @@ kbd {
 }
 
 .app-nav-link--active {
-  background: var(--color-sidebar-active);
-  border-color: color-mix(in srgb, var(--color-sidebar-border) 80%, transparent);
+  background: color-mix(in srgb, var(--color-sidebar-mark) 46%, transparent);
+  border-color: transparent;
   color: var(--color-sidebar-text-strong);
   font-weight: var(--weight-semibold);
   box-shadow: none;
 }
 
 .app-nav-link--active svg {
-  color: var(--color-sidebar-mark);
+  color: #ffffff;
 }
 
 .app-nav-link--active::before {
@@ -930,7 +930,7 @@ kbd {
   bottom: 8px;
   width: 3px;
   border-radius: 2px;
-  background: var(--color-accent);
+  background: var(--color-sidebar-mark);
   transform-origin: center;
   animation: nav-mark var(--motion-normal) var(--ease-emphasized);
 }
@@ -960,7 +960,7 @@ kbd {
 }
 
 .app-nav-link--parent.app-nav-link--active svg {
-  color: var(--color-sidebar-mark);
+  color: #ffffff;
 }
 
 .app-nav-link--parent.app-nav-link--active::before {
@@ -1039,7 +1039,7 @@ kbd {
 
 .app-nav-sub__item:has(.app-nav-link--active) .app-nav-link__branch::before,
 .app-nav-sub__item:has(.app-nav-link--active) .app-nav-link__branch::after {
-  border-color: var(--color-sidebar-mark);
+  border-color: rgba(255, 255, 255, 0.72);
 }
 
 .app-nav-link--child {
@@ -1095,7 +1095,7 @@ kbd {
 }
 
 .app-nav-link--child.app-nav-link--active svg {
-  color: var(--color-sidebar-mark);
+  color: #ffffff;
 }
 
 .app-nav-link--child.app-nav-link--active::before {
@@ -5435,9 +5435,6 @@ html[data-theme="dark"] :is(
   .locale-card,
   .users__pin,
   .users__stat,
-  .calc-panel__head,
-  .calc-chip,
-  .calc-results,
   .token-box,
   .stay__picked,
   .rsv__picked,
@@ -5457,7 +5454,6 @@ html[data-theme="dark"] :is(
 html[data-theme="dark"] :is(
   .users__table tr.is-selected,
   .cal__day:hover,
-  .calc-key:hover,
   .lang__option:hover,
   .lang__option--focus,
   .sd__quick-btn:hover:not(:disabled)
@@ -5519,12 +5515,6 @@ html[data-theme="dark"] .app-content table thead th {
   color: var(--color-text-secondary);
 }
 
-html[data-theme="dark"] .calc-key--clear {
-  background: var(--color-danger-bg);
-  color: #f3c7c4;
-}
-
-html[data-theme="dark"] .calc-panel,
 html[data-theme="dark"] .lang__panel,
 html[data-theme="dark"] .user-menu__panel {
   background: var(--color-surface);
@@ -6264,8 +6254,8 @@ html[data-theme="dark"] .app-content .form-tabs__btn--active,
 html[data-theme="dark"] .app-content .form-tabs__btn--active:hover,
 html[data-theme="dark"] .app-content .sub-nav__link--active,
 html[data-theme="dark"] .app-content .sub-nav__link--active:hover {
-  background-color: #e39b2b;
-  color: #12243c;
+  background-color: var(--color-brand-600);
+  color: #ffffff;
 }
 
 .app-content .page-stage:has(.product-form-tabs) {

@@ -26,16 +26,33 @@ const activeIndex = ref(0)
 const panelStyle = ref<Record<string, string>>({})
 
 function place() {
-  const rect = trigger.value?.getBoundingClientRect()
-  if (!rect) return
+  const triggerEl = trigger.value
+  const panelEl = panel.value
+  if (!triggerEl || !panelEl) return
+
   const zoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1
   const layoutWidth = window.innerWidth / zoom
-  const panelWidth = panel.value?.offsetWidth || 268
-  const aligned = layoutWidth - rect.right
-  const within = Math.min(Math.max(12, aligned), Math.max(12, layoutWidth - panelWidth - 12))
+  const layoutHeight = window.innerHeight / zoom
+  const pad = 12
+  const triggerRect = triggerEl.getBoundingClientRect()
+  const active = panelEl.querySelector<HTMLElement>('.lang__option--active')
+  const width = panelEl.offsetWidth
+  const height = panelEl.offsetHeight
+
+  // Drop the list so the selected language sits directly under the trigger.
+  let top = triggerRect.bottom + 6 - (active?.offsetTop ?? 0)
+  if (top + height > layoutHeight - pad) {
+    top = Math.max(pad, layoutHeight - height - pad)
+  }
+
+  // Keep the menu on the trigger and let the extra width fall away from the controls beside it.
+  let left = triggerRect.right - width
+  left = Math.min(Math.max(pad, left), Math.max(pad, layoutWidth - width - pad))
+
   panelStyle.value = {
-    top: `${rect.bottom + 8}px`,
-    right: `${within}px`,
+    top: `${top}px`,
+    left: `${left}px`,
+    right: 'auto',
   }
 }
 
@@ -91,11 +108,16 @@ watch(open, (value) => {
     window.addEventListener('pointerdown', onWindowPointer)
     window.addEventListener('keydown', onWindowKeydown)
     window.addEventListener('resize', place)
-    void nextTick(place)
+    window.addEventListener('scroll', place, true)
+    void nextTick(() => {
+      place()
+      requestAnimationFrame(place)
+    })
   } else {
     window.removeEventListener('pointerdown', onWindowPointer)
     window.removeEventListener('keydown', onWindowKeydown)
     window.removeEventListener('resize', place)
+    window.removeEventListener('scroll', place, true)
   }
 })
 
@@ -103,6 +125,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onWindowPointer)
   window.removeEventListener('keydown', onWindowKeydown)
   window.removeEventListener('resize', place)
+  window.removeEventListener('scroll', place, true)
 })
 </script>
 

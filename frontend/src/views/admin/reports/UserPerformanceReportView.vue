@@ -1603,8 +1603,8 @@ onMounted(() => {
 }
 
 .stat-tab--active {
-  border-color: var(--up-accent);
-  background: var(--up-accent-soft);
+  border-color: var(--color-brand-600);
+  background: var(--color-brand-50);
 }
 
 .daily {

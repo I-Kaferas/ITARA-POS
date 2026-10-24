@@ -306,17 +306,17 @@ html:not([data-theme="dark"]) .app-sidebar {
 
 html:not([data-theme="dark"]) .app-nav-link--active {
   border-color: transparent;
-  background: color-mix(in srgb, var(--color-logo-gold, #f0a010) 46%, transparent);
+  background: color-mix(in srgb, var(--color-logo-gold) 46%, transparent);
   color: #ffffff;
 }
 
 html:not([data-theme="dark"]) .app-nav-link--active::before {
-  background: var(--color-accent);
+  background: var(--color-logo-gold);
 }
 
 html:not([data-theme="dark"]) .app-nav-link--active svg,
 html:not([data-theme="dark"]) .app-nav-link--parent.app-nav-link--active svg {
-  color: var(--color-accent);
+  color: #ffffff;
 }
 
 html:not([data-theme="dark"]) .app-nav-link--parent.app-nav-link--active {
@@ -324,7 +324,7 @@ html:not([data-theme="dark"]) .app-nav-link--parent.app-nav-link--active {
 }
 
 html:not([data-theme="dark"]) .app-nav-link--child.app-nav-link--active {
-  background: color-mix(in srgb, var(--color-logo-gold, #f0a010) 46%, transparent);
+  background: color-mix(in srgb, var(--color-logo-gold) 46%, transparent);
   color: #ffffff;
 }
 
@@ -334,7 +334,7 @@ html:not([data-theme="dark"]) .app-nav-link--child.app-nav-link--active .app-nav
 }
 
 html:not([data-theme="dark"]) .app-nav-link--child.app-nav-link--active::before {
-  background: var(--color-accent);
+  background: var(--color-logo-gold);
 }
 
 html:not([data-theme="dark"]) .app-nav-link--toned:not(.app-nav-link--active):hover .app-nav-link__mark {
