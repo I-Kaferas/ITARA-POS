@@ -1038,7 +1038,7 @@ class CloudSyncEngine extends ChangeNotifier {
       lines.add({
         'product_id': productId,
         'quantity_on_hand': qty is int ? qty : int.tryParse(qty.toString()) ?? 0,
-        'stock_version': map['stock_version'] ?? data['server_sequence'] ?? 0,
+        if (map['stock_version'] != null) 'stock_version': map['stock_version'],
       });
     }
     if (lines.isEmpty) return 0;

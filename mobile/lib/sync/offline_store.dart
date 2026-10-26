@@ -84,10 +84,10 @@ class OfflineStore {
           }).toList()
         : const <Map<String, Object?>>[];
 
-    // Precompute before the write txn: stock_local = stock_cloud + pending deltas.
-    final pendingByProduct = await pendingStockDeltas();
-
     await db.transaction((txn) async {
+      // Read pending inside the write. A sale can commit after an earlier
+      // snapshot and must still reduce the quantity this refresh stores.
+      final pendingByProduct = await pendingStockDeltas(executor: txn);
       if (replaceAll) {
         await txn.delete('products', where: 'store_id = ?', whereArgs: [catalog.storeId]);
         await txn.delete('categories', where: 'store_id = ?', whereArgs: [catalog.storeId]);
@@ -98,7 +98,7 @@ class OfflineStore {
         final previous = existingStock[product.productId] ?? existingStock[product.storeProductId];
         final previousVersion = _asInt(previous?['stock_version']);
         if (product.quantityOnHand != null) {
-          final pending = pendingByProduct[product.productId] ?? 0;
+          final pending = _pendingDelta(pendingByProduct, product.productId, previous);
           json['quantity_on_hand'] = product.quantityOnHand! + pending;
           json['stock_version'] = product.stockVersion >= previousVersion
               ? product.stockVersion
@@ -2078,10 +2078,23 @@ class OfflineStore {
     };
   }
 
+  int _pendingDelta(Map<String, int> pending, String productId, Map<String, dynamic>? json) {
+    final ids = <String>{
+      productId,
+      json?['product_id']?.toString() ?? '',
+      json?['store_product_id']?.toString() ?? '',
+    }..removeWhere((id) => id.isEmpty);
+    var delta = 0;
+    for (final id in ids) {
+      delta += pending[id] ?? 0;
+    }
+    return delta;
+  }
+
   /// Sum of local stock deltas not yet confirmed by the cloud/Master ACK.
   /// Used as: stock_local = stock_cloud + pending.
-  Future<Map<String, int>> pendingStockDeltas() async {
-    final db = await _db;
+  Future<Map<String, int>> pendingStockDeltas({DatabaseExecutor? executor}) async {
+    final db = executor ?? await _db;
     final result = <String, int>{};
 
     // Unsynced sales: their SALE movements are not on the server yet.
@@ -2134,10 +2147,10 @@ class OfflineStore {
   /// Apply cloud/Master stock quantities, then re-add pending local deltas.
   Future<void> applyAuthoritativeStock(List<dynamic> lines) async {
     if (lines.isEmpty) return;
-    final pending = await pendingStockDeltas();
     await exclusiveStock(() async {
       final db = await _db;
       await db.transaction((txn) async {
+        final pending = await pendingStockDeltas(executor: txn);
         for (final line in lines.whereType<Map>()) {
           final productId = line['product_id']?.toString() ?? '';
           final version = _asIntOrNull(line['stock_version']);
@@ -2147,16 +2160,13 @@ class OfflineStore {
           if (rows.isEmpty) continue;
           final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
           final currentVersion = _asInt(json['stock_version']);
-          if (version != null && version < currentVersion) {
-            // Still fold pending onto the cloud base when versions regress? Skip.
+          if (version != null && version > 0 && version < currentVersion) {
             continue;
           }
-          final pendingDelta = pending[productId] ?? 0;
+          final pendingDelta = _pendingDelta(pending, productId, json);
           json['quantity_on_hand'] = quantity + pendingDelta;
-          if (version != null) {
-            json['stock_version'] = version >= currentVersion ? version : currentVersion;
-          } else {
-            json['stock_version'] = currentVersion + 1;
+          if (version != null && version >= currentVersion) {
+            json['stock_version'] = version;
           }
           await txn.update(
             'products',

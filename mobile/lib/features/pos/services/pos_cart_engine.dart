@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
 import '../domain/pos_models.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
@@ -309,9 +310,27 @@ class PosCartEngine extends ChangeNotifier {
       throw StateError('Cannot hold an empty sale');
     }
 
-    _heldCounter += 1;
-    final id = 'hold-$_heldCounter';
-    final label = 'Vente #$heldCounter — $itemCount art.';
+    // Re-holding the open ticket updates it. A new id stacked the same order.
+    final editing = _activeHoldId != null && _activeHoldId!.isNotEmpty;
+    final String id;
+    final String label;
+    final String? serverId = _pendingServerId;
+    if (editing) {
+      id = _activeHoldId!;
+      label = _activeHoldLabel ?? 'Commande en attente — $itemCount art.';
+      _heldSales.removeWhere(
+        (sale) =>
+            sale.id == id ||
+            sale.serverId == id ||
+            (serverId != null &&
+                serverId.isNotEmpty &&
+                (sale.id == serverId || sale.serverId == serverId)),
+      );
+    } else {
+      _heldCounter += 1;
+      id = const Uuid().v4();
+      label = 'Vente #$heldCounter — $itemCount art.';
+    }
 
     _heldSales.insert(
       0,
@@ -320,10 +339,12 @@ class PosCartEngine extends ChangeNotifier {
         label: label,
         lines: _lines.map((line) => line.copy()).toList(),
         heldAt: DateTime.now(),
+        serverId: serverId,
         customer: customer,
         note: note,
         discountAmount: discountAmount,
         discountPercent: discountPercent,
+        fees: List<int>.from(_fees),
         tableId: tableId,
         tableLabel: tableLabel,
       ),
@@ -337,10 +358,33 @@ class PosCartEngine extends ChangeNotifier {
   int get heldCounter => _heldCounter;
 
   void restoreHeldSales(List<PosHeldSale> sales) {
+    final seen = <String>{};
+    final next = <PosHeldSale>[];
+    for (final sale in sales) {
+      if (_isOpenTicket(sale)) continue;
+      final serverId = sale.serverId?.trim() ?? '';
+      final key = serverId.isNotEmpty ? 's:$serverId' : 'l:${sale.id}';
+      if (!seen.add(key)) continue;
+      next.add(sale);
+    }
     _heldSales
       ..clear()
-      ..addAll(sales);
+      ..addAll(next);
     notifyListeners();
+  }
+
+  bool _isOpenTicket(PosHeldSale sale) {
+    final activeId = _activeHoldId;
+    final activeServer = _pendingServerId;
+    if (activeId != null && (sale.id == activeId || sale.serverId == activeId)) {
+      return true;
+    }
+    if (activeServer != null &&
+        activeServer.isNotEmpty &&
+        (sale.id == activeServer || sale.serverId == activeServer)) {
+      return true;
+    }
+    return false;
   }
 
   void rememberRemoteHold({
@@ -449,7 +493,7 @@ class PosCartEngine extends ChangeNotifier {
     _heldSales.insert(
       0,
       PosHeldSale(
-        id: 'hold-$_heldCounter',
+        id: const Uuid().v4(),
         label: label,
         lines: moved,
         heldAt: DateTime.now(),

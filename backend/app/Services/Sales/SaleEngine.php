@@ -233,13 +233,9 @@ class SaleEngine
     {
         $key = trim((string) ($payload['idempotency_key'] ?? ''));
         if ($key !== '') {
-            $existing = $this->findByIdempotencyKey($store->tenant_id, $key);
-            if ($existing !== null) {
-                if ($existing->status === SaleStatus::Pending) {
-                    return $this->updateHold($existing, $payload, $user);
-                }
-
-                return $existing->fresh(['items', 'customer', 'discounts']);
+            $resolved = $this->resolveHoldIdempotency($store, $key, $payload, $user);
+            if ($resolved !== null) {
+                return $resolved;
             }
         }
 
@@ -250,26 +246,39 @@ class SaleEngine
             ]);
         }
 
-        return DB::transaction(function () use ($store, $payload, $user, $isTableOrder): Sale {
-            $sale = $this->writePendingSale($store, $payload, $user);
+        try {
+            return DB::transaction(function () use ($store, $payload, $user, $isTableOrder): Sale {
+                $sale = $this->writePendingSale($store, $payload, $user);
 
-            if ($isTableOrder) {
-                $this->occupyTable($sale, $payload['table_id']);
+                if ($isTableOrder) {
+                    $this->occupyTable($sale, $payload['table_id']);
+                }
+
+                $this->auditLogService->log(
+                    action: 'sale.held',
+                    entity: $sale,
+                    userId: $user->id,
+                    payload: [
+                        'reference' => $sale->reference,
+                        'total' => $sale->total,
+                        'table_id' => $sale->table_id,
+                    ],
+                );
+
+                return $sale->fresh(['items', 'customer', 'discounts']);
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            if ($key === '') {
+                throw $exception;
             }
 
-            $this->auditLogService->log(
-                action: 'sale.held',
-                entity: $sale,
-                userId: $user->id,
-                payload: [
-                    'reference' => $sale->reference,
-                    'total' => $sale->total,
-                    'table_id' => $sale->table_id,
-                ],
-            );
+            $resolved = $this->resolveHoldIdempotency($store, $key, $payload, $user);
+            if ($resolved !== null) {
+                return $resolved;
+            }
 
-            return $sale->fresh(['items', 'customer', 'discounts']);
-        });
+            throw $exception;
+        }
     }
 
     /** @param  array<string, mixed>  $payload */
@@ -319,6 +328,10 @@ class SaleEngine
                 return;
             }
 
+            // A discarded ticket must not keep the client key. The next hold
+            // on this device reuses a short id such as hold-1.
+            $sale->idempotency_key = null;
+            $sale->save();
             $sale->delete();
         });
     }
@@ -843,6 +856,39 @@ class SaleEngine
                     });
             });
         }
+    }
+
+    /**
+     * A live ticket with this key is updated or returned. A discarded ticket
+     * only occupies the unique key, so the key is released and the caller
+     * creates a new hold.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveHoldIdempotency(Store $store, string $key, array $payload, User $user): ?Sale
+    {
+        $existing = Sale::query()
+            ->withTrashed()
+            ->where('tenant_id', $store->tenant_id)
+            ->where('idempotency_key', $key)
+            ->first();
+
+        if ($existing === null) {
+            return null;
+        }
+
+        if ($existing->trashed()) {
+            $existing->idempotency_key = null;
+            $existing->save();
+
+            return null;
+        }
+
+        if ($existing->status === SaleStatus::Pending) {
+            return $this->updateHold($existing, $payload, $user);
+        }
+
+        return $existing->fresh(['items', 'customer', 'discounts']);
     }
 
     private function findByIdempotencyKey(string $tenantId, string $key): ?Sale

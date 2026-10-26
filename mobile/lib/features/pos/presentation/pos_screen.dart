@@ -140,6 +140,9 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   String _activeStoreId = '';
   bool _suppressHoldPersist = false;
   bool _holdPromptOpen = false;
+  int _holdWrites = 0;
+  int _holdsEpoch = 0;
+  bool? _posTabActive;
   Map<String, int> _categoryCounts = const {};
   List<PosProduct> _filteredCache = const [];
   String? _filteredCategoryId;
@@ -196,6 +199,37 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     }
     _cart.setTableId(choice.id, label: choice.label);
     _showStatus('Table ${choice.label}');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = TickerMode.of(context);
+    final returned = _posTabActive == false && active;
+    _posTabActive = active;
+    if (returned) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_refreshPosOnReturn());
+      });
+    }
+  }
+
+  /// The cashier branch stays mounted, so a stuck hold or an empty cart
+  /// drawer would otherwise still be there when the register is opened again.
+  Future<void> _refreshPosOnReturn() async {
+    await _loadPendingOrders();
+    if (!mounted || _holdPromptOpen || !_cart.isEmpty) return;
+    setState(() {
+      _cartOpen = false;
+      _requestPayment = false;
+      _requestCustomer = false;
+      _requestRetrieve = false;
+      _requestDiscount = false;
+      _requestNote = false;
+      _requestLoyalty = false;
+      _requestSplit = false;
+    });
   }
 
   @override
@@ -280,6 +314,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       final discountAmount = _cart.discountAmount;
       final discountPercent = _cart.discountPercent;
       final tableId = _cart.tableId;
+      final serverId = _cart.pendingServerId;
       final label = _cart.holdSale();
       await _persistHolds();
       unawaited(_refreshRegister());
@@ -291,6 +326,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         discountAmount: discountAmount,
         discountPercent: discountPercent,
         tableId: tableId,
+        saleId: serverId,
       ));
       if (printKitchen) {
         try {
@@ -310,18 +346,31 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                 ),
           );
         } on PrintAlreadyDone {
-          if (mounted) _showStatus('Déjà imprimé');
+          if (mounted) _showReadyForNextSale('Déjà imprimé');
         } catch (_) {
           if (mounted) {
-            _showStatus('Impression cuisine échouée — la commande reste en attente');
+            _showReadyForNextSale('Impression cuisine échouée — la commande reste en attente');
           }
           return;
         }
       }
-      if (mounted) _showStatus('Commande en attente: $label');
+      if (mounted) _showReadyForNextSale('Commande en attente: $label');
     } catch (e) {
-      _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
+      if (mounted) {
+        _showStatus(e.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
+      }
+    } finally {
+      _holdPromptOpen = false;
     }
+  }
+
+  void _showReadyForNextSale(String message) {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _cartOpen = false;
+    });
+    _showStatus(message);
   }
 
   Future<void> _syncHoldToServer({
@@ -332,6 +381,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     int discountAmount = 0,
     double discountPercent = 0,
     String? tableId,
+    String? saleId,
   }) async {
     if (lines.isEmpty) return;
     try {
@@ -346,7 +396,12 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         if (tableId != null) 'table_id': tableId,
         'label': label,
       };
-      final data = await _api.holdSale(payload);
+      final existingId = saleId?.trim() ?? '';
+      final data = await _api.holdSale(
+        payload,
+        saleId: existingId.isEmpty ? null : existingId,
+      );
+      if (existingId.isNotEmpty) return;
       final serverId = data['id']?.toString() ?? data['sale_id']?.toString() ?? '';
       if (serverId.isEmpty) return;
       final local = _cart.heldSales.cast<PosHeldSale?>().firstWhere(
@@ -534,6 +589,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   }
 
   Future<void> _writeHolds(String storeId) async {
+    _holdsEpoch++;
     final existing = await OfflineStore.instance.loadLocalHolds();
     final storedById = {
       for (final row in existing)
@@ -565,7 +621,13 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       if (rowStore.isEmpty) return true;
       return scope.isNotEmpty && rowStore != scope;
     }).toList();
-    await OfflineStore.instance.saveLocalHolds([...payload, ...kept]);
+    _holdWrites++;
+    try {
+      await OfflineStore.instance.saveLocalHolds([...payload, ...kept]);
+    } finally {
+      _holdWrites--;
+      _holdsEpoch++;
+    }
   }
 
   void _onSyncChanged() {
@@ -755,17 +817,20 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   }
 
   void _onLocalHoldsChanged() {
-    if (!mounted) return;
+    // Our own save bumps this revision. Reloading that echo put the ticket
+    // we just held back into the list and the next Hold stacked a copy.
+    if (!mounted || _holdWrites > 0 || _suppressHoldPersist) return;
     unawaited(_loadPendingOrders());
   }
 
   Future<void> _loadPendingOrders() async {
+    final epoch = _holdsEpoch;
     try {
       final local = OfflineStore.instance.holdsForStore(
         await OfflineStore.instance.loadLocalHolds(),
         _activeStoreId,
       );
-      if (!mounted) return;
+      if (!mounted || epoch != _holdsEpoch) return;
       _cart.restoreHeldSales(local.map(PosHeldSale.fromLocalJson).where((sale) => sale.lines.isNotEmpty).toList());
     } catch (_) {}
   }
