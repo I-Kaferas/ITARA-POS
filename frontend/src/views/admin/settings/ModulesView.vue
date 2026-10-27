@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
@@ -137,15 +138,15 @@ onMounted(load)
       <template v-else>
         <div class="module-stats">
           <button type="button" class="module-kpi" :class="{ 'is-on': status === 'all' }" @click="status = 'all'">
-            <span class="module-kpi__value">{{ catalog.length }}</span>
+            <span class="module-kpi__value"><CountUp :value="Number(catalog.length ?? 0)" /></span>
             <span class="module-kpi__label">{{ t('modules.title') }}</span>
           </button>
           <button type="button" class="module-kpi" :class="{ 'is-on': status === 'on' }" @click="status = status === 'on' ? 'all' : 'on'">
-            <span class="module-kpi__value">{{ activeCount }}</span>
+            <span class="module-kpi__value"><CountUp :value="Number(activeCount ?? 0)" /></span>
             <span class="module-kpi__label">{{ t('modules.activeCount') }}</span>
           </button>
           <button type="button" class="module-kpi" :class="{ 'is-on': status === 'off' }" @click="status = status === 'off' ? 'all' : 'off'">
-            <span class="module-kpi__value">{{ inactiveCount }}</span>
+            <span class="module-kpi__value"><CountUp :value="Number(inactiveCount ?? 0)" /></span>
             <span class="module-kpi__label">{{ t('modules.inactiveCount') }}</span>
           </button>
         </div>

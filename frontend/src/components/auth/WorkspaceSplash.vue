@@ -223,8 +223,8 @@ onBeforeUnmount(() => {
             class="splash__logo"
             :src="logoSrc"
             alt=""
-            width="72"
-            height="72"
+            width="168"
+            height="168"
             @error="onLogoError"
           />
           <span v-else class="splash__logo splash__glyph">{{ mark }}</span>
@@ -329,25 +329,17 @@ onBeforeUnmount(() => {
   animation: splash-spin 0.95s cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
 }
 
-.splash__orbit::after {
-  content: "";
-  position: absolute;
-  inset: 0.85rem;
-  border-radius: 50%;
-  border: 3px solid transparent;
-  border-bottom-color: var(--splash-accent);
-  animation: splash-spin 1.35s linear infinite reverse;
-}
-
 .splash__logo {
+  position: relative;
+  z-index: 1;
   box-sizing: border-box;
-  width: 7.25rem;
-  height: 7.25rem;
-  padding: 0.8rem;
-  border-radius: 1.6rem;
-  background: #fff;
-  box-shadow: 0 16px 36px rgba(18, 36, 60, 0.1);
-  object-fit: contain;
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  object-fit: cover;
+  object-position: center;
 }
 
 .splash__glyph {
@@ -485,8 +477,7 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .splash,
   .splash--leaving,
-  .splash__orbit,
-  .splash__orbit::after {
+  .splash__orbit {
     animation: none;
   }
 }

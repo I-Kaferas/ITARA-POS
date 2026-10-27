@@ -564,9 +564,9 @@ onMounted(() => {
         <KpiCard :label="t('platform.tabs.users')" :value="overview?.users ?? 0" icon="customers" accent="var(--color-info, #2563eb)" icon-bg="var(--color-info-50, #eff6ff)" />
         <KpiCard :label="t('platform.tabs.devices')" :value="overview?.devices ?? 0" icon="device-tablet" accent="#0f766e" icon-bg="#f0fdfa" />
         <KpiCard :label="t('platform.sales')" :value="overview?.sales ?? 0" icon="sales" accent="#b45309" icon-bg="#fffbeb" />
-        <KpiCard :label="t('platform.subscriptionMrr')" :value="formatMoney(overview?.subscription_mrr ?? 0, 'USD')" icon="coins" accent="#15803d" icon-bg="#f0fdf4" />
-        <KpiCard :label="t('platform.posRevenue')" :value="formatMoney(overview?.revenue ?? 0)" icon="sales" accent="#b45309" icon-bg="#fffbeb" />
-        <KpiCard :label="t('platform.openInvoices')" :value="formatMoney(overview?.open_invoices ?? 0, 'USD')" icon="receipt" accent="#b91c1c" icon-bg="#fef2f2" />
+        <KpiCard :label="t('platform.subscriptionMrr')" :value="formatMoney(overview?.subscription_mrr ?? 0, 'USD')" :count-to="overview?.subscription_mrr ?? 0" count-format="money" count-currency="USD" icon="coins" accent="#15803d" icon-bg="#f0fdf4" />
+        <KpiCard :label="t('platform.posRevenue')" :value="formatMoney(overview?.revenue ?? 0)" :count-to="overview?.revenue ?? 0" count-format="money" icon="sales" accent="#b45309" icon-bg="#fffbeb" />
+        <KpiCard :label="t('platform.openInvoices')" :value="formatMoney(overview?.open_invoices ?? 0, 'USD')" :count-to="overview?.open_invoices ?? 0" count-format="money" count-currency="USD" icon="receipt" accent="#b91c1c" icon-bg="#fef2f2" />
       </div>
 
       <nav class="sub-nav" :aria-label="t('platform.title')">

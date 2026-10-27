@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -38,16 +39,19 @@ const isMineOpen = computed(() =>
 const kpiCards = computed(() => {
   const s = summary.value ?? shift.value
   if (!s) return []
+  const cents = (amount: number | null | undefined) => (
+    amount == null || !Number.isFinite(Number(amount)) ? null : Number(amount)
+  )
   return [
-    { label: t('pointOfSale.shifts.openingBalance'), value: formatMoney(s.opening_balance) },
-    { label: t('pointOfSale.shifts.sales'), value: formatMoney(s.sales_total) },
-    { label: t('pointOfSale.shifts.refunds'), value: formatMoney(s.refunds_total) },
-    { label: t('pointOfSale.shifts.cashIn'), value: formatMoney(s.cash_in_total) },
-    { label: t('pointOfSale.shifts.cashOut'), value: formatMoney(s.cash_out_total) },
-    { label: t('pointOfSale.shifts.expenses'), value: formatMoney(s.expenses_total) },
-    { label: t('pointOfSale.shifts.expected'), value: formatMoney(s.expected_cash) },
-    { label: t('pointOfSale.shifts.actualCash'), value: s.actual_cash == null ? '—' : formatMoney(s.actual_cash) },
-    { label: t('pointOfSale.shifts.variance'), value: s.variance == null ? '—' : formatMoney(s.variance) },
+    { label: t('pointOfSale.shifts.openingBalance'), cents: cents(s.opening_balance) },
+    { label: t('pointOfSale.shifts.sales'), cents: cents(s.sales_total) },
+    { label: t('pointOfSale.shifts.refunds'), cents: cents(s.refunds_total) },
+    { label: t('pointOfSale.shifts.cashIn'), cents: cents(s.cash_in_total) },
+    { label: t('pointOfSale.shifts.cashOut'), cents: cents(s.cash_out_total) },
+    { label: t('pointOfSale.shifts.expenses'), cents: cents(s.expenses_total) },
+    { label: t('pointOfSale.shifts.expected'), cents: cents(s.expected_cash) },
+    { label: t('pointOfSale.shifts.actualCash'), cents: cents(s.actual_cash) },
+    { label: t('pointOfSale.shifts.variance'), cents: cents(s.variance) },
   ]
 })
 
@@ -178,7 +182,7 @@ watch(shiftId, load)
       <div class="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <div v-for="card in kpiCards" :key="card.label" class="rounded-xl border border-slate-200 bg-white px-4 py-3">
           <p class="m-0 text-xs font-medium uppercase tracking-wide text-slate-500">{{ card.label }}</p>
-          <p class="m-0 mt-1 text-lg font-semibold text-slate-900">{{ card.value }}</p>
+          <p class="m-0 mt-1 text-lg font-semibold text-slate-900"><span v-if="card.cents == null">—</span><CountUp v-else :value="card.cents ?? 0" format="money" /></p>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import CountUp from '../../../components/motion/CountUp.vue'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import AppIcon from '../../../components/ui/AppIcon.vue'
@@ -51,7 +52,7 @@ function refresh() {
             </button>
           </div>
           <button type="button" class="spot__body" @click="selectStatus('')">
-            <span class="spot__amount">{{ total }}</span>
+            <span class="spot__amount"><CountUp :value="total" /></span>
             <span class="spot__hint">{{ t('linkRequestsPage.subtitle') }}</span>
           </button>
         </article>
@@ -66,7 +67,7 @@ function refresh() {
             :aria-pressed="status === stat.key"
             @click="selectStatus(stat.key)"
           >
-            <span class="tile__value">{{ stat.value }}</span>
+            <span class="tile__value"><CountUp :value="stat.value" /></span>
             <span class="tile__label">{{ stat.label }}</span>
           </button>
         </div>

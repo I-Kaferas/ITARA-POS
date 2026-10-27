@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
@@ -380,7 +381,7 @@ function compactNumber(value: number) {
               <li v-for="tile in availabilityTiles" :key="tile.key">
                 <span class="avail__dot" :class="`avail__dot--${tile.key === 'notReady' ? 'not-ready' : tile.key}`" />
                 <span>{{ tile.label }}</span>
-                <strong>{{ tile.value }}</strong>
+                <strong><CountUp :value="Number(tile.value ?? 0)" /></strong>
               </li>
             </ul>
           </div>

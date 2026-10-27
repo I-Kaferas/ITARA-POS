@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -195,32 +196,32 @@ onMounted(() => {
       <div v-if="report" class="rev__kpis">
         <div class="kpi kpi--hero">
           <p class="kpi__label">{{ t('reports.revenueReport.grandTotal') }}</p>
-          <p class="kpi__value">{{ formatMoney(report.total) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.total ?? 0)" format="money" /></p>
         </div>
         <div class="kpi">
           <p class="kpi__label">{{ t('print.subtotal') }}</p>
-          <p class="kpi__value">{{ formatMoney(report.subtotal) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.subtotal ?? 0)" format="money" /></p>
         </div>
         <div class="kpi">
           <p class="kpi__label">{{ t('reports.analytics.grossProfit') }}</p>
-          <p class="kpi__value">{{ formatMoney(report.gross_profit) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.gross_profit ?? 0)" format="money" /></p>
           <p class="kpi__meta">{{ report.margin_pct }}% {{ t('reports.revenueReport.margin') }}</p>
         </div>
         <div class="kpi">
           <p class="kpi__label">{{ t('reports.revenueReport.totalTax') }}</p>
-          <p class="kpi__value">{{ formatMoney(report.tax_total) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.tax_total ?? 0)" format="money" /></p>
         </div>
         <div class="kpi">
           <p class="kpi__label">{{ t('reports.revenueReport.totalDiscount') }}</p>
-          <p class="kpi__value">{{ formatMoney(report.discount_total) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.discount_total ?? 0)" format="money" /></p>
         </div>
         <div class="kpi">
           <p class="kpi__label">{{ t('reports.revenueReport.totalInvoices') }}</p>
-          <p class="kpi__value">{{ report.invoices_count }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.invoices_count ?? 0)" /></p>
         </div>
         <div class="kpi">
           <p class="kpi__label">{{ t('reports.revenueReport.houseOffer') }}</p>
-          <p class="kpi__value">{{ formatMoney(report.house_offer) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.house_offer ?? 0)" format="money" /></p>
         </div>
       </div>
 

@@ -1,0 +1,31 @@
+{
+    "id": "01a17cd2-16e5-7228-92c1-092d87cd11fc",
+    "type": "full",
+    "trigger": "manual",
+    "created_at": "2026-10-27T10:05:06+00:00",
+    "includes": {
+        "database": true,
+        "files": true
+    },
+    "meta": {
+        "app": "Laravel",
+        "env": "local",
+        "version": null,
+        "php": "8.2.12",
+        "scope": "tenant",
+        "tenant_id": "01a14a4a-014d-72e8-a3c4-d8f1ca19116b",
+        "tenant_name": "Demo Boutique",
+        "tenant_slug": "demo",
+        "database": {
+            "driver": "sqlite",
+            "tables": 124,
+            "rows": 3176,
+            "method": "tenant",
+            "tenant_id": "01a14a4a-014d-72e8-a3c4-d8f1ca19116b"
+        },
+        "files": {
+            "files": 0,
+            "bytes": 0
+        }
+    }
+}

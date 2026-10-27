@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\PlatformBackup;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Platform\Backup\BackupService;
@@ -45,18 +46,24 @@ class PlatformBackupController extends Controller
         $this->assertSuperAdmin($request);
         $data = $request->validate([
             'type' => ['nullable', Rule::in(['database', 'files', 'full'])],
+            'tenant_id' => ['nullable', 'uuid', 'exists:tenants,id'],
         ]);
 
+        $tenant = filled($data['tenant_id'] ?? null)
+            ? Tenant::query()->findOrFail($data['tenant_id'])
+            : null;
+
         try {
-            $backup = $this->backups->create($data['type'] ?? 'full', 'manual', $request->user());
+            $backup = $this->backups->create($data['type'] ?? 'full', 'manual', $request->user(), $tenant);
         } catch (Throwable $e) {
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
         }
 
-        $this->audit->record($request->user(), 'backup.created', null, [
+        $this->audit->record($request->user(), 'backup.created', $backup->tenant_id, [
             'backup_id' => $backup->id,
+            'tenant_id' => $backup->tenant_id,
             'type' => $backup->type,
             'size_bytes' => $backup->size_bytes,
         ], $request->ip());

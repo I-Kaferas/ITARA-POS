@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
@@ -743,7 +744,7 @@ onUnmounted(() => {
                       {{ pos.activeTable ? pos.activeTable.name : t(`pos.${uiOrderMode === 'dine_in' ? 'dineIn' : uiOrderMode}`) }}
                       · {{ pos.lines.length }} {{ t('pos.articles') }}
                     </span>
-                    <em>{{ formatMoney(pos.totals.grand_total, pos.totals.currency) }}</em>
+                    <em><CountUp :value="Number(pos.totals.grand_total ?? 0)" format="money" :currency="pos.totals.currency" /></em>
                   </div>
                   <span class="pos-held__ring" aria-hidden="true">●</span>
                 </button>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../../api/client'
@@ -218,32 +219,32 @@ function exportCsv() {
       <section class="rpt__kpis">
         <article class="kpi">
           <p class="kpi__label">{{ t('hotel.reports.occupancy') }}</p>
-          <p class="kpi__value">{{ pct }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.occupancyToday || 0) * 100" format="decimal" :digits="1" fixed suffix="%" /></p>
           <p class="kpi__hint">{{ t('hotel.reports.occupancyHint', { occupied: report.occupiedToday, total: report.roomCount }) }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('hotel.reports.revpar') }}</p>
-          <p class="kpi__value">{{ money(report.revparCents) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.revparCents ?? 0)" format="money" /></p>
           <p class="kpi__hint">{{ t('hotel.reports.revparHint') }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('hotel.reports.revenue') }}</p>
-          <p class="kpi__value">{{ money(report.revenueCents) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.revenueCents ?? 0)" format="money" /></p>
           <p class="kpi__hint">{{ t('hotel.reports.revenueHint', { count: report.stayCount }) }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('hotel.reports.adr') }}</p>
-          <p class="kpi__value">{{ money(report.adrCents) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.adrCents ?? 0)" format="money" /></p>
           <p class="kpi__hint">{{ t('hotel.reports.adrHint') }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('hotel.reports.los') }}</p>
-          <p class="kpi__value">{{ avgStay }} {{ t('hotel.reports.nightsUnit') }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.avgStayNights || 0)" format="decimal" :digits="1" :suffix="' ' + t('hotel.reports.nightsUnit')" /></p>
           <p class="kpi__hint">{{ t('hotel.reports.losHint', { nights: report.roomNights }) }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('hotel.reports.hkOpen') }}</p>
-          <p class="kpi__value">{{ report.openHkTasks }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report.openHkTasks ?? 0)" /></p>
           <p class="kpi__hint">{{ t('hotel.reports.hkOpenHint') }}</p>
         </article>
       </section>

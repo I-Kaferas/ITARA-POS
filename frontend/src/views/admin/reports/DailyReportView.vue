@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -274,27 +275,27 @@ onMounted(() => {
       <div class="daily__kpis">
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.dailyAnalytics.ca') }}</p>
-          <p class="kpi__value kpi__value--ca">{{ formatMoney(summary?.revenue ?? 0) }}</p>
+          <p class="kpi__value kpi__value--ca"><CountUp :value="Number(summary?.revenue ?? 0)" format="money" /></p>
           <p class="kpi__hint">{{ t('reports.dailyAnalytics.caHint') }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.dailyAnalytics.netRevenue') }}</p>
-          <p class="kpi__value kpi__value--net">{{ formatMoney(summary?.net_revenue ?? 0) }}</p>
+          <p class="kpi__value kpi__value--net"><CountUp :value="Number(summary?.net_revenue ?? 0)" format="money" /></p>
           <p class="kpi__hint">{{ t('reports.dailyAnalytics.netHint') }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.dailyAnalytics.collected') }}</p>
-          <p class="kpi__value">{{ formatMoney(summary?.collected ?? 0) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(summary?.collected ?? 0)" format="money" /></p>
           <p class="kpi__hint">{{ t('reports.dailyAnalytics.collectedHint') }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.dailyAnalytics.credit') }}</p>
-          <p class="kpi__value kpi__value--credit">{{ formatMoney(summary?.credit ?? 0) }}</p>
+          <p class="kpi__value kpi__value--credit"><CountUp :value="Number(summary?.credit ?? 0)" format="money" /></p>
           <p class="kpi__hint">{{ t('reports.dailyAnalytics.creditHint') }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.dailyAnalytics.invoices') }}</p>
-          <p class="kpi__value">{{ summary?.invoices_count ?? 0 }}</p>
+          <p class="kpi__value"><CountUp :value="Number(summary?.invoices_count ?? 0)" /></p>
           <p class="kpi__hint">{{ t('reports.dailyAnalytics.invoicesHint') }}</p>
         </article>
       </div>
@@ -371,36 +372,36 @@ onMounted(() => {
         <div class="detail__kpis">
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.dailyAnalytics.ca') }}</p>
-            <p class="kpi__value kpi__value--ca">{{ formatMoney(detail.summary.revenue) }}</p>
+            <p class="kpi__value kpi__value--ca"><CountUp :value="Number(detail.summary.revenue ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.dailyAnalytics.netRevenue') }}</p>
-            <p class="kpi__value kpi__value--net">{{ formatMoney(detail.summary.net_revenue) }}</p>
+            <p class="kpi__value kpi__value--net"><CountUp :value="Number(detail.summary.net_revenue ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.dailyAnalytics.collected') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.collected) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.collected ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.dailyAnalytics.credit') }}</p>
-            <p class="kpi__value kpi__value--credit">{{ formatMoney(detail.summary.credit) }}</p>
+            <p class="kpi__value kpi__value--credit"><CountUp :value="Number(detail.summary.credit ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.dailyAnalytics.totalTax') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.tax_total) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.tax_total ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.dailyAnalytics.totalDiscount') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.discount_total) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.discount_total ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.dailyAnalytics.grossProfit') }}</p>
-            <p class="kpi__value kpi__value--net">{{ formatMoney(detail.summary.gross_profit) }}</p>
+            <p class="kpi__value kpi__value--net"><CountUp :value="Number(detail.summary.gross_profit ?? 0)" format="money" /></p>
             <p class="kpi__hint">{{ detail.summary.margin_pct }}% {{ t('reports.revenueReport.margin') }}</p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.dailyAnalytics.houseOffer') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.house_offer) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.house_offer ?? 0)" format="money" /></p>
           </article>
         </div>
 

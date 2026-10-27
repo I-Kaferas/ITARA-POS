@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -243,22 +244,22 @@ onMounted(() => {
       <div class="condensed__kpis">
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.condensedAnalytics.totalBilled') }}</p>
-          <p class="kpi__value">{{ formatMoney(report?.total_billed ?? 0) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report?.total_billed ?? 0)" format="money" /></p>
           <p class="kpi__hint">{{ t('reports.condensedAnalytics.invoicesCount', { count: report?.invoice_count ?? 0 }) }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.condensedAnalytics.totalCollected') }}</p>
-          <p class="kpi__value">{{ formatMoney(report?.total_collected ?? 0) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report?.total_collected ?? 0)" format="money" /></p>
           <p class="kpi__hint">—</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.condensedAnalytics.totalCredit') }}</p>
-          <p class="kpi__value kpi__value--warn">{{ formatMoney(report?.total_credit ?? 0) }}</p>
+          <p class="kpi__value kpi__value--warn"><CountUp :value="Number(report?.total_credit ?? 0)" format="money" /></p>
           <p class="kpi__hint">{{ t('reports.condensedAnalytics.unpaidAmounts') }}</p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.condensedAnalytics.taxCollected') }}</p>
-          <p class="kpi__value">{{ formatMoney(report?.tax_collected ?? 0) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(report?.tax_collected ?? 0)" format="money" /></p>
           <p class="kpi__hint">
             {{ t('reports.condensedAnalytics.totalDiscounts') }}: {{ formatMoney(report?.discount_total ?? 0) }}
           </p>

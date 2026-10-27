@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
@@ -1754,23 +1755,23 @@ function roomLabel(room: Doc) {
         <div class="stay__stats">
           <article class="stay__stat">
             <span>{{ t('hotel.stays.board.inHouse') }}</span>
-            <strong>{{ stayStats.en_sejour }}</strong>
+            <strong><CountUp :value="Number(stayStats.en_sejour ?? 0)" /></strong>
           </article>
           <article class="stay__stat">
             <span>{{ t('hotel.stays.board.registeredPlural') }}</span>
-            <strong>{{ stayStats.enregistre }}</strong>
+            <strong><CountUp :value="Number(stayStats.enregistre ?? 0)" /></strong>
           </article>
           <article class="stay__stat">
             <span>{{ t('hotel.stays.board.pending') }}</span>
-            <strong>{{ stayStats.en_attente }}</strong>
+            <strong><CountUp :value="Number(stayStats.en_attente ?? 0)" /></strong>
           </article>
           <article class="stay__stat">
             <span>{{ t('hotel.stays.board.departedPlural') }}</span>
-            <strong>{{ stayStats.parti }}</strong>
+            <strong><CountUp :value="Number(stayStats.parti ?? 0)" /></strong>
           </article>
           <article class="stay__stat stay__stat--money">
             <span>{{ t('hotel.stays.board.revenue') }}</span>
-            <strong>{{ formatMoney(stayStats.revenue) }}</strong>
+            <strong><CountUp :value="Number(stayStats.revenue ?? 0)" format="money" /></strong>
           </article>
         </div>
 

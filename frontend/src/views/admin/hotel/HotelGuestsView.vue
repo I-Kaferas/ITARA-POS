@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
@@ -212,15 +213,15 @@ onMounted(load)
       <section class="hg__stats">
         <article class="hg__stat">
           <span>{{ t('hotel.guests.stats.total') }}</span>
-          <strong>{{ stats.total }}</strong>
+          <strong><CountUp :value="Number(stats.total ?? 0)" /></strong>
         </article>
         <article class="hg__stat">
           <span>{{ t('hotel.guests.stats.withStay') }}</span>
-          <strong>{{ stats.withStay }}</strong>
+          <strong><CountUp :value="Number(stats.withStay ?? 0)" /></strong>
         </article>
         <article class="hg__stat">
           <span>{{ t('hotel.guests.stats.active') }}</span>
-          <strong>{{ stats.active }}</strong>
+          <strong><CountUp :value="Number(stats.active ?? 0)" /></strong>
         </article>
       </section>
 

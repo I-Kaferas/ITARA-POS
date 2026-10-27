@@ -7,8 +7,12 @@ import DataTableShell from '../../../components/ui/DataTableShell.vue'
 import { formatDateTime } from '../../../utils/format'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 
+type CompanyOption = { id: string; name: string }
+
 type Backup = {
   id: string
+  tenant_id?: string | null
+  tenant_name?: string | null
   type: string
   trigger: string
   status: string
@@ -54,6 +58,8 @@ const notice = ref('')
 const loading = ref(false)
 const busy = ref(false)
 const backupType = ref<'full' | 'database' | 'files'>('full')
+const companyId = ref('')
+const companies = ref<CompanyOption[]>([])
 
 const form = ref({
   auto_enabled: true,
@@ -91,6 +97,8 @@ async function load() {
       disaster_recovery: DisasterRecovery
     }>('/platform/backups')
     backups.value = response.data
+    const companyResponse = await api.get<{ data: CompanyOption[] }>('/platform/companies')
+    companies.value = (companyResponse.data ?? []).map(company => ({ id: company.id, name: company.name }))
     policy.value = response.policy
     dr.value = response.disaster_recovery
     form.value = {
@@ -128,8 +136,25 @@ async function run(action: () => Promise<void>, okMessage?: string) {
 
 function createBackup() {
   return run(async () => {
-    await api.post('/platform/backups', { type: backupType.value })
+    await api.post('/platform/backups', {
+      type: backupType.value,
+      ...(companyId.value ? { tenant_id: companyId.value } : {}),
+    })
   }, t('platform.backups.created'))
+}
+
+async function downloadBackup(row: Backup) {
+  if (busy.value) return
+  busy.value = true
+  error.value = ''
+  notice.value = ''
+  try {
+    await api.download(`/platform/backups/${row.id}/download`, `backup-${row.id}.zip`)
+  } catch (err) {
+    error.value = extractApiErrorMessage(err)
+  } finally {
+    busy.value = false
+  }
 }
 
 function verifyBackup(id: string) {
@@ -148,11 +173,13 @@ function dryRun(id: string) {
   }, t('platform.backups.drillDone'))
 }
 
-function liveRestore(id: string) {
-  const ok = window.confirm(t('platform.backups.restoreConfirm'))
+function liveRestore(row: Backup) {
+  const ok = window.confirm(row.tenant_id
+    ? t('platform.backups.restoreCompanyConfirm', { name: row.tenant_name || row.tenant_id })
+    : t('platform.backups.restoreConfirm'))
   if (!ok) return
   return run(async () => {
-    await api.post(`/platform/backups/${id}/restore`, {
+    await api.post(`/platform/backups/${row.id}/restore`, {
       mode: 'live',
       database: true,
       files: true,
@@ -190,6 +217,10 @@ onMounted(load)
         <p>{{ t('platform.backups.hint') }}</p>
       </div>
       <div class="backups__actions">
+        <select v-model="companyId" class="field" :disabled="busy">
+          <option value="">{{ t('platform.backups.wholePlatform') }}</option>
+          <option v-for="company in companies" :key="company.id" :value="company.id">{{ company.name }}</option>
+        </select>
         <select v-model="backupType" class="field" :disabled="busy">
           <option value="full">{{ t('platform.backups.types.full') }}</option>
           <option value="database">{{ t('platform.backups.types.database') }}</option>
@@ -262,6 +293,7 @@ onMounted(load)
         <thead>
           <tr>
             <th>{{ t('platform.when') }}</th>
+            <th>{{ t('platform.backups.company') }}</th>
             <th>{{ t('platform.backups.type') }}</th>
             <th>{{ t('platform.status') }}</th>
             <th>{{ t('platform.backups.size') }}</th>
@@ -272,6 +304,7 @@ onMounted(load)
         <tbody>
           <tr v-for="row in backups" :key="row.id">
             <td>{{ row.finished_at || row.created_at ? formatDateTime(row.finished_at || row.created_at || '') : '—' }}</td>
+            <td>{{ row.tenant_name || t('platform.backups.wholePlatform') }}</td>
             <td><Badge variant="neutral">{{ t(`platform.backups.types.${row.type}`) }}</Badge></td>
             <td>
               <Badge :variant="statusVariant(row.status)" dot>{{ row.status }}</Badge>
@@ -280,9 +313,10 @@ onMounted(load)
             <td>{{ bytes(row.size_bytes || 0) }}</td>
             <td>{{ row.trigger }}</td>
             <td class="backups__row-actions">
+              <button v-if="row.status === 'completed'" class="btn-secondary" type="button" :disabled="busy" @click="downloadBackup(row)"><AppIcon name="download" :size="16" /> {{ t('platform.backups.download') }}</button>
               <button v-if="row.status === 'completed'" class="btn-secondary" type="button" :disabled="busy" @click="verifyBackup(row.id)">{{ t('platform.backups.verify') }}</button>
               <button v-if="row.status === 'completed'" class="btn-secondary" type="button" :disabled="busy" @click="dryRun(row.id)">{{ t('platform.backups.drill') }}</button>
-              <button v-if="row.status === 'completed'" class="btn-secondary" type="button" :disabled="busy" @click="liveRestore(row.id)">{{ t('platform.backups.restore') }}</button>
+              <button v-if="row.status === 'completed'" class="btn-secondary" type="button" :disabled="busy" @click="liveRestore(row)">{{ t('platform.backups.restore') }}</button>
               <button class="btn-secondary" type="button" :disabled="busy" @click="removeBackup(row.id)"><AppIcon name="trash" :size="16" /> {{ t('common.delete') }}</button>
             </td>
           </tr>

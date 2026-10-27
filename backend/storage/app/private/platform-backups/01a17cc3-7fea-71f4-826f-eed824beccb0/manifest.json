@@ -1,0 +1,22 @@
+{
+    "id": "01a17cc3-7fea-71f4-826f-eed824beccb0",
+    "type": "database",
+    "trigger": "scheduled",
+    "created_at": "2026-10-27T09:49:09+00:00",
+    "includes": {
+        "database": true,
+        "files": false
+    },
+    "meta": {
+        "app": "Laravel",
+        "env": "testing",
+        "version": null,
+        "php": "8.2.12",
+        "database": {
+            "driver": "sqlite",
+            "tables": 140,
+            "rows": 131,
+            "method": "logical"
+        }
+    }
+}

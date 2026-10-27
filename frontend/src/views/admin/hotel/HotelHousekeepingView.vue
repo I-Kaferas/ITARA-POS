@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../../api/client'
@@ -388,23 +389,23 @@ onMounted(load)
       <section class="hk__stats">
         <article class="hk__stat">
           <span>{{ t('hotel.housekeeping.stats.total') }}</span>
-          <strong>{{ stats.total }}</strong>
+          <strong><CountUp :value="Number(stats.total ?? 0)" /></strong>
         </article>
         <article class="hk__stat hk__stat--ready">
           <span>{{ t('hotel.housekeeping.stats.ready') }}</span>
-          <strong>{{ stats.ready }}</strong>
+          <strong><CountUp :value="Number(stats.ready ?? 0)" /></strong>
         </article>
         <article class="hk__stat hk__stat--dirty">
           <span>{{ t('hotel.housekeeping.stats.dirty') }}</span>
-          <strong>{{ stats.dirty }}</strong>
+          <strong><CountUp :value="Number(stats.dirty ?? 0)" /></strong>
         </article>
         <article class="hk__stat hk__stat--progress">
           <span>{{ t('hotel.housekeeping.stats.inProgress') }}</span>
-          <strong>{{ stats.cleaning }}</strong>
+          <strong><CountUp :value="Number(stats.cleaning ?? 0)" /></strong>
         </article>
         <article class="hk__stat hk__stat--maint">
           <span>{{ t('hotel.housekeeping.stats.maintenance') }}</span>
-          <strong>{{ stats.maintenance }}</strong>
+          <strong><CountUp :value="Number(stats.maintenance ?? 0)" /></strong>
         </article>
       </section>
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -328,29 +329,29 @@ onMounted(async () => {
         <div class="ss__kpis">
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.storeStock.openingValue') }}</p>
-            <p class="kpi__value">{{ safeMoney(summary?.opening_value) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(summary?.opening_value ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.storeStock.closingValue') }}</p>
-            <p class="kpi__value">{{ safeMoney(summary?.closing_value) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(summary?.closing_value ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.storeStock.variation') }}</p>
-            <p class="kpi__value" :class="variationClass">{{ safeMoney(summary?.variation_value) }}</p>
+            <p class="kpi__value" :class="variationClass"><CountUp :value="Number(summary?.variation_value ?? 0)" format="money" /></p>
             <p class="kpi__meta" :class="variationClass">{{ signedPct(summary?.variation_pct) }}</p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.storeStock.references') }}</p>
-            <p class="kpi__value">{{ summary?.skus_in_stock ?? 0 }}</p>
+            <p class="kpi__value"><CountUp :value="Number(summary?.skus_in_stock ?? 0)" /></p>
             <p class="kpi__meta">{{ summary?.references_count ?? 0 }} {{ t('reports.storeStock.tracked') }}</p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.storeStock.stockouts') }}</p>
-            <p class="kpi__value kpi__value--danger">{{ summary?.stockouts ?? 0 }}</p>
+            <p class="kpi__value kpi__value--danger"><CountUp :value="Number(summary?.stockouts ?? 0)" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.storeStock.turnover') }}</p>
-            <p class="kpi__value">{{ (summary?.turnover_rate ?? 0).toFixed(2) }}×</p>
+            <p class="kpi__value"><CountUp :value="Number(summary?.turnover_rate ?? 0)" format="decimal" :digits="2" fixed suffix="×" /></p>
           </article>
         </div>
 
@@ -701,7 +702,7 @@ onMounted(async () => {
       <template v-else-if="activeTab === 'performance'">
         <article class="kpi kpi--wide">
           <p class="kpi__label">{{ t('reports.storeStock.serviceRate') }}</p>
-          <p class="kpi__value">{{ (report?.performance.service_rate.rate ?? 0).toFixed(1) }}%</p>
+          <p class="kpi__value"><CountUp :value="Number(report?.performance.service_rate.rate ?? 0)" format="decimal" :digits="1" fixed suffix="%" /></p>
           <p class="kpi__meta">
             {{ report?.performance.service_rate.fulfilled ?? 0 }} / {{ report?.performance.service_rate.total ?? 0 }}
           </p>

@@ -235,7 +235,7 @@ onMounted(() => { void load() })
         <KpiCard :label="t('crm.tabs.prospects')" :value="overview?.prospects ?? 0" icon="customers" />
         <KpiCard :label="t('crm.tabs.clients')" :value="overview?.clients ?? 0" icon="customers" />
         <KpiCard :label="t('crm.tabs.leads')" :value="overview?.leads ?? 0" icon="mail" />
-        <KpiCard :label="t('crm.tabs.pipeline')" :value="formatMoney(overview?.pipeline_amount ?? 0)" icon="coins" />
+        <KpiCard :label="t('crm.tabs.pipeline')" :value="formatMoney(overview?.pipeline_amount ?? 0)" :count-to="overview?.pipeline_amount ?? 0" count-format="money" icon="coins" />
       </div>
 
       <nav class="sub-nav" :aria-label="t('crm.title')">

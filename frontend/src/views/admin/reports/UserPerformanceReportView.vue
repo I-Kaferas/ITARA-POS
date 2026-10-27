@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -16,7 +17,6 @@ import type {
   UserPerformanceSessionDetail,
   UserPerformanceUser,
 } from '../../../types'
-import { getAppCurrency } from '../../../utils/currency'
 import { formatDateTime, formatMoney, toDateTimeLocal } from '../../../utils/format'
 import ListPager from '../../../components/ui/ListPager.vue'
 import { useClientPager } from '../../../composables/useClientPager'
@@ -215,17 +215,6 @@ function donutPath(startAngle: number, endAngle: number, outer = 42, inner = 26)
 function labelPoint(slice: Slice) {
   const mid = (slice.startAngle + slice.endAngle) / 2
   return polar(50, 50, 34, mid)
-}
-
-function compactMoney(amount: number): string {
-  const value = (Number(amount) || 0) / 100
-  const code = getAppCurrency()
-  const abs = Math.abs(value)
-  let compact: string
-  if (abs >= 1_000_000) compact = `${(value / 1_000_000).toFixed(1)}M`
-  else if (abs >= 1_000) compact = `${(value / 1_000).toFixed(1)}K`
-  else compact = value.toFixed(value % 1 === 0 ? 0 : 1)
-  return `${compact} ${code}`
 }
 
 function axisLabel(value: number) {
@@ -501,31 +490,31 @@ onMounted(() => {
       <div v-if="report && mainTab === 'users'" class="up__kpis">
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.activeUsers') }}</p>
-          <p class="kpi__value">{{ summary?.active_users ?? 0 }}</p>
+          <p class="kpi__value"><CountUp :value="Number(summary?.active_users ?? 0)" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.totalInvoices') }}</p>
-          <p class="kpi__value">{{ summary?.invoices_count ?? 0 }}</p>
+          <p class="kpi__value"><CountUp :value="Number(summary?.invoices_count ?? 0)" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.totalInvoiced') }}</p>
-          <p class="kpi__value">{{ compactMoney(summary?.invoiced_total ?? 0) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(summary?.invoiced_total ?? 0)" format="compact" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.totalCollected') }}</p>
-          <p class="kpi__value">{{ compactMoney(summary?.collected_total ?? 0) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(summary?.collected_total ?? 0)" format="compact" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.totalCredit') }}</p>
-          <p class="kpi__value">{{ compactMoney(summary?.credit_total ?? 0) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(summary?.credit_total ?? 0)" format="compact" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.totalOrders') }}</p>
-          <p class="kpi__value">{{ summary?.orders_count ?? 0 }}</p>
+          <p class="kpi__value"><CountUp :value="Number(summary?.orders_count ?? 0)" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.purchaseOrders') }}</p>
-          <p class="kpi__value">{{ summary?.purchase_orders_count ?? 0 }}</p>
+          <p class="kpi__value"><CountUp :value="Number(summary?.purchase_orders_count ?? 0)" /></p>
         </article>
       </div>
 
@@ -763,19 +752,19 @@ onMounted(() => {
           <div class="up__kpis up__kpis--compact">
             <article class="kpi">
               <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.colOrders') }}</p>
-              <p class="kpi__value">{{ sessionDetail.summary.orders_count }}</p>
+              <p class="kpi__value"><CountUp :value="Number(sessionDetail.summary.orders_count ?? 0)" /></p>
             </article>
             <article class="kpi">
               <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.colInvoiced') }}</p>
-              <p class="kpi__value">{{ formatMoney(sessionDetail.summary.invoiced_total) }}</p>
+              <p class="kpi__value"><CountUp :value="Number(sessionDetail.summary.invoiced_total ?? 0)" format="money" /></p>
             </article>
             <article class="kpi">
               <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.colCollected') }}</p>
-              <p class="kpi__value">{{ formatMoney(sessionDetail.summary.collected_total) }}</p>
+              <p class="kpi__value"><CountUp :value="Number(sessionDetail.summary.collected_total ?? 0)" format="money" /></p>
             </article>
             <article class="kpi">
               <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.colCredit') }}</p>
-              <p class="kpi__value">{{ formatMoney(sessionDetail.summary.credit_total) }}</p>
+              <p class="kpi__value"><CountUp :value="Number(sessionDetail.summary.credit_total ?? 0)" format="money" /></p>
             </article>
           </div>
 
@@ -787,7 +776,7 @@ onMounted(() => {
               @click="sessionDetailTab = 'orders'"
             >
               <span>{{ t('reports.userPerformanceAnalytics.colOrders') }}</span>
-              <strong>{{ sessionDetail.summary.orders_count }}</strong>
+              <strong><CountUp :value="Number(sessionDetail.summary.orders_count ?? 0)" /></strong>
             </button>
             <button
               type="button"
@@ -910,31 +899,31 @@ onMounted(() => {
         <div class="up__kpis up__kpis--compact">
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.colInvoices') }}</p>
-            <p class="kpi__value">{{ detail.summary.invoices_count }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.invoices_count ?? 0)" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.colInvoiced') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.invoiced_total) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.invoiced_total ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.colCollected') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.collected_total) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.collected_total ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.colCredit') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.credit_total) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.credit_total ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.totalTax') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.tax_total) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.tax_total ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.totalDiscount') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.discount_total) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.discount_total ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.userPerformanceAnalytics.houseOffer') }}</p>
-            <p class="kpi__value">{{ formatMoney(detail.summary.house_offer) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(detail.summary.house_offer ?? 0)" format="money" /></p>
           </article>
         </div>
 
@@ -974,7 +963,7 @@ onMounted(() => {
         <div class="detail__stats">
           <button type="button" class="stat-tab" :class="{ 'stat-tab--active': detailTab === 'invoices' }" @click="detailTab = 'invoices'">
             <span>{{ t('reports.userPerformanceAnalytics.colInvoices') }}</span>
-            <strong>{{ detail.summary.invoices_count }}</strong>
+            <strong><CountUp :value="Number(detail.summary.invoices_count ?? 0)" /></strong>
           </button>
           <button type="button" class="stat-tab" :class="{ 'stat-tab--active': detailTab === 'orders' }" @click="detailTab = 'orders'">
             <span>{{ t('reports.userPerformanceAnalytics.totalOrders') }}</span>

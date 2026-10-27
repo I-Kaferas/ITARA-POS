@@ -22,7 +22,8 @@ const props = withDefaults(defineProps<{
   spark?: number[]
   chart?: KpiChart
   countTo?: number | null
-  countFormat?: 'integer' | 'money'
+  countFormat?: 'integer' | 'money' | 'decimal' | 'compact'
+  countCurrency?: string
 }>(), {
   icon: 'dashboard',
   accent: '',
@@ -36,6 +37,7 @@ const props = withDefaults(defineProps<{
   chart: 'area',
   countTo: null,
   countFormat: 'integer',
+  countCurrency: '',
 })
 
 const W = 140
@@ -84,6 +86,16 @@ const areaPath = computed(() => {
   return `${linePath.value} L${list[list.length - 1].x.toFixed(1)},${H} L${list[0].x.toFixed(1)},${H} Z`
 })
 
+const animated = computed(() => {
+  if (props.countTo != null && Number.isFinite(Number(props.countTo))) {
+    return { value: Number(props.countTo), format: props.countFormat }
+  }
+  if (typeof props.value === 'number' && Number.isFinite(props.value)) {
+    return { value: props.value, format: props.countFormat === 'integer' ? 'integer' as const : props.countFormat }
+  }
+  return null
+})
+
 const bars = computed(() => {
   const values = props.spark.filter(n => Number.isFinite(n))
   if (values.length < 2) return []
@@ -123,7 +135,7 @@ const bars = computed(() => {
     <div class="kpi-card__body">
       <div class="kpi-card__figures">
         <p class="kpi-card__value">
-          <CountUp v-if="countTo != null" :value="countTo" :format="countFormat" />
+          <CountUp v-if="animated" :value="animated.value" :format="animated.format" :currency="countCurrency" />
           <template v-else>{{ value }}</template>
         </p>
         <p v-if="hasDelta" class="kpi-card__delta" :class="`kpi-card__delta--${deltaTone}`">

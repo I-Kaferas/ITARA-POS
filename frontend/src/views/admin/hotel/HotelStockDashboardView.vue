@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
@@ -281,6 +282,8 @@ function qtyLabel(quantity: number) {
           <KpiCard
             :label="t('hotel.stock.stockValue')"
             :value="compactMoney(stockValue)"
+            :count-to="stockValue"
+            count-format="compact"
             icon="receipt"
           />
           <KpiCard
@@ -291,6 +294,8 @@ function qtyLabel(quantity: number) {
           <KpiCard
             :label="t('hotel.stock.monthlySales')"
             :value="formatMoney(monthSales)"
+            :count-to="monthSales"
+            count-format="money"
             icon="sales"
             :delta="`${formatPct(salesDelta)} ${t('hotel.stock.vsLastMonth')}`"
             :delta-tone="deltaTone(salesDelta)"
@@ -333,15 +338,15 @@ function qtyLabel(quantity: number) {
               </RouterLink>
             </header>
             <div class="ui-card__body">
-              <p class="status__total"><strong>{{ status.total }}</strong> {{ t('hotel.stock.totalProducts') }}</p>
+              <p class="status__total"><strong><CountUp :value="status.total" /></strong> {{ t('hotel.stock.totalProducts') }}</p>
               <div class="avail__bar" aria-hidden="true">
                 <span v-for="slice in status.slices" :key="slice.key" :style="{ width: slice.width, background: slice.color }" />
               </div>
               <ul class="status__list">
-                <li><span class="dot dot--ok" />{{ t('hotel.stock.inStock') }}<strong>{{ status.healthy }}</strong></li>
-                <li><span class="dot dot--low" />{{ t('hotel.stock.lowStock') }}<strong>{{ status.low }}</strong></li>
-                <li><span class="dot dot--out" />{{ t('hotel.stock.outOfStock') }}<strong>{{ status.out }}</strong></li>
-                <li v-if="status.over"><span class="dot dot--over" />{{ t('hotel.stock.overstock') }}<strong>{{ status.over }}</strong></li>
+                <li><span class="dot dot--ok" />{{ t('hotel.stock.inStock') }}<strong><CountUp :value="status.healthy" /></strong></li>
+                <li><span class="dot dot--low" />{{ t('hotel.stock.lowStock') }}<strong><CountUp :value="status.low" /></strong></li>
+                <li><span class="dot dot--out" />{{ t('hotel.stock.outOfStock') }}<strong><CountUp :value="status.out" /></strong></li>
+                <li v-if="status.over"><span class="dot dot--over" />{{ t('hotel.stock.overstock') }}<strong><CountUp :value="status.over" /></strong></li>
               </ul>
               <p class="status__health">{{ t('hotel.stock.stockHealth') }} · {{ t('hotel.stock.healthy', { pct: status.healthPct }) }}</p>
             </div>

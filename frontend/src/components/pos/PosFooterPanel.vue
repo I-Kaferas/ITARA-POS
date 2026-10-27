@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { debounceFn } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { api } from '../../api/client'
+import AppIcon from '../ui/AppIcon.vue'
 import AppModal from '../ui/AppModal.vue'
 import { usePosStore } from '../../stores/pos'
 import { formatMoney, parseMoneyInput } from '../../utils/money'
@@ -198,9 +199,28 @@ const mixedChange = computed(() =>
     return sum + Math.max(0, tendered - amount)
   }, 0),
 )
+const paymentDue = computed(() =>
+  convertAmount(props.totals.grand_total, props.totals.currency, paymentCurrency.value || props.totals.currency),
+)
+const tenderedChange = computed(() => {
+  if (!supportsChange.value) return 0
+  const received = parseMoneyInput(tenderedInput.value)
+  return received > paymentDue.value ? received - paymentDue.value : 0
+})
+const paymentSubtitle = computed(() => props.customer?.name || t('pos.paymentHint'))
 
 function methodLabel(method: PosPaymentMethod) {
   return locale.value === 'fr' ? (method.label_fr || method.label) : method.label
+}
+
+function methodIcon(value: string) {
+  const key = value.toLowerCase()
+  if (key.includes('cash') || key.includes('espece')) return 'coins'
+  if (key.includes('card')) return 'card'
+  if (key.includes('mobile') || key.includes('momo') || key.includes('phone')) return 'phone'
+  if (key.includes('bank') || key.includes('transfer') || key.includes('virement')) return 'transfer'
+  if (key.includes('credit') || key.includes('wallet') || key.includes('house') || key.includes('account')) return 'customers'
+  return 'coins'
 }
 
 function money(amount: number) {
@@ -794,23 +814,41 @@ const discountLabel = () => {
     </AppModal>
 
     <!-- Payment modal -->
-    <AppModal :open="showPayment" :title="labels.payment" icon="card" tone="success" size="lg" @close="showPayment = false">
-      <div class="pos-modal-content">
-        <p class="pos-payment-total">{{ money(totals.grand_total) }}</p>
+    <AppModal
+      :open="showPayment"
+      :title="labels.payment"
+      :subtitle="paymentSubtitle"
+      icon="card"
+      tone="success"
+      size="md"
+      @close="showPayment = false"
+    >
+      <div class="pay-sheet">
+        <div class="pay-sheet__total">
+          <div class="pay-sheet__row">
+            <span>{{ labels.subtotal }}</span>
+            <strong>{{ money(totals.subtotal) }}</strong>
+          </div>
+          <div class="pay-sheet__row pay-sheet__row--due">
+            <span>{{ t('pos.amountDue') }}</span>
+            <strong>{{ money(totals.grand_total) }}</strong>
+          </div>
+        </div>
 
-        <div class="pos-modal__tabs">
+        <p class="pay-sheet__label">{{ t('pos.paymentType') }}</p>
+        <div class="pay-sheet__modes" role="tablist">
           <button
             type="button"
-            class="pos-modal__tab"
-            :class="{ 'pos-modal__tab--active': paymentMode === 'single' }"
+            class="pay-sheet__mode"
+            :class="{ 'pay-sheet__mode--active': paymentMode === 'single' }"
             @click="setPaymentMode('single')"
           >
             {{ labels.paymentSingle || 'Simple' }}
           </button>
           <button
             type="button"
-            class="pos-modal__tab"
-            :class="{ 'pos-modal__tab--active': paymentMode === 'mixed' }"
+            class="pay-sheet__mode"
+            :class="{ 'pay-sheet__mode--active': paymentMode === 'mixed' }"
             @click="setPaymentMode('mixed')"
           >
             {{ labels.paymentMixed || 'Mixte' }}
@@ -818,119 +856,124 @@ const discountLabel = () => {
         </div>
 
         <template v-if="paymentMode === 'single'">
+          <p class="pay-sheet__label">{{ t('pos.paymentMethod') }}</p>
           <p v-if="!methods.length" class="pos-modal__empty">
             {{ labels.noPaymentMethods || 'Aucun mode de paiement configuré' }}
           </p>
-          <div v-else class="pos-modal__methods">
+          <div v-else class="pay-sheet__methods">
             <label
               v-for="method in methods"
               :key="method.value"
-              class="pos-method"
+              class="pay-method"
               :class="{
-                'pos-method--active': paymentMethod === method.value,
-                'pos-method--disabled': method.requires_customer && !customer,
+                'pay-method--active': paymentMethod === method.value,
+                'pay-method--disabled': method.requires_customer && !customer,
               }"
             >
               <input
                 v-model="paymentMethod"
+                class="pay-method__input"
                 type="radio"
                 :value="method.value"
                 :disabled="method.requires_customer && !customer"
               />
-              <span>{{ methodLabel(method) }}</span>
-              <small v-if="method.requires_customer && !customer">
-                {{ labels.customerRequired || 'Client requis' }}
-              </small>
+              <AppIcon :name="methodIcon(method.value)" :size="18" />
+              <span class="pay-method__text">
+                <strong>{{ methodLabel(method) }}</strong>
+                <small v-if="method.requires_customer && !customer">{{ labels.customerRequired || 'Client requis' }}</small>
+              </span>
+              <AppIcon v-if="paymentMethod === method.value" name="check" :size="16" />
             </label>
           </div>
+
+          <template v-if="supportsChange">
+            <p class="pay-sheet__label">{{ labels.tendered }} ({{ paymentCurrency || totals.currency }})</p>
+            <input v-model="tenderedInput" class="pay-sheet__amount" inputmode="decimal" />
+            <p v-if="tenderedChange > 0" class="pay-sheet__change">
+              <AppIcon name="transfer" :size="16" />
+              <span>{{ labels.change }}</span>
+              <strong>{{ formatMoney(tenderedChange, paymentCurrency || totals.currency) }}</strong>
+            </p>
+          </template>
+
           <div v-if="paymentCurrencies.length > 1" class="pos-pay-currency">
             <label class="pos-label">{{ $t('org.payInCurrency') }}</label>
             <select v-model="paymentCurrency" class="pos-field" @change="onPaymentCurrencyChange">
               <option v-for="c in paymentCurrencies" :key="c.code" :value="c.code">{{ c.code }}</option>
             </select>
             <p v-if="paymentCurrency !== totals.currency" class="pos-fx-hint">
-              {{ formatMoney(convertAmount(totals.grand_total, totals.currency, paymentCurrency), paymentCurrency) }}
+              {{ formatMoney(paymentDue, paymentCurrency) }}
               ≈ {{ money(totals.grand_total) }}
-            </p>
-          </div>
-          <div v-if="supportsChange">
-            <label class="pos-label">{{ labels.tendered }} ({{ paymentCurrency || totals.currency }})</label>
-            <input v-model="tenderedInput" class="pos-field" />
-            <p
-              v-if="parseMoneyInput(tenderedInput) >= convertAmount(totals.grand_total, totals.currency, paymentCurrency || totals.currency)"
-              class="pos-change"
-            >
-              {{ labels.change }}:
-              {{ formatMoney(
-                parseMoneyInput(tenderedInput) - convertAmount(totals.grand_total, totals.currency, paymentCurrency || totals.currency),
-                paymentCurrency || totals.currency,
-              ) }}
             </p>
           </div>
         </template>
 
         <template v-else>
-          <div class="pos-mixed-summary">
-            <span>{{ labels.paid || 'Payé' }}: <strong>{{ money(mixedPaid) }}</strong></span>
-            <span :class="{ 'pos-mixed-summary--ok': mixedRemaining === 0, 'pos-mixed-summary--warn': mixedRemaining !== 0 }">
-              {{ labels.remaining || 'Reste' }}: <strong>{{ money(mixedRemaining) }}</strong>
-            </span>
-          </div>
-
-          <div
-            v-for="(line, index) in mixedLines"
-            :key="index"
-            class="pos-mixed-line"
-          >
-            <select v-model="line.method" class="pos-field pos-field--select">
-              <option
-                v-for="method in methods"
-                :key="method.value"
-                :value="method.value"
-                :disabled="method.requires_customer && !customer"
-              >
-                {{ methodLabel(method) }}
-              </option>
-            </select>
-            <input
-              v-model="line.amountInput"
-              class="pos-field"
-              :placeholder="labels.amount"
-            />
-            <button
-              type="button"
-              class="pos-btn pos-btn--outline pos-btn--icon"
-              :title="labels.fillRemaining || 'Compléter'"
-              @click="fillRemaining(index)"
-            >
-              =
-            </button>
-            <button
-              type="button"
-              class="pos-btn pos-btn--danger pos-btn--icon"
-              :disabled="mixedLines.length <= 2"
-              :title="labels.removeLine || 'Retirer'"
-              @click="removeMixedLine(index)"
-            >
-              ×
-            </button>
-            <div v-if="methodMeta(line.method)?.supports_change" class="pos-mixed-tendered">
-              <label class="pos-label">{{ labels.tendered }}</label>
-              <input v-model="line.tenderedInput" class="pos-field" :placeholder="line.amountInput" />
+          <div class="pay-sheet__stats">
+            <div class="pay-sheet__stat" :class="{ 'pay-sheet__stat--ok': mixedRemaining === 0 }">
+              <span>{{ labels.paid || 'Payé' }}</span>
+              <strong>{{ money(mixedPaid) }}</strong>
+            </div>
+            <div class="pay-sheet__stat" :class="{ 'pay-sheet__stat--ok': mixedRemaining === 0 }">
+              <span>{{ labels.remaining || 'Reste' }}</span>
+              <strong>{{ money(mixedRemaining) }}</strong>
             </div>
           </div>
 
-          <button type="button" class="pos-btn pos-btn--outline pos-btn--block" @click="addMixedLine">
-            + {{ labels.addPaymentLine || 'Ajouter un mode' }}
+          <article v-for="(line, index) in mixedLines" :key="index" class="pay-mix">
+            <div class="pay-mix__row">
+              <select v-model="line.method" class="pos-field pos-field--select">
+                <option
+                  v-for="method in methods"
+                  :key="method.value"
+                  :value="method.value"
+                  :disabled="method.requires_customer && !customer"
+                >
+                  {{ methodLabel(method) }}
+                </option>
+              </select>
+              <input v-model="line.amountInput" class="pos-field" :placeholder="labels.amount" />
+            </div>
+            <div class="pay-mix__tools">
+              <button type="button" class="pay-mix__fill" @click="fillRemaining(index)">
+                = {{ labels.remaining || 'Reste' }}
+              </button>
+              <button
+                type="button"
+                class="pay-mix__remove"
+                :disabled="mixedLines.length <= 2"
+                :title="labels.removeLine || 'Retirer'"
+                @click="removeMixedLine(index)"
+              >
+                <AppIcon name="trash" :size="16" />
+              </button>
+            </div>
+            <label v-if="methodMeta(line.method)?.supports_change" class="pay-mix__tendered">
+              <span>{{ labels.tendered }}</span>
+              <input v-model="line.tenderedInput" class="pos-field" :placeholder="line.amountInput" />
+            </label>
+          </article>
+
+          <button type="button" class="pay-sheet__add" @click="addMixedLine">
+            <AppIcon name="plus" :size="16" />
+            {{ labels.addPaymentLine || 'Ajouter un mode' }}
           </button>
 
-          <p v-if="mixedChange > 0" class="pos-change">
-            {{ labels.change }}: {{ money(mixedChange) }}
+          <p v-if="mixedChange > 0" class="pay-sheet__change">
+            <AppIcon name="transfer" :size="16" />
+            <span>{{ labels.change }}</span>
+            <strong>{{ money(mixedChange) }}</strong>
           </p>
         </template>
 
-        <p v-if="paymentError" class="pos-payment-error">{{ paymentError }}</p>
-        <div class="pos-modal__actions">
+        <p v-if="paymentError" class="pay-sheet__error">
+          <AppIcon name="alert" :size="16" />
+          <span>{{ paymentError }}</span>
+        </p>
+      </div>
+
+      <template #footer>
+        <div class="pay-sheet__footer">
           <button type="button" class="pos-btn pos-btn--outline" :disabled="paying" @click="showPayment = false">{{ labels.cancel }}</button>
           <button
             type="button"
@@ -941,7 +984,7 @@ const discountLabel = () => {
             {{ paying ? '…' : labels.pay }}
           </button>
         </div>
-      </div>
+      </template>
     </AppModal>
 
     <AppModal :open="showStay" :title="t('desk.chargeStay')" icon="card" tone="brand" size="md" @close="showStay = false">
@@ -1444,5 +1487,194 @@ const discountLabel = () => {
   width: 100%;
   margin-bottom: 0.75rem;
   justify-content: center;
+}
+
+.pay-sheet { display: flex; flex-direction: column; gap: 0.5rem; }
+.pay-sheet__total {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface-muted, var(--color-canvas));
+}
+.pay-sheet__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+}
+.pay-sheet__row strong { color: var(--color-text-primary); font-weight: 700; }
+.pay-sheet__row--due {
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+.pay-sheet__row--due strong {
+  color: var(--color-accent, #e39b2b);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+.pay-sheet__label {
+  margin: 0.15rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.pay-sheet__modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  background: var(--color-surface-muted, var(--color-canvas));
+}
+.pay-sheet__mode {
+  min-height: 2.4rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pay-sheet__mode--active {
+  background: var(--color-accent, #e39b2b);
+  color: var(--color-brand-700, #0f1f34);
+}
+.pay-sheet__methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.pay-method {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.65rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface-muted, var(--color-canvas));
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.pay-method__input { position: absolute; opacity: 0; pointer-events: none; }
+.pay-method__text { display: grid; flex: 1; min-width: 0; }
+.pay-method__text strong {
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.pay-method__text small { color: var(--color-warning, #b45309); font-size: 0.68rem; }
+.pay-method--active {
+  border-color: color-mix(in srgb, var(--color-accent, #e39b2b) 55%, var(--color-border));
+  background: var(--color-surface);
+  color: var(--color-accent, #e39b2b);
+}
+.pay-method--disabled { opacity: 0.45; cursor: not-allowed; }
+.pay-sheet__amount {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.9rem;
+  background: var(--color-surface-muted, var(--color-canvas));
+  color: var(--color-text-primary);
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-align: center;
+}
+.pay-sheet__amount:focus {
+  outline: none;
+  border-color: var(--color-accent, #e39b2b);
+}
+.pay-sheet__change,
+.pay-sheet__error {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.pay-sheet__change {
+  border: 1px solid color-mix(in srgb, var(--color-success) 25%, transparent);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.pay-sheet__change strong { margin-left: auto; font-size: 0.9rem; }
+.pay-sheet__error {
+  border: 1px solid color-mix(in srgb, var(--color-danger) 25%, transparent);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.pay-sheet__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.pay-sheet__stat {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--color-warning, #b45309) 22%, transparent);
+  border-radius: 0.75rem;
+  background: var(--color-warning-bg, #fff7ed);
+  color: var(--color-warning, #b45309);
+}
+.pay-sheet__stat span { font-size: 0.72rem; font-weight: 650; }
+.pay-sheet__stat strong { font-size: 0.9rem; font-weight: 800; }
+.pay-sheet__stat--ok {
+  border-color: color-mix(in srgb, var(--color-success) 22%, transparent);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.pay-mix {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.9rem;
+  background: var(--color-surface-muted, var(--color-canvas));
+}
+.pay-mix__row { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 0.45rem; }
+.pay-mix__tools { display: flex; align-items: center; justify-content: space-between; }
+.pay-mix__fill,
+.pay-mix__remove,
+.pay-sheet__add {
+  border: 0;
+  background: transparent;
+  color: var(--color-accent, #e39b2b);
+  font-weight: 700;
+  cursor: pointer;
+}
+.pay-mix__remove { color: var(--color-text-muted); }
+.pay-mix__remove:disabled { opacity: 0.35; cursor: not-allowed; }
+.pay-mix__tendered { display: grid; gap: 0.25rem; font-size: 0.75rem; color: var(--color-text-muted); }
+.pay-sheet__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  color: var(--color-text-primary);
+}
+.pay-sheet__footer {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 0.6rem;
+  width: 100%;
+}
+.pay-sheet__footer .pos-btn { min-height: 3rem; justify-content: center; }
+.pay-sheet__footer .pos-btn--pay { grid-column: auto; letter-spacing: 0.04em; }
+@media (max-width: 640px) {
+  .pay-sheet__methods { grid-template-columns: 1fr; }
 }
 </style>

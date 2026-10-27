@@ -114,6 +114,8 @@ useRealtimeSync(realtimeTopics.posOverview, () => load(true))
         <KpiCard
           :label="t('pointOfSale.overview.todayRevenue')"
           :value="formatMoney(overview?.kpis.revenue ?? 0)"
+          :count-to="overview?.kpis.revenue ?? 0"
+          count-format="money"
           icon="receipt"
           accent="var(--color-brand-600)"
           icon-bg="var(--color-brand-50)"

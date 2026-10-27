@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -476,11 +477,11 @@ function toggleMenu(id: string) {
         <div v-if="myShift" class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
           <div class="flex justify-between gap-3">
             <span>{{ t('pointOfSale.shifts.expected') }}</span>
-            <strong>{{ formatMoney(myShift.expected_cash) }}</strong>
+            <strong><CountUp :value="Number(myShift.expected_cash ?? 0)" format="money" /></strong>
           </div>
           <div class="mt-1 flex justify-between gap-3">
             <span>{{ t('pointOfSale.shifts.sales') }}</span>
-            <strong>{{ formatMoney(myShift.sales_total) }}</strong>
+            <strong><CountUp :value="Number(myShift.sales_total ?? 0)" format="money" /></strong>
           </div>
         </div>
         <div>

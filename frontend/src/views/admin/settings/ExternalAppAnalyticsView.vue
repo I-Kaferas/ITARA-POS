@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
@@ -230,7 +231,7 @@ function refresh() {
           </span>
           <div>
             <span>{{ t('externalAnalytics.revenue') }}</span>
-            <strong>{{ money(revenue) }}</strong>
+            <strong><CountUp :value="Number(revenue ?? 0)" format="money" /></strong>
             <p :class="revenueDelta > 0 ? 'is-up' : revenueDelta < 0 ? 'is-down' : ''">
               <b>{{ signedPercent(revenueDelta) }}</b>
               {{ t('externalAnalytics.vsPrevious') }}
@@ -246,7 +247,7 @@ function refresh() {
           </span>
           <div>
             <span>{{ t('externalAnalytics.totalOrders') }}</span>
-            <strong>{{ orderCount }}</strong>
+            <strong><CountUp :value="Number(orderCount ?? 0)" /></strong>
             <p :class="orderDelta > 0 ? 'is-up' : orderDelta < 0 ? 'is-down' : ''">
               <b>{{ signedPercent(orderDelta) }}</b>
               {{ t('externalAnalytics.vsPrevious') }}
@@ -264,7 +265,7 @@ function refresh() {
           </span>
           <div>
             <span>{{ t('externalAnalytics.uniqueCustomers') }}</span>
-            <strong>{{ uniqueCustomers }}</strong>
+            <strong><CountUp :value="Number(uniqueCustomers ?? 0)" /></strong>
             <p>{{ t('externalAnalytics.uniqueShare', { pct: uniqueShare }) }}</p>
           </div>
         </article>
@@ -277,7 +278,7 @@ function refresh() {
           </span>
           <div>
             <span>{{ t('externalAnalytics.averageBasket') }}</span>
-            <strong>{{ money(averageBasket) }}</strong>
+            <strong><CountUp :value="Number(averageBasket ?? 0)" format="money" /></strong>
             <p>{{ t('externalAnalytics.averageHint') }}</p>
           </div>
         </article>

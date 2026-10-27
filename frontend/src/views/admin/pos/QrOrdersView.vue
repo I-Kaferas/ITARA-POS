@@ -218,6 +218,8 @@ useRealtimeSync(realtimeTopics.qrOrders, () => load())
         <KpiCard
           :label="t('qr.total')"
           :value="formatMoney(queueTotal, currency)"
+          :count-to="queueTotal"
+          count-format="money"
           icon="coins"
           tone="green"
         />

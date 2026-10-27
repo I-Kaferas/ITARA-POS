@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import CountUp from '../../../components/motion/CountUp.vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
@@ -118,7 +119,7 @@ onUnmounted(() => {
       <section class="day" :aria-busy="refreshing">
         <div class="day__copy">
           <p class="day__kicker">{{ t('customerHubPage.revenueToday') }}</p>
-          <p class="day__amount">{{ money }}</p>
+          <p class="day__amount"><CountUp :value="0" :suffix="' ' + (context.currencyCode || 'BIF')" /></p>
           <p class="day__hint">{{ t('customerHubPage.calmHint') }}</p>
         </div>
         <div class="day__now">

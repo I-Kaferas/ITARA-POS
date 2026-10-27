@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import ListPager from '../../components/ui/ListPager.vue'
 import { useClientPager } from '../../composables/useClientPager'
@@ -112,14 +113,14 @@ watchLiveSearch([from, to], load, 0)
     <div v-if="summary?.books?.length" class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div v-for="book in summary.books" :key="book.code" class="stat">
         <p class="label">{{ t(`accounting.books.${book.code}`) }}</p>
-        <p class="value">{{ formatMoney(book.balance) }}</p>
+        <p class="value"><CountUp :value="Number(book.balance ?? 0)" format="money" /></p>
       </div>
     </div>
 
     <div v-if="summary" class="mb-6 grid gap-4 sm:grid-cols-3">
-      <div class="stat"><p class="label">{{ t('payables.debit') }}</p><p class="value">{{ formatMoney(summary.totals.total_debit) }}</p></div>
-      <div class="stat"><p class="label">{{ t('payables.creditCol') }}</p><p class="value">{{ formatMoney(summary.totals.total_credit) }}</p></div>
-      <div class="stat"><p class="label">{{ t('accounting.entries') }}</p><p class="value">{{ summary.totals.entries_count }}</p></div>
+      <div class="stat"><p class="label">{{ t('payables.debit') }}</p><p class="value"><CountUp :value="Number(summary.totals.total_debit ?? 0)" format="money" /></p></div>
+      <div class="stat"><p class="label">{{ t('payables.creditCol') }}</p><p class="value"><CountUp :value="Number(summary.totals.total_credit ?? 0)" format="money" /></p></div>
+      <div class="stat"><p class="label">{{ t('accounting.entries') }}</p><p class="value"><CountUp :value="Number(summary.totals.entries_count ?? 0)" /></p></div>
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">

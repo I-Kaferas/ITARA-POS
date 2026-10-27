@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -449,31 +450,31 @@ useRealtimeSync(realtimeTopics.posFloor, loadFloor)
       <section v-if="stats" class="tables-kpis">
         <article>
           <span>{{ t('pointOfSale.tables.kpi.total') }}</span>
-          <strong>{{ stats.total }}</strong>
+          <strong><CountUp :value="Number(stats.total ?? 0)" /></strong>
         </article>
         <article>
           <span>{{ t('pointOfSale.tables.kpi.available') }}</span>
-          <strong>{{ stats.available }}</strong>
+          <strong><CountUp :value="Number(stats.available ?? 0)" /></strong>
         </article>
         <article>
           <span>{{ t('pointOfSale.tables.kpi.occupied') }}</span>
-          <strong>{{ stats.occupied }}</strong>
+          <strong><CountUp :value="Number(stats.occupied ?? 0)" /></strong>
         </article>
         <article>
           <span>{{ t('pointOfSale.tables.kpi.reserved') }}</span>
-          <strong>{{ stats.reserved }}</strong>
+          <strong><CountUp :value="Number(stats.reserved ?? 0)" /></strong>
         </article>
         <article>
           <span>{{ t('pointOfSale.tables.kpi.openOrders') }}</span>
-          <strong>{{ stats.open_orders }}</strong>
+          <strong><CountUp :value="Number(stats.open_orders ?? 0)" /></strong>
         </article>
         <article>
           <span>{{ t('pointOfSale.tables.kpi.todayRevenue') }}</span>
-          <strong>{{ formatMoney(stats.today_revenue) }}</strong>
+          <strong><CountUp :value="Number(stats.today_revenue ?? 0)" format="money" /></strong>
         </article>
         <article>
           <span>{{ t('pointOfSale.tables.kpi.averageTicket') }}</span>
-          <strong>{{ formatMoney(stats.average_ticket) }}</strong>
+          <strong><CountUp :value="Number(stats.average_ticket ?? 0)" format="money" /></strong>
         </article>
       </section>
 

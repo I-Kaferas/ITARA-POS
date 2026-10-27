@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -233,7 +234,7 @@ onMounted(() => {
         <div class="purchases__kpis">
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.purchaseAnalytics.totalSpendMonths', { months: monthsSpan }) }}</p>
-            <p class="kpi__value">{{ formatMoney(totalSpend) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(totalSpend ?? 0)" format="money" /></p>
           </article>
         </div>
 
@@ -385,19 +386,19 @@ onMounted(() => {
         <div class="purchases__kpis purchases__kpis--4">
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.purchaseAnalytics.totalReceipts') }}</p>
-            <p class="kpi__value">{{ receiptSummary.total_receipts }}</p>
+            <p class="kpi__value"><CountUp :value="Number(receiptSummary.total_receipts ?? 0)" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.purchaseAnalytics.qtyOrdered') }}</p>
-            <p class="kpi__value">{{ receiptSummary.qty_ordered }}</p>
+            <p class="kpi__value"><CountUp :value="Number(receiptSummary.qty_ordered ?? 0)" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.purchaseAnalytics.qtyAccepted') }}</p>
-            <p class="kpi__value kpi__value--ok">{{ receiptSummary.qty_accepted }}</p>
+            <p class="kpi__value kpi__value--ok"><CountUp :value="Number(receiptSummary.qty_accepted ?? 0)" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.purchaseAnalytics.qtyRejected') }}</p>
-            <p class="kpi__value kpi__value--danger">{{ receiptSummary.qty_rejected }}</p>
+            <p class="kpi__value kpi__value--danger"><CountUp :value="Number(receiptSummary.qty_rejected ?? 0)" /></p>
           </article>
         </div>
 

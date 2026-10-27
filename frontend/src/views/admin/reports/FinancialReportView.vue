@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import ListPager from '../../../components/ui/ListPager.vue'
 import { useClientPager } from '../../../composables/useClientPager'
@@ -48,13 +49,13 @@ watchLiveSearch([from, to], load, 0)
     </div>
 
     <div v-if="report" class="fin__kpis mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <article class="kpi"><p class="kpi__label">{{ t('reports.revenue') }}</p><p class="kpi__value">{{ formatMoney(report.revenue) }}</p></article>
-      <article class="kpi"><p class="kpi__label">{{ t('reports.cogs') }}</p><p class="kpi__value">{{ formatMoney(report.cogs) }}</p></article>
-      <article class="kpi"><p class="kpi__label">{{ t('reports.expenses') }}</p><p class="kpi__value">{{ formatMoney(report.expenses ?? 0) }}</p></article>
-      <article class="kpi"><p class="kpi__label">{{ t('reports.margin') }}</p><p class="kpi__value">{{ formatMoney(report.gross_margin) }}</p></article>
-      <article class="kpi"><p class="kpi__label">{{ t('reports.profit') }}</p><p class="kpi__value">{{ formatMoney(report.profit ?? 0) }}</p></article>
-      <article class="kpi"><p class="kpi__label">{{ t('reports.credit') }}</p><p class="kpi__value">{{ formatMoney(report.credit ?? 0) }}</p></article>
-      <article class="kpi"><p class="kpi__label">{{ t('reports.debts') }}</p><p class="kpi__value">{{ formatMoney(report.debts ?? 0) }}</p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.revenue') }}</p><p class="kpi__value"><CountUp :value="Number(report.revenue ?? 0)" format="money" /></p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.cogs') }}</p><p class="kpi__value"><CountUp :value="Number(report.cogs ?? 0)" format="money" /></p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.expenses') }}</p><p class="kpi__value"><CountUp :value="Number(report.expenses ?? 0)" format="money" /></p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.margin') }}</p><p class="kpi__value"><CountUp :value="Number(report.gross_margin ?? 0)" format="money" /></p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.profit') }}</p><p class="kpi__value"><CountUp :value="Number(report.profit ?? 0)" format="money" /></p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.credit') }}</p><p class="kpi__value"><CountUp :value="Number(report.credit ?? 0)" format="money" /></p></article>
+      <article class="kpi"><p class="kpi__label">{{ t('reports.debts') }}</p><p class="kpi__value"><CountUp :value="Number(report.debts ?? 0)" format="money" /></p></article>
     </div>
 
     <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">

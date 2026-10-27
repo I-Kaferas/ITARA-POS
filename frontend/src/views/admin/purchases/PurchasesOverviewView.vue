@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
@@ -136,7 +137,7 @@ const shortcuts = [
         >
           <span>
             <span class="signal-tile__label">{{ card.label }}</span>
-            <span class="signal-tile__value" :key="card.value">{{ card.value }}</span>
+            <span class="signal-tile__value" :key="card.value"><CountUp :value="card.value" /></span>
           </span>
           <span class="signal-tile__icon" aria-hidden="true">
             <AppIcon :name="card.icon" :size="22" />
@@ -148,13 +149,13 @@ const shortcuts = [
         <article class="metric-tile">
           <p class="metric-tile__label">{{ t('purchases.hub.outstanding') }}</p>
           <p class="metric-tile__value metric-tile__value--due" :key="String(data.amount_due ?? 0)">
-            {{ formatMoney(Number(data.amount_due ?? 0)) }}
+            <CountUp :value="Number(data.amount_due ?? 0)" format="money" />
           </p>
         </article>
         <article class="metric-tile">
           <p class="metric-tile__label">{{ t('purchases.hub.kpi.month') }}</p>
           <p class="metric-tile__value metric-tile__value--month" :key="String(data.month_purchases ?? 0)">
-            {{ formatMoney(Number(data.month_purchases ?? 0)) }}
+            <CountUp :value="Number(data.month_purchases ?? 0)" format="money" />
           </p>
         </article>
       </div>

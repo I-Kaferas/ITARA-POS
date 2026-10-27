@@ -2,11 +2,28 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '../../../components/ui/AppIcon.vue'
-import { guideChapters, quickStart, type GuideChapter, type GuideTopic } from './userGuide.fr'
+import {
+  guideChapters as frChapters,
+  hotelQuickStart as frHotelQuickStart,
+  quickStart as frQuickStart,
+  type GuideChapter,
+  type GuideTopic,
+} from './userGuide.fr'
+import { guideChapters as enChapters, hotelQuickStart as enHotelQuickStart, quickStart as enQuickStart } from './userGuide.en'
+import { guideChapters as swChapters, hotelQuickStart as swHotelQuickStart, quickStart as swQuickStart } from './userGuide.sw'
+
+const packs = {
+  fr: { chapters: frChapters, quickStart: frQuickStart, hotelQuickStart: frHotelQuickStart },
+  en: { chapters: enChapters, quickStart: enQuickStart, hotelQuickStart: enHotelQuickStart },
+  sw: { chapters: swChapters, quickStart: swQuickStart, hotelQuickStart: swHotelQuickStart },
+} as const
 
 const { t, locale } = useI18n()
+const pack = computed(() => packs[locale.value as keyof typeof packs] ?? packs.fr)
+const quickStart = computed(() => pack.value.quickStart)
+const hotelQuickStart = computed(() => pack.value.hotelQuickStart)
 const query = ref('')
-const activeId = ref(guideChapters[0]?.id ?? '')
+const activeId = ref(pack.value.chapters[0]?.id ?? '')
 const root = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
 
@@ -29,6 +46,7 @@ const terms = computed(() => normalize(query.value).split(/\s+/).filter(Boolean)
 const searching = computed(() => terms.value.length > 0)
 
 const chapters = computed(() => {
+  const guideChapters = pack.value.chapters
   if (!searching.value) return guideChapters
   return guideChapters
     .map(chapter => ({
@@ -94,11 +112,6 @@ onBeforeUnmount(() => observer?.disconnect())
       </button>
     </header>
 
-    <p v-if="locale !== 'fr'" class="guide-lang">
-      <AppIcon name="info" :size="16" />
-      {{ t('helpCenter.userGuide.frenchOnly') }}
-    </p>
-
     <div class="guide-layout">
       <nav class="guide-toc" :aria-label="t('helpCenter.userGuide.toc')">
         <p class="guide-toc__label">{{ t('helpCenter.userGuide.toc') }}</p>
@@ -107,6 +120,12 @@ onBeforeUnmount(() => observer?.disconnect())
             <button type="button" :class="{ 'is-active': activeId === 'quick-start' }" @click="scrollTo('quick-start')">
               <AppIcon name="sparkles" :size="16" />
               <span>{{ t('helpCenter.userGuide.quickStart') }}</span>
+            </button>
+          </li>
+          <li v-if="!searching">
+            <button type="button" :class="{ 'is-active': activeId === 'hotel-start' }" @click="scrollTo('hotel-start')">
+              <AppIcon name="bed" :size="16" />
+              <span>{{ t('helpCenter.userGuide.hotelQuickStart') }}</span>
             </button>
           </li>
           <li v-for="chapter in chapters" :key="chapter.id">
@@ -134,6 +153,33 @@ onBeforeUnmount(() => observer?.disconnect())
           </header>
           <ol class="guide-quick__list">
             <li v-for="(step, index) in quickStart" :key="step.route + index">
+              <span class="guide-num">{{ index + 1 }}</span>
+              <div>
+                <strong>{{ step.title }}</strong>
+                <p>
+                  <template v-for="(part, i) in segments(step.text)" :key="i">
+                    <span v-if="part.label" class="guide-ui">{{ part.text }}</span>
+                    <template v-else>{{ part.text }}</template>
+                  </template>
+                </p>
+              </div>
+              <RouterLink :to="step.route" class="guide-link" :aria-label="`${t('helpCenter.userGuide.openPage')} : ${step.title}`">
+                <AppIcon name="chevron-right" :size="16" />
+              </RouterLink>
+            </li>
+          </ol>
+        </section>
+
+        <section v-if="!searching" class="guide-chapter guide-quick" data-guide-id="hotel-start">
+          <header class="guide-chapter__head">
+            <span class="guide-chapter__icon"><AppIcon name="bed" :size="20" /></span>
+            <div>
+              <h2>{{ t('helpCenter.userGuide.hotelQuickStart') }}</h2>
+              <p>{{ t('helpCenter.userGuide.hotelQuickStartIntro') }}</p>
+            </div>
+          </header>
+          <ol class="guide-quick__list">
+            <li v-for="(step, index) in hotelQuickStart" :key="step.route + index">
               <span class="guide-num">{{ index + 1 }}</span>
               <div>
                 <strong>{{ step.title }}</strong>

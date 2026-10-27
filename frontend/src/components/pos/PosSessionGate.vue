@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import CountUp from '../motion/CountUp.vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { formatMoney } from '../../utils/money'
 import FieldLabel from '../ui/FieldLabel.vue'
 
 const props = defineProps<{
@@ -100,10 +100,10 @@ function submitClose() {
   <form v-else class="close" @submit.prevent="submitClose">
     <div>
       <strong>{{ cashierName }}</strong>
-      <span>{{ t('pos.theoreticalCash') }}: {{ formatMoney(expectedCash ?? 0) }}</span>
+      <span>{{ t('pos.theoreticalCash') }}: <CountUp :value="Number(expectedCash ?? 0)" format="money" /></span>
     </div>
     <input v-model="counted" type="number" min="0" step="0.01" :placeholder="t('pos.actualCash')" required />
-    <span v-if="variance !== null">{{ t('pos.difference') }}: {{ formatMoney(variance) }}</span>
+    <span v-if="variance !== null">{{ t('pos.difference') }}: <CountUp :value="Number(variance ?? 0)" format="money" /></span>
     <input
       v-model="reason"
       :placeholder="t('pos.varianceReason')"

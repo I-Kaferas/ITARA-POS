@@ -1,0 +1,27 @@
+{
+    "id": "01a17cc4-0b35-73fc-91d0-f18636e56822",
+    "type": "database",
+    "trigger": "manual",
+    "created_at": "2026-10-27T09:49:45+00:00",
+    "includes": {
+        "database": true,
+        "files": false
+    },
+    "meta": {
+        "app": "Laravel",
+        "env": "testing",
+        "version": null,
+        "php": "8.2.12",
+        "scope": "tenant",
+        "tenant_id": "01a17cc4-0933-70e0-9fdd-b874257da8cc",
+        "tenant_name": "Tenant alpha-bak",
+        "tenant_slug": "alpha-bak",
+        "database": {
+            "driver": "sqlite",
+            "tables": 125,
+            "rows": 35,
+            "method": "tenant",
+            "tenant_id": "01a17cc4-0933-70e0-9fdd-b874257da8cc"
+        }
+    }
+}

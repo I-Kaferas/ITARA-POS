@@ -238,6 +238,8 @@ function clearHistoryDates() {
         <KpiCard
           :label="t('products.price')"
           :value="formatMoney(stockValue)"
+          :count-to="stockValue"
+          count-format="money"
           icon="tag"
           accent="var(--color-success)"
           icon-bg="var(--color-success-bg)"

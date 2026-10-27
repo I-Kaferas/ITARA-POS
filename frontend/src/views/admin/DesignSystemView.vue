@@ -347,6 +347,8 @@ onBeforeUnmount(() => sectionObserver?.disconnect())
             <KpiCard
               :label="t('design.samples.kpiSales')"
               :value="formatMoney(18420000)"
+              :count-to="18420000"
+              count-format="money"
               icon="sales"
               tone="violet"
               delta="+8%"
@@ -355,7 +357,7 @@ onBeforeUnmount(() => sectionObserver?.disconnect())
             />
             <KpiCard
               :label="t('design.samples.kpiOrders')"
-              value="46"
+              :value="46"
               icon="receipt"
               tone="amber"
               chart="bars"

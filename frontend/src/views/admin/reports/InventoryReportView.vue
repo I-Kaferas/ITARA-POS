@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -208,23 +209,23 @@ onMounted(async () => {
         <div class="inv__kpis">
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.inventoryAnalytics.totalArticles') }}</p>
-            <p class="kpi__value">{{ totalArticles }}</p>
+            <p class="kpi__value"><CountUp :value="Number(totalArticles ?? 0)" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.inventoryAnalytics.stockValue') }}</p>
-            <p class="kpi__value">{{ safeMoney(stockValue) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(stockValue ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.inventoryAnalytics.lowStock') }}</p>
-            <p class="kpi__value kpi__value--warn">{{ lowStock }}</p>
+            <p class="kpi__value kpi__value--warn"><CountUp :value="Number(lowStock ?? 0)" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.inventoryAnalytics.outOfStock') }}</p>
-            <p class="kpi__value kpi__value--danger">{{ outOfStock }}</p>
+            <p class="kpi__value kpi__value--danger"><CountUp :value="Number(outOfStock ?? 0)" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.inventoryAnalytics.overstock') }}</p>
-            <p class="kpi__value">{{ overstock }}</p>
+            <p class="kpi__value"><CountUp :value="Number(overstock ?? 0)" /></p>
           </article>
         </div>
 

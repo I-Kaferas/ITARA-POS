@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
@@ -181,7 +182,7 @@ onMounted(loadOrders)
         </button>
         <p class="orders__revenue">
           <span>{{ t('mobileOrdersPage.paidRevenue') }}</span>
-          <strong>{{ money(paidRevenue) }}</strong>
+          <strong><CountUp :value="Number(paidRevenue ?? 0)" format="money" /></strong>
         </p>
       </div>
 

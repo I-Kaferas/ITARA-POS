@@ -12,6 +12,7 @@ class PlatformBackup extends Model
     use HasUuids;
 
     protected $fillable = [
+        'tenant_id',
         'type',
         'trigger',
         'status',
@@ -40,6 +41,11 @@ class PlatformBackup extends Model
             'verified_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
+    }
+
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
     }
 
     public function creator(): BelongsTo

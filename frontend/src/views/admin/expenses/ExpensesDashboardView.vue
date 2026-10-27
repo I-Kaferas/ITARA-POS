@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
 import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import { useBackofficeStore } from '../../../stores/backoffice'
-import { formatMoney } from '../../../utils/format'
 import { emptyListFilters, listFilterParams, type ListFilters } from '../../../utils/listFilters'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 
@@ -41,7 +41,7 @@ async function load() {
       <section class="day">
         <div>
           <p class="day__kicker">{{ t('expenses.kpi.total') }}</p>
-          <p class="day__amount">{{ formatMoney(total) }}</p>
+          <p class="day__amount"><CountUp :value="Number(total ?? 0)" format="money" /></p>
         </div>
         <button class="btn-primary" type="button" @click="router.push({ name: 'expenses' })">
           <AppIcon name="plus" :size="16" /> {{ t('expenses.new') }}
@@ -57,7 +57,7 @@ async function load() {
       />
       <div v-if="byCategory.length" class="rooms">
         <article v-for="row in byCategory" :key="row.name" class="room">
-          <p class="room__value">{{ formatMoney(row.total) }}</p>
+          <p class="room__value"><CountUp :value="Number(row.total ?? 0)" format="money" /></p>
           <p class="room__label">{{ row.name }}</p>
         </article>
       </div>

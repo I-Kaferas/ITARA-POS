@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -213,7 +214,7 @@ function onHand(productId?: string) {
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('products.price') }}</p>
-          <p class="stat-value">{{ formatMoney(order.total) }}</p>
+          <p class="stat-value"><CountUp :value="Number(order.total ?? 0)" format="money" /></p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('inventory.date') }}</p>

@@ -97,6 +97,36 @@ class BackupRecoveryTest extends TestCase
         $this->artisan('backups:prune')->assertSuccessful();
     }
 
+    public function test_company_backup_restores_only_that_company(): void
+    {
+        $alpha = $this->createTenantFixture('alpha-bak', 'alpha-bak@test.local');
+        $beta = $this->createTenantFixture('beta-bak', 'beta-bak@test.local');
+        $platform = $this->platformHeaders();
+
+        $created = $this->postJson('/api/v1/platform/backups', [
+            'type' => 'database',
+            'tenant_id' => $alpha['tenant']->id,
+        ], $platform)
+            ->assertCreated()
+            ->assertJsonPath('data.tenant_id', $alpha['tenant']->id)
+            ->assertJsonPath('data.meta.scope', 'tenant')
+            ->assertJsonPath('data.meta.database.method', 'tenant');
+
+        $alpha['product']->update(['name' => 'CHANGED ALPHA']);
+        $betaName = $beta['product']->name;
+
+        $this->postJson('/api/v1/platform/backups/'.$created->json('data.id').'/restore', [
+            'mode' => 'live',
+            'database' => true,
+            'files' => false,
+            'confirm' => 'RESTORE',
+        ], $platform)->assertOk()->assertJsonPath('data.status', 'completed');
+
+        $this->assertSame('Product alpha-bak', $alpha['product']->fresh()->name);
+        $this->assertSame($betaName, $beta['product']->fresh()->name);
+        $this->assertSame('Tenant beta-bak', $beta['tenant']->fresh()->name);
+    }
+
     public function test_scheduled_backup_command_respects_auto_enabled(): void
     {
         $service = app(BackupService::class);

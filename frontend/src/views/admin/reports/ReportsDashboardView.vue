@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
@@ -223,30 +224,30 @@ onMounted(load)
       <div class="analytics__kpis">
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.analytics.monthlyRevenue') }}</p>
-          <p class="kpi__value">{{ formatMoney(monthlyRevenue) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(monthlyRevenue ?? 0)" format="money" /></p>
           <p class="kpi__meta" :class="revenueDelta >= 0 ? 'is-up' : 'is-down'">
             {{ revenueDeltaLabel }} {{ t('reports.analytics.vsLastMonth') }}
           </p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.analytics.grossProfit') }}</p>
-          <p class="kpi__value">{{ formatMoney(grossProfit) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(grossProfit ?? 0)" format="money" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.analytics.receivables') }}</p>
-          <p class="kpi__value">{{ formatMoney(receivables) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(receivables ?? 0)" format="money" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.analytics.stockValue') }}</p>
-          <p class="kpi__value">{{ formatMoney(stockValue) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(stockValue ?? 0)" format="money" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.analytics.activeCustomers') }}</p>
-          <p class="kpi__value">{{ activeCustomers }}</p>
+          <p class="kpi__value"><CountUp :value="Number(activeCustomers ?? 0)" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.analytics.totalProducts') }}</p>
-          <p class="kpi__value">{{ productCount }}</p>
+          <p class="kpi__value"><CountUp :value="Number(productCount ?? 0)" /></p>
         </article>
       </div>
 
@@ -293,19 +294,19 @@ onMounted(load)
       <div class="analytics__secondary">
         <article class="kpi kpi--compact">
           <p class="kpi__label">{{ t('reports.analytics.purchasesThisMonth') }}</p>
-          <p class="kpi__value">{{ formatMoney(monthPurchases) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(monthPurchases ?? 0)" format="money" /></p>
         </article>
         <article class="kpi kpi--compact">
           <p class="kpi__label">{{ t('reports.analytics.supplierDebts') }}</p>
-          <p class="kpi__value">{{ formatMoney(debts) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(debts ?? 0)" format="money" /></p>
         </article>
         <article class="kpi kpi--compact">
           <p class="kpi__label">{{ t('reports.analytics.outOfStock') }}</p>
-          <p class="kpi__value">{{ outOfStockCount }}</p>
+          <p class="kpi__value"><CountUp :value="Number(outOfStockCount ?? 0)" /></p>
         </article>
         <article class="kpi kpi--compact">
           <p class="kpi__label">{{ t('reports.analytics.suppliers') }}</p>
-          <p class="kpi__value">{{ supplierCount }}</p>
+          <p class="kpi__value"><CountUp :value="Number(supplierCount ?? 0)" /></p>
         </article>
       </div>
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -259,20 +260,20 @@ onMounted(() => {
         <div class="sales__kpis">
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.salesAnalytics.aov') }}</p>
-            <p class="kpi__value">{{ formatMoney(aov) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(aov ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.salesAnalytics.quoteConversion') }}</p>
-            <p class="kpi__value">{{ quoteConversion.rate }}%</p>
+            <p class="kpi__value"><CountUp :value="Number(quoteConversion.rate ?? 0)" format="decimal" :digits="1" suffix="%" /></p>
             <p class="kpi__meta">{{ t('reports.salesAnalytics.ofCount', { converted: quoteConversion.converted, total: quoteConversion.total }) }}</p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.salesAnalytics.totalRevenue') }}</p>
-            <p class="kpi__value">{{ formatMoney(report?.revenue ?? 0) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(report?.revenue ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.salesAnalytics.unpaid') }}</p>
-            <p class="kpi__value">{{ formatMoney(report?.outstanding_amount ?? 0) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(report?.outstanding_amount ?? 0)" format="money" /></p>
           </article>
         </div>
 
@@ -580,19 +581,19 @@ onMounted(() => {
         <div class="sales__kpis">
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.salesAnalytics.clientsCount') }}</p>
-            <p class="kpi__value">{{ customerSummary.customers }}</p>
+            <p class="kpi__value"><CountUp :value="Number(customerSummary.customers ?? 0)" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.salesAnalytics.clientsRevenue') }}</p>
-            <p class="kpi__value">{{ formatMoney(customerSummary.revenue) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(customerSummary.revenue ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.salesAnalytics.unpaid') }}</p>
-            <p class="kpi__value">{{ formatMoney(customerSummary.unpaid) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(customerSummary.unpaid ?? 0)" format="money" /></p>
           </article>
           <article class="kpi">
             <p class="kpi__label">{{ t('reports.salesAnalytics.avgClientRevenue') }}</p>
-            <p class="kpi__value">{{ formatMoney(customerSummary.avg_revenue) }}</p>
+            <p class="kpi__value"><CountUp :value="Number(customerSummary.avg_revenue ?? 0)" format="money" /></p>
           </article>
         </div>
 

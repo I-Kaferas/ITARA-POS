@@ -20,13 +20,15 @@ class RunPlatformBackups extends Command
         try {
             if ($type || $force) {
                 $settings = $backups->settings();
-                $backup = $backups->create(
-                    is_string($type) && $type !== '' ? $type : $settings->default_type,
-                    'scheduled'
-                );
+                $made = [
+                    $backups->create(
+                        is_string($type) && $type !== '' ? $type : $settings->default_type,
+                        'scheduled'
+                    ),
+                ];
             } else {
-                $backup = $backups->runScheduled();
-                if ($backup === null) {
+                $made = $backups->runScheduled();
+                if ($made === []) {
                     $this->info('Automatic backups are disabled.');
 
                     return self::SUCCESS;
@@ -38,12 +40,16 @@ class RunPlatformBackups extends Command
             return self::FAILURE;
         }
 
-        $this->info(sprintf(
-            'Backup %s completed (%s, %d bytes).',
-            $backup->id,
-            $backup->type,
-            $backup->size_bytes
-        ));
+        foreach ($made as $backup) {
+            $company = $backup->tenant_id ? ' company '.$backup->tenant_id : ' platform';
+            $this->info(sprintf(
+                'Backup %s completed (%s, %s, %d bytes).',
+                $backup->id,
+                $backup->type,
+                trim($company),
+                $backup->size_bytes
+            ));
+        }
 
         return self::SUCCESS;
     }

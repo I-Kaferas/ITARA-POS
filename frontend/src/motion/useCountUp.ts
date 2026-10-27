@@ -6,7 +6,7 @@ import { useReducedMotion } from './useReducedMotion'
  * Animates toward `target`. The first run lasts 1.2s from zero.
  * Later changes ease from the current value in at most 400ms.
  */
-export function useCountUp(target: Ref<number>, duration = motion.duration.kpi) {
+export function useCountUp(target: Ref<number>, duration: number = motion.duration.kpi) {
   const displayed = ref(0)
   const reduced = useReducedMotion()
   let frame = 0

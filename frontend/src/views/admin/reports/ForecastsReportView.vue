@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ReportsLayout from '../../../components/reports/ReportsLayout.vue'
@@ -97,21 +98,21 @@ onMounted(() => {
       <div class="forecast__kpis">
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.forecastAnalytics.nextMonth') }}</p>
-          <p class="kpi__value">{{ formatMoney(nextMonth) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(nextMonth ?? 0)" format="money" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.forecastAnalytics.sixMonth') }}</p>
-          <p class="kpi__value">{{ formatMoney(sixMonth) }}</p>
+          <p class="kpi__value"><CountUp :value="Number(sixMonth ?? 0)" format="money" /></p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.forecastAnalytics.avgGrowth') }}</p>
           <p class="kpi__value" :class="{ 'is-up': avgGrowth > 0, 'is-down': avgGrowth < 0 }">
-            {{ avgGrowth }}%
+            <CountUp :value="Number(avgGrowth ?? 0)" format="decimal" :digits="1" suffix="%" />
           </p>
         </article>
         <article class="kpi">
           <p class="kpi__label">{{ t('reports.forecastAnalytics.confidence') }}</p>
-          <p class="kpi__value">{{ confidence }}%</p>
+          <p class="kpi__value"><CountUp :value="Number(confidence ?? 0)" format="decimal" :digits="1" suffix="%" /></p>
           <p class="kpi__meta">±{{ bandPct }}% {{ t('reports.forecastAnalytics.band') }}</p>
         </article>
       </div>

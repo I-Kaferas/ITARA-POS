@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
@@ -162,23 +163,23 @@ onMounted(load)
               {{ t('customerPaymentsPage.refresh') }}
             </button>
           </div>
-          <p class="spot__amount">{{ money(receivedTotal) }}</p>
+          <p class="spot__amount"><CountUp :value="Number(receivedTotal ?? 0)" format="money" /></p>
           <p class="spot__hint">{{ t('customerPaymentsPage.transactions', { n: transactionCount }) }}</p>
         </article>
 
         <div class="tiles">
           <article class="tile">
-            <p class="tile__value">{{ money(refundsTotal) }}</p>
+            <p class="tile__value"><CountUp :value="Number(refundsTotal ?? 0)" format="money" /></p>
             <p class="tile__label">{{ t('customerPaymentsPage.refunds') }}</p>
             <p class="tile__hint">{{ t('customerPaymentsPage.refundsHint') }}</p>
           </article>
           <article class="tile">
-            <p class="tile__value">{{ money(feesTotal) }}</p>
+            <p class="tile__value"><CountUp :value="Number(feesTotal ?? 0)" format="money" /></p>
             <p class="tile__label">{{ t('customerPaymentsPage.fees') }}</p>
             <p class="tile__hint">{{ t('customerPaymentsPage.feesHint') }}</p>
           </article>
           <article class="tile">
-            <p class="tile__value">{{ pendingCount }}</p>
+            <p class="tile__value"><CountUp :value="Number(pendingCount ?? 0)" /></p>
             <p class="tile__label">{{ t('customerPaymentsPage.pending') }}</p>
             <p class="tile__hint">{{ t('customerPaymentsPage.pendingHint') }}</p>
           </article>

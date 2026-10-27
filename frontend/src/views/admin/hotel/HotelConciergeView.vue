@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../../api/client'
@@ -424,27 +425,27 @@ onMounted(load)
       <section class="cg__stats">
         <article class="cg__stat">
           <span>{{ t('hotel.concierge.stats.total') }}</span>
-          <strong>{{ stats.total }}</strong>
+          <strong><CountUp :value="Number(stats.total ?? 0)" /></strong>
         </article>
         <article class="cg__stat">
           <span>{{ t('hotel.concierge.stats.new') }}</span>
           <em>{{ t('hotel.concierge.stats.newHint') }}</em>
-          <strong>{{ stats.neu }}</strong>
+          <strong><CountUp :value="Number(stats.neu ?? 0)" /></strong>
         </article>
         <article class="cg__stat">
           <span>{{ t('hotel.concierge.stats.inProgress') }}</span>
           <em>{{ t('hotel.concierge.stats.inProgressHint') }}</em>
-          <strong>{{ stats.inProgress }}</strong>
+          <strong><CountUp :value="Number(stats.inProgress ?? 0)" /></strong>
         </article>
         <article class="cg__stat">
           <span>{{ t('hotel.concierge.stats.done') }}</span>
           <em>{{ t('hotel.concierge.stats.doneHint') }}</em>
-          <strong>{{ stats.done }}</strong>
+          <strong><CountUp :value="Number(stats.done ?? 0)" /></strong>
         </article>
         <article class="cg__stat cg__stat--urgent">
           <span>{{ t('hotel.concierge.stats.urgent') }}</span>
           <em>{{ t('hotel.concierge.stats.urgentHint') }}</em>
-          <strong>{{ stats.urgent }}</strong>
+          <strong><CountUp :value="Number(stats.urgent ?? 0)" /></strong>
         </article>
       </section>
 

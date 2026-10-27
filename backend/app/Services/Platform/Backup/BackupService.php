@@ -5,6 +5,7 @@ namespace App\Services\Platform\Backup;
 use App\Models\PlatformBackup;
 use App\Models\PlatformBackupRestore;
 use App\Models\PlatformBackupSetting;
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
@@ -18,6 +19,7 @@ class BackupService
 {
     public function __construct(
         private readonly DatabaseDumper $database,
+        private readonly TenantDatabaseDumper $tenants,
         private readonly FileArchiver $files,
     ) {}
 
@@ -76,13 +78,14 @@ class BackupService
         ];
     }
 
-    public function create(string $type = 'full', string $trigger = 'manual', ?User $actor = null): PlatformBackup
+    public function create(string $type = 'full', string $trigger = 'manual', ?User $actor = null, ?Tenant $tenant = null): PlatformBackup
     {
         $type = in_array($type, ['database', 'files', 'full'], true) ? $type : 'full';
         $disk = (string) config('backup.disk', 'local');
         $root = trim((string) config('backup.path', 'platform-backups'), '/');
 
         $backup = PlatformBackup::query()->create([
+            'tenant_id' => $tenant?->id,
             'type' => $type,
             'trigger' => $trigger,
             'status' => 'running',
@@ -107,16 +110,28 @@ class BackupService
                 'php' => PHP_VERSION,
             ];
 
+            if ($tenant !== null) {
+                $meta['scope'] = 'tenant';
+                $meta['tenant_id'] = $tenant->id;
+                $meta['tenant_name'] = $tenant->name;
+                $meta['tenant_slug'] = $tenant->slug;
+            }
+
             if ($backup->includes['database'] ?? false) {
                 $dbPath = $absoluteDir.'/database.sql';
-                $meta['database'] = $this->database->dump($dbPath);
+                $meta['database'] = $tenant === null
+                    ? $this->database->dump($dbPath)
+                    : $this->tenants->dump($dbPath, $tenant->id);
             }
 
             if ($backup->includes['files'] ?? false) {
                 $filesPath = $absoluteDir.'/files.zip';
+                $sources = $tenant === null
+                    ? config('backup.file_sources', [])
+                    : $this->tenantFileSources($tenant);
                 $meta['files'] = $this->files->archive(
                     $filesPath,
-                    config('backup.file_sources', []),
+                    $sources,
                     array_merge(config('backup.exclude_prefixes', []), [$root]),
                 );
             }
@@ -166,14 +181,29 @@ class BackupService
         }
     }
 
-    public function runScheduled(): ?PlatformBackup
+    /**
+     * One backup per company. A platform-wide backup is created only when
+     * no company exists yet.
+     *
+     * @return list<PlatformBackup>
+     */
+    public function runScheduled(): array
     {
         $settings = $this->settings();
         if (! $settings->auto_enabled) {
-            return null;
+            return [];
         }
 
-        return $this->create($settings->default_type, 'scheduled');
+        $made = [];
+        $companies = Tenant::query()->orderBy('name')->get();
+        foreach ($companies as $tenant) {
+            $made[] = $this->create($settings->default_type, 'scheduled', null, $tenant);
+        }
+        if ($made === []) {
+            $made[] = $this->create($settings->default_type, 'scheduled');
+        }
+
+        return $made;
     }
 
     public function delete(PlatformBackup $backup): void
@@ -294,10 +324,18 @@ class BackupService
                         'bytes' => filesize($dbDump),
                         'lines' => substr_count((string) file_get_contents($dbDump), "\n"),
                         'action' => 'validated',
+                        'tenant_id' => $backup->tenant_id,
                     ];
                 } else {
-                    $this->database->restore($dbDump);
-                    $report['database'] = ['action' => 'restored'];
+                    if ($backup->tenant_id) {
+                        $this->tenants->restore($dbDump, $backup->tenant_id);
+                    } else {
+                        $this->database->restore($dbDump);
+                    }
+                    $report['database'] = [
+                        'action' => 'restored',
+                        'tenant_id' => $backup->tenant_id,
+                    ];
                 }
             }
 
@@ -422,6 +460,8 @@ class BackupService
     {
         return [
             'id' => $backup->id,
+            'tenant_id' => $backup->tenant_id,
+            'tenant_name' => $backup->meta['tenant_name'] ?? null,
             'type' => $backup->type,
             'trigger' => $backup->trigger,
             'status' => $backup->status,
@@ -452,12 +492,24 @@ class BackupService
     /** @return array<string, true> */
     private function retentionKeepIds(PlatformBackupSetting $settings): array
     {
-        $completed = PlatformBackup::query()
+        $groups = PlatformBackup::query()
             ->where('status', 'completed')
             ->whereNotNull('finished_at')
             ->orderByDesc('finished_at')
-            ->get();
+            ->get()
+            ->groupBy(fn (PlatformBackup $backup) => $backup->tenant_id ?: '_platform');
 
+        $keep = [];
+        foreach ($groups as $completed) {
+            $keep += $this->keepWithinGroup($completed, $settings);
+        }
+
+        return $keep;
+    }
+
+    /** @param  \Illuminate\Support\Collection<int, PlatformBackup>  $completed */
+    private function keepWithinGroup($completed, PlatformBackupSetting $settings): array
+    {
         $keep = [];
         $daily = 0;
         $weekly = [];
@@ -543,6 +595,20 @@ class BackupService
                 // ignore offsite cleanup failures
             }
         }
+    }
+
+    /** @return list<array{disk: string, path: string}> */
+    private function tenantFileSources(Tenant $tenant): array
+    {
+        $sources = [];
+        foreach (['public', 'local'] as $diskName) {
+            $relative = 'tenants/'.$tenant->id;
+            if (is_dir(Storage::disk($diskName)->path($relative))) {
+                $sources[] = ['disk' => $diskName, 'path' => $relative];
+            }
+        }
+
+        return $sources;
     }
 
     private function mirrorOffsite(string $disk, string $relativePath): void

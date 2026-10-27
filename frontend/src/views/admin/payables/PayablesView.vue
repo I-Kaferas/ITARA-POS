@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -131,19 +132,19 @@ function paymentMethodLabel(method: string): string {
       <div v-if="summary" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="stat-card">
           <p class="stat-label">{{ t('payables.totalDebt') }}</p>
-          <p class="stat-value">{{ formatMoney(summary.total_debt) }}</p>
+          <p class="stat-value"><CountUp :value="Number(summary.total_debt ?? 0)" format="money" /></p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('payables.totalOverdue') }}</p>
-          <p class="stat-value text-red-600">{{ formatMoney(summary.total_overdue) }}</p>
+          <p class="stat-value text-red-600"><CountUp :value="Number(summary.total_overdue ?? 0)" format="money" /></p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('payables.openInvoices') }}</p>
-          <p class="stat-value">{{ summary.open_invoices }}</p>
+          <p class="stat-value"><CountUp :value="Number(summary.open_invoices ?? 0)" /></p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('payables.suppliersWithDebt') }}</p>
-          <p class="stat-value">{{ summary.suppliers_with_debt }}</p>
+          <p class="stat-value"><CountUp :value="Number(summary.suppliers_with_debt ?? 0)" /></p>
         </div>
       </div>
 

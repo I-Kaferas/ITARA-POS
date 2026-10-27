@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
@@ -354,15 +355,15 @@ function openAssign(user: TenantUser) {
 
       <div class="users__stats">
         <button type="button" class="kpi-card users__kpi" :class="{ 'is-on': status === 'all' }" @click="setStatus('all')">
-          <span class="users__kpi-value">{{ directory.total }}</span>
+          <span class="users__kpi-value"><CountUp :value="Number(directory.total ?? 0)" /></span>
           <span class="users__kpi-label">{{ t('org.tabs.users') }}</span>
         </button>
         <button type="button" class="kpi-card users__kpi" :class="{ 'is-on': status === 'active' }" @click="setStatus('active')">
-          <span class="users__kpi-value">{{ directory.active }}</span>
+          <span class="users__kpi-value"><CountUp :value="Number(directory.active ?? 0)" /></span>
           <span class="users__kpi-label">{{ t('org.activeUsers') }}</span>
         </button>
         <button type="button" class="kpi-card users__kpi" :class="{ 'is-on': status === 'inactive' }" @click="setStatus('inactive')">
-          <span class="users__kpi-value">{{ directory.inactive }}</span>
+          <span class="users__kpi-value"><CountUp :value="Number(directory.inactive ?? 0)" /></span>
           <span class="users__kpi-label">{{ t('org.inactiveUsers') }}</span>
         </button>
       </div>

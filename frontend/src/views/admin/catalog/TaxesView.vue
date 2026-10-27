@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { extractApiErrorMessage } from '../../../api/client'
@@ -381,8 +382,8 @@ function toggleCalcTax(id: string, checked: boolean) {
             <AppIcon name="recycle" :size="15" />{{ t('catalog.tax.refresh') }}</button>
         </div>
         <div class="stats">
-          <div><span>{{ t('catalog.tax.taxable') }}</span><strong>{{ formatMoney(reportTotals.taxable_amount) }}</strong></div>
-          <div><span>{{ t('catalog.tax.collected') }}</span><strong>{{ formatMoney(reportTotals.tax_amount) }}</strong></div>
+          <div><span>{{ t('catalog.tax.taxable') }}</span><strong><CountUp :value="Number(reportTotals.taxable_amount ?? 0)" format="money" /></strong></div>
+          <div><span>{{ t('catalog.tax.collected') }}</span><strong><CountUp :value="Number(reportTotals.tax_amount ?? 0)" format="money" /></strong></div>
           <div><span>{{ t('catalog.tax.lines') }}</span><strong>{{ reportTotals.lines }}</strong></div>
         </div>
         <div class="panel">
@@ -609,9 +610,9 @@ function toggleCalcTax(id: string, checked: boolean) {
         <button type="button" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="runCalculator">{{ t('catalog.tax.calculate') }}</button>
         <div v-if="calcResult" class="space-y-2 text-sm">
           <div class="stats">
-            <div><span>{{ t('catalog.tax.net') }}</span><strong>{{ formatMoney(calcResult.net) }}</strong></div>
-            <div><span>{{ t('catalog.tax.collected') }}</span><strong>{{ formatMoney(calcResult.tax_total) }}</strong></div>
-            <div><span>{{ t('catalog.tax.total') }}</span><strong>{{ formatMoney(calcResult.total) }}</strong></div>
+            <div><span>{{ t('catalog.tax.net') }}</span><strong><CountUp :value="Number(calcResult.net ?? 0)" format="money" /></strong></div>
+            <div><span>{{ t('catalog.tax.collected') }}</span><strong><CountUp :value="Number(calcResult.tax_total ?? 0)" format="money" /></strong></div>
+            <div><span>{{ t('catalog.tax.total') }}</span><strong><CountUp :value="Number(calcResult.total ?? 0)" format="money" /></strong></div>
           </div>
           <table class="min-w-full">
             <thead class="bg-slate-50">

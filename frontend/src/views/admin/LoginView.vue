@@ -606,8 +606,10 @@ async function submitSignup() {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center bottom;
-  filter: brightness(0.6) contrast(1.05);
+  object-position: center;
+  transform: scale(0.9);
+  transform-origin: center;
+  filter: none;
   pointer-events: none;
   user-select: none;
   animation: login-fade 700ms var(--ease-out, ease) both;
@@ -617,7 +619,7 @@ async function submitSignup() {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: rgba(7, 16, 24, 0.72);
+  background: rgba(7, 16, 24, 0.16);
   pointer-events: none;
 }
 

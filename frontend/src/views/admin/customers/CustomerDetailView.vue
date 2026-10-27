@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
@@ -207,22 +208,22 @@ function transactionTypeLabel(type: string): string {
       <div v-if="summary" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="stat-card">
           <p class="stat-label">{{ t('customers.balance') }}</p>
-          <p class="stat-value">{{ formatMoney(summary.balance) }}</p>
+          <p class="stat-value"><CountUp :value="Number(summary.balance ?? 0)" format="money" /></p>
           <p class="m-0 mt-1 text-xs text-slate-400">{{ t('customers.ledgerHint') }}</p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('customers.creditLimit') }}</p>
-          <p class="stat-value">{{ summary.credit_limit == null ? '—' : formatMoney(summary.credit_limit) }}</p>
+          <p class="stat-value"><span v-if="summary.credit_limit == null">—</span><CountUp v-else :value="Number(summary.credit_limit)" format="money" /></p>
           <p class="m-0 mt-1 text-xs text-slate-400">{{ t('customers.availableCredit') }} · {{ summary.available_credit == null ? '—' : formatMoney(summary.available_credit) }}</p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('customers.loyaltyPoints') }}</p>
-          <p class="stat-value">{{ summary.loyalty_points }}</p>
+          <p class="stat-value"><CountUp :value="Number(summary.loyalty_points ?? 0)" /></p>
           <p class="m-0 mt-1 text-xs text-slate-400">{{ summary.loyalty_tier || 'standard' }}</p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('customers.totalSales') }}</p>
-          <p class="stat-value">{{ formatMoney(summary.total_sales) }}</p>
+          <p class="stat-value"><CountUp :value="Number(summary.total_sales ?? 0)" format="money" /></p>
         </div>
       </div>
 

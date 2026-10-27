@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../../composables/useConfirm'
@@ -216,19 +217,19 @@ function transactionTypeLabel(type: string): string {
       <div v-if="summary" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="stat-card">
           <p class="stat-label">{{ t('suppliers.debt') }}</p>
-          <p class="stat-value">{{ formatMoney(summary.debt) }}</p>
+          <p class="stat-value"><CountUp :value="Number(summary.debt ?? 0)" format="money" /></p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('payables.credit') }}</p>
-          <p class="stat-value">{{ formatMoney(summary.credit) }}</p>
+          <p class="stat-value"><CountUp :value="Number(summary.credit ?? 0)" format="money" /></p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('payables.openInvoices') }}</p>
-          <p class="stat-value">{{ summary.open_invoices }}</p>
+          <p class="stat-value"><CountUp :value="Number(summary.open_invoices ?? 0)" /></p>
         </div>
         <div class="stat-card">
           <p class="stat-label">{{ t('payables.overdueInvoices') }}</p>
-          <p class="stat-value text-red-600">{{ summary.overdue_invoices }}</p>
+          <p class="stat-value text-red-600"><CountUp :value="Number(summary.overdue_invoices ?? 0)" /></p>
         </div>
       </div>
 

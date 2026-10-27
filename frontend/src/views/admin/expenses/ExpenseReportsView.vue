@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CountUp from '../../../components/motion/CountUp.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../../components/layout/PageFrame.vue'
@@ -130,17 +131,17 @@ onMounted(load)
       <div class="exp-report__kpis">
         <article class="exp-kpi">
           <p class="exp-kpi__kicker">{{ t('expenses.analysis.operations', { count: report?.count ?? 0 }) }}</p>
-          <p class="exp-kpi__value">{{ formatMoney(report?.total ?? 0) }}</p>
+          <p class="exp-kpi__value"><CountUp :value="Number(report?.total ?? 0)" format="money" /></p>
           <p class="exp-kpi__label">{{ t('expenses.analysis.total') }}</p>
         </article>
         <article class="exp-kpi">
           <p class="exp-kpi__kicker">{{ t('expenses.analysis.perOperation') }}</p>
-          <p class="exp-kpi__value">{{ formatMoney(report?.average ?? 0) }}</p>
+          <p class="exp-kpi__value"><CountUp :value="Number(report?.average ?? 0)" format="money" /></p>
           <p class="exp-kpi__label">{{ t('expenses.analysis.average') }}</p>
         </article>
         <article class="exp-kpi">
           <p class="exp-kpi__kicker">{{ t('expenses.analysis.withExpenses') }}</p>
-          <p class="exp-kpi__value">{{ report?.active_categories ?? 0 }}</p>
+          <p class="exp-kpi__value"><CountUp :value="Number(report?.active_categories ?? 0)" /></p>
           <p class="exp-kpi__label">{{ t('expenses.analysis.activeCategories') }}</p>
         </article>
       </div>
