@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
@@ -15,12 +15,13 @@ import { useAuthStore, type LoginResponse } from '../../../stores/auth'
 import { useBrandingStore } from '../../../stores/branding'
 import { useContextStore } from '../../../stores/context'
 import { MODULE_CODES } from '../../../modules/registry'
-import PlatformBackupsPanel from './PlatformBackupsPanel.vue'
-import PlatformPlansPanel from './PlatformPlansPanel.vue'
 import { formatDateTime, formatMoney } from '../../../utils/format'
 import { goToMarketing } from '../../../utils/marketing'
 import ListPager from '../../../components/ui/ListPager.vue'
 import { useClientPager } from '../../../composables/useClientPager'
+
+const PlatformBackupsPanel = defineAsyncComponent(() => import('./PlatformBackupsPanel.vue'))
+const PlatformPlansPanel = defineAsyncComponent(() => import('./PlatformPlansPanel.vue'))
 
 type Company = {
   id: string

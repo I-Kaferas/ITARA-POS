@@ -4,8 +4,8 @@
    Primary #12243C, accent #E39B2B used only as a signal.
    Tenant branding overrides the brand scale at runtime. */
 @theme {
-  --font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
-  --font-display: "Plus Jakarta Sans", "IBM Plex Sans", sans-serif;
+  --font-sans: "Segoe UI", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   --color-brand-50: #f1f2f3;

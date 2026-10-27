@@ -142,9 +142,9 @@ export const useRealtimeStore = defineStore('realtime', () => {
       ?.leaving(() => { onlineCount.value = Math.max(0, onlineCount.value - 1) })
   }
 
-  function connect() {
+  async function connect() {
     status.value = 'connecting'
-    const echo = connectEcho()
+    const echo = await connectEcho()
     if (!echo) {
       status.value = 'disconnected'
       return

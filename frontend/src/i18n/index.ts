@@ -52,12 +52,14 @@ export async function setAppLocale(locale: AppLocale) {
   persistLocale(locale)
 }
 
-/** Ensure the active locale (and French fallback) are ready before first paint. */
+/** Load the active locale before the first paint. */
 export async function ensureI18nReady() {
   await loadLocaleMessages(initial)
-  if (initial !== 'fr') {
-    await loadLocaleMessages('fr')
-  }
+}
+
+/** French stays the fallback, loaded after paint when another language is active. */
+export function warmFallbackLocale() {
+  if (initial !== 'fr') void loadLocaleMessages('fr')
 }
 
 export default i18n

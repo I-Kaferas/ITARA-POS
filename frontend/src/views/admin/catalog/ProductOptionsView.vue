@@ -57,7 +57,7 @@ async function load() {
   const catalogs = await store.loadCatalogs(companyId, context.currentStoreId)
   const catalogId = catalogs.find(item => item.is_default)?.id ?? catalogs[0]?.id
   if (!catalogId) return
-  products.value = await store.loadProducts(catalogId)
+  products.value = await store.loadProducts(catalogId, '', { full: true })
 }
 
 function openCreate() {

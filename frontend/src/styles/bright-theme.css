@@ -108,9 +108,9 @@
 
 /* ─── 2. Shared tokens: type, radius, motion, sizing ─────────────── */
 :root {
-  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-display: "Poppins", "Inter", "Segoe UI", sans-serif;
-  --font-numeric: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Segoe UI", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --font-numeric: "Segoe UI", system-ui, sans-serif;
 
   /* Type scale — body 16px / 1.6, nothing interactive below 13px */
   --text-2xs: 0.75rem;
@@ -320,7 +320,8 @@ html:not([data-theme="dark"]) .app-nav-link--parent.app-nav-link--active svg {
 }
 
 html:not([data-theme="dark"]) .app-nav-link--parent.app-nav-link--active {
-  color: #ffffff;
+  background: transparent;
+  color: var(--color-sidebar-text-strong);
 }
 
 html:not([data-theme="dark"]) .app-nav-link--child.app-nav-link--active {

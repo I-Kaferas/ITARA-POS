@@ -1,8 +1,9 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
-import i18n, { ensureI18nReady } from './i18n'
+import i18n, { ensureI18nReady, warmFallbackLocale } from './i18n'
 import router from './router'
+import './styles/fonts.css'
 import './style.css'
 import './styles/bright-theme.css'
 import './styles/motion.css'
@@ -48,6 +49,7 @@ async function bootstrap() {
   app.use(router)
   app.use(i18n)
   app.mount('#app')
+  warmFallbackLocale()
 }
 
 void bootstrap()

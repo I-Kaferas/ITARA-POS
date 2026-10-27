@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import CountUp from '../../../components/motion/CountUp.vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import PageFrame from '../../../components/layout/PageFrame.vue'
-import DeliveryMapPicker from '../../../components/pos/DeliveryMapPicker.vue'
 import PosCartPanel from '../../../components/pos/PosCartPanel.vue'
 import PosCategorySidebar from '../../../components/pos/PosCategorySidebar.vue'
 import PosFooterPanel from '../../../components/pos/PosFooterPanel.vue'
@@ -49,6 +48,8 @@ interface FloorTableOption {
   } | null
   pending_qr_count?: number
 }
+
+const DeliveryMapPicker = defineAsyncComponent(() => import('../../../components/pos/DeliveryMapPicker.vue'))
 
 const { t } = useI18n()
 const route = useRoute()

@@ -1,22 +1,21 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch, watchEffect } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch, watchEffect } from 'vue'
+import { getActivePinia } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AppIcon from '../ui/AppIcon.vue'
 import LanguageSwitcher from '../ui/LanguageSwitcher.vue'
-import AppCalculator from './AppCalculator.vue'
 import ModuleSearch from './ModuleSearch.vue'
 import StockAlertBell from './StockAlertBell.vue'
-import QrOrderBanner from './QrOrderBanner.vue'
 import { useAuthStore } from '../../stores/auth'
-import { usePosStore } from '../../stores/pos'
 import { moduleEnabled, moduleRequiredForPath } from '../../modules/registry'
-import { useBackofficeStore } from '../../stores/backoffice'
 import { useBrandingStore } from '../../stores/branding'
 import { useContextStore } from '../../stores/context'
 import { usePageHeaderStore } from '../../stores/pageHeader'
-import { useOfflineStore } from '../../stores/offline'
 import { useRealtimeStore } from '../../stores/realtime'
+
+const AppCalculator = defineAsyncComponent(() => import('./AppCalculator.vue'))
+const QrOrderBanner = defineAsyncComponent(() => import('./QrOrderBanner.vue'))
 import { resolvedTheme, useTheme } from '../../composables/useTheme'
 import { goToMarketing } from '../../utils/marketing'
 
@@ -58,7 +57,6 @@ async function leaveSupport() {
   await auth.returnToPlatform()
   await router.push('/admin/platform')
 }
-const pos = usePosStore()
 const billingBanner = computed(() => {
   const status = auth.user?.subscription?.status
   if (status === 'suspended') return t('subscriptionPage.bannerSuspended')
@@ -67,9 +65,35 @@ const billingBanner = computed(() => {
 })
 const brandingStore = useBrandingStore()
 const context = useContextStore()
-const backoffice = useBackofficeStore()
-const offline = useOfflineStore()
 const realtime = useRealtimeStore()
+const showQrBanner = computed(() => route.path.startsWith('/admin/pos') || route.path.startsWith('/admin/hospitality'))
+let offlineRuntime: { start: () => void; stop: () => void } | null = null
+
+function needsOfflineRuntime(path: string) {
+  return path.startsWith('/admin/pos') || path.startsWith('/admin/sync')
+}
+
+async function syncOfflineRuntime(path: string) {
+  if (!needsOfflineRuntime(path)) {
+    offlineRuntime?.stop()
+    return
+  }
+  if (!offlineRuntime) {
+    const { useOfflineStore } = await import('../../stores/offline')
+    offlineRuntime = useOfflineStore()
+  }
+  offlineRuntime.start()
+}
+
+function resetPosIfAlive() {
+  if (!getActivePinia()?.state.value.pos) return
+  void import('../../stores/pos').then(({ usePosStore }) => usePosStore().reset())
+}
+
+function clearBackofficeIfAlive() {
+  if (!getActivePinia()?.state.value.backoffice) return
+  void import('../../stores/backoffice').then(({ useBackofficeStore }) => useBackofficeStore().clearStoreScopedState())
+}
 const pageHeader = usePageHeaderStore()
 const moduleSearch = ref<InstanceType<typeof ModuleSearch> | null>(null)
 const userMenuOpen = ref(false)
@@ -878,7 +902,7 @@ onMounted(() => {
   window.addEventListener('resize', syncViewport)
   window.addEventListener('pos-sidebar-pref', onSidebarPref)
   void brandingStore.loadCurrent().catch(() => undefined)
-  offline.start()
+  void syncOfflineRuntime(route.path)
   realtime.connect()
 })
 
@@ -893,15 +917,16 @@ onBeforeUnmount(() => {
   window.removeEventListener('pos-sidebar-pref', onSidebarPref)
   document.body.classList.remove('nav-drawer-open')
   document.documentElement.classList.remove('sidebar-collapsed')
-  offline.stop()
+  offlineRuntime?.stop()
   realtime.disconnect()
 })
 
-watch(() => route.path, () => {
+watch(() => route.path, (path) => {
   userMenuOpen.value = false
   storeMenuOpen.value = false
   companyMenuOpen.value = false
   drawerOpen.value = false
+  void syncOfflineRuntime(path)
 })
 
 const workspaceViewKey = computed(
@@ -910,12 +935,11 @@ const workspaceViewKey = computed(
 
 watch(() => context.currentStoreId, (storeId, previous) => {
   if (previous && previous !== storeId) {
-    pos.reset()
-    backoffice.clearStoreScopedState()
+    resetPosIfAlive()
+    clearBackofficeIfAlive()
   }
-  realtime.resubscribe()
-  void backoffice.loadStoreTaxonomies(storeId, company.value?.id)
-}, { immediate: true })
+  if (storeId !== previous) realtime.resubscribe()
+})
 
 watch(userMenuOpen, async (open) => {
   if (!open) return
@@ -1000,7 +1024,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
               <button
                 type="button"
                 class="app-nav-link app-nav-link--parent"
-                :class="{ 'app-nav-link--active': isGroupActive(item), 'app-nav-link--open': isExpanded(item) }"
+                :class="{ 'app-nav-link--open': isExpanded(item) }"
                 :data-menu="item.name"
                 :title="item.label"
                 :aria-expanded="isExpanded(item)"
@@ -1024,7 +1048,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
                       <RouterLink
                         :to="child.to"
                         class="app-nav-link app-nav-link--child"
-                        :class="{ 'app-nav-link--active': isChildActive(child) || isNestedActive(child) }"
+                        :class="{ 'app-nav-link--active': isChildActive(child) }"
                         :aria-current="isChildActive(child) ? 'page' : undefined"
                       >
                         <span class="app-nav-link__mark" aria-hidden="true">
@@ -1272,7 +1296,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
         <span>{{ billingBanner }}</span>
         <RouterLink to="/admin/settings/subscription">{{ t('subscriptionPage.bannerAction') }}</RouterLink>
       </p>
-      <QrOrderBanner />
+      <QrOrderBanner v-if="showQrBanner" />
 
       <main class="app-content">
         <Transition :name="pageMotion" mode="out-in">

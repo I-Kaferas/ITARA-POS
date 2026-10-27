@@ -879,9 +879,12 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     }>(`/catalogs/${catalogId}/price-list`)
   }
 
-  async function loadProducts(catalogId: string, search = '') {
-    const q = search ? `?search=${encodeURIComponent(search)}` : ''
-    products.value = (await api.get<ApiListResponse<Product>>(`/catalogs/${catalogId}/products${q}`)).data
+  async function loadProducts(catalogId: string, search = '', options?: { full?: boolean }) {
+    const params = new URLSearchParams()
+    if (!options?.full) params.set('compact', '1')
+    if (search) params.set('search', search)
+    const query = params.toString()
+    products.value = (await api.get<ApiListResponse<Product>>(`/catalogs/${catalogId}/products${query ? `?${query}` : ''}`)).data
     return products.value
   }
 

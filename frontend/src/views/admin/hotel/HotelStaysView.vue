@@ -499,9 +499,8 @@ function printStayExport(title: string, bodyHtml: string) {
   const win = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700')
   if (!win) return
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
     <style>
-      body{font-family:Inter,system-ui,sans-serif;color: var(--color-text-primary);padding:1.5rem;line-height:1.45;}
+      body{font-family:system-ui,sans-serif;color: var(--color-text-primary);padding:1.5rem;line-height:1.45;}
       h1{font-size:1.25rem;margin:0 0 .75rem} h2{font-size:1rem;margin:1.2rem 0 .5rem}
       table{width:100%;border-collapse:collapse;font-size:.9rem} th,td{border:1px solid #d7e2ea;padding:.45rem .55rem;text-align:left}
       th{background: var(--color-table-header);} .meta{color: var(--color-text-muted);font-size:.85rem;} .sign{max-width:220px;max-height:90px;border:1px solid #d7e2ea}
