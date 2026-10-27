@@ -56,11 +56,23 @@ class SyncController extends Controller
             'operations.*.payload' => ['required', 'array'],
         ]);
 
-        $results = [];
-        foreach ($data['operations'] as $operation) {
-            $result = $this->applyOperation($store, $operation, $request);
-            $this->rememberSyncResult($store, $operation, $result);
-            $results[] = $result;
+        $indexed = [];
+        foreach ($data['operations'] as $index => $operation) {
+            $indexed[] = [
+                'index' => $index,
+                'rank' => $this->syncEntityRank((string) ($operation['entity_type'] ?? '')),
+                'operation' => $operation,
+            ];
+        }
+        usort($indexed, function (array $left, array $right): int {
+            return $left['rank'] <=> $right['rank'] ?: $left['index'] <=> $right['index'];
+        });
+
+        $results = array_fill(0, count($data['operations']), null);
+        foreach ($indexed as $item) {
+            $result = $this->applyOperation($store, $item['operation'], $request);
+            $this->rememberSyncResult($store, $item['operation'], $result);
+            $results[$item['index']] = $result;
         }
 
         return response()->json([
@@ -465,10 +477,13 @@ class SyncController extends Controller
      */
     private function applySaleCreate(Store $store, array $operation, Request $request, array $payload, string $entityId): array
     {
+        // The sale already happened on the terminal. Replay it even if the
+        // warehouse is short or a zero-amount tender line was queued.
+        $payload['sync_replay'] = true;
         $payload = $this->bindDeviceShift($store, $payload);
 
         try {
-            if (empty($payload['sale_id']) && $this->sales->isUnpaidOrder($payload)) {
+            if ($this->sales->shouldHoldOnSync($payload)) {
                 $sale = $this->sales->hold($store, $payload, $request->user());
 
                 return [
@@ -580,6 +595,15 @@ class SyncController extends Controller
      */
     private function applyPayment(Store $store, array $operation, array $payload, string $entityId): array
     {
+        if ((int) ($payload['amount'] ?? 0) <= 0) {
+            return [
+                'id' => $operation['id'],
+                'entity_id' => $entityId,
+                'status' => 'synced',
+                'server_id' => $entityId,
+            ];
+        }
+
         $saleId = (string) ($payload['sale_id'] ?? '');
         if ($saleId !== '') {
             $sale = Sale::query()
@@ -1090,6 +1114,18 @@ class SyncController extends Controller
                 }
             })
             ->exists();
+    }
+
+    private function syncEntityRank(string $entityType): int
+    {
+        return match ($entityType) {
+            'customer' => 10,
+            'cashier_shift' => 20,
+            'sale' => 30,
+            'payment' => 40,
+            'stock' => 50,
+            default => 60,
+        };
     }
 
     private function store(): Store

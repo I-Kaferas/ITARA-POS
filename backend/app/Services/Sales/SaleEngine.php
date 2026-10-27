@@ -121,7 +121,8 @@ class SaleEngine
 
             $warehouse = $this->warehouseFromPayload($store, $payload);
             $skipStock = (bool) ($payload['skip_stock'] ?? false);
-            if (! $skipStock) {
+            $replay = (bool) ($payload['sync_replay'] ?? false);
+            if (! $skipStock && ! $replay) {
                 $this->validateStock($warehouse, $cart);
             }
 
@@ -174,7 +175,7 @@ class SaleEngine
             }
 
             if (! $skipStock) {
-                $this->decreaseInventory($sale, $warehouse, $cart, $user);
+                $this->decreaseInventory($sale, $warehouse, $cart, $user, $replay);
             }
             $this->accountingService->recordSale($sale, $user->id);
             $this->transactionEngine->recordSale($sale->fresh());
@@ -228,6 +229,38 @@ class SaleEngine
         }
 
         return $settled <= 0;
+    }
+
+    /**
+     * A zero cash line on a ticket already taken at the terminal is a bad
+     * tender, not an unpaid order. Replay it as a completed sale.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function shouldHoldOnSync(array $payload): bool
+    {
+        if (! empty($payload['sale_id']) || ! $this->isUnpaidOrder($payload)) {
+            return false;
+        }
+
+        if (($payload['sync_replay'] ?? false) !== true) {
+            return true;
+        }
+
+        foreach ($payload['payments'] ?? [] as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+            $method = strtolower((string) ($line['method'] ?? ''));
+            if (in_array($method, ['', 'unpaid', 'on_account', 'house', 'house_offer', 'pending', 'held'], true)) {
+                continue;
+            }
+            if ((int) ($line['amount'] ?? 0) <= 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @param  array<string, mixed>  $payload */
@@ -661,7 +694,10 @@ class SaleEngine
 
             $cart = $this->cartEngine->calculateForStore($store, $payload);
             $warehouse = $this->warehouseFromPayload($store, $payload, $sale->warehouse_id);
-            $this->validateStock($warehouse, $cart);
+            $replay = (bool) ($payload['sync_replay'] ?? false);
+            if (! $replay) {
+                $this->validateStock($warehouse, $cart);
+            }
 
             $this->clearSaleLines($sale);
 
@@ -714,7 +750,7 @@ class SaleEngine
                 $this->creditService->createInstallments($sale, $creditAmount, $payload['installments']);
             }
 
-            $this->decreaseInventory($sale, $warehouse, $cart, $user);
+            $this->decreaseInventory($sale, $warehouse, $cart, $user, $replay);
             $this->accountingService->recordSale($sale, $user->id);
             $this->transactionEngine->recordSale($sale->fresh());
             $this->cashierShiftService->recordCompletedSale($sale, $user);
@@ -1411,6 +1447,7 @@ class SaleEngine
         Warehouse $warehouse,
         CartCalculationResult $cart,
         User $user,
+        bool $allowNegative = false,
     ): void {
         foreach ($cart->lines as $line) {
             if ($line->productId === null) {
@@ -1440,6 +1477,8 @@ class SaleEngine
                     'reference' => $sale,
                     'performed_by' => $user->id,
                     'notes' => "Sale {$sale->reference}",
+                    'allow_negative' => $allowNegative,
+                    'auto_allocate' => ! $allowNegative,
                 ]);
             }
         }

@@ -520,6 +520,99 @@ class OfflineSyncTest extends TestCase
         $this->assertSame(1, CashierShift::query()->where('cash_register_id', $register->id)->count());
     }
 
+    public function test_period_close_replays_short_stock_and_zero_cash_ahead_of_payments(): void
+    {
+        $headers = $this->storeHeaders();
+        $store = $this->fixture['store'];
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $product->importToStore($store);
+        $this->stock($warehouse->id, $product->id, 33);
+
+        $this->postJson("/api/v1/stores/{$store->id}/sales", [
+            'warehouse_id' => $warehouse->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 1000],
+            ],
+            'payments' => [
+                ['method' => 'cash', 'amount' => 0],
+            ],
+        ], $headers)->assertStatus(422);
+
+        $this->postJson("/api/v1/stores/{$store->id}/sales", [
+            'warehouse_id' => $warehouse->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 39, 'unit_price' => 1000],
+            ],
+            'payments' => [
+                ['method' => 'cash', 'amount' => 39000],
+            ],
+        ], $headers)->assertStatus(422);
+
+        $this->assertSame(33, $this->onHand($warehouse->id, $product->id));
+
+        $saleKey = (string) Str::uuid();
+        $paymentKey = (string) Str::uuid();
+        $zeroPayment = (string) Str::uuid();
+
+        $response = $this->postJson('/api/v1/sync/push', [
+            'operations' => [
+                [
+                    'id' => $paymentKey,
+                    'entity_type' => 'payment',
+                    'entity_id' => $paymentKey,
+                    'operation' => 'create',
+                    'payload' => [
+                        'sale_id' => $saleKey,
+                        'method' => 'cash',
+                        'amount' => 1000,
+                    ],
+                ],
+                [
+                    'id' => $zeroPayment,
+                    'entity_type' => 'payment',
+                    'entity_id' => $zeroPayment,
+                    'operation' => 'create',
+                    'payload' => [
+                        'sale_id' => $saleKey,
+                        'method' => 'cash',
+                        'amount' => 0,
+                    ],
+                ],
+                [
+                    'id' => $saleKey,
+                    'entity_type' => 'sale',
+                    'entity_id' => $saleKey,
+                    'operation' => 'create',
+                    'payload' => [
+                        'idempotency_key' => $saleKey,
+                        'warehouse_id' => $warehouse->id,
+                        'items' => [
+                            ['product_id' => $product->id, 'quantity' => 39, 'unit_price' => 1000],
+                        ],
+                        'payments' => [
+                            ['method' => 'cash', 'amount' => 0],
+                        ],
+                    ],
+                ],
+            ],
+        ], $headers)->assertOk();
+
+        $response->assertJsonPath('data.results.0.status', 'synced');
+        $response->assertJsonPath('data.results.1.status', 'synced');
+        $response->assertJsonPath('data.results.2.status', 'synced');
+
+        $sale = Sale::query()->where('idempotency_key', $saleKey)->first();
+        $this->assertNotNull($sale);
+        $this->assertSame('completed', $sale->status->value ?? (string) $sale->status);
+        $this->assertSame(39000, (int) $sale->total);
+        $this->assertSame(39000, (int) $sale->paid_amount);
+        $this->assertSame(-6, (int) StockBalance::query()
+            ->where('warehouse_id', $warehouse->id)
+            ->where('product_id', $product->id)
+            ->sum('quantity_on_hand'));
+    }
+
     /** @param  array<string, mixed>  $payload */
     private function operation(string $uuid, string $domain, string $entityType, string $operation, array $payload, ?string $baseVersion = null): array
     {

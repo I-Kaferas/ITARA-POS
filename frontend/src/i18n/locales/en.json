@@ -3313,6 +3313,65 @@
       "semiannual": "Semiannual",
       "yearly": "Yearly",
       "custom": "Custom"
+    },
+    "recurringView": {
+      "title": "Recurring Expenses",
+      "subtitle": "Plan and manage expenses that repeat regularly",
+      "refresh": "Refresh",
+      "new": "New recurring expense",
+      "edit": "Edit recurring expense",
+      "formSubtitle": "Plan an expense that repeats regularly",
+      "active": "Active",
+      "inactive": "Inactive",
+      "monthlyBudget": "Estimated monthly budget",
+      "examplesTitle": "Examples of recurring expenses:",
+      "examples": {
+        "water": "Water for meetings",
+        "internet": "Internet fees",
+        "supplies": "Office supplies",
+        "software": "Software subscriptions",
+        "rent": "Meeting room rent"
+      },
+      "search": "Search...",
+      "columns": {
+        "expense": "Expense",
+        "amount": "Amount",
+        "category": "Category",
+        "register": "Register",
+        "nextDate": "Next date",
+        "status": "Status"
+      },
+      "empty": "No recurring expenses found",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "frequency": "Frequency",
+      "name": "Recurring expense name",
+      "namePlaceholder": "E.g. water for meetings, internet fees...",
+      "fund": "Funding source",
+      "funds": {
+        "operating": "Operating fund",
+        "social": "Social fund",
+        "main": "Main fund"
+      },
+      "categoryPlaceholder": "Select a category",
+      "owner": "Owner",
+      "ownerPlaceholder": "Select an owner",
+      "startDate": "Start date",
+      "endDate": "End date (optional)",
+      "endPlaceholder": "Select date...",
+      "notes": "Notes / Description",
+      "notesPlaceholder": "Extra notes about this recurring expense...",
+      "hint": "The next occurrence is calculated from the chosen frequency. You can deactivate the expense at any time.",
+      "amountInvalid": "Enter an amount greater than 0.",
+      "deactivate": "Deactivate",
+      "activate": "Reactivate",
+      "frequencies": {
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "quarterly": "Quarterly",
+        "yearly": "Yearly"
+      }
     }
   },
   "payables": {

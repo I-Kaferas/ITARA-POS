@@ -49,7 +49,7 @@ class StockBalance extends Model
                 ]);
             }
 
-            if ($balance->isDirty('quantity_on_hand') && $balance->quantity_on_hand < 0) {
+            if ($balance->isDirty('quantity_on_hand') && $balance->quantity_on_hand < 0 && ! StockBalanceGuard::allowsNegative()) {
                 throw ValidationException::withMessages([
                     'quantity_on_hand' => ['Insufficient stock for this operation.'],
                 ]);

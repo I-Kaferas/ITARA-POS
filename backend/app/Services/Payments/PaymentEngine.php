@@ -231,7 +231,10 @@ class PaymentEngine
     /** @param  array<string, mixed>  $payload */
     private function buildInput(Store $store, array $payload): PaymentRequestInput
     {
-        if (($payload['payments'] ?? []) === []) {
+        $replay = ($payload['sync_replay'] ?? false) === true;
+        if ($replay) {
+            $payload['payments'] = $this->replayPaymentLines($payload['payments'] ?? []);
+        } elseif (($payload['payments'] ?? []) === []) {
             throw ValidationException::withMessages([
                 'payments' => ['At least one payment line is required.'],
             ]);
@@ -250,8 +253,97 @@ class PaymentEngine
         ]);
 
         $input = $this->resolveLineFx($input);
+        $input = $this->normalizeCreditBalance($input);
 
-        return $this->normalizeCreditBalance($input);
+        return $replay ? $this->coverReplayShortfall($input) : $input;
+    }
+
+    /**
+     * Drop zero-amount tenders queued by an offline ticket.
+     *
+     * @param  list<mixed>  $payments
+     * @return list<array<string, mixed>>
+     */
+    private function replayPaymentLines(array $payments): array
+    {
+        $lines = [];
+        foreach ($payments as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+            if ((int) ($line['amount'] ?? 0) <= 0) {
+                continue;
+            }
+            $lines[] = $line;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * A completed offline sale must post. Fill a missing tender with cash
+     * for the gap, and trim an over-tender so the total matches the ticket.
+     */
+    private function coverReplayShortfall(PaymentRequestInput $input): PaymentRequestInput
+    {
+        $lines = [];
+        foreach ($input->lines as $line) {
+            if ($line->amount > 0) {
+                $lines[] = $line;
+            }
+        }
+
+        $paid = 0;
+        foreach ($lines as $line) {
+            $paid += $line->appliedAmount();
+        }
+
+        $gap = $input->expectedTotal - $paid;
+        if ($gap > 0) {
+            $lines[] = (new PaymentLineInput(
+                method: SalePaymentMethod::Cash,
+                amount: $gap,
+                currency: $input->currency,
+            ))->withFx($input->currency, $gap, 1.0);
+        } elseif ($gap < 0) {
+            $lines = $this->trimReplayOverflow($lines, -$gap);
+        }
+
+        return $input->withLines($lines);
+    }
+
+    /**
+     * @param  list<PaymentLineInput>  $lines
+     * @return list<PaymentLineInput>
+     */
+    private function trimReplayOverflow(array $lines, int $overflow): array
+    {
+        $adjusted = [];
+        foreach (array_reverse($lines) as $line) {
+            if ($overflow <= 0) {
+                $adjusted[] = $line;
+
+                continue;
+            }
+
+            $applied = $line->appliedAmount();
+            if ($applied <= $overflow) {
+                $overflow -= $applied;
+
+                continue;
+            }
+
+            $keep = $applied - $overflow;
+            $overflow = 0;
+            $adjusted[] = (new PaymentLineInput(
+                method: $line->method,
+                amount: $keep,
+                metadata: $line->metadata,
+                currency: $line->currency,
+            ))->withFx($line->currency, $keep, $line->exchangeRate ?? 1.0);
+        }
+
+        return array_reverse($adjusted);
     }
 
     private function resolveLineFx(PaymentRequestInput $input): PaymentRequestInput

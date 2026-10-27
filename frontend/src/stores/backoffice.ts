@@ -1289,7 +1289,10 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.get<ApiListResponse<Record<string, unknown>>>(`/expenses/recurring${queryFrom(params)}`)).data
   }
 
-  async function saveRecurringExpense(payload: Record<string, unknown>) {
+  async function saveRecurringExpense(payload: Record<string, unknown>, id?: string) {
+    if (id) {
+      return (await api.patch<ApiItemResponse<Record<string, unknown>>>(`/recurring-expenses/${id}`, payload)).data
+    }
     return (await api.post<ApiItemResponse<Record<string, unknown>>>('/expenses/recurring', payload)).data
   }
 

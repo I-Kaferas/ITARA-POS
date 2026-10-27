@@ -3227,6 +3227,65 @@
       "semiannual": "Nusu mwaka",
       "yearly": "Kila mwaka",
       "custom": "Maalum"
+    },
+    "recurringView": {
+      "title": "Matumizi yanayojirudia",
+      "subtitle": "Panga na simamia matumizi yanayojirudia mara kwa mara",
+      "refresh": "Onyesha upya",
+      "new": "Matumizi mapya yanayojirudia",
+      "edit": "Hariri matumizi yanayojirudia",
+      "formSubtitle": "Panga matumizi yanayojirudia mara kwa mara",
+      "active": "Hai",
+      "inactive": "Isiyo hai",
+      "monthlyBudget": "Bajeti ya mwezi iliyokadiriwa",
+      "examplesTitle": "Mifano ya matumizi yanayojirudia:",
+      "examples": {
+        "water": "Ununuzi wa maji kwa mikutano",
+        "internet": "Ada ya intaneti",
+        "supplies": "Vifaa vya ofisi",
+        "software": "Usajili wa programu",
+        "rent": "Kodi ya chumba cha mikutano"
+      },
+      "search": "Tafuta...",
+      "columns": {
+        "expense": "Matumizi",
+        "amount": "Kiasi",
+        "category": "Kundi",
+        "register": "Kasha",
+        "nextDate": "Tarehe ijayo",
+        "status": "Hali"
+      },
+      "empty": "Hakuna matumizi yanayojirudia",
+      "statusActive": "Hai",
+      "statusInactive": "Isiyo hai",
+      "frequency": "Marudio",
+      "name": "Jina la matumizi yanayojirudia",
+      "namePlaceholder": "Mf: ununuzi wa maji, ada ya intaneti...",
+      "fund": "Chanzo cha fedha",
+      "funds": {
+        "operating": "Mfuko wa uendeshaji",
+        "social": "Mfuko wa kijamii",
+        "main": "Mfuko mkuu"
+      },
+      "categoryPlaceholder": "Chagua kundi",
+      "owner": "Mhusika",
+      "ownerPlaceholder": "Chagua mhusika",
+      "startDate": "Tarehe ya kuanza",
+      "endDate": "Tarehe ya mwisho (si lazima)",
+      "endPlaceholder": "Chagua tarehe...",
+      "notes": "Maelezo",
+      "notesPlaceholder": "Maelezo ya ziada kuhusu matumizi haya...",
+      "hint": "Tukio lijalo linahesabiwa kulingana na marudio. Unaweza kuzima matumizi wakati wowote.",
+      "amountInvalid": "Weka kiasi kikubwa kuliko 0.",
+      "deactivate": "Zima",
+      "activate": "Washa",
+      "frequencies": {
+        "daily": "Kila siku",
+        "weekly": "Kila wiki",
+        "monthly": "Kila mwezi",
+        "quarterly": "Kila robo",
+        "yearly": "Kila mwaka"
+      }
     }
   },
   "payables": {

@@ -5,9 +5,14 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\RecurringExpense;
+use App\Models\User;
 use App\Services\Expenses\ExpenseService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ExpenseController extends Controller
 {
@@ -234,17 +239,33 @@ class ExpenseController extends Controller
 
     public function recurring(): JsonResponse
     {
-        return response()->json(['data' => []]);
+        $rows = RecurringExpense::query()
+            ->with(['expenseCategory:id,name', 'cashRegister:id,name', 'user:id,name'])
+            ->orderBy('next_due_on')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(['data' => $rows]);
     }
 
-    public function storeRecurring(): JsonResponse
+    public function storeRecurring(Request $request): JsonResponse
     {
-        return response()->json(['message' => 'Les dépenses récurrentes ne sont pas utilisées.'], 422);
+        $data = $this->validateRecurring($request);
+        $row = RecurringExpense::query()->create($data);
+
+        return response()->json([
+            'data' => $row->load(['expenseCategory:id,name', 'cashRegister:id,name', 'user:id,name']),
+        ], 201);
     }
 
-    public function updateRecurring(): JsonResponse
+    public function updateRecurring(Request $request, RecurringExpense $recurringExpense): JsonResponse
     {
-        return response()->json(['message' => 'Les dépenses récurrentes ne sont pas utilisées.'], 422);
+        $data = $this->validateRecurring($request, $recurringExpense);
+        $recurringExpense->update($data);
+
+        return response()->json([
+            'data' => $recurringExpense->fresh(['expenseCategory:id,name', 'cashRegister:id,name', 'user:id,name']),
+        ]);
     }
 
     public function generate(): JsonResponse
@@ -290,6 +311,101 @@ class ExpenseController extends Controller
     public function cancel(Expense $expense): JsonResponse
     {
         return response()->json(['data' => $expense]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validateRecurring(Request $request, ?RecurringExpense $existing = null): array
+    {
+        $data = $request->validate([
+            'name' => [$existing ? 'sometimes' : 'required', 'string', 'max:255'],
+            'amount' => [$existing ? 'sometimes' : 'required', 'integer', 'min:1'],
+            'fund_source' => [$existing ? 'sometimes' : 'required', 'string', Rule::in(['operating', 'social', 'main'])],
+            'expense_category_id' => [$existing ? 'sometimes' : 'required', 'uuid'],
+            'user_id' => ['nullable', 'uuid'],
+            'starts_on' => [$existing ? 'sometimes' : 'required', 'date'],
+            'ends_on' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'is_active' => ['sometimes', 'boolean'],
+            'frequency' => [$existing ? 'sometimes' : 'required', 'string', Rule::in(['daily', 'weekly', 'monthly', 'quarterly', 'yearly'])],
+            'currency_code' => ['nullable', 'string', 'size:3'],
+        ]);
+
+        if (array_key_exists('expense_category_id', $data)) {
+            $category = ExpenseCategory::query()->find($data['expense_category_id']);
+            if (! $category) {
+                throw ValidationException::withMessages([
+                    'expense_category_id' => ['La catégorie est introuvable.'],
+                ]);
+            }
+        }
+
+        if (array_key_exists('user_id', $data) && $data['user_id']) {
+            if (! User::query()->whereKey($data['user_id'])->exists()) {
+                throw ValidationException::withMessages([
+                    'user_id' => ['Le responsable est introuvable.'],
+                ]);
+            }
+        }
+
+        $starts = $data['starts_on'] ?? $existing?->starts_on?->toDateString();
+        $ends = array_key_exists('ends_on', $data)
+            ? ($data['ends_on'] ?: null)
+            : $existing?->ends_on?->toDateString();
+        if ($starts && $ends && Carbon::parse($ends)->lt(Carbon::parse($starts))) {
+            throw ValidationException::withMessages([
+                'ends_on' => ['La date de fin doit être postérieure à la date de début.'],
+            ]);
+        }
+
+        $scheduleTouched = ! $existing
+            || isset($data['starts_on'])
+            || isset($data['frequency'])
+            || array_key_exists('ends_on', $data);
+        if ($scheduleTouched && $starts) {
+            $frequency = $data['frequency'] ?? $existing?->frequency ?? 'monthly';
+            $next = $this->nextOccurrence($starts, $frequency, $ends);
+            if ($next === null) {
+                $data['is_active'] = false;
+                $data['next_due_on'] = $ends ?? $starts;
+            } else {
+                $data['next_due_on'] = $next;
+            }
+        }
+
+        if (! $existing) {
+            $data['frequency'] ??= 'monthly';
+            $data['is_active'] = $data['is_active'] ?? true;
+            $data['currency_code'] = strtoupper((string) ($data['currency_code'] ?: 'BIF'));
+        } elseif (isset($data['currency_code'])) {
+            $data['currency_code'] = strtoupper((string) $data['currency_code']);
+        }
+
+        return $data;
+    }
+
+    private function nextOccurrence(string $startsOn, string $frequency, ?string $endsOn): ?string
+    {
+        $date = Carbon::parse($startsOn)->startOfDay();
+        $today = now()->startOfDay();
+        $end = $endsOn ? Carbon::parse($endsOn)->startOfDay() : null;
+
+        for ($guard = 0; $date->lt($today) && $guard < 600; $guard++) {
+            $date = match ($frequency) {
+                'daily' => $date->copy()->addDay(),
+                'weekly' => $date->copy()->addWeek(),
+                'quarterly' => $date->copy()->addMonths(3),
+                'yearly' => $date->copy()->addYear(),
+                default => $date->copy()->addMonth(),
+            };
+        }
+
+        if ($end && $date->gt($end)) {
+            return null;
+        }
+
+        return $date->toDateString();
     }
 
     private function ensureCategories(): void

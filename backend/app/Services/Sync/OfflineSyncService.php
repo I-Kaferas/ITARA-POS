@@ -472,7 +472,11 @@ class OfflineSyncService
             return $this->outcome('synced', serverId: $sale->id, reference: $sale->reference);
         }
 
-        if ($operationName === 'create' && empty($payload['sale_id']) && $this->sales->isUnpaidOrder($payload)) {
+        if ($operationName === 'create' || ! empty($payload['sale_id'])) {
+            $payload['sync_replay'] = true;
+        }
+
+        if ($operationName === 'create' && $this->sales->shouldHoldOnSync($payload)) {
             $sale = $this->sales->hold($store, $payload, $user);
 
             return $this->outcome('synced', serverId: $sale->id, reference: $sale->reference);

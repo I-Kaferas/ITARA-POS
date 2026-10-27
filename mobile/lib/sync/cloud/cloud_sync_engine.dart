@@ -463,7 +463,8 @@ class CloudSyncEngine extends ChangeNotifier {
     var added = 0;
     for (final row in rows) {
       final id = row['id']?.toString() ?? '';
-      if (id.isEmpty) continue;
+      final amount = syncAsInt(row['amount']);
+      if (id.isEmpty || amount <= 0) continue;
       if (await _alreadyQueuedOrSynced('payment', id)) continue;
       await SyncOutbox.instance.enqueue(
         entity: CloudSyncEntity.payments.wire,

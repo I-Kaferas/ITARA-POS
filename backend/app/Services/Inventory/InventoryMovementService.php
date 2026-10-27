@@ -47,6 +47,10 @@ class InventoryMovementService
      */
     public function record(array $data): InventoryMovement
     {
+        if (($data['allow_negative'] ?? false) && ! StockBalanceGuard::allowsNegative()) {
+            return StockBalanceGuard::allowingNegative(fn (): InventoryMovement => $this->record($data));
+        }
+
         $movementType = $data['movement_type'];
         $product = $data['product'];
         $product->assertStockable();

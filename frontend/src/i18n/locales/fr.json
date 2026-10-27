@@ -3316,6 +3316,65 @@
       "semiannual": "Semestrielle",
       "yearly": "Annuelle",
       "custom": "Personnalisée"
+    },
+    "recurringView": {
+      "title": "Dépenses récurrentes",
+      "subtitle": "Planifiez et gérez les dépenses qui se répètent régulièrement",
+      "refresh": "Actualiser",
+      "new": "Nouvelle dépense récurrente",
+      "edit": "Modifier la dépense récurrente",
+      "formSubtitle": "Planifiez une dépense qui se répète régulièrement",
+      "active": "Actives",
+      "inactive": "Inactives",
+      "monthlyBudget": "Budget mensuel estimé",
+      "examplesTitle": "Exemples de dépenses récurrentes :",
+      "examples": {
+        "water": "Achat d'eau pour les réunions",
+        "internet": "Frais internet",
+        "supplies": "Fournitures administratives",
+        "software": "Abonnements logiciels",
+        "rent": "Loyer de salle de réunion"
+      },
+      "search": "Rechercher...",
+      "columns": {
+        "expense": "Dépense",
+        "amount": "Montant",
+        "category": "Catégorie",
+        "register": "Caisse",
+        "nextDate": "Prochaine date",
+        "status": "Statut"
+      },
+      "empty": "Aucune dépense récurrente trouvée",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "frequency": "Fréquence",
+      "name": "Nom de la dépense récurrente",
+      "namePlaceholder": "Ex: Achat d'eau pour les réunions, Frais internet...",
+      "fund": "Source de financement",
+      "funds": {
+        "operating": "Caisse de fonctionnement",
+        "social": "Caisse sociale",
+        "main": "Caisse principale"
+      },
+      "categoryPlaceholder": "Sélectionnez une catégorie",
+      "owner": "Responsable",
+      "ownerPlaceholder": "Sélectionnez le responsable",
+      "startDate": "Date de début",
+      "endDate": "Date de fin (optionnel)",
+      "endPlaceholder": "Sélectionnez une date...",
+      "notes": "Notes / Description",
+      "notesPlaceholder": "Notes supplémentaires sur cette dépense récurrente...",
+      "hint": "La prochaine occurrence sera automatiquement calculée selon la fréquence choisie. Vous pouvez désactiver la dépense à tout moment.",
+      "amountInvalid": "Indiquez un montant supérieur à 0.",
+      "deactivate": "Désactiver",
+      "activate": "Réactiver",
+      "frequencies": {
+        "daily": "Quotidien",
+        "weekly": "Hebdomadaire",
+        "monthly": "Mensuel",
+        "quarterly": "Trimestriel",
+        "yearly": "Annuel"
+      }
     }
   },
   "payables": {

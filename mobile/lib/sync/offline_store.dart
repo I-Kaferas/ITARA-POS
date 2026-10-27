@@ -775,7 +775,7 @@ class OfflineStore {
           'created_at': now,
         });
       }
-      if (paymentRows.isEmpty) {
+      if (paymentRows.isEmpty && paidAmount > 0) {
         paymentRows.add({
           'id': const Uuid().v4(),
           'sale_id': id,
@@ -786,6 +786,16 @@ class OfflineStore {
           'created_at': now,
         });
       }
+      payload['payments'] = [
+        for (final row in paymentRows)
+          {
+            'method': row['method'],
+            'amount': row['amount'],
+            'currency': row['currency'],
+            if (row['reference'] != null) 'reference': row['reference'],
+          },
+      ];
+      payload['sync_replay'] = true;
 
       final eventId = const Uuid().v4();
       final sequence = await _nextSyncSequence(txn);
