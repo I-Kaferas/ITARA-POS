@@ -435,8 +435,8 @@ function toggle() {
   display: flex;
   flex-direction: column;
   width: min(22.75rem, calc(100vw - 2rem));
-  max-height: min(82dvh, 44rem);
-  overflow: auto;
+  overflow: hidden;
+  overscroll-behavior: none;
   border: 1px solid var(--color-border);
   border-radius: 1.25rem;
   background: var(--color-surface);
@@ -477,7 +477,6 @@ function toggle() {
   flex-shrink: 0;
   border-radius: 999px;
   background: var(--calc-gold);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--calc-gold) 22%, transparent);
 }
 
 .calc-panel__title {
@@ -545,9 +544,7 @@ function toggle() {
   margin: 0.7rem 0.75rem 0.65rem;
   padding: 0.85rem 0.9rem 0.65rem;
   border-radius: 1rem;
-  background:
-    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--calc-gold) 28%, transparent), transparent 55%),
-    var(--calc-navy);
+  background: var(--calc-navy);
   color: #fff;
   text-align: right;
 }

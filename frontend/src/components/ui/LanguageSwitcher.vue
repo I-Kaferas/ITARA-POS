@@ -30,24 +30,22 @@ function place() {
   const panelEl = panel.value
   if (!triggerEl || !panelEl) return
 
-  const zoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1
-  const layoutWidth = window.innerWidth / zoom
-  const layoutHeight = window.innerHeight / zoom
   const pad = 12
+  const gap = 8
   const triggerRect = triggerEl.getBoundingClientRect()
-  const active = panelEl.querySelector<HTMLElement>('.lang__option--active')
   const width = panelEl.offsetWidth
   const height = panelEl.offsetHeight
+  const viewWidth = window.innerWidth
+  const viewHeight = window.innerHeight
 
-  // Drop the list so the selected language sits directly under the trigger.
-  let top = triggerRect.bottom + 6 - (active?.offsetTop ?? 0)
-  if (top + height > layoutHeight - pad) {
-    top = Math.max(pad, layoutHeight - height - pad)
+  let top = triggerRect.bottom + gap
+  if (top + height > viewHeight - pad) {
+    const above = triggerRect.top - gap - height
+    top = above >= pad ? above : Math.max(pad, viewHeight - height - pad)
   }
 
-  // Keep the menu on the trigger and let the extra width fall away from the controls beside it.
   let left = triggerRect.right - width
-  left = Math.min(Math.max(pad, left), Math.max(pad, layoutWidth - width - pad))
+  left = Math.min(Math.max(pad, left), Math.max(pad, viewWidth - width - pad))
 
   panelStyle.value = {
     top: `${top}px`,
