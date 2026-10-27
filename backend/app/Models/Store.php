@@ -53,6 +53,11 @@ class Store extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    public function stockWarehouse(): HasOne
+    {
+        return $this->hasOne(Warehouse::class);
+    }
+
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);

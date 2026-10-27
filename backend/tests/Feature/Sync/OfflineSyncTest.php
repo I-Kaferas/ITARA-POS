@@ -157,39 +157,27 @@ class OfflineSyncTest extends TestCase
         $this->assertSame(2, InventoryMovement::query()->where('product_id', $product->id)->where('movement_type', 'SALE')->count());
     }
 
-    public function test_offline_sale_uses_the_device_warehouse_not_the_oldest_depot(): void
+    public function test_offline_sale_uses_the_store_stock_not_another_depot(): void
     {
         $headers = $this->storeHeaders();
         $store = $this->fixture['store'];
-        $oldest = $this->fixture['warehouse'];
         $product = $this->fixture['product'];
         $product->importToStore($store);
-        $assigned = Warehouse::query()->create([
+        $storeStock = app(\App\Services\Inventory\StoreStockLocation::class)->forStore($store);
+        $other = Warehouse::query()->create([
             'tenant_id' => $store->tenant_id,
             'branch_id' => $store->branch_id,
-            'name' => 'Depot caisse',
+            'name' => 'Autre depot',
             'code' => 'OFFLINE-WH2',
             'is_active' => true,
         ]);
-        $device = Device::query()->create([
-            'tenant_id' => $store->tenant_id,
-            'store_id' => $store->id,
-            'branch_id' => $store->branch_id,
-            'name' => 'Caisse 2',
-            'device_type' => 'pos',
-            'identifier' => 'pos-device-2',
-            'sync_token' => 'token-pos-device-2',
-            'is_active' => true,
-        ]);
-        $device->warehouses()->attach($assigned->id);
-        $this->stock($oldest->id, $product->id, 20);
-        $this->stock($assigned->id, $product->id, 20);
+        $this->stock($storeStock->id, $product->id, 20);
+        $this->stock($other->id, $product->id, 20);
 
         $uuid = (string) Str::uuid();
         $this->postJson('/api/v1/sync/offline', ['operations' => [
             $this->operation($uuid, 'pos', 'sale', 'create', [
                 'idempotency_key' => $uuid,
-                'device_id' => $device->id,
                 'items' => [
                     ['product_id' => $product->id, 'quantity' => 4],
                 ],
@@ -199,14 +187,14 @@ class OfflineSyncTest extends TestCase
             ]),
         ]], $headers)->assertOk()->assertJsonPath('data.results.0.status', 'synced');
 
-        $this->assertSame(20, $this->onHand($oldest->id, $product->id));
-        $this->assertSame(16, $this->onHand($assigned->id, $product->id));
+        $this->assertSame(16, $this->onHand($storeStock->id, $product->id));
+        $this->assertSame(20, $this->onHand($other->id, $product->id));
         $sale = Sale::query()->where('idempotency_key', $uuid)->first();
-        $this->assertSame($assigned->id, $sale?->warehouse_id);
+        $this->assertSame($storeStock->id, $sale?->warehouse_id);
 
-        $this->getJson('/api/v1/stores/'.$store->id.'/pos/catalog', array_merge($headers, [
-            'X-Device-ID' => $device->id,
-        ]))->assertOk()->assertJsonPath('data.sale_warehouse_id', $assigned->id);
+        $this->getJson('/api/v1/stores/'.$store->id.'/pos/catalog', $headers)
+            ->assertOk()
+            ->assertJsonPath('data.sale_warehouse_id', $storeStock->id);
     }
 
     public function test_insufficient_stock_keeps_the_sale_as_a_conflict_without_decrement(): void

@@ -317,7 +317,7 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
         <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
         <p v-else-if="!destinationWarehouses.length" class="text-sm text-red-600">
           {{ t('inventory.needDestination') }}
-          <router-link to="/admin/organization/warehouses" class="underline">{{ t('org.tabs.warehouses') }}</router-link>
+          <router-link to="/admin/organization/stores" class="underline">{{ t('org.tabs.stores') }}</router-link>
         </p>
         <p class="text-xs text-slate-500">{{ t('inventory.entryHint') }}</p>
         <p class="text-xs text-slate-500">{{ t('inventory.stockableOnly') }}</p>

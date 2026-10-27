@@ -103,7 +103,7 @@ const links = [
   { to: '/admin/inventory/counts', label: t('hotel.stock.links.counts'), icon: 'check' },
   { to: '/admin/inventory/issues', label: t('hotel.stock.links.exits'), icon: 'upload' },
   { to: '/admin/suppliers', label: t('hotel.stock.links.suppliers'), icon: 'suppliers' },
-  { to: '/admin/organization/warehouses', label: t('hotel.stock.links.warehouses'), icon: 'inventory' },
+  { to: '/admin/organization/stores', label: t('hotel.stock.links.warehouses'), icon: 'stores' },
   { to: '/admin/reports/inventory', label: t('hotel.stock.links.reports'), icon: 'dashboard' },
 ]
 

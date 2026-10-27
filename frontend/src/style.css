@@ -3506,6 +3506,9 @@ html[data-theme="dark"] .app-sidebar__logo {
   align-items: stretch;
   justify-content: flex-end;
   padding: 0;
+  background: rgba(10, 21, 35, 0.46);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .app-modal {
@@ -3523,11 +3526,24 @@ html[data-theme="dark"] .app-sidebar__logo {
 }
 
 .app-modal--drawer {
+  position: relative;
   height: 100dvh;
   max-height: 100dvh;
-  border-radius: var(--radius-overlay) 0 0 var(--radius-overlay);
-  border-right: 0;
-  box-shadow: var(--shadow-overlay);
+  border: 0;
+  border-radius: 0;
+  background-image: none;
+  box-shadow: none;
+}
+
+.app-modal__rail {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+  background: var(--color-brand-700);
+  pointer-events: none;
 }
 
 .app-modal--sm {

@@ -1305,7 +1305,7 @@ html:not([data-theme="dark"]) .app-content .product-form-tabs.form-tabs .form-ta
 }
 
 .app-modal--drawer {
-  border-radius: var(--radius-overlay) 0 0 var(--radius-overlay);
+  border-radius: 0;
 }
 
 html:not([data-theme="dark"]) .app-modal__header {
@@ -1338,50 +1338,54 @@ html:not([data-theme="dark"]) .app-modal__footer {
   background: var(--color-canvas);
 }
 
-/* ─── 12a. Right-hand drawers — flat, quiet, editorial ─────────────
-   Solid surfaces only (no gradients). One white sheet: no card inside
-   the panel, hairline dividers, sections as light outlined groups and an
-   action bar pinned to the bottom edge. Scoped to .app-modal--drawer so
-   centered dialogs keep their own look. */
+/* ─── 12a. Right-hand drawers — flat ticket sheet ─────────────────
+   Flush to the screen edge. A solid brand rail, a solid accent rule,
+   square marks. No blur, no gradient, no soft drop shadow. Centered
+   dialogs keep their own look. */
 .app-modal--drawer {
   --drawer-pad: var(--space-6);
-  --drawer-line: var(--color-table-border);
+  --drawer-rail: 8px;
+  --drawer-line: var(--color-brand-700);
+  background-color: var(--color-surface);
+  background-image: none;
+  box-shadow: none;
 }
 
 html:not([data-theme="dark"]) .app-modal-backdrop--drawer {
-  background: rgba(15, 23, 42, 0.36);
+  background: rgba(10, 21, 35, 0.46);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-.app-modal--drawer {
-  background-color: var(--color-surface);
-  background-image: none;
-  box-shadow:
-    -1px 0 0 var(--color-border),
-    -24px 0 48px -16px rgba(15, 23, 42, 0.18);
+html[data-theme="dark"] .app-modal-backdrop--drawer {
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
+
+.app-modal--drawer .app-modal__rail {
+  background: var(--color-brand-700);
+}
+
+.app-modal--drawer.app-modal--danger .app-modal__rail { background: var(--color-danger); }
+.app-modal--drawer.app-modal--warning .app-modal__rail { background: var(--color-warning); }
+.app-modal--drawer.app-modal--success .app-modal__rail { background: var(--color-success); }
+.app-modal--drawer.app-modal--info .app-modal__rail { background: var(--color-info); }
 
 @media (min-width: 768px) {
   .app-modal-backdrop--drawer {
-    padding: var(--space-3);
+    padding: 0;
   }
 
   .app-modal--drawer {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-xl);
-    box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.05),
-      0 32px 64px -24px rgba(15, 23, 42, 0.32);
-  }
-
-  .app-modal--drawer.app-modal--sm,
-  .app-modal--drawer.app-modal--md,
-  .app-modal--drawer.app-modal--lg {
-    max-width: calc(100vw - var(--space-6));
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .modal-enter-from .app-modal--drawer,
   .modal-leave-to .app-modal--drawer {
-    transform: translateX(calc(100% + var(--space-6)));
+    transform: translateX(100%);
   }
 }
 
@@ -1407,44 +1411,39 @@ html:not([data-theme="dark"]) .app-modal-backdrop--drawer {
   to { opacity: 1; transform: none; }
 }
 
-/* Header */
+/* Header — solid accent rule, square brand mark */
 .app-modal--drawer .app-modal__header {
   min-height: 76px;
   padding: var(--space-5) var(--drawer-pad);
-  border-bottom: 1px solid var(--drawer-line);
+  padding-left: calc(var(--drawer-pad) + var(--drawer-rail));
+  border-bottom: 4px solid var(--color-accent);
   background: var(--color-surface);
+  background-image: none;
 }
+
+.app-modal--drawer.app-modal--danger .app-modal__header { border-bottom-color: var(--color-danger); }
+.app-modal--drawer.app-modal--warning .app-modal__header { border-bottom-color: var(--color-warning); }
+.app-modal--drawer.app-modal--success .app-modal__header { border-bottom-color: var(--color-success); }
+.app-modal--drawer.app-modal--info .app-modal__header { border-bottom-color: var(--color-info); }
 
 .app-modal--drawer .app-modal__heading {
   gap: var(--space-4);
 }
 
-/* Neutral tile for every tone; the icon carries the tone color. */
 .app-modal--drawer .app-modal__mark {
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
-  box-shadow: inset 0 0 0 1px var(--color-border);
+  border-radius: 0;
+  background: var(--color-brand-700);
+  color: #ffffff;
+  box-shadow: none;
 }
 
-html:not([data-theme="dark"]) .app-modal--drawer.app-modal--brand .app-modal__mark {
-  background: var(--color-surface-muted);
-  color: var(--color-ink-brand);
-  box-shadow: inset 0 0 0 1px var(--color-border);
-}
-
-.app-modal--drawer.app-modal--warning .app-modal__mark { color: var(--color-warning); }
-.app-modal--drawer.app-modal--success .app-modal__mark { color: var(--color-success); }
-.app-modal--drawer.app-modal--info .app-modal__mark { color: var(--color-info); }
-.app-modal--drawer.app-modal--accent .app-modal__mark { color: var(--color-ink-brand); }
-
-/* Destructive drawers keep a tinted tile so the risk reads at a glance. */
-.app-modal--drawer.app-modal--danger .app-modal__mark {
-  background: var(--color-danger-bg);
-  color: var(--color-danger-strong);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-danger) 20%, transparent);
-}
+.app-modal--drawer.app-modal--danger .app-modal__mark { background: var(--color-danger); color: #ffffff; }
+.app-modal--drawer.app-modal--warning .app-modal__mark { background: var(--color-warning); color: #ffffff; }
+.app-modal--drawer.app-modal--success .app-modal__mark { background: var(--color-success); color: #ffffff; }
+.app-modal--drawer.app-modal--info .app-modal__mark { background: var(--color-info); color: #ffffff; }
+.app-modal--drawer.app-modal--accent .app-modal__mark { background: var(--color-brand-700); color: #ffffff; }
 
 .app-modal--drawer .app-modal__titles {
   min-width: 0;
@@ -1474,26 +1473,23 @@ html:not([data-theme="dark"]) .app-modal--drawer.app-modal--brand .app-modal__ma
   width: 40px;
   height: 40px;
   min-width: 40px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--color-brand-700);
+  border-radius: 0;
   background: var(--color-surface);
-  color: var(--color-text-muted);
+  color: var(--color-brand-700);
   transition:
     background-color var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out),
-    transform var(--motion-normal) var(--ease-out);
+    color var(--motion-fast) var(--ease-out);
 }
 
 .app-modal--drawer .app-modal__close:hover {
-  border-color: var(--color-border-strong);
-  background: var(--color-surface-muted);
-  color: var(--color-text-primary);
+  border-color: var(--color-brand-700);
+  background: var(--color-brand-700);
+  color: #ffffff;
 }
 
 .app-modal--drawer .app-modal__close:hover :is(svg) {
-  transform: rotate(90deg);
-  transition: transform var(--motion-normal) var(--ease-out);
+  transform: none;
 }
 
 .app-modal--drawer .app-modal__close:focus-visible {
@@ -1501,12 +1497,14 @@ html:not([data-theme="dark"]) .app-modal--drawer.app-modal--brand .app-modal__ma
   outline-offset: 2px;
 }
 
-/* Body — one white sheet, no inner card */
+/* Body — canvas sheet, fields stay solid white */
 .app-modal--drawer .app-modal__body,
 .app-modal--drawer:has(form) .app-modal__body,
 .app-modal--drawer:is(.app-modal--sheet, .app-modal--lg, .app-modal--xl) .app-modal__body {
   padding: var(--drawer-pad);
-  background-color: var(--color-surface);
+  padding-left: calc(var(--drawer-pad) + var(--drawer-rail));
+  background-color: var(--color-canvas);
+  background-image: none;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-strong) transparent;
@@ -1530,14 +1528,15 @@ html:not([data-theme="dark"]) .app-modal--drawer.app-modal--brand .app-modal__ma
 
 /* Sections — outlined groups with a quiet header row */
 .app-modal--drawer form :is(.form-section, .cg-form__block) {
-  border: 1px solid var(--drawer-line);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0;
   background: var(--color-surface);
+  background-image: none;
   box-shadow: none;
 }
 
 .app-modal--drawer form .form-section__head {
-  border-bottom-color: var(--drawer-line);
+  border-bottom-color: var(--color-border-strong);
 }
 
 .app-modal--drawer form :is(.form-section__title, .cg-form__block h3) {
@@ -1549,14 +1548,16 @@ html:not([data-theme="dark"]) .app-modal--drawer.app-modal--brand .app-modal__ma
 
 /* Bordered helper groups (e.g. "Comportement") sit on the canvas tone. */
 html:not([data-theme="dark"]) .app-modal--drawer form :is(fieldset, .rounded-lg.border) {
-  border-color: var(--drawer-line);
-  border-radius: var(--radius-lg);
-  background: var(--color-canvas);
+  border-color: var(--color-border-strong);
+  border-radius: 0;
+  background: var(--color-surface);
+  background-image: none;
 }
 
 html[data-theme="dark"] .app-modal--drawer form :is(fieldset, .rounded-lg.border) {
-  border-color: var(--drawer-line);
-  border-radius: var(--radius-lg);
+  border-color: var(--color-border-strong);
+  border-radius: 0;
+  background-image: none;
 }
 
 /* Labels and fields — readable contrast, calmer weight */
@@ -1571,7 +1572,10 @@ html:not([data-theme="dark"]) .app-modal--drawer form .field-icon {
 
 html:not([data-theme="dark"]) .app-modal--drawer form :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]), select, textarea) {
   border-color: var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: 0;
+  background-color: var(--color-surface);
+  background-image: none;
+  box-shadow: none;
   font-weight: 500;
 }
 
@@ -1588,23 +1592,84 @@ html:not([data-theme="dark"]) .app-modal--drawer form :is(input, select, textare
   z-index: 2;
   gap: var(--space-3);
   margin: var(--drawer-pad) calc(var(--drawer-pad) * -1) 0;
+  margin-left: calc((var(--drawer-pad) + var(--drawer-rail)) * -1);
   padding: var(--space-4) var(--drawer-pad);
+  padding-left: calc(var(--drawer-pad) + var(--drawer-rail));
   border: 0;
-  border-top: 1px solid var(--drawer-line);
+  border-top: 4px solid var(--color-brand-700);
   border-radius: 0;
   background: var(--color-surface);
-  box-shadow: 0 -12px 24px -20px rgba(15, 23, 42, 0.24);
+  background-image: none;
+  box-shadow: none;
 }
 
 .app-modal.app-modal--drawer .app-modal__footer {
   gap: var(--space-3);
   padding: var(--space-4) var(--drawer-pad);
-  border-top: 1px solid var(--drawer-line);
+  padding-left: calc(var(--drawer-pad) + var(--drawer-rail));
+  border-top: 4px solid var(--color-brand-700);
   background: var(--color-surface);
+  background-image: none;
+  box-shadow: none;
 }
 
 html[data-theme="dark"] .app-modal--drawer .app-modal__body > form > :is(.app-modal__actions, [class*="__actions"]) {
-  box-shadow: 0 -12px 24px -20px rgba(0, 0, 0, 0.6);
+  box-shadow: none;
+}
+
+/* Buttons inside a drawer stay flat: solid fill, no gradient, no lift. */
+html:not([data-theme="dark"]) .app-modal--drawer :is(button.btn-primary.btn-primary, a.btn-primary.btn-primary, .ui-btn--primary.ui-btn--primary, .btn-primary) {
+  border-radius: 0;
+  border-color: var(--color-brand-700);
+  background-color: var(--color-brand-700);
+  background-image: none;
+  box-shadow: none;
+}
+
+html:not([data-theme="dark"]) .app-modal--drawer :is(button.btn-primary.btn-primary, a.btn-primary.btn-primary, .ui-btn--primary.ui-btn--primary, .btn-primary):hover:not(:disabled) {
+  background-color: var(--color-brand-900);
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+html:not([data-theme="dark"]) .app-modal--drawer :is(button.btn-secondary.btn-secondary, a.btn-secondary.btn-secondary, .ui-btn--secondary.ui-btn--secondary, .btn-secondary),
+html:not([data-theme="dark"]) .app-modal--drawer :is(button.btn-danger.btn-danger, a.btn-danger.btn-danger, .ui-btn--danger, .btn-danger),
+html:not([data-theme="dark"]) .app-modal--drawer :is(button.btn-success.btn-success, a.btn-success.btn-success, .ui-btn--success, .btn-success) {
+  border-radius: 0;
+  background-image: none;
+  box-shadow: none;
+}
+
+html:not([data-theme="dark"]) .app-modal--drawer :is(button.btn-danger.btn-danger, a.btn-danger.btn-danger, .ui-btn--danger, .btn-danger) {
+  background-color: var(--color-danger);
+}
+
+html:not([data-theme="dark"]) .app-modal--drawer :is(button.btn-success.btn-success, a.btn-success.btn-success, .ui-btn--success, .btn-success) {
+  background-color: var(--color-success);
+}
+
+.app-modal--drawer :is(.ui-btn:not(.ui-btn--link), .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success):hover:not(:disabled),
+.app-modal--drawer :is(.ui-btn:not(.ui-btn--link), .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .btn-outline, .btn-success):active:not(:disabled) {
+  transform: none;
+}
+
+html[data-theme="dark"] .app-modal--drawer .app-modal__rail,
+html[data-theme="dark"] .app-modal--drawer .app-modal__mark {
+  background: var(--color-accent);
+  color: var(--color-brand-900);
+}
+
+html[data-theme="dark"] .app-modal--drawer .app-modal__close {
+  border-color: var(--color-brand-300);
+  background: transparent;
+  color: var(--color-ink-brand);
+}
+
+html[data-theme="dark"] .app-modal--drawer .app-modal__close:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-brand-900);
 }
 
 @media (max-width: 767px) {

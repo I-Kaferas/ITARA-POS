@@ -16,6 +16,7 @@ class Warehouse extends Model
     protected $fillable = [
         'tenant_id',
         'branch_id',
+        'store_id',
         'location_id',
         'name',
         'code',
@@ -32,6 +33,11 @@ class Warehouse extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 
     public function location(): BelongsTo

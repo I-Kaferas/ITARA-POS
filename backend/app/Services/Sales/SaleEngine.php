@@ -16,7 +16,6 @@ use App\Enums\SalePaymentStatus;
 use App\Enums\SaleStatus;
 use App\Events\SaleCompleted;
 use App\Models\Customer;
-use App\Models\Device;
 use App\Models\CashRegister;
 use App\Models\PosTable;
 use App\Models\PosTableEvent;
@@ -32,12 +31,12 @@ use App\Models\Store;
 use App\Models\StoreProduct;
 use App\Models\User;
 use App\Models\Warehouse;
-use Illuminate\Support\Str;
 use App\Services\Accounting\AccountingEntryService;
 use App\Services\Customer\CustomerLoyaltyService;
 use App\Services\Audit\AuditLogService;
 use App\Services\Inventory\InventoryMovementService;
 use App\Services\Inventory\StockBalanceService;
+use App\Services\Inventory\StoreStockLocation;
 use App\Services\Numbering\ReferenceNumberGenerator;
 use App\Services\Payments\PaymentEngine;
 use App\Services\Promotions\PromotionEngine;
@@ -67,6 +66,7 @@ class SaleEngine
         private readonly CustomerLoyaltyService $loyalty,
         private readonly ReferenceNumberGenerator $numbering,
         private readonly TransactionEngine $transactionEngine,
+        private readonly StoreStockLocation $stockLocations,
     ) {}
 
     /** @param  array<string, mixed>  $payload */
@@ -1125,24 +1125,12 @@ class SaleEngine
     }
 
     /**
-     * Warehouse shown to a terminal: its assigned depot, or the only active
-     * depot of the branch. Null when several depots exist and the device has
-     * none — the sale then keeps the historical "oldest depot" fallback.
+     * Stock location of the store. The device key is ignored: a sale belongs
+     * to the store, not to a separate depot.
      */
     public function saleWarehouseId(Store $store, ?string $deviceKey): ?string
     {
-        $fromDevice = $this->warehouseIdForDevice($store, $deviceKey);
-        if ($fromDevice !== null) {
-            return $fromDevice;
-        }
-
-        $ids = Warehouse::query()
-            ->where('branch_id', $store->branch_id)
-            ->where('is_active', true)
-            ->orderBy('created_at')
-            ->pluck('id');
-
-        return $ids->count() === 1 ? (string) $ids->first() : null;
+        return $this->stockLocations->forStore($store)->id;
     }
 
     /**
@@ -1167,10 +1155,6 @@ class SaleEngine
         if ($warehouseId === '') {
             $warehouseId = null;
         }
-        if ($warehouseId === null) {
-            $warehouseId = $this->warehouseIdForDevice($store, $deviceKey);
-        }
-
         if ($warehouseId !== null) {
             $warehouse = Warehouse::query()
                 ->where('branch_id', $store->branch_id)
@@ -1186,44 +1170,7 @@ class SaleEngine
             return $warehouse;
         }
 
-        $warehouse = Warehouse::query()
-            ->where('branch_id', $store->branch_id)
-            ->where('is_active', true)
-            ->orderBy('created_at')
-            ->first();
-
-        if ($warehouse === null) {
-            throw ValidationException::withMessages([
-                'warehouse_id' => ['No active warehouse found for this store branch.'],
-            ]);
-        }
-
-        return $warehouse;
-    }
-
-    private function warehouseIdForDevice(Store $store, ?string $deviceKey): ?string
-    {
-        $deviceKey = is_string($deviceKey) ? trim($deviceKey) : '';
-        if ($deviceKey === '') {
-            return null;
-        }
-
-        $device = null;
-        if (Str::isUuid($deviceKey)) {
-            $device = Device::query()->where('store_id', $store->id)->whereKey($deviceKey)->first();
-        }
-        $device ??= Device::query()->where('store_id', $store->id)->where('identifier', $deviceKey)->first();
-        if ($device === null) {
-            return null;
-        }
-
-        $id = $device->warehouses()
-            ->where('warehouses.branch_id', $store->branch_id)
-            ->where('warehouses.is_active', true)
-            ->orderBy('warehouses.created_at')
-            ->value('warehouses.id');
-
-        return is_string($id) && $id !== '' ? $id : null;
+        return $this->stockLocations->forStore($store);
     }
 
     /** @return array<string, SaleItem> keyed by cart line_id */

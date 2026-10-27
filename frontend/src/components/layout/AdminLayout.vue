@@ -230,7 +230,6 @@ const navSections = computed(() => [
           { name: 'inventory-issues', to: '/admin/inventory/issues', label: t('nav.inventoryItems.exits'), icon: 'upload' },
           { name: 'catalog-taxes', to: '/admin/catalog/taxes', label: t('nav.inventoryItems.taxes'), icon: 'percent' },
           { name: 'catalog-categories', to: '/admin/catalog/categories', label: t('nav.inventoryItems.categories'), icon: 'layers' },
-          { name: 'org-warehouses', to: '/admin/organization/warehouses', label: t('nav.inventoryItems.warehouses'), icon: 'inventory' },
           { name: 'inventory-adjustments', to: '/admin/inventory/adjustments', label: t('nav.inventoryItems.movements'), icon: 'adjust' },
           { name: 'inventory-supplies', to: '/admin/inventory/supplies', label: t('inventory.tabs.supplies'), icon: 'purchases' },
           { name: 'inventory-alerts', to: '/admin/inventory/alerts', label: t('inventory.tabs.alerts'), icon: 'bell' },

@@ -237,7 +237,7 @@
       "exits": "Sorties de stock",
       "taxes": "Taxes",
       "categories": "Catégories",
-      "warehouses": "Entrepôts",
+      "warehouses": "Magasins",
       "movements": "Mouvements de stock",
       "suppliers": "Fournisseurs",
       "departments": "Départements"
@@ -723,7 +723,7 @@
     "port": "Port",
     "assignWarehouses": "Affecter aux entrepôts",
     "assignWarehousesHint": "Vous pouvez affecter cet appareil à un ou plusieurs entrepôts.",
-    "noWarehouses": "Aucun entrepôt pour cette succursale.",
+    "noWarehouses": "Aucun magasin.",
     "descriptionOptional": "Description (optionnelle)",
     "descriptionPlaceholder": "Brève description de cet appareil",
     "deviceRole": "Type",
@@ -1964,7 +1964,7 @@
   },
   "inventory": {
     "subtitle": "Stocks, transferts et alertes",
-    "warehouse": "Entrepôt",
+    "warehouse": "Magasin",
     "category": "Catégorie",
     "unit": "Unité",
     "onHand": "En stock",
@@ -2043,9 +2043,9 @@
     "supplier": "Fournisseur",
     "supplyReceiptNote": "Réception de l'approvisionnement",
     "supplierOptionalHint": "Le fournisseur est facultatif. Sans fournisseur, le stock augmente quand même.",
-    "needDestination": "Un transfert nécessite deux entrepôts différents. Ajoutez un second entrepôt avant de valider.",
+    "needDestination": "Un transfert nécessite deux magasins différents. Ajoutez un second magasin avant de valider.",
     "needItems": "Ajoutez au moins un article avant de valider.",
-    "sameWarehouse": "L'entrepôt de destination doit être différent de la source.",
+    "sameWarehouse": "Le magasin de destination doit être différent de la source.",
     "newAdjustment": "Nouvel ajustement",
     "newIssue": "Nouvelle sortie",
     "issueHint": "Une sortie retire du stock après confirmation puis approbation. Les quantités volume sont déduites en millilitres.",
@@ -2063,10 +2063,10 @@
     "conversion": "Conversion",
     "operator": "Utilisateur",
     "product": "Produit",
-    "openingOnce": "Le solde d'ouverture ne peut être créé qu'une seule fois par article et par entrepôt. Toute correction passe ensuite par un ajustement.",
+    "openingOnce": "Le solde d'ouverture ne peut être créé qu'une seule fois par article et par magasin. Toute correction passe ensuite par un ajustement.",
     "ledgerTitle": "Valorisation du stock",
     "ledgerHint": "Stock actuel = solde d'ouverture + entrées − ventes − pertes. Les quantités volume sont stockées en ml.",
-    "ledgerEmpty": "Aucun mouvement pour cet entrepôt.",
+    "ledgerEmpty": "Aucun mouvement pour ce magasin.",
     "openingShort": "Ouverture",
     "entries": "Entrées",
     "sales": "Ventes",
@@ -2141,7 +2141,7 @@
     "spotHint": "Choisissez les produits à vérifier. Le stock théorique est photographié, puis vous saisissez le comptage physique sur la même feuille. Les ventes restent ouvertes.",
     "spotCountTitle": "Vérification ponctuelle",
     "startSpotCount": "Lancer la vérification",
-    "noStockToCount": "Aucun produit en stock à inventorier pour cet entrepôt.",
+    "noStockToCount": "Aucun produit en stock à inventorier pour ce magasin.",
     "startFullCount": "Lancer le comptage",
     "allCategories": "Toutes les catégories",
     "zone": "Zone de stockage",
@@ -2217,7 +2217,7 @@
     "countTypes": {
       "opening": {
         "label": "Solde d'ouverture",
-        "description": "Saisir le stock initial pour les nouveaux produits pas encore dans cet entrepôt"
+        "description": "Saisir le stock initial pour les nouveaux produits pas encore dans ce magasin"
       },
       "full": {
         "label": "Comptage complet",
@@ -2467,7 +2467,7 @@
       "year": "Cette année",
       "custom": "Période personnalisée",
       "allSuppliers": "Tous les fournisseurs",
-      "allWarehouses": "Tous les entrepôts",
+      "allWarehouses": "Tous les magasins",
       "refresh": "Actualiser",
       "outstanding": "Montant restant à payer",
       "quickLinks": "Accès rapides",
@@ -2582,7 +2582,7 @@
     "supplierRequired": "Une commande fournisseur doit avoir un fournisseur, sinon la réception ne peut pas augmenter le stock.",
     "nextStep": "Étape suivante",
     "workflowHint": "Commande → réception → stock → facture → paiement. La réception écrit un mouvement PURCHASE et augmente le stock.",
-    "receiveHint": "La quantité reçue augmente le stock de l'entrepôt, puis crée la facture fournisseur.",
+    "receiveHint": "La quantité reçue augmente le stock du magasin, puis crée la facture fournisseur.",
     "stockIncreased": "Chaque réception a augmenté le stock.",
     "qtyOrdered": "Commandé",
     "qtyReceived": "Reçu",
@@ -3570,7 +3570,7 @@
     },
     "stock": {
       "title": "Tableau de bord stock",
-      "subtitle": "Gérez vos stocks, entrepôts et approvisionnement",
+      "subtitle": "Gérez vos stocks, magasins et approvisionnement",
       "productsInStock": "Produits en stock",
       "catalogueItems": "Articles du catalogue",
       "stockValue": "Valeur totale du stock",
@@ -3604,7 +3604,7 @@
         "counts": "Inventaires",
         "exits": "Sorties de stock",
         "suppliers": "Fournisseurs",
-        "warehouses": "Entrepôts",
+        "warehouses": "Magasins",
         "reports": "Rapports"
       }
     },
@@ -4895,7 +4895,7 @@
       },
       "inventory": {
         "title": "Rapports d'Inventaire",
-        "desc": "Niveaux de stock, analyse de vieillissement, taux de rotation, distribution par entrepôt"
+        "desc": "Niveaux de stock, analyse de vieillissement, taux de rotation, distribution par magasin"
       },
       "storeStock": {
         "title": "Stock par Boutique",
@@ -5170,7 +5170,7 @@
       "overstock": "Surstock",
       "stockHealth": "Distribution de la Santé du Stock",
       "valueByCategory": "Valeur par Catégorie",
-      "valueByWarehouse": "Valeur par Entrepôt",
+      "valueByWarehouse": "Valeur par magasin",
       "totalQty": "Qté Totale",
       "stockLevels": "Niveaux de Stock (Top 20 par Valeur)",
       "reorderPoint": "Point de Réapprovisionnement",
@@ -5524,7 +5524,7 @@
       "pos": "Vendre en caisse, encaisser et clôturer les services.",
       "restaurant": "Tables, commandes et salle.",
       "hotel": "Chambres, séjours, clients et housekeeping.",
-      "inventory": "Stock, inventaires, transferts et entrepôts.",
+      "inventory": "Stock, inventaires, transferts et magasins.",
       "crm": "Pistes, pipeline et suivi client.",
       "accounting": "Écritures, comptes et exercice.",
       "hr": "Équipes, horaires et semaine de travail.",

@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Catalog\StoreCatalogService;
+use App\Services\Inventory\StoreStockLocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ class StoreController extends Controller
 {
     public function __construct(
         private readonly StoreCatalogService $storeCatalogs,
+        private readonly StoreStockLocation $stockLocations,
     ) {}
 
     public function index(Branch $branch): JsonResponse
@@ -70,6 +72,7 @@ class StoreController extends Controller
         }
 
         $this->storeCatalogs->bootstrap($store);
+        $this->stockLocations->forStore($store);
 
         return response()->json(['data' => $store->load('branch.company')], 201);
     }
@@ -97,6 +100,8 @@ class StoreController extends Controller
         if ($makeMain) {
             $store->makeMain();
         }
+
+        $this->stockLocations->forStore($store->fresh() ?? $store);
 
         return response()->json(['data' => $store->fresh()]);
     }

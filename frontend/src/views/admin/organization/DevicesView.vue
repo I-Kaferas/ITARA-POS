@@ -60,11 +60,7 @@ onMounted(async () => {
 
 watch(storeId, async (id) => {
   if (!id) return
-  const branchId = context.activeStores.find(item => item.id === id)?.branch_id
-  await Promise.all([
-    store.loadDevices(id, props.deviceType ?? undefined),
-    branchId ? store.loadWarehouses(branchId) : Promise.resolve(),
-  ])
+  await store.loadDevices(id, props.deviceType ?? undefined)
 })
 
 function emptyForm() {
@@ -75,7 +71,6 @@ function emptyForm() {
     connection_type: 'network' as DeviceConnection,
     ip_address: '',
     port: 9100,
-    warehouse_ids: [] as string[],
     description: '',
     is_active: true,
     sync_token: '',
@@ -119,7 +114,6 @@ function openEdit(device: Device) {
     connection_type: device.connection_type ?? 'network',
     ip_address: device.ip_address ?? '',
     port: device.port ?? 9100,
-    warehouse_ids: device.warehouse_ids ?? device.warehouses?.map(item => item.id) ?? [],
     description: device.description ?? '',
     is_active: device.is_active,
     sync_token: device.sync_token ?? '',
@@ -174,7 +168,6 @@ async function save() {
       connection_type: form.value.connection_type,
       ip_address: form.value.connection_type === 'network' ? ip || null : null,
       port: form.value.connection_type === 'network' ? Number(form.value.port) || 9100 : null,
-      warehouse_ids: form.value.warehouse_ids,
       description: form.value.description.trim() || null,
       is_active: form.value.is_active,
     }, editing.value?.id)
@@ -212,12 +205,6 @@ async function copyToken() {
   await navigator.clipboard.writeText(form.value.sync_token)
   copied.value = true
   window.setTimeout(() => { copied.value = false }, 1600)
-}
-
-function toggleWarehouse(id: string, checked: boolean) {
-  form.value.warehouse_ids = checked
-    ? [...form.value.warehouse_ids, id]
-    : form.value.warehouse_ids.filter(item => item !== id)
 }
 
 function categoryLabel(category: string) {
@@ -429,23 +416,6 @@ async function revoke(device: Device) {
         </fieldset>
 
         <div>
-          <FieldLabel icon="inventory">{{ t('org.assignWarehouses') }}</FieldLabel>
-          <div class="warehouse-box">
-            <label v-for="warehouse in store.warehouses" :key="warehouse.id" class="warehouse-option">
-              <input
-                type="checkbox"
-                :checked="form.warehouse_ids.includes(warehouse.id)"
-                @change="toggleWarehouse(warehouse.id, ($event.target as HTMLInputElement).checked)"
-              />
-              <span>{{ warehouse.name }}</span>
-              <span class="text-xs text-slate-400">{{ warehouse.code }}</span>
-            </label>
-            <p v-if="!store.warehouses.length" class="m-0 text-sm text-slate-400">{{ t('org.noWarehouses') }}</p>
-          </div>
-          <p class="mt-1 text-xs text-slate-500">{{ t('org.assignWarehousesHint') }}</p>
-        </div>
-
-        <div>
           <FieldLabel icon="note">{{ t('org.descriptionOptional') }}</FieldLabel>
           <textarea v-model="form.description" rows="2" class="field w-full" :placeholder="t('org.descriptionPlaceholder')" />
         </div>
@@ -654,8 +624,6 @@ async function revoke(device: Device) {
 }
 .device-panel { margin: 0; border: 1px solid #e4e8ec; border-radius: 0.75rem; padding: 0.85rem; }
 .device-panel legend { padding: 0 0.35rem; font-size: 0.8125rem; font-weight: 600; color: var(--color-ink-brand, var(--color-brand-600));}
-.warehouse-box { display: grid; gap: 0.4rem; max-height: 9rem; overflow: auto; border: 1px solid #e4e8ec; border-radius: 0.75rem; padding: 0.55rem; }
-.warehouse-option { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
 .token-cell { display: flex; align-items: center; gap: 0.55rem; }
 .token-reveal { border: 0; background: transparent; padding: 0; color: var(--color-ink-brand, var(--color-brand-600)); font-size: 0.75rem; font-weight: 600; cursor: pointer;}
 .token-reveal:hover { color: var(--color-ink-brand, var(--color-brand-700));}

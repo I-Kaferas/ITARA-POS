@@ -687,9 +687,7 @@ const router = createRouter({
             },
         {
               path: 'organization/warehouses',
-              name: 'org-warehouses',
-              component: () => import('../views/admin/organization/WarehousesView.vue'),
-              meta: { requiresAuth: true },
+              redirect: { name: 'org-stores' },
             },
         {
               path: 'organization/terminals',

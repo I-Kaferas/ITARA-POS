@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Warehouse;
+use App\Services\Inventory\StoreStockLocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class WarehouseController extends Controller
 {
+    public function __construct(
+        private readonly StoreStockLocation $stockLocations,
+    ) {}
+
     public function index(Branch $branch): JsonResponse
     {
         return response()->json([
@@ -19,8 +24,12 @@ class WarehouseController extends Controller
 
     public function indexAll(): JsonResponse
     {
+        $this->stockLocations->attachAll();
+
         return response()->json([
             'data' => Warehouse::query()
+                ->whereNotNull('store_id')
+                ->whereHas('store')
                 ->orderBy('name')
                 ->get(),
         ]);

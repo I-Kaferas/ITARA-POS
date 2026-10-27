@@ -237,7 +237,7 @@
       "exits": "Stock Exits",
       "taxes": "Taxes",
       "categories": "Categories",
-      "warehouses": "Warehouses",
+      "warehouses": "Stores",
       "movements": "Stock Movements",
       "suppliers": "Suppliers",
       "departments": "Departments"
@@ -708,7 +708,7 @@
     "port": "Port",
     "assignWarehouses": "Assign to warehouses",
     "assignWarehousesHint": "You can assign this device to one or more warehouses.",
-    "noWarehouses": "No warehouses for this branch.",
+    "noWarehouses": "No stores.",
     "descriptionOptional": "Description (optional)",
     "descriptionPlaceholder": "Brief description of this device",
     "deviceRole": "Type",
@@ -1961,7 +1961,7 @@
   },
   "inventory": {
     "subtitle": "Stock, transfers and alerts",
-    "warehouse": "Warehouse",
+    "warehouse": "Store",
     "category": "Category",
     "unit": "Unit",
     "onHand": "On hand",
@@ -2040,9 +2040,9 @@
     "supplier": "Supplier",
     "supplyReceiptNote": "Replenishment receipt",
     "supplierOptionalHint": "Supplier is optional. Stock still increases without one.",
-    "needDestination": "A transfer needs two different warehouses. Add a second warehouse before validating.",
+    "needDestination": "A transfer needs two different stores. Add a second store before validating.",
     "needItems": "Add at least one item before validating.",
-    "sameWarehouse": "The destination warehouse must be different from the source.",
+    "sameWarehouse": "The destination store must be different from the source.",
     "newAdjustment": "New adjustment",
     "newIssue": "New issue",
     "issueHint": "An issue removes stock after confirmation and approval. Volume quantities are deducted in millilitres.",
@@ -2060,10 +2060,10 @@
     "conversion": "Conversion",
     "operator": "User",
     "product": "Product",
-    "openingOnce": "An opening balance can be created only once per item and warehouse. Later corrections must go through an adjustment.",
+    "openingOnce": "An opening balance can be created only once per item and store. Later corrections must go through an adjustment.",
     "ledgerTitle": "Stock valuation",
     "ledgerHint": "Current stock = opening balance + entries − sales − losses. Volume quantities are stored in ml.",
-    "ledgerEmpty": "No movements for this warehouse.",
+    "ledgerEmpty": "No movements for this store.",
     "openingShort": "Opening",
     "entries": "Entries",
     "sales": "Sales",
@@ -2094,7 +2094,7 @@
     "spotHint": "Select the products to check. Theoretical stock is snapshotted, then you enter the physical count on the same sheet. Sales stay open.",
     "spotCountTitle": "Spot check",
     "startSpotCount": "Start spot check",
-    "noStockToCount": "No products in stock to count for this warehouse.",
+    "noStockToCount": "No products in stock to count for this store.",
     "startFullCount": "Start count",
     "allCategories": "All categories",
     "zone": "Storage zone",
@@ -2170,7 +2170,7 @@
     "countTypes": {
       "opening": {
         "label": "Opening balance",
-        "description": "Enter opening stock for new products not yet in this warehouse"
+        "description": "Enter opening stock for new products not yet in this store"
       },
       "full": {
         "label": "Full count",
@@ -2464,7 +2464,7 @@
       "year": "This year",
       "custom": "Custom period",
       "allSuppliers": "All suppliers",
-      "allWarehouses": "All warehouses",
+      "allWarehouses": "All stores",
       "refresh": "Refresh",
       "outstanding": "Outstanding payable amount",
       "quickLinks": "Quick links",
@@ -2579,7 +2579,7 @@
     "supplierRequired": "A supplier order needs a supplier, otherwise reception cannot increase stock.",
     "nextStep": "Next step",
     "workflowHint": "Order → reception → stock → invoice → payment. A reception writes a PURCHASE movement and increases stock.",
-    "receiveHint": "The received quantity increases warehouse stock, then creates the supplier invoice.",
+    "receiveHint": "The received quantity increases the store stock, then creates the supplier invoice.",
     "stockIncreased": "Each reception increased stock.",
     "qtyOrdered": "Ordered",
     "qtyReceived": "Received",
@@ -3567,7 +3567,7 @@
     },
     "stock": {
       "title": "Stock Dashboard",
-      "subtitle": "Manage your stock, warehouses, and supply chain",
+      "subtitle": "Manage your stock, stores, and supply chain",
       "productsInStock": "Products in Stock",
       "catalogueItems": "Catalogue Items",
       "stockValue": "Total Stock Value",
@@ -3601,7 +3601,7 @@
         "counts": "Inventory Counts",
         "exits": "Stock Exits",
         "suppliers": "Suppliers",
-        "warehouses": "Warehouses",
+        "warehouses": "Stores",
         "reports": "Reports"
       }
     },
@@ -4892,7 +4892,7 @@
       },
       "inventory": {
         "title": "Inventory Reports",
-        "desc": "Stock levels, aging analysis, turnover rates, warehouse distribution"
+        "desc": "Stock levels, aging analysis, turnover rates, store distribution"
       },
       "storeStock": {
         "title": "Stock by Store",
@@ -5167,7 +5167,7 @@
       "overstock": "Overstock",
       "stockHealth": "Stock Health Distribution",
       "valueByCategory": "Value by Category",
-      "valueByWarehouse": "Value by Warehouse",
+      "valueByWarehouse": "Value by store",
       "totalQty": "Total Qty",
       "stockLevels": "Stock Levels (Top 20 by Value)",
       "reorderPoint": "Reorder Point",
@@ -5521,7 +5521,7 @@
       "pos": "Sell at the register, take payments and close shifts.",
       "restaurant": "Tables, orders and the dining room.",
       "hotel": "Rooms, stays, guests and housekeeping.",
-      "inventory": "Stock, counts, transfers and warehouses.",
+      "inventory": "Stock, counts, transfers and stores.",
       "crm": "Leads, pipeline and customer follow-up.",
       "accounting": "Entries, accounts and the fiscal year.",
       "hr": "People, schedules and the work week.",

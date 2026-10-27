@@ -196,6 +196,7 @@ onBeforeUnmount(() => {
           tabindex="-1"
           @mousedown.stop
         >
+          <span v-if="isDrawer" class="app-modal__rail" aria-hidden="true" />
           <div class="app-modal__header">
             <div class="app-modal__heading">
               <span class="app-modal__mark">

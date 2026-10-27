@@ -22,16 +22,13 @@ import { useClientPager } from '../../../composables/useClientPager'
 const { t } = useI18n()
 const store = useBackofficeStore()
 const warehouses = ref<Warehouse[]>([])
-const products = ref<Product[]>([])
 const warehouseId = ref('')
-const showModal = ref(false)
 const showHistory = ref(false)
 const historyRow = ref<StockBalance | null>(null)
 const history = ref<InventoryMovement[]>([])
 const historyLoading = ref(false)
 const historyFrom = ref('')
 const historyTo = ref('')
-const saving = ref(false)
 
 const movementTypes = [
   { value: 'OPENING', label: t('inventory.types.opening') },
@@ -49,13 +46,6 @@ const movementTypes = [
 ]
 
 const inboundTypes = new Set(['INITIAL_STOCK', 'PURCHASE', 'SALE_RETURN', 'TRANSFER_IN', 'ADJUSTMENT_IN'])
-
-const form = ref({
-  product_id: '',
-  movement_type: 'INITIAL_STOCK',
-  quantity: 1,
-  notes: '',
-})
 
 const catalogProducts = ref<Product[]>([])
 
@@ -118,36 +108,6 @@ function stockQty(row: StockBalance) {
     return 'N/S'
   }
   return row.quantity_on_hand
-}
-
-async function openCreate() {
-  if (!products.value.length) {
-    products.value = catalogProducts.value.filter(isStockableProduct)
-  }
-  form.value = {
-    product_id: products.value[0]?.id ?? '',
-    movement_type: 'OPENING',
-    quantity: 1,
-    notes: '',
-  }
-  showModal.value = true
-}
-
-async function save() {
-  if (!warehouseId.value) return
-  saving.value = true
-  try {
-    await store.createInventoryMovement(warehouseId.value, {
-      product_id: form.value.product_id,
-      movement_type: form.value.movement_type,
-      quantity: form.value.quantity,
-      notes: form.value.notes || undefined,
-    })
-    showModal.value = false
-    await store.loadStockBalances(warehouseId.value, false)
-  } finally {
-    saving.value = false
-  }
 }
 
 function unitLabel(row: StockBalance) {
@@ -215,14 +175,11 @@ function clearHistoryDates() {
 <template>
   <InventoryLayout>
     <div class="space-y-4">
-      <div class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
-          <select v-model="warehouseId" class="field max-w-xs">
-            <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.name }} ({{ wh.code }})</option>
-          </select>
-        </div>
-        <button class="btn-primary" :disabled="!warehouseId" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.newMovement') }}</button>
+      <div>
+        <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
+        <select v-model="warehouseId" class="field max-w-xs">
+          <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.name }} ({{ wh.code }})</option>
+        </select>
       </div>
 
       <p class="m-0 text-xs text-slate-500">{{ t('inventory.movementRule') }}</p>
@@ -379,34 +336,6 @@ function clearHistoryDates() {
       </div>
     </AppModal>
 
-    <AppModal :open="showModal" :title="t('inventory.newMovement')" icon="inventory" tone="info" @close="showModal = false">
-      <form class="space-y-3" @submit.prevent="save">
-        <div>
-          <FieldLabel icon="products">{{ t('products.name') }}</FieldLabel>
-          <select v-model="form.product_id" required class="field w-full">
-            <option v-for="p in products" :key="p.id" :value="p.id">{{ p.sku }} — {{ p.name }}</option>
-          </select>
-        </div>
-        <div>
-          <FieldLabel icon="transfer">{{ t('inventory.movementType') }}</FieldLabel>
-          <select v-model="form.movement_type" class="field w-full">
-            <option v-for="type in movementTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
-          </select>
-        </div>
-        <div>
-          <FieldLabel icon="package">{{ t('sales.qty') }}</FieldLabel>
-          <input v-model.number="form.quantity" type="number" min="1" required class="field w-full" />
-        </div>
-        <div>
-          <FieldLabel icon="note">{{ t('inventory.reason') }}</FieldLabel>
-          <textarea v-model="form.notes" rows="2" class="field w-full" />
-        </div>
-        <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
-        </div>
-      </form>
-    </AppModal>
   </InventoryLayout>
 </template>
 
