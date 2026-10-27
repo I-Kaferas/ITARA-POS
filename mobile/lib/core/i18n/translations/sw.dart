@@ -299,6 +299,7 @@ const sw = <String, String>{
   'Cible: {0}': 'Lengo: {0}',
   'Clair': 'Mwanga',
   'Clear Cart': 'Futa Kikapu',
+  'Supprimer la commande': 'Futa oda',
   'Clear or hold the current sale before retrieving': 'Futa au subirisha mauzo ya sasa kabla ya kurejesha',
   'Client': 'Mteja',
   'Client de passage': 'Mteja wa kawaida',

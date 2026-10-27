@@ -55,6 +55,7 @@ import 'customer_display_launcher.dart';
 import 'widgets/pos_category_sidebar.dart';
 import 'widgets/pos_desktop_shortcuts.dart';
 import 'widgets/pos_footer_panel.dart';
+import 'widgets/pos_phone_catalog_bar.dart';
 import 'widgets/pos_product_grid.dart';
 import 'widgets/pos_quick_products_bar.dart';
 import 'widgets/pos_return_sheet.dart';
@@ -117,6 +118,8 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
   String? _error;
   String? _statusMessage;
   bool _cartOpen = false;
+  bool _phoneList = false;
+  bool _phoneSearch = false;
   bool _requestPayment = false;
   bool _requestCustomer = false;
   bool _requestRetrieve = false;
@@ -467,12 +470,26 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       setState(() => _searchQuery = '');
       return;
     }
-    if (_cart.isEmpty) {
+    unawaited(_clearOrDeleteOpenSale());
+  }
+
+  Future<void> _clearOrDeleteOpenSale() async {
+    final pending = _cart.isEditingHold;
+    final serverId = _cart.pendingServerId?.trim() ?? '';
+    if (_cart.isEmpty && !pending) {
       _showStatus('Rien à annuler');
       return;
     }
     _cart.cancel();
-    _showStatus('Vente annulée');
+    if (pending && serverId.isNotEmpty) {
+      try {
+        await _api.discardHold(serverId);
+      } catch (_) {}
+    }
+    if (pending) await _persistHolds();
+    if (!mounted) return;
+    setState(() => _cartOpen = false);
+    _showStatus(pending ? 'Commande en attente supprimée' : 'Vente annulée');
   }
 
   String _holdsSignature = '';
@@ -1063,7 +1080,42 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                   : _error != null
                       ? _ErrorView(error: _error!, onRetry: () => _loadCatalog(forceNetwork: true))
                       : _PosWorkspace(
-                          search: Column(
+                          search: PosUi.isPhone(context)
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    PosPhoneCatalogBar(
+                                      categories: _categories,
+                                      selectedCategoryId: _selectedCategoryId,
+                                      onCategorySelected: (id) {
+                                        context.read<ProductBloc>().add(ProductCategoryFilterChanged(id));
+                                        context.read<CategoryBloc>().add(CategorySelected(id));
+                                        setState(() => _selectedCategoryId = id);
+                                      },
+                                      searchOpen: _phoneSearch,
+                                      onToggleSearch: () => setState(() => _phoneSearch = !_phoneSearch),
+                                      listMode: _phoneList,
+                                      onListMode: (value) => setState(() => _phoneList = value),
+                                    ),
+                                    if (_phoneSearch)
+                                      PosSearchBar(
+                                        controller: _searchController,
+                                        focusNode: _searchFocus,
+                                        onChanged: _onSearchChanged,
+                                        onSubmitted: _onSearchSubmitted,
+                                        onScanTap: () => _onSearchSubmitted(_searchController.text),
+                                      ),
+                                    if (_cart.serviceMode == 'delivery' && (_cart.tableId == null || _cart.tableId!.isEmpty))
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                                        child: DeliveryMapCard(
+                                          selectedAddress: _cart.deliveryAddress,
+                                          onPicked: _pickDeliveryLocation,
+                                        ),
+                                      ),
+                                  ],
+                                )
+                              : Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               if (PosUi.usePosThreePane(context))
@@ -1121,7 +1173,9 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                           windowsDesk: PosUi.isWindowsDesk(context),
                           cartOpen: _cartOpen,
                           onToggleCart: () => setState(() => _cartOpen = !_cartOpen),
-                          categories: PosCategorySidebar(
+                          categories: PosUi.isPhone(context)
+                              ? const SizedBox.shrink()
+                              : PosCategorySidebar(
                             categories: _categories,
                             selectedCategoryId: _selectedCategoryId,
                             totalCount: _products.length,
@@ -1142,7 +1196,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                           products: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (!PosUi.isDesk(context))
+                              if (!PosUi.isDesk(context) && !PosUi.isPhone(context))
                                 PosQuickProductsBar(
                                   products: _quickProducts,
                                   onProductTap: (product) {
@@ -1158,12 +1212,14 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                                   products: _filteredProducts,
                                   favoriteIds: _favorites.favorites,
                                   quantityOf: _quantityOf,
+                                  listMode: PosUi.isPhone(context) && _phoneList,
+                                  bottomReserve: PosUi.isPhone(context) && _cart.itemCount > 0 ? 92 : 16,
                                   onToggleFavorite: (product) => unawaited(
                                     _favorites.toggleFavorite(product.productId),
                                   ),
                                   onProductTap: (product) {
                                     _addProduct(product);
-                                    if (!PosUi.usePosThreePane(context)) {
+                                    if (!PosUi.usePosThreePane(context) && !PosUi.isPhone(context)) {
                                       setState(() => _cartOpen = true);
                                     }
                                   },
@@ -1171,7 +1227,9 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                               ),
                             ],
                           ),
-                          cart: PosCartPanel(
+                          cart: _phoneCartShell(
+                            context,
+                            PosCartPanel(
                             cart: _cart,
                             onIncrement: (lineId) {
                               if (_refuseWithoutShift()) return;
@@ -1188,13 +1246,10 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                             // Always show Pay & Close in the cart (phone drawer + desk).
                             showCheckout: true,
                             onHold: () => unawaited(_shortcutHold()),
-                            onClear: () {
-                              if (_cart.isEmpty) return;
-                              _cart.cancel();
-                              _showStatus('Cart cleared');
-                            },
+                            onClear: () => unawaited(_clearOrDeleteOpenSale()),
                             onPay: _shortcutPayment,
                             onDiscount: () => setState(() => _requestDiscount = true),
+                          ),
                           ),
                           cartCount: _cart.itemCount,
                           cartTotal: MoneyFormatter.format(_cart.total),
@@ -1369,6 +1424,26 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
         ],
       ),
       body: content,
+    );
+  }
+
+  Widget _phoneCartShell(BuildContext context, Widget cart) {
+    if (!PosUi.isPhone(context)) return cart;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: _ServiceModeSwitch(
+              mode: _cart.serviceMode,
+              onChanged: _onServiceMode,
+            ),
+          ),
+        ),
+        Expanded(child: cart),
+      ],
     );
   }
 }
@@ -1561,22 +1636,63 @@ class _PosWorkspace extends StatelessWidget {
               child: cart,
             ),
           ),
-          Positioned(
-            right: 12,
-            bottom: 12,
-            child: FloatingActionButton.extended(
-              onPressed: onToggleCart,
-              backgroundColor: PosUi.deskAccent,
-              foregroundColor: PosUi.deskInk,
-              extendedPadding: const EdgeInsets.symmetric(horizontal: 16),
-              icon: Badge(
-                isLabelVisible: cartCount > 0,
-                label: Text('$cartCount'),
-                child: const Icon(Icons.shopping_bag_outlined),
+          if (PosUi.isPhone(context) && cartCount > 0 && !cartOpen)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 10,
+              child: Material(
+                color: AppColors.brand700,
+                borderRadius: BorderRadius.circular(12),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onToggleCart,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          trf('{0} éléments', [cartCount]),
+                          style: AppTypography.plex(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          trf('Total: {0}', [cartTotal]),
+                          style: AppTypography.plex(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              label: Text(tr(cartCount == 0 ? 'Panier' : cartTotal)),
+            )
+          else if (!PosUi.isPhone(context))
+            Positioned(
+              right: 12,
+              bottom: 12,
+              child: FloatingActionButton.extended(
+                onPressed: onToggleCart,
+                backgroundColor: PosUi.deskAccent,
+                foregroundColor: PosUi.deskInk,
+                extendedPadding: const EdgeInsets.symmetric(horizontal: 16),
+                icon: Badge(
+                  isLabelVisible: cartCount > 0,
+                  label: Text('$cartCount'),
+                  child: const Icon(Icons.shopping_bag_outlined),
+                ),
+                label: Text(tr(cartCount == 0 ? 'Panier' : cartTotal)),
+              ),
             ),
-          ),
         ],
       ),
     );

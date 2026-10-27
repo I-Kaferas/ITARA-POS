@@ -340,25 +340,44 @@ class _OrderCheckout extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.pause_rounded, size: 16),
-                  label: Text(tr('Hold')),
+                  label: Text(tr(cart.isEditingHold ? 'Enregistrer (Attente)' : 'Hold')),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: cart.isEmpty ? null : onClear,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.danger,
-                    side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              if (!cart.isEditingHold) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: cart.isEmpty ? null : onClear,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                      side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    label: Text(tr('Clear Cart')),
                   ),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: Text(tr('Clear Cart')),
                 ),
-              ),
+              ],
             ],
           ),
+          if (cart.isEditingHold) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onClear,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.danger,
+                  side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.delete_outline, size: 16),
+                label: Text(tr('Supprimer la commande')),
+              ),
+            ),
+          ],
         ],
       ),
     );

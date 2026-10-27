@@ -107,6 +107,8 @@ class PosProductGrid extends StatelessWidget {
     this.onToggleFavorite,
     this.quantityOf,
     this.menuTitle,
+    this.listMode = false,
+    this.bottomReserve = 16,
   });
 
   final List<PosProduct> products;
@@ -115,6 +117,8 @@ class PosProductGrid extends StatelessWidget {
   final ValueChanged<PosProduct>? onToggleFavorite;
   final int Function(PosProduct product)? quantityOf;
   final String? menuTitle;
+  final bool listMode;
+  final double bottomReserve;
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +133,12 @@ class PosProductGrid extends StatelessWidget {
                 ? const _EmptyProducts()
                 : LayoutBuilder(
                     builder: (context, constraints) {
+                      final phone = PosUi.isPhone(context);
+                      if (phone) {
+                        return listMode
+                            ? _phoneList(context)
+                            : _phoneGrid(context, constraints.maxWidth);
+                      }
                       final crossAxisCount =
                           AndroidLayout.productColumns(constraints.maxWidth);
                       final extent = _cardExtent(constraints.maxWidth);
@@ -163,6 +173,43 @@ class PosProductGrid extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _phoneGrid(BuildContext context, double width) {
+    final columns = width < 360 ? 2 : AndroidLayout.productColumns(width);
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(12, 12, 12, bottomReserve),
+      addAutomaticKeepAlives: false,
+      addRepaintBoundaries: true,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        mainAxisExtent: 228,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: products.length,
+      itemBuilder: (context, index) => _phoneTile(products[index], list: false),
+    );
+  }
+
+  Widget _phoneList(BuildContext context) {
+    return ListView.separated(
+      padding: EdgeInsets.fromLTRB(12, 12, 12, bottomReserve),
+      itemCount: products.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) => _phoneTile(products[index], list: true),
+    );
+  }
+
+  Widget _phoneTile(PosProduct product, {required bool list}) {
+    return _PhoneProductTile(
+      product: product,
+      list: list,
+      quantity: quantityOf?.call(product) ?? 0,
+      favorite: favoriteIds.contains(product.productId),
+      onTap: () => onProductTap(product),
+      onToggleFavorite: onToggleFavorite == null ? null : () => onToggleFavorite!(product),
     );
   }
 }
@@ -696,6 +743,221 @@ class _ProductPhoto extends StatelessWidget {
             ? (PosUi.isDarkDesk ? const Color(0xFFB7C3D1) : const Color(0xFF8A97A6))
             : PosUi.deskMuted,
       ),
+    );
+  }
+}
+
+class _PhoneProductTile extends StatelessWidget {
+  const _PhoneProductTile({
+    required this.product,
+    required this.list,
+    required this.onTap,
+    required this.quantity,
+    required this.favorite,
+    this.onToggleFavorite,
+  });
+
+  final PosProduct product;
+  final bool list;
+  final VoidCallback onTap;
+  final int quantity;
+  final bool favorite;
+  final VoidCallback? onToggleFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    final available = product.isAvailable;
+    final price = MoneyFormatter.format(product.price, currencyCode: AppConfig.currencyCode);
+    final imageUrl = resolvePosImageUrl(product.primaryImageUrl);
+    final category = product.categoryName?.trim();
+    final subtitle = product.hasOptions
+        ? tr('Choisir une option')
+        : (category != null && category.isNotEmpty ? tr(category) : '');
+    final onHand = product.quantityOnHand;
+    final remaining = onHand == null ? null : onHand - quantity;
+
+    final photo = ClipRRect(
+      borderRadius: BorderRadius.circular(list ? 12 : 14),
+      child: ColoredBox(
+        color: PosUi.deskPhoto,
+        child: imageUrl == null
+            ? Icon(Icons.landscape_outlined, color: PosUi.deskMuted, size: list ? 28 : 40)
+            : Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                errorBuilder: (_, _, _) => Icon(Icons.landscape_outlined, color: PosUi.deskMuted),
+              ),
+      ),
+    );
+
+    final add = _PhoneAddButton(quantity: quantity, enabled: available);
+
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          tr(product.name),
+          maxLines: list ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.plex(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+            color: available ? AppColors.textPrimary : AppColors.textMuted,
+          ),
+        ),
+        if (subtitle.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.plex(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ],
+        if (remaining != null && remaining <= (product.lowStockThreshold ?? 0)) ...[
+          const SizedBox(height: 2),
+          Text(
+            remaining <= 0 ? tr('Rupture') : trf('{0} en stock', [remaining]),
+            style: AppTypography.plex(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: remaining <= 0 ? AppColors.danger : AppColors.warning,
+            ),
+          ),
+        ],
+      ],
+    );
+
+    return Material(
+      color: PosUi.deskCard,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: available ? onTap : null,
+        onLongPress: onToggleFavorite,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: PosUi.deskCard,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: favorite ? AppColors.logoGold : PosUi.deskLine,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadow,
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: list
+              ? SizedBox(
+                  height: 96,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 76, height: 76, child: photo),
+                        const SizedBox(width: 12),
+                        Expanded(child: body),
+                        const SizedBox(width: 8),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            add,
+                            Text(
+                              price,
+                              style: PosUi.money(
+                                size: 14,
+                                weight: FontWeight.w800,
+                                color: available ? AppColors.brandInk : AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(8, 8, 8, 0), child: photo)),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          body,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  price,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: PosUi.money(
+                                    size: 14,
+                                    weight: FontWeight.w800,
+                                    color: available ? AppColors.brandInk : AppColors.textMuted,
+                                  ),
+                                ),
+                              ),
+                              add,
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneAddButton extends StatelessWidget {
+  const _PhoneAddButton({required this.quantity, required this.enabled});
+
+  final int quantity;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final showCount = enabled && quantity > 0;
+    return Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: enabled ? AppColors.brand700 : AppColors.border,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: showCount
+          ? Text(
+              '$quantity',
+              style: AppTypography.plex(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            )
+          : Icon(
+              enabled ? Icons.add_rounded : Icons.block_rounded,
+              color: enabled ? Colors.white : AppColors.textMuted,
+              size: 22,
+            ),
     );
   }
 }

@@ -278,6 +278,21 @@ class PosFooterPanel extends StatelessWidget {
                       label: Text(tr('Enregistrer (Attente)')),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    height: PosUi.ctaHeight,
+                    child: OutlinedButton.icon(
+                      onPressed: onCancel,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                        side: BorderSide(color: AppColors.danger.withValues(alpha: 0.45)),
+                        backgroundColor: AppColors.dangerBg,
+                      ),
+                      label: Text(tr('Supprimer la commande')),
+                    ),
+                  ),
                 ] else ...[
                   Row(
                     children: [

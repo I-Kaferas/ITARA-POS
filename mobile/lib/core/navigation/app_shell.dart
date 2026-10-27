@@ -737,23 +737,55 @@ class AppShell extends StatelessWidget {
     }
 
     final narrowPhone = MediaQuery.sizeOf(context).width < 380;
+    final phone = form.isPhone;
 
     return Scaffold(
+      drawer: configuring || !phone
+          ? null
+          : Drawer(
+              backgroundColor: AppColors.sidebar,
+              child: _PhoneDrawer(
+                config: config,
+                tabs: tabs,
+                activeRoute: location,
+                onTab: (item) {
+                  Navigator.of(context).pop();
+                  if (_lockedUntilConfigured(item)) {
+                    _openCompanySetup(context);
+                    return;
+                  }
+                  context.go(item.route);
+                },
+                onLogout: () => _confirmLogout(context),
+              ),
+            ),
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        centerTitle: phone,
         leading: configuring
             ? IconButton(
                 tooltip: tr('Retour à la caisse'),
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: exitConfiguration,
               )
-            : null,
+            : phone
+                ? Builder(
+                    builder: (barContext) => IconButton(
+                      tooltip: tr('Menu'),
+                      icon: const Icon(Icons.menu_rounded),
+                      onPressed: () => Scaffold.of(barContext).openDrawer(),
+                    ),
+                  )
+                : null,
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: phone ? CrossAxisAlignment.center : CrossAxisAlignment.start,
           children: [
             Text(
               tr(page.label),
-              style: AppTypography.titleSmall(),
+              style: AppTypography.titleSmall().copyWith(
+                fontWeight: phone ? FontWeight.w800 : null,
+                color: phone ? AppColors.brandInk : null,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -761,14 +793,14 @@ class AppShell extends StatelessWidget {
           ],
         ),
         actions: [
-          if (!config.isAdmin)
+          if (!phone && !config.isAdmin)
             IconButton(
               tooltip: tr('Se déconnecter'),
               icon: const Icon(Icons.logout_rounded),
               onPressed: () => _confirmLogout(context),
             ),
           const SyncStatusBar(),
-          if (!narrowPhone) ...[
+          if (!phone && !narrowPhone) ...[
             const SizedBox(width: 4),
             const ThemeModeButton(),
             const CalculatorButton(),
@@ -786,10 +818,14 @@ class AppShell extends StatelessWidget {
           ? null
           : NavigationBarTheme(
         data: NavigationBarThemeData(
-          indicatorColor: AppColors.logoGold.withValues(alpha: 0.46),
+          indicatorColor: phone ? AppColors.brand100 : AppColors.logoGold.withValues(alpha: 0.46),
           iconTheme: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
-            return IconThemeData(color: selected ? AppColors.brandInk : AppColors.textSecondary);
+            return IconThemeData(
+              color: selected
+                  ? (phone ? AppColors.brand700 : AppColors.brandInk)
+                  : AppColors.textSecondary,
+            );
           }),
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
@@ -805,9 +841,11 @@ class AppShell extends StatelessWidget {
         height: narrowPhone
             ? 58
             : (AndroidLayout.preferLite(context) ? 64 : 70),
-        labelBehavior: narrowPhone
-            ? NavigationDestinationLabelBehavior.onlyShowSelected
-            : NavigationDestinationLabelBehavior.alwaysShow,
+        labelBehavior: phone
+            ? NavigationDestinationLabelBehavior.alwaysHide
+            : narrowPhone
+                ? NavigationDestinationLabelBehavior.onlyShowSelected
+                : NavigationDestinationLabelBehavior.alwaysShow,
         backgroundColor: AppColors.surface,
         selectedIndex: () {
           final current = phoneTab < 0 ? 0 : phoneTab;
@@ -841,6 +879,117 @@ class AppShell extends StatelessWidget {
             )
             .toList(),
         ),
+      ),
+    );
+  }
+}
+
+class _PhoneDrawer extends StatelessWidget {
+  const _PhoneDrawer({
+    required this.config,
+    required this.tabs,
+    required this.activeRoute,
+    required this.onTab,
+    required this.onLogout,
+  });
+
+  final TerminalConfig config;
+  final List<_NavItem> tabs;
+  final String activeRoute;
+  final ValueChanged<_NavItem> onTab;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    final shop = config.brandName.trim().isNotEmpty
+        ? config.brandName.trim()
+        : (config.deviceName.trim().isNotEmpty ? config.deviceName.trim() : 'ITARA');
+    final cashier = config.cashierName.trim().isEmpty ? tr('Caissier') : config.cashierName.trim();
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        shop,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.plex(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  cashier,
+                  style: AppTypography.plex(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(color: AppColors.sidebarBorder, height: 1),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                for (final item in tabs)
+                  ListTile(
+                    leading: Icon(item.icon, color: Colors.white),
+                    title: Text(
+                      tr(item.label),
+                      style: AppTypography.plex(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    selected: activeRoute == item.route || activeRoute.startsWith('${item.route}/'),
+                    selectedTileColor: AppColors.sidebarActive,
+                    onTap: () => onTab(item),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.brand700,
+                backgroundColor: Colors.white,
+                side: BorderSide.none,
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: onLogout,
+              child: Text(tr('Se déconnecter')),
+            ),
+          ),
+        ],
       ),
     );
   }

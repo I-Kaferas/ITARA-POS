@@ -42,6 +42,7 @@ const en = <String, String>{
   'Ajustement enregistré': 'Adjustment saved',
   'Android et Windows : base SQLite, fichiers, journaux, événements de sync et configuration. Le cloud reçoit une copie si le terminal est connecté.': 'Android and Windows: SQLite database, files, logs, sync events and configuration. The cloud receives a copy when the terminal is online.',
   'Annuler': 'Cancel',
+  'Supprimer la commande': 'Delete order',
   'Annuler · ESC': 'Cancel · ESC',
   'Annulé': 'Canceled',
   'Annulée': 'Canceled',
