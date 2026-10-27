@@ -5,10 +5,14 @@ namespace Tests\Feature\Sync;
 use App\Models\CashierShift;
 use App\Models\CashRegister;
 use App\Models\DeskDocument;
+use App\Models\Device;
+use App\Models\InventoryMovement;
 use App\Models\OfflineTransaction;
 use App\Models\Promotion;
 use App\Models\Sale;
+use App\Models\StockBalance;
 use App\Models\Tax;
+use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -71,6 +75,8 @@ class OfflineSyncTest extends TestCase
 
         $this->assertSame(1, Sale::query()->where('idempotency_key', $uuid)->count());
         $this->assertSame(1, OfflineTransaction::query()->where('client_uuid', $uuid)->count());
+        $this->assertSame(19, $this->onHand($warehouse->id, $product->id));
+        $this->assertSame(1, InventoryMovement::query()->where('product_id', $product->id)->where('movement_type', 'SALE')->count());
 
         $operation['payload']['payments'][0]['amount'] = 2500;
         $this->postJson('/api/v1/sync/offline', ['operations' => [$operation]], $headers)
@@ -79,6 +85,157 @@ class OfflineSyncTest extends TestCase
             ->assertJsonPath('data.results.0.conflict_code', 'uuid_payload_mismatch');
 
         $this->assertSame(1, Sale::query()->where('tenant_id', $store->tenant_id)->count());
+        $this->assertSame(19, $this->onHand($warehouse->id, $product->id));
+    }
+
+    public function test_replayed_sale_does_not_decrement_stock_twice_and_two_devices_add_deltas(): void
+    {
+        $headers = $this->storeHeaders();
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $product->importToStore($this->fixture['store']);
+        $this->stock($warehouse->id, $product->id, 20);
+
+        $store = $this->fixture['store'];
+        $deviceA = Device::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $store->id,
+            'branch_id' => $store->branch_id,
+            'name' => 'Caisse A',
+            'device_type' => 'pos',
+            'identifier' => 'pos-device-a',
+            'sync_token' => 'token-pos-device-a',
+            'is_active' => true,
+        ]);
+        $deviceB = Device::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $store->id,
+            'branch_id' => $store->branch_id,
+            'name' => 'Caisse B',
+            'device_type' => 'pos',
+            'identifier' => 'pos-device-b',
+            'sync_token' => 'token-pos-device-b',
+            'is_active' => true,
+        ]);
+        $deviceA->warehouses()->attach($warehouse->id);
+        $deviceB->warehouses()->attach($warehouse->id);
+
+        $firstId = (string) Str::uuid();
+        $first = $this->operation($firstId, 'pos', 'sale', 'create', [
+            'idempotency_key' => $firstId,
+            'warehouse_id' => $warehouse->id,
+            'device_id' => $deviceA->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ],
+            'payments' => [
+                ['method' => 'cash', 'amount' => 2000],
+            ],
+        ]);
+        $this->postJson('/api/v1/sync/offline', ['operations' => [$first]], $headers)->assertOk()
+            ->assertJsonPath('data.results.0.status', 'synced');
+        $this->postJson('/api/v1/sync/offline', ['operations' => [$first]], $headers)->assertOk()
+            ->assertJsonPath('data.results.0.already_processed', true);
+        $this->assertSame(18, $this->onHand($warehouse->id, $product->id));
+
+        $secondId = (string) Str::uuid();
+        $this->postJson('/api/v1/sync/offline', ['operations' => [
+            $this->operation($secondId, 'pos', 'sale', 'create', [
+                'idempotency_key' => $secondId,
+                'warehouse_id' => $warehouse->id,
+                'device_id' => $deviceB->id,
+                'items' => [
+                    ['product_id' => $product->id, 'quantity' => 3],
+                ],
+                'payments' => [
+                    ['method' => 'cash', 'amount' => 3000],
+                ],
+            ]),
+        ]], $headers)->assertOk()->assertJsonPath('data.results.0.status', 'synced');
+
+        $this->assertSame(15, $this->onHand($warehouse->id, $product->id));
+        $this->assertSame(2, InventoryMovement::query()->where('product_id', $product->id)->where('movement_type', 'SALE')->count());
+    }
+
+    public function test_offline_sale_uses_the_device_warehouse_not_the_oldest_depot(): void
+    {
+        $headers = $this->storeHeaders();
+        $store = $this->fixture['store'];
+        $oldest = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $product->importToStore($store);
+        $assigned = Warehouse::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'branch_id' => $store->branch_id,
+            'name' => 'Depot caisse',
+            'code' => 'OFFLINE-WH2',
+            'is_active' => true,
+        ]);
+        $device = Device::query()->create([
+            'tenant_id' => $store->tenant_id,
+            'store_id' => $store->id,
+            'branch_id' => $store->branch_id,
+            'name' => 'Caisse 2',
+            'device_type' => 'pos',
+            'identifier' => 'pos-device-2',
+            'sync_token' => 'token-pos-device-2',
+            'is_active' => true,
+        ]);
+        $device->warehouses()->attach($assigned->id);
+        $this->stock($oldest->id, $product->id, 20);
+        $this->stock($assigned->id, $product->id, 20);
+
+        $uuid = (string) Str::uuid();
+        $this->postJson('/api/v1/sync/offline', ['operations' => [
+            $this->operation($uuid, 'pos', 'sale', 'create', [
+                'idempotency_key' => $uuid,
+                'device_id' => $device->id,
+                'items' => [
+                    ['product_id' => $product->id, 'quantity' => 4],
+                ],
+                'payments' => [
+                    ['method' => 'cash', 'amount' => 4000],
+                ],
+            ]),
+        ]], $headers)->assertOk()->assertJsonPath('data.results.0.status', 'synced');
+
+        $this->assertSame(20, $this->onHand($oldest->id, $product->id));
+        $this->assertSame(16, $this->onHand($assigned->id, $product->id));
+        $sale = Sale::query()->where('idempotency_key', $uuid)->first();
+        $this->assertSame($assigned->id, $sale?->warehouse_id);
+
+        $this->getJson('/api/v1/stores/'.$store->id.'/pos/catalog', array_merge($headers, [
+            'X-Device-ID' => $device->id,
+        ]))->assertOk()->assertJsonPath('data.sale_warehouse_id', $assigned->id);
+    }
+
+    public function test_insufficient_stock_keeps_the_sale_as_a_conflict_without_decrement(): void
+    {
+        $headers = $this->storeHeaders();
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $product->importToStore($this->fixture['store']);
+        $this->stock($warehouse->id, $product->id, 2);
+
+        $uuid = (string) Str::uuid();
+        $this->postJson('/api/v1/sync/offline', ['operations' => [
+            $this->operation($uuid, 'pos', 'sale', 'create', [
+                'idempotency_key' => $uuid,
+                'warehouse_id' => $warehouse->id,
+                'items' => [
+                    ['product_id' => $product->id, 'quantity' => 5],
+                ],
+                'payments' => [
+                    ['method' => 'cash', 'amount' => 5000],
+                ],
+            ]),
+        ]], $headers)->assertOk()
+            ->assertJsonPath('data.results.0.status', 'conflict')
+            ->assertJsonPath('data.results.0.conflict_code', 'stock');
+
+        $this->assertSame(2, $this->onHand($warehouse->id, $product->id));
+        $this->assertNull(Sale::query()->where('idempotency_key', $uuid)->first());
+        $this->assertSame(0, InventoryMovement::query()->where('product_id', $product->id)->where('movement_type', 'SALE')->count());
     }
 
     public function test_unpaid_order_syncs_without_a_payment(): void
@@ -388,6 +545,24 @@ class OfflineSyncTest extends TestCase
             'payload' => $payload,
             'base_version' => $baseVersion,
         ];
+    }
+
+    private function stock(string $warehouseId, string $productId, int $quantity): void
+    {
+        $this->postJson("/api/v1/warehouses/{$warehouseId}/movements", [
+            'product_id' => $productId,
+            'movement_type' => 'INITIAL_STOCK',
+            'quantity' => $quantity,
+            'unit_cost' => 500,
+        ], $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']))->assertCreated();
+    }
+
+    private function onHand(string $warehouseId, string $productId): int
+    {
+        return (int) StockBalance::query()
+            ->where('warehouse_id', $warehouseId)
+            ->where('product_id', $productId)
+            ->value('quantity_on_hand');
     }
 
     /** @return array<string, string> */

@@ -34,6 +34,19 @@ export interface OfflineTransaction {
   alreadyProcessed?: boolean
 }
 
+export interface LocalStockMovement {
+  id: string
+  saleUuid: string
+  productId: string
+  variantId: string | null
+  warehouseId: string | null
+  /** Negative for a sale, positive would be a restock. */
+  quantity: number
+  type: 'sale' | 'sale_void'
+  status: 'pending' | 'synced' | 'voided'
+  createdAt: string
+}
+
 export interface SyncPushResult {
   id: string
   uuid?: string

@@ -129,13 +129,17 @@ class SyncController extends Controller
         $store = $this->store();
         $since = $request->integer('since');
 
+        $deviceKey = trim((string) $request->header('X-Device-ID', ''));
+
         return response()->json([
             'data' => [
                 'store_id' => $store->id,
                 'server_sequence' => now()->timestamp,
                 'since' => $since,
+                'sale_warehouse_id' => $this->sales->saleWarehouseId($store, $deviceKey === '' ? null : $deviceKey),
                 'products' => $this->catalog->productsForStore($store),
                 'categories' => $this->catalog->categoriesForStore($store),
+                'stock' => $this->catalog->stockLinesForStore($store),
                 'sync_events' => SyncEvent::query()
                     ->where('store_id', $store->id)
                     ->when($since > 0, fn ($query) => $query->where('sequence', '>', $since))
@@ -366,11 +370,14 @@ class SyncController extends Controller
             ])->save();
         }
 
+        $deviceKey = $device?->id ?? ($data['device_id'] ?? $data['identifier'] ?? null);
+
         return response()->json([
             'data' => [
                 'status' => 'online',
                 'server_time' => now()->toIso8601String(),
                 'pending' => $data['pending'] ?? 0,
+                'sale_warehouse_id' => $this->sales->saleWarehouseId($store, is_string($deviceKey) ? $deviceKey : null),
             ],
         ]);
     }

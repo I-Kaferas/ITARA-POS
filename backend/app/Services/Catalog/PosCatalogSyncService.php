@@ -325,6 +325,36 @@ class PosCatalogSyncService
     }
 
     /**
+     * Per-warehouse balances for offline terminals. The POS grid still uses the
+     * summed quantity_on_hand; this list is the ledger each sale warehouse updates.
+     *
+     * @return list<array{warehouse_id: string, product_id: string, variant_id: ?string, quantity_on_hand: int}>
+     */
+    public function stockLinesForStore(Store $store): array
+    {
+        $warehouseIds = Warehouse::query()
+            ->where('branch_id', $store->branch_id)
+            ->where('is_active', true)
+            ->pluck('id');
+
+        if ($warehouseIds->isEmpty()) {
+            return [];
+        }
+
+        return StockBalance::query()
+            ->whereIn('warehouse_id', $warehouseIds)
+            ->get(['warehouse_id', 'product_id', 'product_variant_id', 'quantity_on_hand'])
+            ->map(fn (StockBalance $row) => [
+                'warehouse_id' => $row->warehouse_id,
+                'product_id' => $row->product_id,
+                'variant_id' => $row->product_variant_id,
+                'quantity_on_hand' => (int) $row->quantity_on_hand,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return Collection<int, string>
      */
     public function catalogIdsForStore(Store $store): Collection

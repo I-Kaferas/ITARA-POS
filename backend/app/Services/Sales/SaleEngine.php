@@ -16,6 +16,7 @@ use App\Enums\SalePaymentStatus;
 use App\Enums\SaleStatus;
 use App\Events\SaleCompleted;
 use App\Models\Customer;
+use App\Models\Device;
 use App\Models\CashRegister;
 use App\Models\PosTable;
 use App\Models\PosTableEvent;
@@ -31,6 +32,7 @@ use App\Models\Store;
 use App\Models\StoreProduct;
 use App\Models\User;
 use App\Models\Warehouse;
+use Illuminate\Support\Str;
 use App\Services\Accounting\AccountingEntryService;
 use App\Services\Customer\CustomerLoyaltyService;
 use App\Services\Audit\AuditLogService;
@@ -117,7 +119,7 @@ class SaleEngine
 
             $cart = $this->cartEngine->calculateForStore($store, $payload);
 
-            $warehouse = $this->resolveWarehouse($store, $payload['warehouse_id'] ?? null);
+            $warehouse = $this->warehouseFromPayload($store, $payload);
             $skipStock = (bool) ($payload['skip_stock'] ?? false);
             if (! $skipStock) {
                 $this->validateStock($warehouse, $cart);
@@ -339,7 +341,7 @@ class SaleEngine
     /** @param  array<string, mixed>  $payload */
     public function openEmptyHold(Store $store, User $user, array $payload = []): Sale
     {
-        $warehouse = $this->resolveWarehouse($store, $payload['warehouse_id'] ?? null);
+        $warehouse = $this->warehouseFromPayload($store, $payload);
         $store->loadMissing('branch.company');
 
         return Sale::query()->create([
@@ -658,7 +660,7 @@ class SaleEngine
             $this->validateProducts($store, $payload);
 
             $cart = $this->cartEngine->calculateForStore($store, $payload);
-            $warehouse = $this->resolveWarehouse($store, $payload['warehouse_id'] ?? $sale->warehouse_id);
+            $warehouse = $this->warehouseFromPayload($store, $payload, $sale->warehouse_id);
             $this->validateStock($warehouse, $cart);
 
             $this->clearSaleLines($sale);
@@ -1122,9 +1124,52 @@ class SaleEngine
         return $payload;
     }
 
-    private function resolveWarehouse(Store $store, ?string $warehouseId): Warehouse
+    /**
+     * Warehouse shown to a terminal: its assigned depot, or the only active
+     * depot of the branch. Null when several depots exist and the device has
+     * none — the sale then keeps the historical "oldest depot" fallback.
+     */
+    public function saleWarehouseId(Store $store, ?string $deviceKey): ?string
+    {
+        $fromDevice = $this->warehouseIdForDevice($store, $deviceKey);
+        if ($fromDevice !== null) {
+            return $fromDevice;
+        }
+
+        $ids = Warehouse::query()
+            ->where('branch_id', $store->branch_id)
+            ->where('is_active', true)
+            ->orderBy('created_at')
+            ->pluck('id');
+
+        return $ids->count() === 1 ? (string) $ids->first() : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function warehouseFromPayload(Store $store, array $payload, ?string $fallback = null): Warehouse
+    {
+        $explicit = $payload['warehouse_id'] ?? $fallback;
+        $explicit = is_string($explicit) ? trim($explicit) : null;
+        if ($explicit === '') {
+            $explicit = null;
+        }
+        $device = isset($payload['device_id']) ? trim((string) $payload['device_id']) : '';
+
+        return $this->resolveWarehouse($store, $explicit, $device === '' ? null : $device);
+    }
+
+    private function resolveWarehouse(Store $store, ?string $warehouseId, ?string $deviceKey = null): Warehouse
     {
         $store->loadMissing('branch');
+        $warehouseId = is_string($warehouseId) ? trim($warehouseId) : null;
+        if ($warehouseId === '') {
+            $warehouseId = null;
+        }
+        if ($warehouseId === null) {
+            $warehouseId = $this->warehouseIdForDevice($store, $deviceKey);
+        }
 
         if ($warehouseId !== null) {
             $warehouse = Warehouse::query()
@@ -1154,6 +1199,31 @@ class SaleEngine
         }
 
         return $warehouse;
+    }
+
+    private function warehouseIdForDevice(Store $store, ?string $deviceKey): ?string
+    {
+        $deviceKey = is_string($deviceKey) ? trim($deviceKey) : '';
+        if ($deviceKey === '') {
+            return null;
+        }
+
+        $device = null;
+        if (Str::isUuid($deviceKey)) {
+            $device = Device::query()->where('store_id', $store->id)->whereKey($deviceKey)->first();
+        }
+        $device ??= Device::query()->where('store_id', $store->id)->where('identifier', $deviceKey)->first();
+        if ($device === null) {
+            return null;
+        }
+
+        $id = $device->warehouses()
+            ->where('warehouses.branch_id', $store->branch_id)
+            ->where('warehouses.is_active', true)
+            ->orderBy('warehouses.created_at')
+            ->value('warehouses.id');
+
+        return is_string($id) && $id !== '' ? $id : null;
     }
 
     /** @return array<string, SaleItem> keyed by cart line_id */
@@ -1470,7 +1540,7 @@ class SaleEngine
         $this->validateProducts($store, $payload);
         $payload = $this->sanitizeCashRegisterPayload($store, $payload);
         $cart = $this->cartEngine->calculateForStore($store, $payload);
-        $warehouse = $this->resolveWarehouse($store, $payload['warehouse_id'] ?? null);
+        $warehouse = $this->warehouseFromPayload($store, $payload);
 
         $sale = Sale::query()->create([
             'tenant_id' => $store->tenant_id,
@@ -1512,7 +1582,7 @@ class SaleEngine
     {
         $this->validateProducts($store, $payload);
         $cart = $this->cartEngine->calculateForStore($store, $payload);
-        $warehouse = $this->resolveWarehouse($store, $payload['warehouse_id'] ?? $sale->warehouse_id);
+        $warehouse = $this->warehouseFromPayload($store, $payload, $sale->warehouse_id);
 
         $this->clearSaleLines($sale);
 

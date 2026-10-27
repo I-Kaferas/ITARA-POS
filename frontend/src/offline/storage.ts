@@ -1,7 +1,7 @@
-import type { OfflineTransaction } from './types'
+import type { LocalStockMovement, OfflineTransaction } from './types'
 
 const DB_NAME = 'itara-pos-offline'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const FALLBACK_KEY = 'itara.offline.store'
 
 type SnapshotRow = { key: string; value: unknown }
@@ -9,6 +9,7 @@ type SnapshotRow = { key: string; value: unknown }
 type FallbackStore = {
   transactions: OfflineTransaction[]
   snapshots: Record<string, unknown>
+  stockMovements: LocalStockMovement[]
 }
 
 let database: IDBDatabase | null = null
@@ -21,7 +22,7 @@ let closedResolve: (() => void) | null = null
 let chain: Promise<unknown> = Promise.resolve()
 
 function emptyFallback(): FallbackStore {
-  return { transactions: [], snapshots: {} }
+  return { transactions: [], snapshots: {}, stockMovements: [] }
 }
 
 function readFallback(): FallbackStore {
@@ -32,6 +33,7 @@ function readFallback(): FallbackStore {
     return {
       transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
       snapshots: parsed.snapshots && typeof parsed.snapshots === 'object' ? parsed.snapshots : {},
+      stockMovements: Array.isArray(parsed.stockMovements) ? parsed.stockMovements : [],
     }
   } catch {
     return emptyFallback()
@@ -134,6 +136,11 @@ async function openDatabase(): Promise<void> {
         }
         if (!db.objectStoreNames.contains('snapshots')) {
           db.createObjectStore('snapshots', { keyPath: 'key' })
+        }
+        if (!db.objectStoreNames.contains('stock_movements')) {
+          const stock = db.createObjectStore('stock_movements', { keyPath: 'id' })
+          stock.createIndex('saleUuid', 'saleUuid')
+          stock.createIndex('status', 'status')
         }
       }
       request.onsuccess = () => {
@@ -263,5 +270,74 @@ export async function readSnapshot<T>(key: string): Promise<T | null> {
       snapshotStore('readonly').get(key),
     ) as SnapshotRow | undefined
     return row ? row.value as T : null
+  })
+}
+
+function transactionDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'))
+  })
+}
+
+export async function listStockMovements(): Promise<LocalStockMovement[]> {
+  return withStore(async () => {
+    if (useFallback || !database) return readFallback().stockMovements
+    const store = database.transaction('stock_movements', 'readonly').objectStore('stock_movements')
+    return (await requestToPromise(store.getAll())) as LocalStockMovement[]
+  })
+}
+
+export async function putStockMovements(movements: LocalStockMovement[]): Promise<void> {
+  if (!movements.length) return
+  await withStore(async () => {
+    if (useFallback || !database) {
+      const store = readFallback()
+      for (const movement of movements) {
+        const index = store.stockMovements.findIndex((item) => item.id === movement.id)
+        if (index >= 0) store.stockMovements[index] = movement
+        else store.stockMovements.push(movement)
+      }
+      writeFallback(store)
+      return
+    }
+    const tx = database.transaction('stock_movements', 'readwrite')
+    const store = tx.objectStore('stock_movements')
+    for (const movement of movements) store.put(movement)
+    await transactionDone(tx)
+  })
+}
+
+/** Queues the sale and its stock movements together. Returns false if the sale was already queued. */
+export async function saveQueuedSale(
+  transaction: OfflineTransaction,
+  movements: LocalStockMovement[],
+): Promise<boolean> {
+  return withStore(async () => {
+    if (useFallback || !database) {
+      const store = readFallback()
+      if (store.transactions.some((item) => item.uuid === transaction.uuid || item.idempotencyKey === transaction.idempotencyKey)) {
+        return false
+      }
+      store.transactions.push(transaction)
+      for (const movement of movements) {
+        if (!store.stockMovements.some((item) => item.id === movement.id)) store.stockMovements.push(movement)
+      }
+      writeFallback(store)
+      return true
+    }
+    const tx = database.transaction(['transactions', 'stock_movements'], 'readwrite')
+    const sales = tx.objectStore('transactions')
+    const existing = await requestToPromise(sales.get(transaction.uuid)) as OfflineTransaction | undefined
+    if (existing) {
+      await transactionDone(tx)
+      return false
+    }
+    sales.put(transaction)
+    const stock = tx.objectStore('stock_movements')
+    for (const movement of movements) stock.put(movement)
+    await transactionDone(tx)
+    return true
   })
 }

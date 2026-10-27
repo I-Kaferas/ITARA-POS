@@ -1,5 +1,6 @@
 import { api } from '../api/client'
 import { listTransactions, updateTransaction } from './queue'
+import { setSaleStockStatus, voidSaleStock } from './stock'
 import { readSnapshot, saveSnapshot } from './storage'
 import type { ConflictResolution, OfflineTransaction, SyncPushResult } from './types'
 
@@ -54,19 +55,19 @@ export async function flushOfflineQueue(): Promise<void> {
   }
 }
 
-export async function resolveOffline(uuid: string, resolution: ConflictResolution): Promise<void> {
+export async function resolveOffline(uuid: string, resolution: ConflictResolution): Promise<Record<string, number>> {
   const rows = await listTransactions()
   const transaction = rows.find((item) => item.uuid === uuid)
   const response = await api.post<{ data: SyncPushResult }>('/sync/offline/resolve', {
     client_uuid: uuid,
     resolution,
   }, { skipOffline: true })
-  if (!transaction) return
+  if (!transaction) return {}
   const idMap = await readIdMap()
-  await applyResult(transaction, response.data, idMap)
+  return applyResult(transaction, response.data, idMap)
 }
 
-async function applyResult(transaction: OfflineTransaction, result: SyncPushResult, idMap: Record<string, string>): Promise<void> {
+async function applyResult(transaction: OfflineTransaction, result: SyncPushResult, idMap: Record<string, string>): Promise<Record<string, number>> {
   transaction.serverId = result.server_id ?? transaction.serverId
   transaction.transactionId = result.transaction_id ?? result.server_id ?? transaction.transactionId
   transaction.idempotencyKey = result.idempotency_key ?? transaction.idempotencyKey
@@ -98,6 +99,15 @@ async function applyResult(transaction: OfflineTransaction, result: SyncPushResu
   }
 
   await updateTransaction(transaction)
+  if (transaction.entityType !== 'sale') return {}
+  if (transaction.status === 'synced') {
+    await setSaleStockStatus(transaction.uuid, 'synced')
+    return {}
+  }
+  if (transaction.status === 'discarded') {
+    return voidSaleStock(transaction.uuid)
+  }
+  return {}
 }
 
 function rewrite(transaction: OfflineTransaction, idMap: Record<string, string>): OfflineTransaction {

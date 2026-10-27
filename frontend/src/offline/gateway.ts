@@ -1,4 +1,6 @@
 import { enqueue, listActive } from './queue'
+import { movementsForQueuedSale, voidSaleStock } from './stock'
+import { saveQueuedSale } from './storage'
 import { applyOptimistic, cacheKey, extractDocs, hospitalityDocs, hospitalityLatestKey, rememberHospitality } from './optimistic'
 import { bustApiReadCache, isCacheEntryTrusted, putApiReadCache } from '../api/readCache'
 import { classifyWrite, isCacheableRead, isOnlineSwrRead, isRecord, referencedIds, versionTarget } from './policy'
@@ -123,7 +125,7 @@ export async function interceptWrite(
   const transaction = buildTransaction(uuid, classified.domain, classified.entityType, entityId, classified.operation, payload, baseVersion)
 
   if (await shouldQueue(payload, uuid)) {
-    await enqueue(transaction)
+    await queueTransaction(transaction)
     notify()
     return { passthrough: false, response: await synthetic(transaction) }
   }
@@ -132,10 +134,22 @@ export async function interceptWrite(
     return { passthrough: false, response: await send(path, method, payload, uuid) }
   } catch (error) {
     if (!isTransientError(error)) throw error
-    await enqueue(transaction)
+    await queueTransaction(transaction)
     notify()
     return { passthrough: false, response: await synthetic(transaction) }
   }
+}
+
+async function queueTransaction(transaction: OfflineTransaction): Promise<void> {
+  if (transaction.entityType === 'sale' && transaction.operation === 'delete') {
+    await voidSaleStock(transaction.entityId)
+  }
+  const movements = movementsForQueuedSale(transaction)
+  if (movements.length) {
+    await saveQueuedSale(transaction, movements)
+    return
+  }
+  await enqueue(transaction)
 }
 
 function enrich(domain: OfflineDomain, operation: string, body: Record<string, unknown>, uuid: string): Record<string, unknown> {

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { onQueueChanged } from '../offline/gateway'
 import { listActive, listTransactions, updateTransaction } from '../offline/queue'
 import { flushOfflineQueue, resolveOffline } from '../offline/sync'
+import { usePosStore } from './pos'
 import type { ConflictResolution, OfflineTransaction } from '../offline/types'
 
 export const useOfflineStore = defineStore('offline', () => {
@@ -71,7 +72,8 @@ export const useOfflineStore = defineStore('offline', () => {
   }
 
   async function resolve(uuid: string, resolution: ConflictResolution) {
-    await resolveOffline(uuid, resolution)
+    const restored = await resolveOffline(uuid, resolution)
+    if (Object.keys(restored).length > 0) usePosStore().applyStockRestore(restored)
     await refresh()
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pos_mobile/sync/offline_store.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// Mirrors [OfflineStore.pendingStockDeltas] SQL: stock_local = stock_cloud + pending.
@@ -29,7 +30,10 @@ void main() {
               product_id TEXT NOT NULL,
               quantity INTEGER NOT NULL,
               type TEXT NOT NULL,
-              created_at TEXT NOT NULL
+              created_at TEXT NOT NULL,
+              warehouse_id TEXT,
+              variant_id TEXT,
+              sync_status TEXT NOT NULL DEFAULT 'pending'
             )
           ''');
           await database.execute('''
@@ -60,7 +64,9 @@ void main() {
       SELECT m.product_id AS product_id, SUM(m.quantity) AS delta
       FROM stock_movements m
       INNER JOIN sales s ON s.id = m.sale_id
-      WHERE UPPER(m.type) = 'SALE' AND s.sync_status != 'synced'
+      WHERE UPPER(m.type) = 'SALE'
+        AND s.sync_status NOT IN ('synced', 'discarded')
+        AND UPPER(IFNULL(m.sync_status, 'pending')) != 'VOIDED'
       GROUP BY m.product_id
     ''');
     for (final row in saleRows) {
@@ -113,6 +119,20 @@ void main() {
     expect(await pendingDeltas(), isEmpty);
   });
 
+  test('discarded or voided sale is excluded from pending', () async {
+    await db.insert('sales', {'id': 'sale-2', 'sync_status': 'discarded'});
+    await db.insert('stock_movements', {
+      'id': 'm2',
+      'sale_id': 'sale-2',
+      'product_id': 'p1',
+      'quantity': -4,
+      'type': 'SALE',
+      'created_at': '2026-10-22T12:00:00.000',
+      'sync_status': 'voided',
+    });
+    expect(await pendingDeltas(), isEmpty);
+  });
+
   test('duplicate outbox SYNCED adjustment is excluded from pending', () async {
     await db.insert('stock_movements', {
       'id': 'adj-1',
@@ -157,5 +177,28 @@ void main() {
     });
     final pending = await pendingDeltas();
     expect(pending['p2'], 5);
+  });
+
+  test('catalog snapshot does not restore the pre-sale quantity', () {
+    expect(
+      OfflineStore.mergeOnHand(incoming: 61, pending: 0, local: 58, lastCloud: 61),
+      58,
+    );
+    expect(
+      OfflineStore.mergeOnHand(incoming: 61, pending: -3, local: 61, lastCloud: 61),
+      58,
+    );
+    expect(
+      OfflineStore.mergeOnHand(incoming: 56, pending: 0, local: 58, lastCloud: 61),
+      56,
+    );
+    expect(
+      OfflineStore.mergeOnHand(incoming: 71, pending: 0, local: 58, lastCloud: 61),
+      68,
+    );
+    expect(
+      OfflineStore.mergeOnHand(incoming: 68, pending: 0, local: 58, lastCloud: 58),
+      68,
+    );
   });
 }

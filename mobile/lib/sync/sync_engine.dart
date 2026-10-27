@@ -108,6 +108,7 @@ class SyncEngine extends ChangeNotifier {
   }
 
   Future<void> _boot() async {
+    await OfflineStore.instance.reconcilePendingSaleStock();
     await OfflineStore.instance.releaseStuck();
     await _bindRealtime();
     await refreshCounts();
@@ -1438,7 +1439,14 @@ class SyncEngine extends ChangeNotifier {
           }),
         )
         .timeout(const Duration(seconds: 8));
-    if (response.statusCode != 200 || target != _internalBase) return;
+    if (response.statusCode != 200) return;
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>? ?? body;
+    final warehouse = data['sale_warehouse_id']?.toString().trim() ?? '';
+    if (warehouse.isNotEmpty) {
+      await OfflineStore.instance.setCheckpoint('sale_warehouse_id', warehouse);
+    }
+    if (target != _internalBase) return;
     await _applyStockBody(response.body);
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/app_config.dart';
@@ -11,6 +12,7 @@ import '../../../receipt/services/print_once.dart';
 import '../../data/pos_api_service.dart';
 import '../../domain/pos_models.dart';
 import '../../services/pos_cart_engine.dart';
+import '../bloc/product_bloc.dart';
 import 'customer_picker_dialog.dart';
 import 'pos_discount_dialog.dart';
 import 'pos_payment_dialog.dart';
@@ -736,11 +738,15 @@ class PosFooterPanel extends StatelessWidget {
                                         IconButton(
                                           tooltip: tr('Supprimer'),
                                           onPressed: () async {
+                                            final restored = await api.voidLocalSale(sale.id);
                                             final serverId = sale.serverId;
-                                            if (serverId != null && serverId.isNotEmpty) {
+                                            if (restored == null && serverId != null && serverId.isNotEmpty) {
                                               try {
                                                 await api.discardHold(serverId);
                                               } catch (_) {}
+                                            }
+                                            if (restored != null && restored.isNotEmpty && context.mounted) {
+                                              context.read<ProductBloc>().add(ProductStockAdjusted(restored));
                                             }
                                             cart.deleteHeldSale(sale.id);
                                             if (ctx.mounted) Navigator.pop(ctx);

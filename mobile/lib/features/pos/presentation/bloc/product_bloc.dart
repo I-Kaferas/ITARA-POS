@@ -167,11 +167,14 @@ class ProductBloc extends Bloc<ProductEvent, ProductState> {
     }
 
     try {
-      await _offline.cacheCatalog(PosCatalog(
-        storeId: catalog.storeId,
-        products: products,
-        categories: catalog.categories,
-      ));
+      await _offline.cacheCatalog(
+        PosCatalog(
+          storeId: catalog.storeId,
+          products: products,
+          categories: catalog.categories,
+        ),
+        stockFromCloud: false,
+      );
     } catch (_) {}
   }
 

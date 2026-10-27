@@ -68,6 +68,8 @@ class PosApiService {
         if (_authToken.isNotEmpty) 'Authorization': 'Bearer $_authToken',
         if (_tenantId.isNotEmpty) 'X-Tenant-ID': _tenantId,
         if (_storeId.isNotEmpty) 'X-Store-ID': _storeId,
+        if (TerminalConfigRepository.instance.config.deviceId.isNotEmpty)
+          'X-Device-ID': TerminalConfigRepository.instance.config.deviceId,
       };
 
   String get storeId => _storeId;
@@ -257,6 +259,10 @@ class PosApiService {
     if (response.statusCode != 200) return null;
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     return body['data'] as Map<String, dynamic>? ?? body;
+  }
+
+  Future<List<Map<String, dynamic>>?> voidLocalSale(String saleId) {
+    return OfflineStore.instance.voidUnsyncedSale(saleId);
   }
 
   Future<void> discardHold(String saleId) async {

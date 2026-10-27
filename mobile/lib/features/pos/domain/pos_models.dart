@@ -532,24 +532,53 @@ class PosBundleItem {
       };
 }
 
+class PosStockLine {
+  const PosStockLine({
+    required this.productId,
+    required this.warehouseId,
+    required this.quantity,
+    this.variantId,
+  });
+
+  final String productId;
+  final String warehouseId;
+  final String? variantId;
+  final int quantity;
+
+  factory PosStockLine.fromJson(Map<String, dynamic> json) {
+    return PosStockLine(
+      productId: PosProduct._text(json['product_id']),
+      warehouseId: PosProduct._text(json['warehouse_id']),
+      variantId: PosProduct._text(json['variant_id']).isEmpty ? null : PosProduct._text(json['variant_id']),
+      quantity: PosProduct._amount(json['quantity_on_hand']),
+    );
+  }
+}
+
 class PosCatalog {
   const PosCatalog({
     required this.storeId,
     required this.products,
     required this.categories,
+    this.saleWarehouseId = '',
+    this.stock = const [],
   });
 
   final String storeId;
   final List<PosProduct> products;
   final List<PosCategory> categories;
+  final String saleWarehouseId;
+  final List<PosStockLine> stock;
 
   factory PosCatalog.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
     final productsJson = data['products'] as List<dynamic>? ?? [];
     final categoriesJson = data['categories'] as List<dynamic>? ?? [];
+    final stockJson = data['stock'] as List<dynamic>? ?? [];
 
     return PosCatalog(
       storeId: PosProduct._text(data['store_id']),
+      saleWarehouseId: PosProduct._text(data['sale_warehouse_id']),
       products: productsJson
           .whereType<Map>()
           .map((p) => PosProduct.fromJson(Map<String, dynamic>.from(p)))
@@ -559,6 +588,11 @@ class PosCatalog {
           .whereType<Map>()
           .map((c) => PosCategory.fromJson(Map<String, dynamic>.from(c)))
           .where((category) => category.id.isNotEmpty)
+          .toList(),
+      stock: stockJson
+          .whereType<Map>()
+          .map((row) => PosStockLine.fromJson(Map<String, dynamic>.from(row)))
+          .where((row) => row.productId.isNotEmpty && row.warehouseId.isNotEmpty)
           .toList(),
     );
   }

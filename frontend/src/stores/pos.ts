@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { api, extractApiErrorMessage, type ApiItemResponse, type ApiListResponse } from '../api/client'
 import { isQueuedResponse } from '../offline/gateway'
+import { backfillQueuedSaleStock, pendingSaleDeltas, voidSaleStock } from '../offline/stock'
 import type {
   CartCalculation,
   CartDiscountPayload,
@@ -184,18 +185,58 @@ export const usePosStore = defineStore('pos', () => {
     }
   }
 
+  const lastCloudQty = new Map<string, number>()
+  const saleWarehouseId = ref<string | null>(null)
+
+  function mergedOnHand(productId: string, incoming: number, local: number | null): number {
+    if (local == null || !Number.isFinite(local)) return incoming
+    if (!Number.isFinite(incoming)) return local
+    if (incoming <= local) return incoming
+    const last = lastCloudQty.get(productId)
+    if (last != null && incoming > last) {
+      const unreflected = last - local
+      if (unreflected > 0) return local + (incoming - last)
+      return incoming
+    }
+    return local
+  }
+
   async function fetchCatalog(storeId: string) {
+    await backfillQueuedSaleStock()
+    const pending = await pendingSaleDeltas()
     const res = await api.get<ApiItemResponse<{
       products: PosProduct[]
       categories: PosCategory[]
+      sale_warehouse_id?: string | null
       registers?: Array<{ id: string; name: string; code?: string }>
     }>>(
       `/stores/${storeId}/pos/catalog`,
     )
-    products.value = (res.data.products ?? []).map(product => ({
-      ...product,
-      primary_image_cdn_url: null,
-    }))
+    const reportedWarehouse = res.data.sale_warehouse_id
+    saleWarehouseId.value = typeof reportedWarehouse === 'string' && reportedWarehouse ? reportedWarehouse : null
+    const previous = new Map(
+      products.value.map(product => [product.product_id, Number(product.quantity_on_hand)]),
+    )
+    products.value = (res.data.products ?? []).map(product => {
+      const incomingRaw = Number(product.quantity_on_hand)
+      const pendingDelta = pending.get(product.product_id) ?? 0
+      const incoming = Number.isFinite(incomingRaw) ? incomingRaw + pendingDelta : incomingRaw
+      const localRaw = previous.get(product.product_id)
+      const local = localRaw != null && Number.isFinite(localRaw) ? localRaw : null
+      const next = Number.isFinite(incoming)
+        ? mergedOnHand(product.product_id, incoming, local)
+        : product.quantity_on_hand
+      if (Number.isFinite(incomingRaw)) lastCloudQty.set(product.product_id, incomingRaw)
+      const unitLabel = typeof product.stock_display === 'string'
+        ? product.stock_display.replace(/^\d+(\.\d+)?\s*/, '').trim()
+        : ''
+      return {
+        ...product,
+        quantity_on_hand: next,
+        stock_display: unitLabel && Number.isFinite(Number(next)) ? `${next} ${unitLabel}` : product.stock_display,
+        primary_image_cdn_url: null,
+      }
+    })
     categories.value = res.data.categories ?? []
     const catalogRegisters = res.data.registers
     if (Array.isArray(catalogRegisters) && catalogRegisters.length) {
@@ -742,7 +783,28 @@ export const usePosStore = defineStore('pos', () => {
     await api.put(`/sales/${pendingSaleId.value}`, cartPayload())
   }
 
+  function applyStockRestore(deltas: Record<string, number>) {
+    const adds = new Map(Object.entries(deltas).filter(([, qty]) => qty))
+    if (!adds.size) return
+    products.value = products.value.map((product) => {
+      const add = adds.get(product.product_id)
+      if (!add) return product
+      const current = Number(product.quantity_on_hand)
+      if (!Number.isFinite(current)) return product
+      const next = current + add
+      const unitLabel = typeof product.stock_display === 'string'
+        ? product.stock_display.replace(/^\d+(\.\d+)?\s*/, '').trim()
+        : ''
+      return {
+        ...product,
+        quantity_on_hand: next,
+        stock_display: unitLabel ? `${next} ${unitLabel}` : String(next),
+      }
+    })
+  }
+
   async function deleteHeldSale(heldSaleId: string) {
+    applyStockRestore(await voidSaleStock(heldSaleId))
     await api.delete(`/sales/${heldSaleId}`)
     if (pendingSaleId.value === heldSaleId) {
       pendingSaleId.value = null
@@ -934,17 +996,24 @@ export const usePosStore = defineStore('pos', () => {
         apply_promotions: true,
         table_id: activeTable.value?.id ?? undefined,
         ...serviceExtras(),
-        items: lines.value.map(line => ({
-          line_id: line.lineId,
-          product_id: line.product.product_id,
-          product_variant_id: line.variantId,
-          sale_unit_id: line.saleUnitId,
-          quantity: line.quantity,
-          ...(line.isAccompaniment ? { unit_price: 0, is_accompaniment: true } : {}),
-          line_discount: line.lineDiscountFixed
-            ? { type: 'fixed' as const, value: line.lineDiscountFixed }
-            : undefined,
-        })),
+        ...(saleWarehouseId.value ? { warehouse_id: saleWarehouseId.value } : {}),
+        items: lines.value.map((line) => {
+          const saleUnit = line.product.sale_units?.find(unit => unit.id === line.saleUnitId)
+          const unit = saleUnit?.volume_ml && saleUnit.volume_ml > 0 ? saleUnit.volume_ml : 1
+          const tracksStock = !line.isAccompaniment && needsSaleQuantity(line.product)
+          return {
+            line_id: line.lineId,
+            product_id: line.product.product_id,
+            product_variant_id: line.variantId,
+            sale_unit_id: line.saleUnitId,
+            quantity: line.quantity,
+            stock_quantity: tracksStock ? line.quantity * unit : 0,
+            ...(line.isAccompaniment ? { unit_price: 0, is_accompaniment: true } : {}),
+            line_discount: line.lineDiscountFixed
+              ? { type: 'fixed' as const, value: line.lineDiscountFixed }
+              : undefined,
+          }
+        }),
         global_discount: globalDiscount.value ?? undefined,
         loyalty_points: loyaltyPoints.value > 0 ? loyaltyPoints.value : undefined,
         fees: fees.value,
@@ -1111,6 +1180,7 @@ export const usePosStore = defineStore('pos', () => {
     holdSale,
     retrieveSale,
     deleteHeldSale,
+    applyStockRestore,
     refreshHeldSales,
     cancel,
     pay,

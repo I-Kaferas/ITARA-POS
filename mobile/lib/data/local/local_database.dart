@@ -24,6 +24,17 @@ class LocalDatabase {
     return p.join(dir.path, 'pos_offline.sqlite');
   }
 
+  /// One-shot copy of the offline database before the stock reconciliation.
+  Future<void> backupOnce(String suffix) async {
+    await checkpoint();
+    final path = await sqlitePath();
+    final source = File(path);
+    if (!await source.exists()) return;
+    final bak = File('$path.$suffix');
+    if (await bak.exists()) return;
+    await source.copy(bak.path);
+  }
+
   Future<void> checkpoint() async {
     final db = await database;
     await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
@@ -53,7 +64,7 @@ class LocalDatabase {
     final path = p.join(dir.path, 'pos_offline.sqlite');
     return openDatabase(
       path,
-      version: 16,
+      version: 17,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -98,7 +109,10 @@ class LocalDatabase {
             product_id TEXT NOT NULL,
             quantity INTEGER NOT NULL,
             type TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            warehouse_id TEXT,
+            variant_id TEXT,
+            sync_status TEXT NOT NULL DEFAULT 'pending'
           )
         ''');
         await db.execute('''
@@ -145,6 +159,7 @@ class LocalDatabase {
         await _createDataModelV12(db);
         await _createAppLogs(db);
         await _createPrintedDocuments(db);
+        await _upgradeStockLedgerV17(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -194,6 +209,9 @@ class LocalDatabase {
         }
         if (oldVersion < 16) {
           await _migrateShiftsStoreIdV16(db);
+        }
+        if (oldVersion < 17) {
+          await _upgradeStockLedgerV17(db);
         }
       },
     );
@@ -533,6 +551,26 @@ class LocalDatabase {
         opened_at TEXT NOT NULL
       )
     ''');
+  }
+
+  static Future<void> _upgradeStockLedgerV17(Database db) async {
+    await _addColumn(db, 'stock_movements', 'warehouse_id', 'TEXT');
+    await _addColumn(db, 'stock_movements', 'variant_id', 'TEXT');
+    await _addColumn(db, 'stock_movements', 'sync_status', "TEXT NOT NULL DEFAULT 'pending'");
+    await _addColumn(db, 'stocks', 'variant_id', 'TEXT');
+    final rows = await db.query('stocks', orderBy: 'updated_at DESC');
+    final seen = <String>{};
+    for (final row in rows) {
+      final key = '${row['product_id']}|${row['store_id']}|${row['warehouse_id']}|${row['variant_id']}';
+      if (!seen.add(key)) {
+        await db.delete('stocks', where: 'id = ?', whereArgs: [row['id']]);
+      }
+    }
+    await db.execute('DROP INDEX IF EXISTS idx_stocks_product_store');
+    await db.execute(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_stocks_balance ON stocks("
+      "product_id, IFNULL(store_id, ''), IFNULL(warehouse_id, ''), IFNULL(variant_id, ''))",
+    );
   }
 
   static Future<void> _addColumn(Database db, String table, String column, String type) async {
