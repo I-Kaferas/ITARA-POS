@@ -181,7 +181,7 @@ async function onSplashDone() {
     await router.push({ name: 'platform' })
     return
   }
-  await router.push({ name: 'dashboard' })
+  await router.push({ name: 'profile' })
 }
 
 async function submit() {

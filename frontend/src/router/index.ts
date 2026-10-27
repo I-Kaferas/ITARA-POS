@@ -914,7 +914,7 @@ router.beforeEach(async (to) => {
 
   // Public signing links must stay reachable even when staff is logged in.
   if (to.meta.guest && isAuthenticated() && to.name !== 'stay-sign') {
-    return { name: 'dashboard' }
+    return { name: 'profile' }
   }
 
   if (isAuthenticated()) {

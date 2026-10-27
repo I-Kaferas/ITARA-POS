@@ -1743,7 +1743,7 @@ select[data-select-open] {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   transform-origin: top center;
@@ -1877,6 +1877,16 @@ select[data-select-open] {
 
 .select-pop__option--active.select-pop__option--focus {
   background: color-mix(in srgb, var(--color-brand-600) 13%, var(--color-surface));
+}
+
+html:not([data-theme="dark"]) .select-pop__option:hover,
+html:not([data-theme="dark"]) .select-pop__option--focus {
+  background: #f5f6fa;
+}
+
+html:not([data-theme="dark"]) .select-pop__option--active,
+html:not([data-theme="dark"]) .select-pop__option--active.select-pop__option--focus {
+  background: #e4edf2;
 }
 
 .select-pop__option:disabled {

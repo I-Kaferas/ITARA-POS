@@ -58,10 +58,6 @@ function isEnhanced(target: EventTarget | null): target is HTMLSelectElement {
     && !target.closest('[data-native-selects]')
 }
 
-function zoomFactor(): number {
-  return Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1
-}
-
 function ownText(el: Element | null | undefined): string {
   if (!el) return ''
   const clone = el.cloneNode(true) as Element
@@ -205,28 +201,28 @@ function buildPanel(select: HTMLSelectElement): OpenMenu {
 function place(state: OpenMenu) {
   const { select, panel } = state
   const rect = select.getBoundingClientRect()
-  const zoom = zoomFactor()
-  const layoutWidth = window.innerWidth / zoom
-  const layoutHeight = window.innerHeight / zoom
+  const viewWidth = window.innerWidth
+  const viewHeight = window.innerHeight
 
-  const maxWidth = Math.min(Math.max(416, rect.width), layoutWidth - VIEWPORT_PAD * 2)
-  panel.style.width = ''
-  panel.style.minWidth = `${Math.min(Math.max(rect.width, 224), maxWidth)}px`
-  panel.style.maxWidth = `${maxWidth}px`
-  const width = panel.offsetWidth
-  const left = Math.min(Math.max(VIEWPORT_PAD, rect.left), layoutWidth - width - VIEWPORT_PAD)
+  const cardMax = Math.min(352, viewWidth - VIEWPORT_PAD * 2)
+  const cardMin = Math.min(240, cardMax)
+  const width = Math.min(Math.max(rect.width, cardMin), cardMax)
+  panel.style.width = `${width}px`
+  panel.style.minWidth = ''
+  panel.style.maxWidth = ''
+  const left = Math.min(Math.max(VIEWPORT_PAD, rect.left), Math.max(VIEWPORT_PAD, viewWidth - width - VIEWPORT_PAD))
   panel.style.left = `${left}px`
 
-  const below = layoutHeight - rect.bottom - PANEL_GAP - VIEWPORT_PAD
+  const below = viewHeight - rect.bottom - PANEL_GAP - VIEWPORT_PAD
   const above = rect.top - PANEL_GAP - VIEWPORT_PAD
   const natural = Math.min(panel.scrollHeight, 352)
   const flip = below < Math.min(natural, 220) && above > below
-  const room = Math.max(160, flip ? above : below)
+  const room = Math.max(120, flip ? above : below)
   panel.style.maxHeight = `${Math.min(352, room)}px`
   panel.classList.toggle('select-pop--above', flip)
   if (flip) {
     panel.style.top = ''
-    panel.style.bottom = `${layoutHeight - rect.top + PANEL_GAP}px`
+    panel.style.bottom = `${viewHeight - rect.top + PANEL_GAP}px`
   } else {
     panel.style.bottom = ''
     panel.style.top = `${rect.bottom + PANEL_GAP}px`
@@ -474,8 +470,7 @@ function onViewportChange(event: Event) {
   if (!state) return
   if (event.type === 'scroll' && state.panel.contains(event.target as Node)) return
   const rect = state.select.getBoundingClientRect()
-  const zoom = zoomFactor()
-  if (rect.bottom < 0 || rect.top > window.innerHeight / zoom) {
+  if (rect.bottom < 0 || rect.top > window.innerHeight) {
     close(false)
     return
   }
