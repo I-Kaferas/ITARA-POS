@@ -1817,6 +1817,7 @@
     "cost": "Prix d'achat",
     "barcode": "Code-barres",
     "stock": "Stock",
+    "stores": "Magasins",
     "status": "Statut",
     "active": "Actif",
     "inactive": "Inactif",
@@ -2567,6 +2568,35 @@
         "expired": "Expiration",
         "order_error": "Erreur de commande",
         "other": "Autre"
+      },
+      "returnsPage": {
+        "title": "Retours achats",
+        "new": "Nouveau retour",
+        "allStatuses": "Tous les statuts",
+        "allTypes": "Tous les types",
+        "search": "Rechercher par numéro, fournisseur, commande",
+        "number": "Numéro",
+        "supplier": "Fournisseur",
+        "poNumber": "Bon de commande",
+        "type": "Type",
+        "total": "Total",
+        "status": "Statut",
+        "date": "Date",
+        "actions": "Actions",
+        "empty": "Aucun retour d'achat.",
+        "statuses": {
+          "draft": "Brouillon",
+          "submitted": "Soumis",
+          "approved": "Approuvé",
+          "completed": "Terminé",
+          "rejected": "Rejeté",
+          "cancelled": "Annulé"
+        },
+        "types": {
+          "refund": "Remboursement",
+          "replacement": "Remplacement",
+          "credit_note": "Avoir"
+        }
       }
     },
     "order": "Commande",
@@ -3619,6 +3649,7 @@
       "noTasks": "Aucune tâche ouverte",
       "noReservations": "Aucune réservation sur les 7 derniers jours",
       "overallRating": "Note globale",
+      "ratingImpressive": "Impressionnant",
       "ratingNone": "Pas encore d'avis",
       "fromReviews": "sur {count} avis",
       "cleanliness": "Propreté",

@@ -132,7 +132,8 @@ class PosCartEngine extends ChangeNotifier {
     if (notify) notifyListeners();
   }
 
-  void addProduct(PosProduct product, {int quantity = 1, PosVariant? variant, String? saleUnitId}) {
+  bool addProduct(PosProduct product, {int quantity = 1, PosVariant? variant, String? saleUnitId}) {
+    if (!_allowsMore(product, quantity, saleUnitId)) return false;
     final variantId = variant?.id;
     final existing = _lines.cast<PosCartLine?>().firstWhere(
           (line) =>
@@ -168,6 +169,32 @@ class PosCartEngine extends ChangeNotifier {
     }
     _clearServerTotals();
     notifyListeners();
+    return true;
+  }
+
+  /// Stockable products cannot be sold once on-hand is 0, negative, or already in the cart.
+  bool _allowsMore(PosProduct product, int quantity, String? saleUnitId) {
+    if (quantity <= 0) return false;
+    if (!product.tracksStock) return true;
+    final onHand = product.quantityOnHand;
+    if (onHand == null) return true;
+    if (onHand <= 0) return false;
+    final needed = _stockUnits(product, quantity, saleUnitId);
+    final reserved = _lines
+        .where((line) => !line.isAccompaniment && line.product.productId == product.productId)
+        .fold<int>(0, (sum, line) => sum + line.stockQuantity);
+    return reserved + needed <= onHand;
+  }
+
+  int _stockUnits(PosProduct product, int quantity, String? saleUnitId) {
+    if (saleUnitId != null && saleUnitId.isNotEmpty) {
+      final unit = product.saleUnits.cast<PosSaleUnit?>().firstWhere(
+            (item) => item!.id == saleUnitId,
+            orElse: () => null,
+          );
+      if (unit != null && unit.volumeMl > 0) return quantity * unit.volumeMl;
+    }
+    return quantity;
   }
 
   void addAccompaniments(PosCartLine parentLine, List<PosProduct> products) {
@@ -207,6 +234,10 @@ class PosCartEngine extends ChangeNotifier {
       return;
     }
 
+    if (!line.isAccompaniment && quantity > line.quantity && !_allowsMore(line.product, quantity - line.quantity, line.saleUnitId)) {
+      return;
+    }
+
     line.quantity = quantity;
     for (final child in _lines.where((item) => item.parentLineId == lineId)) {
       child.quantity = quantity;
@@ -236,6 +267,9 @@ class PosCartEngine extends ChangeNotifier {
       removeLine(lineId);
       return;
     }
+    if (!line.isAccompaniment && quantity > line.quantity && !_allowsMore(line.product, quantity - line.quantity, line.saleUnitId)) {
+      return;
+    }
     line.quantity = quantity;
     if (!line.isAccompaniment) {
       line.unitPrice = unitPrice.clamp(0, 1 << 31);
@@ -248,9 +282,12 @@ class PosCartEngine extends ChangeNotifier {
     notifyListeners();
   }
 
-  void incrementQuantity(String lineId) {
+  bool incrementQuantity(String lineId) {
     final line = _lineById(lineId);
-    if (line != null) updateQuantity(lineId, line.quantity + 1);
+    if (line == null) return false;
+    final before = line.quantity;
+    updateQuantity(lineId, line.quantity + 1);
+    return line.quantity > before;
   }
 
   void decrementQuantity(String lineId) {

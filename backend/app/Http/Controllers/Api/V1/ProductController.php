@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Catalog;
 use App\Models\Product;
 use App\Models\StockBalance;
+use App\Models\Store;
+use App\Models\StoreProduct;
 use App\Models\Tenant;
+use App\Services\Catalog\PosCatalogSyncService;
 use App\Services\Catalog\ProductCatalogService;
 use App\Services\Platform\SaasLimitGuard;
 use Illuminate\Http\JsonResponse;
@@ -17,13 +20,22 @@ use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
-    public function __construct(private ProductCatalogService $catalog) {}
+    public function __construct(
+        private ProductCatalogService $catalog,
+        private PosCatalogSyncService $posCatalog,
+    ) {}
 
     public function index(Request $request, Catalog $catalog): JsonResponse
     {
+        $store = $this->storeScope($request);
+
         $query = $catalog->products()
             ->with($this->listWith($request))
             ->orderBy('name');
+
+        if ($store) {
+            $query->whereHas('storeProducts', fn ($assortment) => $assortment->where('store_id', $store->id));
+        }
 
         if ($type = $request->string('product_type')->toString()) {
             $query->where('product_type', $type);
@@ -55,7 +67,7 @@ class ProductController extends Controller
 
         if ($request->has('per_page') || $request->has('page')) {
             $page = $query->paginate($request->pageSize(40));
-            $rows = $this->presentList($this->withStock(collect($page->items())), $request->boolean('compact'));
+            $rows = $this->presentList($this->withStores($this->withStock(collect($page->items()), $store)), $request->boolean('compact'));
 
             return response()->json([
                 'data' => $rows->values(),
@@ -69,7 +81,7 @@ class ProductController extends Controller
         }
 
         return response()->json([
-            'data' => $this->presentList($this->withStock($query->get()), $request->boolean('compact'))->values(),
+            'data' => $this->presentList($this->withStores($this->withStock($query->get(), $store)), $request->boolean('compact'))->values(),
         ]);
     }
 
@@ -113,10 +125,25 @@ class ProductController extends Controller
     }
 
     /**
+     * The products screen asks for the magasin in the request header.
+     * Other catalog callers keep the full list.
+     */
+    private function storeScope(Request $request): ?Store
+    {
+        if (! $request->boolean('for_store') || ! app()->bound('store')) {
+            return null;
+        }
+
+        $store = app('store');
+
+        return $store instanceof Store ? $store : null;
+    }
+
+    /**
      * @param  Collection<int, Product>  $products
      * @return Collection<int, Product>
      */
-    private function withStock(Collection $products): Collection
+    private function withStock(Collection $products, ?Store $store = null): Collection
     {
         if ($products->isEmpty() || ! Schema::hasTable('stock_balances')) {
             $products->each(fn (Product $product) => $product->setAttribute('stock', 0));
@@ -124,14 +151,52 @@ class ProductController extends Controller
             return $products;
         }
 
-        $stock = StockBalance::query()
-            ->whereIn('product_id', $products->pluck('id'))
-            ->selectRaw('product_id, SUM(quantity_on_hand) as qty')
-            ->groupBy('product_id')
-            ->pluck('qty', 'product_id');
+        if ($store) {
+            $stock = $this->posCatalog->onHandForProducts($store, $products->pluck('id'));
+        } else {
+            $stock = StockBalance::query()
+                ->whereIn('product_id', $products->pluck('id'))
+                ->selectRaw('product_id, SUM(quantity_on_hand) as qty')
+                ->groupBy('product_id')
+                ->pluck('qty', 'product_id');
+        }
 
         $products->each(function (Product $product) use ($stock): void {
             $product->setAttribute('stock', (int) ($stock[$product->id] ?? 0));
+        });
+
+        return $products;
+    }
+
+    /**
+     * Magasin names from the store assortment. A product can belong to several.
+     *
+     * @param  Collection<int, Product>  $products
+     * @return Collection<int, Product>
+     */
+    private function withStores(Collection $products): Collection
+    {
+        if ($products->isEmpty() || ! Schema::hasTable('store_products')) {
+            $products->each(fn (Product $product) => $product->setAttribute('stores', []));
+
+            return $products;
+        }
+
+        $byProduct = StoreProduct::query()
+            ->whereIn('product_id', $products->pluck('id'))
+            ->with('store:id,name')
+            ->get()
+            ->groupBy('product_id');
+
+        $products->each(function (Product $product) use ($byProduct): void {
+            $names = $byProduct->get($product->id, collect())
+                ->map(fn (StoreProduct $row) => $row->store?->name)
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+            $product->setAttribute('stores', $names);
         });
 
         return $products;

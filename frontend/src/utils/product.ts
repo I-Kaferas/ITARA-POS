@@ -20,7 +20,7 @@ export function needsSaleQuantity(product: { product_type?: string | null; requi
 export function catalogOnHand(product: Pick<PosProduct, 'quantity_on_hand' | 'stock_display'>): number | null {
   let current = Number(product.quantity_on_hand)
   if (!Number.isFinite(current) && typeof product.stock_display === 'string') {
-    const match = product.stock_display.match(/^(\d+(?:\.\d+)?)/)
+    const match = product.stock_display.match(/^(-?\d+(?:\.\d+)?)/)
     current = match ? Number(match[1]) : NaN
   }
   return Number.isFinite(current) ? current : null

@@ -63,7 +63,7 @@ class _QuickChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final available = product.isAvailable;
+    final available = product.canAdd();
     return Material(
       color: available ? AppColors.brand50 : AppColors.fieldFill,
       borderRadius: BorderRadius.circular(PosUi.radiusSm),

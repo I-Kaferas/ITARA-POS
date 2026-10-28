@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '../ui/AppIcon.vue'
 import { formatMoney } from '../../utils/money'
-import { availableStock, needsSaleQuantity } from '../../utils/product'
+import { availableStock, catalogOnHand, needsSaleQuantity } from '../../utils/product'
 import type { PosProduct } from '../../types/pos'
 
 const props = defineProps<{
@@ -43,6 +43,8 @@ function availableOnHand(product: PosProduct): number | null {
 function isSoldOut(product: PosProduct) {
   if (product.is_available === false) return true
   if (!needsSaleQuantity(product)) return false
+  const onHand = catalogOnHand(product)
+  if (onHand !== null && onHand <= 0) return true
   const available = availableOnHand(product)
   return available !== null && available <= 0
 }
@@ -142,7 +144,7 @@ function onMinus(event: Event, product: PosProduct) {
             <span v-else class="pos-products__nophoto">
               <AppIcon name="products" :size="32" />
             </span>
-            <span v-if="isSoldOut(product)" class="pos-products__badge pos-products__badge--out">{{ t('pos.outShort') }}</span>
+            <span v-if="isSoldOut(product)" class="pos-products__badge pos-products__badge--out">{{ t('pos.outOfStock') }}</span>
             <span v-else-if="hasOptions(product)" class="pos-products__badge pos-products__badge--opt">{{ t('pos.optionsShort') }}</span>
           </div>
           <div class="pos-products__body">
@@ -154,7 +156,8 @@ function onMinus(event: Event, product: PosProduct) {
                 class="pos-products__stock"
                 :class="{ 'pos-products__stock--out': isSoldOut(product) }"
               >
-                · {{ availableOnHand(product) ?? '—' }} {{ t('pos.available') }}
+                <template v-if="isSoldOut(product)">· {{ t('pos.outOfStock') }}</template>
+                <template v-else>· {{ availableOnHand(product) ?? '—' }} {{ t('pos.available') }}</template>
               </span>
             </p>
           </div>
@@ -239,6 +242,11 @@ function onMinus(event: Event, product: PosProduct) {
 
 .pos-products__card--off {
   opacity: 0.72;
+}
+
+.pos-products__card--off .pos-products__hit,
+.pos-products__card--off .pos-products__qty-btn--plus {
+  cursor: not-allowed;
 }
 
 .pos-products__card--skel {
@@ -416,7 +424,24 @@ function onMinus(event: Event, product: PosProduct) {
 
 @media (max-width: 900px) {
   .pos-products__grid {
-    grid-template-columns: repeat(auto-fill, minmax(7.3rem, 8.6rem));
+    grid-template-columns: repeat(auto-fill, minmax(10.4rem, 1fr));
+    gap: 0.75rem;
+  }
+
+  .pos-products__name {
+    font-size: 0.9rem;
+  }
+
+  .pos-products__price {
+    font-size: 0.92rem;
+  }
+
+  .pos-products__body {
+    padding: 0.55rem 0.65rem 0.25rem;
+  }
+
+  .pos-products__footer {
+    padding: 0.25rem 0.65rem 0.6rem;
   }
 }
 </style>

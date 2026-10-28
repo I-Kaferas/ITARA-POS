@@ -25,11 +25,11 @@ const { t } = useI18n()
 .filter-fold {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: flex-end;
   gap: 0.75rem;
-  width: 100%;
-  min-width: 0;
+  width: fit-content;
   max-width: 100%;
+  min-width: 0;
 }
 .filter-fold__toggle {
   display: inline-flex;
@@ -44,7 +44,18 @@ const { t } = useI18n()
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  align-self: flex-start;
+  align-self: flex-end;
+}
+.filter-fold :deep(.fold-panel) {
+  width: 100%;
+  max-width: 100%;
+}
+.filter-fold :deep(.fold-panel__body) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  align-items: end;
+  gap: 0.75rem 1rem;
+  width: 100%;
 }
 .filter-fold__body {
   width: 100%;

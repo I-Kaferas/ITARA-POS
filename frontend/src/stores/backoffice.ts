@@ -879,21 +879,23 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     }>(`/catalogs/${catalogId}/price-list`)
   }
 
-  async function loadProducts(catalogId: string, search = '', options?: { full?: boolean }) {
+  async function loadProducts(catalogId: string, search = '', options?: { full?: boolean; forStore?: boolean }) {
     const params = new URLSearchParams()
     if (!options?.full) params.set('compact', '1')
+    if (options?.forStore) params.set('for_store', '1')
     if (search) params.set('search', search)
     const query = params.toString()
     products.value = (await api.get<ApiListResponse<Product>>(`/catalogs/${catalogId}/products${query ? `?${query}` : ''}`)).data
     return products.value
   }
 
-  async function loadProductPage(catalogId: string, search = '', page = 1, perPage = 40) {
+  async function loadProductPage(catalogId: string, search = '', page = 1, perPage = 40, options?: { forStore?: boolean }) {
     const params = new URLSearchParams({
       compact: '1',
       page: String(page),
       per_page: String(perPage),
     })
+    if (options?.forStore) params.set('for_store', '1')
     if (search) params.set('search', search)
     return api.get<{
       data: Product[]

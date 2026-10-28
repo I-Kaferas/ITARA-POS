@@ -269,12 +269,13 @@ class _ProductCardState extends State<_ProductCard> {
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
-    final available = product.isAvailable;
+    final onHand = product.quantityOnHand;
+    final remaining = onHand == null ? null : onHand - widget.quantity;
+    final ended = !product.isAvailable || product.isOutOfStock;
+    final canAdd = product.canAdd(inCart: widget.quantity);
     final price = MoneyFormatter.format(product.price, currencyCode: AppConfig.currencyCode);
     final imageUrl = resolvePosImageUrl(product.primaryImageUrl);
     final category = product.categoryName?.trim();
-    final onHand = product.quantityOnHand;
-    final remaining = onHand == null ? null : onHand - widget.quantity;
     final unit = (product.unit ?? '').trim();
     final stockColor = remaining == null
         ? PosUi.deskStock
@@ -290,7 +291,7 @@ class _ProductCardState extends State<_ProductCard> {
     final motion = AppMotion.resolve(context, AppMotion.micro);
     final borderColor = inCart
         ? PosUi.deskAccent
-        : !available
+        : !canAdd
             ? AppColors.danger.withValues(alpha: 0.4)
             : _hovered
                 ? PosUi.deskAccent.withValues(alpha: 0.5)
@@ -325,10 +326,10 @@ class _ProductCardState extends State<_ProductCard> {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            onTap: available ? widget.onTap : null,
+            onTap: canAdd ? widget.onTap : null,
             onLongPress: widget.onToggleFavorite,
             onHover: (value) => setState(() => _hovered = value),
-            onTapDown: available ? (_) => setState(() => _pressed = true) : null,
+            onTapDown: canAdd ? (_) => setState(() => _pressed = true) : null,
             onTapCancel: () => setState(() => _pressed = false),
             onTapUp: (_) => setState(() => _pressed = false),
             borderRadius: _cardRadius,
@@ -343,7 +344,7 @@ class _ProductCardState extends State<_ProductCard> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          _ProductPhoto(url: imageUrl, available: available),
+                          _ProductPhoto(url: imageUrl, available: canAdd),
                           const Positioned(
                             left: 0,
                             right: 0,
@@ -378,19 +379,19 @@ class _ProductCardState extends State<_ProductCard> {
                                 onTap: widget.onToggleFavorite,
                               ),
                             ),
-                          if (available && remaining != null)
+                          if (canAdd && remaining != null)
                             Positioned(
                               left: 7,
                               bottom: 7,
                               child: _StockPill(remaining: remaining, color: stockColor),
                             ),
-                          if (available && product.hasOptions)
+                          if (canAdd && product.hasOptions)
                             const Positioned(
                               right: 7,
                               bottom: 7,
                               child: _OptionsChip(),
                             ),
-                          if (!available) const _UnavailableVeil(),
+                          if (ended || !canAdd) _UnavailableVeil(label: product.isOutOfStock || (remaining != null && remaining <= 0) ? tr('Rupture') : tr('Indisponible')),
                         ],
                       ),
                     ),
@@ -410,7 +411,7 @@ class _ProductCardState extends State<_ProductCard> {
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               height: 1.22,
-                              color: available ? PosUi.deskText : PosUi.deskMuted,
+                              color: canAdd ? PosUi.deskText : PosUi.deskMuted,
                             ),
                           ),
                           if (sku.isNotEmpty) ...[
@@ -440,7 +441,7 @@ class _ProductCardState extends State<_ProductCard> {
                                         style: PosUi.money(
                                           size: 14,
                                           weight: FontWeight.w800,
-                                          color: available ? PosUi.deskText : PosUi.deskMuted,
+                                          color: canAdd ? PosUi.deskText : PosUi.deskMuted,
                                         ),
                                       ),
                                       if (unit.isNotEmpty)
@@ -457,7 +458,7 @@ class _ProductCardState extends State<_ProductCard> {
                               const SizedBox(width: 6),
                               _AddButton(
                                 quantity: widget.quantity,
-                                enabled: available,
+                                enabled: canAdd,
                                 duration: motion,
                               ),
                             ],
@@ -476,16 +477,40 @@ class _ProductCardState extends State<_ProductCard> {
   }
 }
 
-String? resolvePosImageUrl(String? raw) {
+String? resolvePosImageUrl(String? raw, {String? apiBaseUrl}) {
   if (raw == null || raw.trim().isEmpty) return null;
   final value = raw.trim();
-  if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  final origin = _apiOrigin(apiBaseUrl ?? TerminalConfigRepository.instance.config.apiBaseUrl);
+  final parsed = Uri.tryParse(value);
+  final absolute = parsed != null && parsed.hasScheme && parsed.host.isNotEmpty;
 
-  final api = TerminalConfigRepository.instance.config.apiBaseUrl;
-  final uri = Uri.tryParse(api);
-  if (uri == null || uri.host.isEmpty) return value;
-  final origin = '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+  // Product photos are stored with APP_URL (http://127.0.0.1:8001/storage/...).
+  // The web POS rewrites that to a same-origin /storage path. On a phone,
+  // 127.0.0.1 is the device itself, so the file must be loaded from the API host.
+  if (absolute && origin != null && _isLoopbackHost(parsed.host)) {
+    final base = Uri.parse(origin);
+    return Uri(
+      scheme: base.scheme,
+      host: base.host,
+      port: base.hasPort ? base.port : null,
+      path: parsed.path,
+      query: parsed.hasQuery ? parsed.query : null,
+    ).toString();
+  }
+  if (absolute) return value;
+  if (origin == null) return value;
   return value.startsWith('/') ? '$origin$value' : '$origin/$value';
+}
+
+String? _apiOrigin(String apiBaseUrl) {
+  final uri = Uri.tryParse(apiBaseUrl.trim());
+  if (uri == null || uri.host.isEmpty) return null;
+  return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+}
+
+bool _isLoopbackHost(String host) {
+  final value = host.toLowerCase();
+  return value == 'localhost' || value == '127.0.0.1' || value == '::1' || value == '0.0.0.0';
 }
 
 class _GlassChip extends StatelessWidget {
@@ -617,7 +642,9 @@ class _OptionsChip extends StatelessWidget {
 }
 
 class _UnavailableVeil extends StatelessWidget {
-  const _UnavailableVeil();
+  const _UnavailableVeil({required this.label});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -632,7 +659,7 @@ class _UnavailableVeil extends StatelessWidget {
               borderRadius: AppRadius.borderPill,
             ),
             child: Text(
-              tr('Indisponible'),
+              label,
               style: AppTypography.plex(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -766,33 +793,57 @@ class _PhoneProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final available = product.isAvailable;
+    final onHand = product.quantityOnHand;
+    final remaining = onHand == null ? null : onHand - quantity;
+    final ended = !product.isAvailable || product.isOutOfStock || (product.tracksStock && remaining != null && remaining <= 0);
+    final canAdd = product.canAdd(inCart: quantity);
     final price = MoneyFormatter.format(product.price, currencyCode: AppConfig.currencyCode);
     final imageUrl = resolvePosImageUrl(product.primaryImageUrl);
     final category = product.categoryName?.trim();
     final subtitle = product.hasOptions
         ? tr('Choisir une option')
         : (category != null && category.isNotEmpty ? tr(category) : '');
-    final onHand = product.quantityOnHand;
-    final remaining = onHand == null ? null : onHand - quantity;
 
     final photo = ClipRRect(
       borderRadius: BorderRadius.circular(list ? 12 : 14),
       child: ColoredBox(
         color: PosUi.deskPhoto,
-        child: imageUrl == null
-            ? Icon(Icons.landscape_outlined, color: PosUi.deskMuted, size: list ? 28 : 40)
-            : Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                errorBuilder: (_, _, _) => Icon(Icons.landscape_outlined, color: PosUi.deskMuted),
+        child: Stack(
+          fit: StackFit.expand,
+          alignment: Alignment.center,
+          children: [
+            imageUrl == null
+                ? Icon(Icons.landscape_outlined, color: PosUi.deskMuted, size: list ? 28 : 40)
+                : Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (_, _, _) => Icon(Icons.landscape_outlined, color: PosUi.deskMuted),
+                  ),
+            if (ended)
+              ColoredBox(
+                color: PosUi.deskCard.withValues(alpha: 0.55),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.danger,
+                      borderRadius: AppRadius.borderPill,
+                    ),
+                    child: Text(
+                      tr('Rupture'),
+                      style: AppTypography.plex(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+                ),
               ),
+          ],
+        ),
       ),
     );
 
-    final add = _PhoneAddButton(quantity: quantity, enabled: available);
+    final add = _PhoneAddButton(quantity: quantity, enabled: canAdd);
 
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -805,7 +856,7 @@ class _PhoneProductTile extends StatelessWidget {
             fontSize: 14,
             fontWeight: FontWeight.w700,
             height: 1.2,
-            color: available ? AppColors.textPrimary : AppColors.textMuted,
+            color: canAdd ? AppColors.textPrimary : AppColors.textMuted,
           ),
         ),
         if (subtitle.isNotEmpty) ...[
@@ -840,7 +891,7 @@ class _PhoneProductTile extends StatelessWidget {
       elevation: 0,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: available ? onTap : null,
+        onTap: canAdd ? onTap : null,
         onLongPress: onToggleFavorite,
         borderRadius: BorderRadius.circular(16),
         child: Ink(
@@ -879,7 +930,7 @@ class _PhoneProductTile extends StatelessWidget {
                               style: PosUi.money(
                                 size: 14,
                                 weight: FontWeight.w800,
-                                color: available ? AppColors.brandInk : AppColors.textMuted,
+                                color: canAdd ? AppColors.brandInk : AppColors.textMuted,
                               ),
                             ),
                           ],
@@ -909,7 +960,7 @@ class _PhoneProductTile extends StatelessWidget {
                                   style: PosUi.money(
                                     size: 14,
                                     weight: FontWeight.w800,
-                                    color: available ? AppColors.brandInk : AppColors.textMuted,
+                                    color: canAdd ? AppColors.brandInk : AppColors.textMuted,
                                   ),
                                 ),
                               ),

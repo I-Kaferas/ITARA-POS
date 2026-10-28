@@ -133,7 +133,6 @@
 .btn-group,
 .page-header__actions,
 .page-header-bar__actions,
-.ui-toolbar,
 .ui-table__actions,
 .app-modal__footer,
 .action-bar,
@@ -152,6 +151,12 @@
   justify-content: flex-end;
 }
 
+.page-header__actions,
+.page-header-bar__actions {
+  margin-left: auto;
+  align-self: flex-end;
+}
+
 .page-header,
 .page-header-bar,
 .action-bar {
@@ -168,8 +173,32 @@
   margin-right: auto;
 }
 
-.ui-toolbar {
-  align-items: center;
+.ui-toolbar:not(:has(> .grid)) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  justify-content: end;
+  align-items: end;
+  width: min(100%, 58rem);
+  margin-left: auto;
+}
+
+.ui-toolbar:not(:has(> .grid)) > .filter-fold,
+.ui-toolbar:not(:has(> .grid)) .ui-field {
+  width: 100%;
+  min-width: 0;
+  margin-left: 0;
+  align-items: stretch;
+}
+
+.ui-toolbar:not(:has(> .grid)) :is(.ui-select, .ui-input) {
+  width: 100%;
+}
+
+.ui-toolbar .products-actions {
+  grid-column: 1 / -1;
+  justify-self: end;
+  width: max-content;
+  max-width: 100%;
 }
 
 .ui-toolbar :is(input, select, .ui-input, .ui-select) {

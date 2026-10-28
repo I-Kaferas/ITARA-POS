@@ -181,9 +181,20 @@ function reset() {
   font-weight: 500;
   line-height: var(--line-sm);
   cursor: pointer;}
-.filters { display: flex; flex-wrap: wrap; gap: var(--field-gap) var(--space-3); align-items: center; width: 100%; }
-.filters .field { min-width: 9.5rem; }
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  align-items: end;
+  gap: var(--field-gap) var(--space-3);
+  width: min(100%, 58rem);
+  margin-left: auto;
+}
+.filters > * {
+  width: 100%;
+  min-width: 0;
+}
+.filters .field { min-width: 0; width: 100%; }
 
 
-.grow { flex: 1; min-width: 14rem; }
+.grow { width: 100%; min-width: 0; }
 </style>

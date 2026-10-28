@@ -696,6 +696,7 @@ export interface Product {
   base_price: number
   cost_price: number
   stock?: number
+  stores?: string[]
   created_at?: string | null
   is_active: boolean
   is_serialized?: boolean

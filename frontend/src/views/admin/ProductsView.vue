@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { watchLiveSearch } from '../../composables/useLiveSearch'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '../../composables/useConfirm'
@@ -48,13 +48,9 @@ onMounted(async () => {
   }
 })
 
-watch(() => context.currentStoreId, async () => {
-  if (selectedCompany.value) await selectCompany(selectedCompany.value.id)
-})
-
 async function selectCompany(companyId: string) {
   selectedCompany.value = store.companies.find(c => c.id === companyId) ?? null
-  const catalogs = await store.loadCatalogs(companyId, context.currentStoreId)
+  const catalogs = await store.loadCatalogs(companyId)
   selectedCatalog.value = catalogs.find(c => c.is_default) ?? catalogs[0] ?? null
   page.value = 1
   if (selectedCatalog.value) await loadPage(1)
@@ -281,7 +277,7 @@ async function exportPdf() {
             <th>{{ t('products.price') }}</th>
             <th>{{ t('products.cost') }}</th>
             <th>{{ t('catalog.tabs.taxes') }}</th>
-            <th>{{ t('products.stock') }}</th>
+            <th>{{ t('products.stores') }}</th>
             <th>{{ t('products.status') }}</th>
             <th />
           </tr>
@@ -322,7 +318,12 @@ async function exportPdf() {
             <td class="num">{{ formatMoney(product.base_price) }}</td>
             <td class="num">{{ formatMoney(product.cost_price ?? 0) }}</td>
             <td class="text-slate-600">{{ product.tax ? `${product.tax.code ?? product.tax.name}` : '—' }}</td>
-            <td class="num">{{ isStockableProduct(product) ? (product.stock ?? 0) : '' }}</td>
+            <td class="products-stores">
+              <ul v-if="product.stores?.length">
+                <li v-for="name in product.stores" :key="name">- {{ name }}</li>
+              </ul>
+              <span v-else>—</span>
+            </td>
             <td>
               <Badge :variant="product.is_active ? 'success' : 'neutral'">
                 {{ product.is_active ? t('products.active') : t('products.inactive') }}
@@ -352,8 +353,12 @@ async function exportPdf() {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
-  width: 100%;
+  grid-column: 1 / -1;
+  justify-self: end;
+  width: max-content;
+  max-width: 100%;
 }
 
 .products-export {
@@ -390,6 +395,19 @@ async function exportPdf() {
 
 .products-export__menu button:hover {
   background: var(--color-canvas);
+}
+
+.products-stores ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.products-stores li {
+  white-space: nowrap;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .products-note {

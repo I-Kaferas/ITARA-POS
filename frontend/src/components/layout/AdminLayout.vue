@@ -765,8 +765,13 @@ function storeParts(store: { name: string; branch?: { name?: string | null; comp
   return { title, place, meta: place }
 }
 
+const onHotelModule = computed(() => route.path.startsWith('/admin/hotel'))
+const queuedStoreId = ref<string | null>(null)
+const activeStoreId = computed(() => queuedStoreId.value ?? context.currentStoreId)
+const activeStore = computed(() => context.stores.find(store => store.id === activeStoreId.value) ?? context.currentStore)
+
 const currentStoreParts = computed(() => {
-  const store = context.currentStore
+  const store = activeStore.value
   return store ? storeParts(store) : { title: '', place: '', meta: '' }
 })
 
@@ -784,14 +789,19 @@ function toggleStoreMenu() {
   storeMenuOpen.value = !storeMenuOpen.value
   if (!storeMenuOpen.value) return
   userMenuOpen.value = false
-  const index = context.activeStores.findIndex(store => store.id === context.currentStoreId)
+  const index = context.activeStores.findIndex(store => store.id === activeStoreId.value)
   storeMenuActive.value = index >= 0 ? index : 0
   void nextTick(placeStoreMenu)
 }
 
 function chooseStore(id: string) {
-  context.selectStore(id)
   storeMenuOpen.value = false
+  if (onHotelModule.value) {
+    queuedStoreId.value = id === context.currentStoreId ? null : id
+    return
+  }
+  queuedStoreId.value = null
+  context.selectStore(id)
 }
 
 function placeCompanyMenu() {
@@ -920,17 +930,24 @@ onBeforeUnmount(() => {
   realtime.disconnect()
 })
 
-watch(() => route.path, (path) => {
+watch(() => route.path, (path, previous) => {
   userMenuOpen.value = false
   storeMenuOpen.value = false
   companyMenuOpen.value = false
   drawerOpen.value = false
   void syncOfflineRuntime(path)
+  const leftHotel = Boolean(previous?.startsWith('/admin/hotel')) && !path.startsWith('/admin/hotel')
+  if (!leftHotel) return
+  const nextId = queuedStoreId.value
+  queuedStoreId.value = null
+  if (nextId && nextId !== context.currentStoreId) context.selectStore(nextId)
 })
 
-const workspaceViewKey = computed(
-  () => `${route.path}|${auth.user?.tenant_id ?? 'none'}|${context.currentStoreId ?? 'none'}`,
-)
+const workspaceViewKey = computed(() => {
+  const ignoreStore = onHotelModule.value || route.path === '/admin/products'
+  const storeKey = ignoreStore ? 'shared' : (context.currentStoreId ?? 'none')
+  return `${route.path}|${auth.user?.tenant_id ?? 'none'}|${storeKey}`
+})
 
 watch(() => context.currentStoreId, (storeId, previous) => {
   if (previous && previous !== storeId) {
@@ -1214,11 +1231,11 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
                   type="button"
                   class="store-menu__option"
                   :class="{
-                    'store-menu__option--current': store.id === context.currentStoreId,
+                    'store-menu__option--current': store.id === activeStoreId,
                     'store-menu__option--focus': index === storeMenuActive,
                   }"
                   role="option"
-                  :aria-selected="store.id === context.currentStoreId"
+                  :aria-selected="store.id === activeStoreId"
                   @mouseenter="storeMenuActive = index"
                   @click="chooseStore(store.id)"
                 >
@@ -1230,7 +1247,7 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
                     <span v-if="storeParts(store).meta" class="store-menu__option-meta">{{ storeParts(store).meta }}</span>
                   </span>
                   <AppIcon
-                    v-if="store.id === context.currentStoreId"
+                    v-if="store.id === activeStoreId"
                     name="check"
                     :size="16"
                     class="store-menu__check"

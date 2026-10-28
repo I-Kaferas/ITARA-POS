@@ -1,28 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../domain/pos_models.dart';
-import '../../services/pos_favorites_store.dart';
 import 'pos_ui.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 
-/// Phone catalog chrome: category menu, search, grid and list.
+/// Phone catalog chrome: search, grid and list. Categories are the shared pills.
 class PosPhoneCatalogBar extends StatelessWidget {
   const PosPhoneCatalogBar({
     super.key,
-    required this.categories,
-    required this.selectedCategoryId,
-    required this.onCategorySelected,
     required this.searchOpen,
     required this.onToggleSearch,
     required this.listMode,
     required this.onListMode,
   });
 
-  final List<PosCategory> categories;
-  final String? selectedCategoryId;
-  final ValueChanged<String?> onCategorySelected;
   final bool searchOpen;
   final VoidCallback onToggleSearch;
   final bool listMode;
@@ -30,57 +21,16 @@ class PosPhoneCatalogBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = _label();
     return DecoratedBox(
       decoration: BoxDecoration(
         color: PosUi.deskCard,
         border: Border(bottom: BorderSide(color: PosUi.deskLine)),
       ),
       child: SizedBox(
-        height: 52,
+        height: 48,
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Expanded(
-              child: PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == '__all__') {
-                    onCategorySelected(null);
-                  } else {
-                    onCategorySelected(value);
-                  }
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(value: '__all__', child: Text(tr('Tous les produits'))),
-                  PopupMenuItem(
-                    value: PosFavoritesStore.favoritesCategoryId,
-                    child: Text(tr('Favoris')),
-                  ),
-                  for (final category in categories)
-                    PopupMenuItem(value: category.id, child: Text(tr(category.name))),
-                ],
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.plex(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
-                    ],
-                  ),
-                ),
-              ),
-            ),
             _ToolButton(
               icon: Icons.search_rounded,
               selected: searchOpen,
@@ -104,15 +54,6 @@ class PosPhoneCatalogBar extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _label() {
-    if (selectedCategoryId == null) return tr('Tous les produits');
-    if (selectedCategoryId == PosFavoritesStore.favoritesCategoryId) return tr('Favoris');
-    for (final category in categories) {
-      if (category.id == selectedCategoryId) return tr(category.name);
-    }
-    return tr('Tous les produits');
   }
 }
 

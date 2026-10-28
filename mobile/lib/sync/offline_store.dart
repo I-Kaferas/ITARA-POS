@@ -2795,6 +2795,7 @@ class OfflineStore {
       if (product.expiresAt != null) 'expires_at': product.expiresAt,
       'unit': product.unit,
       'product_type': product.productType,
+      if (product.requiresStock != null) 'requires_stock': product.requiresStock,
       'variants': product.variants.map((variant) => variant.toJson()).toList(),
     };
   }

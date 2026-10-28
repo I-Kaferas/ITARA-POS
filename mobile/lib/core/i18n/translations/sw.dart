@@ -1396,6 +1396,7 @@ const sw = <String, String>{
   'Today': 'Leo',
   'Today at a glance': 'Leo kwa muhtasari',
   'Today\'s Sales': 'Mauzo ya Leo',
+  'Tous': 'Zote',
   'Total': 'Jumla',
   'Total ': 'Jumla ',
   'Total : {0}': 'Jumla: {0}',

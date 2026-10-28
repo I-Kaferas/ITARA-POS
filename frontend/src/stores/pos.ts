@@ -228,7 +228,7 @@ export const usePosStore = defineStore('pos', () => {
         : product.quantity_on_hand
       if (Number.isFinite(incomingRaw)) lastCloudQty.set(product.product_id, incomingRaw)
       const unitLabel = typeof product.stock_display === 'string'
-        ? product.stock_display.replace(/^\d+(\.\d+)?\s*/, '').trim()
+        ? product.stock_display.replace(/^-?\d+(?:\.\d+)?\s*/, '').trim()
         : ''
       return {
         ...product,
@@ -292,7 +292,7 @@ export const usePosStore = defineStore('pos', () => {
       if (!Number.isFinite(current)) return product
       const next = Math.max(0, current - delta)
       const unitLabel = typeof product.stock_display === 'string'
-        ? product.stock_display.replace(/^\d+(\.\d+)?\s*/, '').trim()
+        ? product.stock_display.replace(/^-?\d+(?:\.\d+)?\s*/, '').trim()
         : ''
       return {
         ...product,
@@ -793,7 +793,7 @@ export const usePosStore = defineStore('pos', () => {
       if (!Number.isFinite(current)) return product
       const next = current + add
       const unitLabel = typeof product.stock_display === 'string'
-        ? product.stock_display.replace(/^\d+(\.\d+)?\s*/, '').trim()
+        ? product.stock_display.replace(/^-?\d+(?:\.\d+)?\s*/, '').trim()
         : ''
       return {
         ...product,

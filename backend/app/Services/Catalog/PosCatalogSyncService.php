@@ -10,6 +10,7 @@ use App\Models\Store;
 use App\Models\StoreProduct;
 use App\Models\Warehouse;
 use App\Services\Inventory\OpeningStockService;
+use App\Services\Inventory\StoreStockLocation;
 use Illuminate\Support\Collection;
 
 class PosCatalogSyncService
@@ -302,14 +303,41 @@ class PosCatalogSyncService
     }
 
     /**
+     * On-hand quantities for these products in this store only.
+     *
+     * @param  Collection<int, string>  $productIds
+     * @return array<string, int>
+     */
+    public function onHandForProducts(Store $store, Collection $productIds): array
+    {
+        if ($productIds->isEmpty()) {
+            return [];
+        }
+
+        $warehouseIds = $this->warehouseIdsForStore($store);
+        if ($warehouseIds->isEmpty()) {
+            return [];
+        }
+
+        return StockBalance::query()
+            ->whereIn('warehouse_id', $warehouseIds)
+            ->whereIn('product_id', $productIds)
+            ->selectRaw('product_id, SUM(quantity_on_hand) as qty')
+            ->groupBy('product_id')
+            ->pluck('qty', 'product_id')
+            ->map(fn ($qty) => (int) $qty)
+            ->all();
+    }
+
+    /**
+     * On-hand quantities for this store only. Another store on the same branch
+     * keeps its own warehouse and must not be added into this catalog.
+     *
      * @return array<string, int>
      */
     private function stockByProduct(Store $store): array
     {
-        $warehouseIds = Warehouse::query()
-            ->where('branch_id', $store->branch_id)
-            ->where('is_active', true)
-            ->pluck('id');
+        $warehouseIds = $this->warehouseIdsForStore($store);
 
         if ($warehouseIds->isEmpty()) {
             return [];
@@ -325,17 +353,14 @@ class PosCatalogSyncService
     }
 
     /**
-     * Per-warehouse balances for offline terminals. The POS grid still uses the
-     * summed quantity_on_hand; this list is the ledger each sale warehouse updates.
+     * Balances of this store's warehouse. The POS grid reads the same figure
+     * as quantity_on_hand; other stores on the branch are left out.
      *
      * @return list<array{warehouse_id: string, product_id: string, variant_id: ?string, quantity_on_hand: int}>
      */
     public function stockLinesForStore(Store $store): array
     {
-        $warehouseIds = Warehouse::query()
-            ->where('branch_id', $store->branch_id)
-            ->where('is_active', true)
-            ->pluck('id');
+        $warehouseIds = $this->warehouseIdsForStore($store);
 
         if ($warehouseIds->isEmpty()) {
             return [];
@@ -352,6 +377,23 @@ class PosCatalogSyncService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return Collection<int, string>
+     */
+    private function warehouseIdsForStore(Store $store): Collection
+    {
+        $linked = Warehouse::query()
+            ->where('store_id', $store->id)
+            ->where('is_active', true)
+            ->pluck('id');
+
+        if ($linked->isNotEmpty()) {
+            return $linked;
+        }
+
+        return collect([app(StoreStockLocation::class)->forStore($store)->id]);
     }
 
     /**

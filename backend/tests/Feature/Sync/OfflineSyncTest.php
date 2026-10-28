@@ -192,9 +192,15 @@ class OfflineSyncTest extends TestCase
         $sale = Sale::query()->where('idempotency_key', $uuid)->first();
         $this->assertSame($storeStock->id, $sale?->warehouse_id);
 
-        $this->getJson('/api/v1/stores/'.$store->id.'/pos/catalog', $headers)
+        $catalog = $this->getJson('/api/v1/stores/'.$store->id.'/pos/catalog', $headers)
             ->assertOk()
             ->assertJsonPath('data.sale_warehouse_id', $storeStock->id);
+
+        $productRow = collect($catalog->json('data.products'))->firstWhere('product_id', $product->id);
+        $this->assertSame(16, $productRow['quantity_on_hand'] ?? null);
+        $stockLines = collect($catalog->json('data.stock'));
+        $this->assertTrue($stockLines->every(fn (array $line) => $line['warehouse_id'] === $storeStock->id));
+        $this->assertSame(16, (int) $stockLines->where('product_id', $product->id)->sum('quantity_on_hand'));
     }
 
     public function test_insufficient_stock_keeps_the_sale_as_a_conflict_without_decrement(): void

@@ -134,6 +134,7 @@ class PosProduct {
     this.accompanimentEnabled = false,
     this.accompaniments = const [],
     this.saleUnits = const [],
+    this.requiresStock,
   });
 
   final String storeProductId;
@@ -163,8 +164,26 @@ class PosProduct {
   final bool accompanimentEnabled;
   final List<PosAccompaniment> accompaniments;
   final List<PosSaleUnit> saleUnits;
+  final bool? requiresStock;
 
   bool get hasOptions => variants.isNotEmpty || productType == 'variant';
+
+  /// Services and digital goods have no stock count. Everything else stops at 0.
+  bool get tracksStock {
+    if (requiresStock != null) return requiresStock!;
+    final type = (productType ?? 'simple').toLowerCase();
+    return type != 'service' && type != 'digital';
+  }
+
+  bool get isOutOfStock => tracksStock && quantityOnHand != null && quantityOnHand! <= 0;
+
+  bool canAdd({int inCart = 0}) {
+    if (!isAvailable || isOutOfStock) return false;
+    if (!tracksStock) return true;
+    final onHand = quantityOnHand;
+    if (onHand == null) return true;
+    return onHand - inCart > 0;
+  }
 
   factory PosProduct.fromJson(Map<String, dynamic> json) {
     final barcodesJson = json['barcodes'] as List<dynamic>? ?? [];
@@ -210,6 +229,7 @@ class PosProduct {
       trackExpiration: json['track_expiration'] as bool? ?? false,
       expiresAt: _textOrNull(json['expires_at']),
       accompanimentEnabled: json['accompaniment_enabled'] == true,
+      requiresStock: json['requires_stock'] is bool ? json['requires_stock'] as bool : null,
       accompaniments: accompanimentsJson
           .whereType<Map>()
           .map((item) => PosAccompaniment.fromJson(Map<String, dynamic>.from(item)))
@@ -259,6 +279,7 @@ class PosProduct {
       accompanimentEnabled: accompanimentEnabled,
       accompaniments: accompaniments,
       saleUnits: saleUnits,
+      requiresStock: requiresStock,
     );
   }
 
@@ -291,6 +312,7 @@ class PosProduct {
       accompanimentEnabled: accompanimentEnabled,
       accompaniments: accompaniments,
       saleUnits: saleUnits,
+      requiresStock: requiresStock,
     );
   }
 

@@ -292,6 +292,38 @@ async function toggleActive(row: RecurringRow, close = false) {
         />
       </label>
 
+      <div class="recur__cards">
+        <p v-if="!filtered.length" class="recur__empty">{{ t('expenses.recurringView.empty') }}</p>
+        <article v-for="row in filtered" :key="row.id" class="recur__card" @click="openEdit(row)">
+          <header class="recur__card-head">
+            <div>
+              <div class="recur__name">{{ row.name }}</div>
+              <div class="recur__freq">{{ frequencyLabel(row.frequency) }}</div>
+            </div>
+            <button type="button" class="recur__status" @click.stop="toggleActive(row)">
+              <Badge :variant="row.is_active ? 'success' : 'neutral'" dot>
+                {{ row.is_active ? t('expenses.recurringView.statusActive') : t('expenses.recurringView.statusInactive') }}
+              </Badge>
+            </button>
+          </header>
+          <p class="recur__card-amount">{{ formatAmount(row.amount) }}</p>
+          <dl class="recur__facts">
+            <div>
+              <dt>{{ t('expenses.recurringView.columns.category') }}</dt>
+              <dd>{{ row.expense_category?.name ?? '—' }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('expenses.recurringView.columns.register') }}</dt>
+              <dd>{{ fundLabel(row.fund_source) }}</dd>
+            </div>
+            <div>
+              <dt>{{ t('expenses.recurringView.columns.nextDate') }}</dt>
+              <dd>{{ weekday(row.next_due_on) }} {{ formatDate(row.next_due_on) }}</dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+
       <div class="recur__table">
         <table class="ui-table">
           <thead>
@@ -698,9 +730,121 @@ async function toggleActive(row: RecurringRow, close = false) {
   border-radius: 0;
 }
 
+.recur__cards {
+  display: none;
+}
+
+.recur__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-brand-700);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.recur__card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.recur__card-amount {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  color: var(--color-text-primary);
+}
+
+.recur__facts {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.recur__facts div {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.recur__facts dt {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.recur__facts dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
 @media (max-width: 800px) {
+  .recur__toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .recur__toolbar :is(.btn-primary, .btn-secondary) {
+    justify-content: center;
+    width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+
   .recur__stats {
     grid-template-columns: 1fr;
+  }
+
+  .recur__stat {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 0.85rem 1rem;
+  }
+
+  .recur__stat strong {
+    font-size: 1.25rem;
+    text-align: right;
+  }
+
+  .recur__search {
+    max-width: none;
+  }
+
+  .recur__cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .recur__table {
+    display: none;
+  }
+
+  .recur-form__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .recur-form__actions :is(.btn-primary, .btn-secondary) {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .recur-form :is(.field, textarea, select) {
+    font-size: 1rem;
   }
 }
 </style>

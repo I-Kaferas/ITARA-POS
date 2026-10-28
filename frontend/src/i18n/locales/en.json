@@ -1814,6 +1814,7 @@
     "cost": "Cost price",
     "barcode": "Barcode",
     "stock": "Stock",
+    "stores": "Stores",
     "status": "Status",
     "active": "Active",
     "inactive": "Inactive",
@@ -2564,6 +2565,35 @@
         "expired": "Expired",
         "order_error": "Order error",
         "other": "Other"
+      },
+      "returnsPage": {
+        "title": "Purchase returns",
+        "new": "New return",
+        "allStatuses": "All statuses",
+        "allTypes": "All types",
+        "search": "Search by number, supplier, order",
+        "number": "Number",
+        "supplier": "Supplier",
+        "poNumber": "Purchase order",
+        "type": "Type",
+        "total": "Total",
+        "status": "Status",
+        "date": "Date",
+        "actions": "Actions",
+        "empty": "No purchase returns.",
+        "statuses": {
+          "draft": "Draft",
+          "submitted": "Submitted",
+          "approved": "Approved",
+          "completed": "Completed",
+          "rejected": "Rejected",
+          "cancelled": "Cancelled"
+        },
+        "types": {
+          "refund": "Refund",
+          "replacement": "Replacement",
+          "credit_note": "Credit note"
+        }
       }
     },
     "order": "Order",
@@ -3616,6 +3646,7 @@
       "noTasks": "No open tasks",
       "noReservations": "No reservations in the last 7 days",
       "overallRating": "Overall Rating",
+      "ratingImpressive": "Impressive",
       "ratingNone": "No reviews yet",
       "fromReviews": "from {count} reviews",
       "cleanliness": "Cleanliness",

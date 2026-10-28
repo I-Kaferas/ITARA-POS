@@ -973,6 +973,7 @@ const en = <String, String>{
   'Total dû': 'Total due',
   'Total à payer': 'Total to pay',
   'Touchez un lieu pour cette livraison.': 'Tap a place for this delivery.',
+  'Tous': 'All',
   'Toutes les notifications sont coupées': 'All notifications are muted',
   'Transfert': 'Transfer',
   'Transférer vers': 'Transfer to',

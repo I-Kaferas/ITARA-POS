@@ -512,7 +512,10 @@ class _CartLineTile extends StatelessWidget {
                   ),
                 ),
               ),
-              _QtyButton(icon: Icons.add, onPressed: onIncrement),
+              _QtyButton(
+                icon: Icons.add,
+                onPressed: line.product.canAdd(inCart: line.stockQuantity) ? onIncrement : null,
+              ),
               const Spacer(),
               Text(
                 tr(MoneyFormatter.format(net, currencyCode: AppConfig.currencyCode)),
@@ -523,10 +526,12 @@ class _CartLineTile extends StatelessWidget {
           if (onHand != null) ...[
             const SizedBox(height: 2),
             Text(
-              trf('{0} {1} available', [
-                onHand - line.quantity,
-                unit == null || unit.isEmpty ? 'pcs' : unit,
-              ]),
+              onHand - line.quantity <= 0
+                  ? tr('Rupture')
+                  : trf('{0} {1} available', [
+                      onHand - line.quantity,
+                      unit == null || unit.isEmpty ? 'pcs' : unit,
+                    ]),
               style: AppTypography.plex(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -544,7 +549,7 @@ class _QtyButton extends StatelessWidget {
   const _QtyButton({required this.icon, required this.onPressed});
 
   final IconData icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {

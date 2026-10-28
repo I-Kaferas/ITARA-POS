@@ -690,7 +690,7 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
     return _favorites.quickProductIds
         .map((id) => byId[id])
         .whereType<PosProduct>()
-        .where((p) => p.isAvailable)
+        .where((p) => p.canAdd())
         .toList();
   }
 
@@ -770,6 +770,10 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
 
   Future<void> _addProduct(PosProduct product) async {
     if (_refuseWithoutShift()) return;
+    if (!product.canAdd()) {
+      _showStatus('Stock insuffisant — article en rupture');
+      return;
+    }
     // Never show a toast/snackbar when adding to cart.
     ScaffoldMessenger.of(context).clearSnackBars();
 
@@ -782,12 +786,16 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
       );
       if (choice == null || !mounted) return;
       ScaffoldMessenger.of(context).clearSnackBars();
-      _cart.addProduct(
+      final added = _cart.addProduct(
         product,
         quantity: choice.quantity,
         variant: choice.variant,
         saleUnitId: choice.saleUnitId,
       );
+      if (!added) {
+        _showStatus('Stock insuffisant — article en rupture');
+        return;
+      }
       parentLine = _cart.lines.cast<PosCartLine?>().lastWhere(
             (line) =>
                 line != null &&
@@ -796,7 +804,11 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
             orElse: () => null,
           );
     } else {
-      _cart.addProduct(product);
+      final added = _cart.addProduct(product);
+      if (!added) {
+        _showStatus('Stock insuffisant — article en rupture');
+        return;
+      }
       parentLine = _cart.lines.cast<PosCartLine?>().lastWhere(
             (line) =>
                 line != null &&
@@ -1085,13 +1097,6 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     PosPhoneCatalogBar(
-                                      categories: _categories,
-                                      selectedCategoryId: _selectedCategoryId,
-                                      onCategorySelected: (id) {
-                                        context.read<ProductBloc>().add(ProductCategoryFilterChanged(id));
-                                        context.read<CategoryBloc>().add(CategorySelected(id));
-                                        setState(() => _selectedCategoryId = id);
-                                      },
                                       searchOpen: _phoneSearch,
                                       onToggleSearch: () => setState(() => _phoneSearch = !_phoneSearch),
                                       listMode: _phoneList,
@@ -1173,15 +1178,10 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                           windowsDesk: PosUi.isWindowsDesk(context),
                           cartOpen: _cartOpen,
                           onToggleCart: () => setState(() => _cartOpen = !_cartOpen),
-                          categories: PosUi.isPhone(context)
-                              ? const SizedBox.shrink()
-                              : PosCategorySidebar(
+                          categories: PosCategorySidebar(
                             categories: _categories,
                             selectedCategoryId: _selectedCategoryId,
                             totalCount: _products.length,
-                            favoritesCount: _products
-                                .where((p) => _favorites.isFavorite(p.productId))
-                                .length,
                             counts: _categoryCounts,
                             onCategorySelected: (id) {
                               context.read<ProductBloc>().add(
@@ -1233,7 +1233,9 @@ class _PosScreenBodyState extends State<_PosScreenBody> {
                             cart: _cart,
                             onIncrement: (lineId) {
                               if (_refuseWithoutShift()) return;
-                              _cart.incrementQuantity(lineId);
+                              if (!_cart.incrementQuantity(lineId)) {
+                                _showStatus('Stock insuffisant — article en rupture');
+                              }
                             },
                             onDecrement: _cart.decrementQuantity,
                             onRemove: _cart.removeLine,

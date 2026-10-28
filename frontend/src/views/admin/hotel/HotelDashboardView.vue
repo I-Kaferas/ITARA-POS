@@ -188,6 +188,33 @@ const reservationBars = computed(() => {
   }
 })
 
+const reservationLine = computed(() => {
+  const rows = reservationBars.value.rows
+  const peak = Math.max(0, ...rows.flatMap(row => [row.booked, row.cancelled]))
+  const max = peak ? niceMax(peak) : 4
+  const count = rows.length
+  const line = (pick: 'booked' | 'cancelled') => rows.map((row, index) => {
+    const x = count <= 1 ? 50 : (index / (count - 1)) * 100
+    const y = 100 - (row[pick] / max) * 100
+    const split = pick === 'cancelled' && row.booked === row.cancelled ? Math.max(0, y - 6) : y
+    return `${x},${split}`
+  }).join(' ')
+  return {
+    ticks: peak ? axisTicks(max, true) : [4, 2, 1, 0],
+    labels: rows.map(row => row.label),
+    booked: line('booked'),
+    cancelled: line('cancelled'),
+  }
+})
+
+const ratingCategories = computed(() => [
+  { key: 'cleanliness', label: t('hotel.dashboard.cleanliness') },
+  { key: 'service', label: t('hotel.dashboard.service') },
+  { key: 'comfort', label: t('hotel.dashboard.comfort') },
+  { key: 'location', label: t('hotel.dashboard.location') },
+  { key: 'value', label: t('hotel.dashboard.value') },
+])
+
 const openTasks = computed(() => {
   const roomNumber = new Map(rooms.value.map(room => [String(room.id), String(room.number ?? room.name ?? '')]))
   return docs.value
@@ -422,6 +449,92 @@ function compactNumber(value: number) {
                 </div>
               </div>
             </div>
+          </div>
+        </AnimatedCard>
+      </div>
+
+      <div class="home-insights">
+        <AnimatedCard tag="section" class="home-panel home-insight" :index="kpis.length + 2">
+          <header class="home-panel__head">
+            <h3>
+              <AppIcon name="calendar" :size="16" />
+              {{ t('hotel.dashboard.reservations') }}
+            </h3>
+            <span class="home-pill">{{ t('hotel.dashboard.last7Days') }}</span>
+          </header>
+          <div class="home-panel__body">
+            <p class="home-legend">
+              <span><i class="home-swatch home-swatch--booked" />{{ t('hotel.dashboard.booked') }}</span>
+              <span><i class="home-swatch home-swatch--cancelled" />{{ t('hotel.dashboard.cancelled') }}</span>
+            </p>
+            <div class="line-chart line-chart--dual" role="img" :aria-label="t('hotel.dashboard.reservations')">
+              <div class="line-chart__y">
+                <span v-for="(tick, index) in reservationLine.ticks" :key="index">{{ compactNumber(tick) }}</span>
+              </div>
+              <div class="line-chart__plot">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <line
+                    v-for="(tick, index) in reservationLine.ticks"
+                    :key="index"
+                    x1="0"
+                    x2="100"
+                    :y1="(index / Math.max(reservationLine.ticks.length - 1, 1)) * 100"
+                    :y2="(index / Math.max(reservationLine.ticks.length - 1, 1)) * 100"
+                  />
+                  <polyline class="is-cancelled" pathLength="1" :points="reservationLine.cancelled" />
+                  <polyline pathLength="1" :points="reservationLine.booked" />
+                </svg>
+                <div class="line-chart__labels">
+                  <span v-for="label in reservationLine.labels" :key="label">{{ label }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </AnimatedCard>
+
+        <AnimatedCard tag="section" class="home-panel home-insight" :index="kpis.length + 3">
+          <header class="home-panel__head">
+            <h3>
+              <AppIcon name="edit" :size="16" />
+              {{ t('hotel.dashboard.tasks') }}
+            </h3>
+            <RouterLink class="home-add" to="/admin/hotel/housekeeping" :aria-label="t('hotel.dashboard.tasks')">
+              <AppIcon name="plus" :size="16" />
+            </RouterLink>
+          </header>
+          <div class="home-panel__body">
+            <ul v-if="openTasks.length" class="home-tasks">
+              <li v-for="task in openTasks" :key="task.id">
+                <strong>{{ task.title }}</strong>
+                <span>{{ task.meta }}</span>
+              </li>
+            </ul>
+          </div>
+        </AnimatedCard>
+
+        <AnimatedCard tag="section" class="home-panel home-insight" :index="kpis.length + 4">
+          <header class="home-panel__head">
+            <h3>
+              <AppIcon name="dashboard" :size="16" />
+              {{ t('hotel.dashboard.overallRating') }}
+            </h3>
+            <span class="home-dots" aria-hidden="true" />
+          </header>
+          <div class="home-panel__body">
+            <p class="home-score">
+              <strong>0</strong>
+              <span>
+                <b>{{ t('hotel.dashboard.ratingImpressive') }}</b>
+                {{ t('hotel.dashboard.fromReviews', { count: 0 }) }}
+              </span>
+            </p>
+            <ul class="home-ratings">
+              <li v-for="row in ratingCategories" :key="row.key">
+                <span>{{ row.label }}</span>
+                <i />
+                <strong>0</strong>
+              </li>
+            </ul>
           </div>
         </AnimatedCard>
       </div>
@@ -1099,6 +1212,176 @@ function compactNumber(value: number) {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   animation: chart-draw var(--motion-chart, 600ms) var(--ease-out) forwards;
+}
+
+.line-chart polyline.is-cancelled {
+  stroke: #f43f5e;
+}
+
+.home-insights {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4, 16px);
+  align-items: stretch;
+}
+
+@media (min-width: 1100px) {
+  .home-insights {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 1fr);
+    gap: var(--space-6, 24px);
+  }
+}
+
+.home-insight {
+  min-height: 280px;
+}
+
+.home-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.home-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4, 16px);
+  margin: 0 0 var(--space-3, 12px);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.home-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.home-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.home-swatch--booked { background: var(--color-brand-600); }
+.home-swatch--cancelled { background: #f43f5e; }
+
+.home-add {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--color-brand-600);
+  color: #fff;
+  text-decoration: none;
+  box-shadow: var(--shadow-brand);
+}
+
+.home-add:hover { filter: brightness(1.05); }
+
+.home-add:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+.home-tasks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-tasks li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  min-height: 40px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.home-tasks strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.home-tasks span {
+  margin-left: auto;
+}
+
+.home-dots {
+  width: 18px;
+  height: 18px;
+  background: radial-gradient(circle, var(--color-text-faint) 1.5px, transparent 1.7px);
+  background-size: 6px 6px;
+  background-position: center;
+}
+
+.home-score {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  margin: 0 0 var(--space-4, 16px);
+}
+
+.home-score strong {
+  color: var(--color-text-primary);
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.home-score span {
+  display: flex;
+  flex-direction: column;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.home-score b {
+  color: var(--color-brand-600);
+  font-weight: 700;
+}
+
+.home-ratings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-ratings li {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr 1.25rem;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.home-ratings i {
+  display: block;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+}
+
+.home-ratings strong {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: right;
 }
 
 @keyframes chart-rise {

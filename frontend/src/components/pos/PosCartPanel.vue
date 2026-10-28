@@ -5,7 +5,7 @@ import AppIcon from '../ui/AppIcon.vue'
 import { debounceFn } from '../../composables/useLiveSearch'
 import { usePosStore } from '../../stores/pos'
 import { formatMoney } from '../../utils/money'
-import { needsSaleQuantity } from '../../utils/product'
+import { cartLineStockUnits, catalogOnHand, needsSaleQuantity } from '../../utils/product'
 import type { PosCartLine, PosCustomerOption } from '../../types/pos'
 
 const props = defineProps<{
@@ -33,6 +33,21 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const pos = usePosStore()
+
+function reservedUnits(productId: string) {
+  return props.lines.reduce((sum, line) => {
+    if (line.isAccompaniment || line.product.product_id !== productId || !needsSaleQuantity(line.product)) return sum
+    return sum + cartLineStockUnits(line.product, line.quantity, line.saleUnitId)
+  }, 0)
+}
+
+function canIncrement(line: PosCartLine) {
+  if (line.isAccompaniment || !needsSaleQuantity(line.product)) return false
+  const onHand = catalogOnHand(line.product)
+  if (onHand === null) return true
+  if (onHand <= 0) return false
+  return reservedUnits(line.product.product_id) + cartLineStockUnits(line.product, 1, line.saleUnitId) <= onHand
+}
 
 const customerQuery = ref('')
 const customerResults = ref<PosCustomerOption[]>([])
@@ -257,7 +272,7 @@ function lineImage(line: PosCartLine) {
                 :value="line.quantity"
                 @change="emit('quantity', line.lineId, Math.max(1, Number(($event.target as HTMLInputElement).value) || 1))"
               />
-              <button type="button" @click="emit('increment', line.lineId)">+</button>
+              <button type="button" :disabled="!canIncrement(line)" @click="emit('increment', line.lineId)">+</button>
             </div>
             <span v-else class="pos-cart__no-qty">{{ t('pos.noQuantity') }}</span>
             <span class="pos-cart__amount">

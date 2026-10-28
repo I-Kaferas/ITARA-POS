@@ -1741,6 +1741,7 @@
     "cost": "Bei ya ununuzi",
     "barcode": "Msimbo pau",
     "stock": "Hisa",
+    "stores": "Maduka",
     "status": "Hali",
     "active": "Inatumika",
     "inactive": "Haifanyi kazi",
@@ -2510,6 +2511,35 @@
         "expired": "Imeisha",
         "order_error": "Kosa la oda",
         "other": "Nyingine"
+      },
+      "returnsPage": {
+        "title": "Marejesho ya ununuzi",
+        "new": "Marejesho mapya",
+        "allStatuses": "Hali zote",
+        "allTypes": "Aina zote",
+        "search": "Tafuta kwa nambari, msambazaji, oda",
+        "number": "Nambari",
+        "supplier": "Msambazaji",
+        "poNumber": "Oda ya ununuzi",
+        "type": "Aina",
+        "total": "Jumla",
+        "status": "Hali",
+        "date": "Tarehe",
+        "actions": "Vitendo",
+        "empty": "Hakuna marejesho ya ununuzi.",
+        "statuses": {
+          "draft": "Rasimu",
+          "submitted": "Imewasilishwa",
+          "approved": "Imeidhinishwa",
+          "completed": "Imekamilika",
+          "rejected": "Imekataliwa",
+          "cancelled": "Imeghairiwa"
+        },
+        "types": {
+          "refund": "Marejesho ya pesa",
+          "replacement": "Ubadilishaji",
+          "credit_note": "Noti ya mkopo"
+        }
       }
     },
     "unitCost": "Gharama ya kipande",
@@ -3530,6 +3560,7 @@
       "noTasks": "Hakuna kazi wazi",
       "noReservations": "Hakuna uhifadhi katika siku 7 zilizopita",
       "overallRating": "Ukadiriaji wa jumla",
+      "ratingImpressive": "Bora",
       "ratingNone": "Bado hakuna maoni",
       "fromReviews": "kutoka maoni {count}",
       "cleanliness": "Usafi",

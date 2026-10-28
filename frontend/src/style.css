@@ -1297,9 +1297,48 @@ kbd {
   flex-shrink: 1;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--btn-gap);
   max-width: 100%;
   min-width: 0;
+  margin-left: auto;
+}
+
+/* List pages: add actions and filters sit on the right. Titles stay on the left. */
+.app-content:not(:has(.pos-root)) .flex.justify-between:has(:is(select, .filter-fold, .filters-wrap, input[type="search"], input[type="date"])):has(button):not(:has(h1, h2, h3, h4)) {
+  justify-content: flex-end;
+}
+
+.app-content:not(:has(.pos-root)) [class$="__actions"] {
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.app-content:not(:has(.pos-root)) [class$="__filters"]:has(:is(.field, select, input)):not(:has([class*="__chip"])) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  align-items: end;
+  justify-items: stretch;
+  gap: 0.75rem 1rem;
+  width: min(100%, 58rem);
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.app-content:not(:has(.pos-root)) [class$="__filters"]:has(:is(.field, select, input)):not(:has([class*="__chip"])) > * {
+  min-width: 0;
+}
+
+.app-content:not(:has(.pos-root)) [class$="__filters"]:has(:is(.field, select, input)):not(:has([class*="__chip"])) :is(.field, select, input:not([type="checkbox"])) {
+  width: 100%;
+}
+
+.filter-fold {
+  margin-left: auto;
+}
+
+.ui-toolbar .filter-fold {
+  margin-left: 0;
 }
 
 /* ─── Cards & surfaces (solid, no gradients) ────────────────────── */
@@ -3345,9 +3384,10 @@ html[data-theme="dark"] .app-sidebar__logo {
 
 /* ─── Toolbar ───────────────────────────────────────────────────── */
 .ui-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  align-items: end;
+  justify-content: end;
   gap: var(--space-3) var(--space-4);
   margin-bottom: var(--space-5);
   padding: var(--space-4);
