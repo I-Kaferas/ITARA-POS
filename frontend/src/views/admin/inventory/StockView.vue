@@ -11,6 +11,7 @@ import LoadingBlock from '../../../components/ui/LoadingBlock.vue'
 import { realtimeTopics, useRealtimeSync } from '../../../composables/useRealtimeSync'
 import { api } from '../../../api/client'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { InventoryMovement, Product, StockBalance, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate } from '../../../utils/format'
@@ -21,8 +22,15 @@ import { useClientPager } from '../../../composables/useClientPager'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
-const warehouses = ref<Warehouse[]>([])
+const context = useContextStore()
+const warehouses = computed(() => {
+  const linked = context.stores
+    .map(item => item.stock_warehouse)
+    .filter((warehouse): warehouse is Warehouse => Boolean(warehouse?.id))
+  return linked.length ? linked : store.warehouseCatalog
+})
 const warehouseId = ref('')
+const search = ref('')
 const showHistory = ref(false)
 const historyRow = ref<StockBalance | null>(null)
 const history = ref<InventoryMovement[]>([])
@@ -73,7 +81,16 @@ const rows = computed(() => {
   return [...store.stockBalances, ...extras]
 })
 
-const { page, lastPage, total, perPage, paged, setPage } = useClientPager(rows)
+const filteredRows = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  if (!query) return rows.value
+  return rows.value.filter(row => {
+    const haystack = `${row.product?.sku ?? ''} ${row.product?.name ?? ''} ${row.product?.category?.name ?? ''}`
+    return haystack.toLowerCase().includes(query)
+  })
+})
+
+const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredRows)
 
 const stockableRows = computed(() =>
   rows.value.filter(row => !row.product || isStockableProduct({ product_type: row.product.product_type as Product['product_type'] })),
@@ -88,10 +105,23 @@ const stockValue = computed(() =>
   stockableRows.value.reduce((sum, row) => sum + Number(row.quantity_on_hand || 0) * Number(row.product?.base_price || 0), 0),
 )
 
-onMounted(async () => {
-  warehouses.value = await store.loadAllWarehouses()
-  catalogProducts.value = await store.loadAllProducts()
-  warehouseId.value = warehouses.value[0]?.id ?? ''
+function warehouseForCurrentStore() {
+  const match = warehouses.value.find(warehouse => warehouse.store_id && warehouse.store_id === context.currentStoreId)
+  if (match) return match.id
+  if (!context.currentStoreId) return warehouses.value[0]?.id ?? ''
+  return ''
+}
+
+function syncWarehouse() {
+  const next = warehouseForCurrentStore()
+  if (next && next !== warehouseId.value) warehouseId.value = next
+}
+
+onMounted(() => {
+  void store.loadAllWarehouses().then(() => syncWarehouse())
+  void store.loadAllProducts().then(products => {
+    catalogProducts.value = products
+  })
 })
 
 useRealtimeSync(realtimeTopics.stock, async () => {
@@ -102,6 +132,9 @@ watch(warehouseId, async (id) => {
   if (!id) return
   await store.loadStockBalances(id, false)
 })
+
+watch(() => context.currentStoreId, () => syncWarehouse())
+syncWarehouse()
 
 function stockQty(row: StockBalance) {
   if (row.product && !isStockableProduct({ product_type: row.product.product_type as Product['product_type'] })) {
@@ -175,11 +208,17 @@ function clearHistoryDates() {
 <template>
   <InventoryLayout>
     <div class="space-y-4">
-      <div>
-        <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
-        <select v-model="warehouseId" class="field max-w-xs">
-          <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.name }} ({{ wh.code }})</option>
-        </select>
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
+          <select v-model="warehouseId" class="field max-w-xs">
+            <option v-for="wh in warehouses" :key="wh.id" :value="wh.id">{{ wh.name }} ({{ wh.code }})</option>
+          </select>
+        </div>
+        <div class="min-w-64 flex-1">
+          <FieldLabel icon="search">{{ t('inventory.searchProduct') }}</FieldLabel>
+          <input v-model="search" type="search" class="field" :placeholder="t('inventory.searchProduct')" />
+        </div>
       </div>
 
       <p class="m-0 text-xs text-slate-500">{{ t('inventory.movementRule') }}</p>
@@ -221,9 +260,9 @@ function clearHistoryDates() {
 
       <DataTableShell
         :title="t('nav.inventory')"
-        :meta="`${rows.length} ${t('products.name').toLowerCase()}`"
-        :empty="!rows.length"
-        :empty-title="t('org.empty')"
+        :meta="`${total} ${t('products.name').toLowerCase()}`"
+        :empty="!filteredRows.length"
+        :empty-title="search.trim() ? t('inventory.noArticles') : t('org.empty')"
         empty-icon="inventory"
       >
         <table class="ui-table">

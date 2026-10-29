@@ -637,7 +637,7 @@ export const guideChapters: GuideChapter[] = [
         route: '/admin/inventory/supplies',
         summary: 'Faire entrer de la marchandise sans passer par le cycle d\'achat complet.',
         steps: [
-          'Cliquez sur « Nouvel approvisionnement », ajoutez les lignes et « Enregistrer la saisie ».',
+          'Cliquez sur « Nouvel approvisionnement », ajoutez les lignes. Le prix d\'achat reprend celui du stock ; s\'il change, le coût moyen pondéré s\'applique à la mise en stock.',
           'Confirmez, approuvez, puis « Mettre en stock ».',
         ],
         tips: ['Le fournisseur est facultatif : sans fournisseur, le stock augmente quand même.'],

@@ -615,7 +615,7 @@ export const guideChapters: GuideChapter[] = [
         route: '/admin/inventory/supplies',
         summary: 'Bring goods in without the full purchase cycle.',
         steps: [
-          'Click new supply, add the lines and save the draft.',
+          'Click new supply and add the lines. The purchase price defaults to the stock cost; if it changes, the weighted average cost is applied when stock is received.',
           'Confirm, approve, then put into stock.',
         ],
         tips: ['The supplier is optional: without a supplier, stock still increases.'],

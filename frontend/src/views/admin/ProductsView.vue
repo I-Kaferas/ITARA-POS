@@ -169,7 +169,7 @@ async function exportPdf() {
 
 <template>
   <CatalogLayout>
-    <div class="ui-toolbar">
+    <div class="ui-toolbar products-toolbar">
       <div class="ui-field min-w-[10rem]">
         <label class="ui-label">{{ t('org.company') }}</label>
         <select class="ui-select" :value="selectedCompany?.id" @change="selectCompany(($event.target as HTMLSelectElement).value)">
@@ -349,6 +349,35 @@ async function exportPdf() {
 </template>
 
 <style scoped>
+.products-toolbar.ui-toolbar {
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.products-toolbar :deep(.filter-fold),
+.products-toolbar :deep(.fold-panel),
+.products-toolbar :deep(.fold-panel__body),
+.products-toolbar :deep(.ui-field),
+.products-toolbar :deep(.ui-select),
+.products-toolbar :deep(.ui-input),
+.products-toolbar :deep(.relative) {
+  width: 100%;
+  max-width: none;
+}
+
+.products-toolbar :deep(.filter-fold) {
+  align-items: stretch;
+}
+
+@media (max-width: 720px) {
+  .products-toolbar.ui-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
 .products-actions {
   display: flex;
   flex-wrap: wrap;

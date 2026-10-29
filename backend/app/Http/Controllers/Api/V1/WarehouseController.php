@@ -24,7 +24,7 @@ class WarehouseController extends Controller
 
     public function indexAll(): JsonResponse
     {
-        $this->stockLocations->attachAll();
+        $this->stockLocations->attachMissing();
 
         return response()->json([
             'data' => Warehouse::query()

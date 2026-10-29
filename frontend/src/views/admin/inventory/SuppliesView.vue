@@ -12,6 +12,8 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import type { Product, PurchaseOrderDetail, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
+import { formatMoney } from '../../../utils/money'
+import { weightedAverageCost } from '../../../utils/weightedAverageCost'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import ListPager from '../../../components/ui/ListPager.vue'
 import { useClientPager } from '../../../composables/useClientPager'
@@ -32,7 +34,7 @@ const form = ref({
   warehouse_id: '',
   supplier_id: '',
   notes: '',
-  items: [{ product_id: '', quantity: 1 }],
+  items: [{ product_id: '', quantity: 1, unit_cost: 0 }],
 })
 
 const { page, lastPage, total, perPage, paged, setPage } = useClientPager(() => store.purchaseOrders)
@@ -57,7 +59,21 @@ function productsForLine(index: number) {
 }
 
 function addLine() {
-  form.value.items.push({ product_id: '', quantity: 1 })
+  form.value.items.push({ product_id: '', quantity: 1, unit_cost: 0 })
+}
+
+function onProductChange(index: number) {
+  const product = products.value.find(item => item.id === form.value.items[index].product_id)
+  form.value.items[index].unit_cost = (product?.cost_price ?? 0) / 100
+}
+
+function lineAverageCost(line: { product_id: string; quantity: number; unit_cost: number }) {
+  const product = products.value.find(item => item.id === line.product_id)
+  if (!product || !(line.quantity > 0)) return null
+  const purchase = Math.round(Number(line.unit_cost || 0) * 100)
+  const current = product.cost_price ?? 0
+  if (purchase === current) return null
+  return weightedAverageCost(product.stock ?? 0, current, Math.trunc(line.quantity), purchase)
 }
 
 function removeLine(index: number) {
@@ -72,7 +88,7 @@ async function openCreate() {
     warehouse_id: warehouses.value[0]?.id ?? '',
     supplier_id: '',
     notes: '',
-    items: [{ product_id: '', quantity: 1 }],
+    items: [{ product_id: '', quantity: 1, unit_cost: 0 }],
   }
   showModal.value = true
 }
@@ -135,14 +151,11 @@ async function save() {
   formError.value = ''
   const items = form.value.items
     .filter(line => line.product_id && line.quantity > 0)
-    .map(line => {
-      const product = products.value.find(item => item.id === line.product_id)
-      return {
-        product_id: line.product_id,
-        quantity: Math.trunc(line.quantity),
-        unit_cost: product?.cost_price ?? 0,
-      }
-    })
+    .map(line => ({
+      product_id: line.product_id,
+      quantity: Math.trunc(line.quantity),
+      unit_cost: Math.max(0, Math.round(Number(line.unit_cost || 0) * 100)),
+    }))
 
   if (!items.length) {
     formError.value = t('inventory.needItems')
@@ -263,13 +276,25 @@ async function confirm(id: string, status: string) {
         <p class="text-xs text-slate-500">{{ t('inventory.entryHint') }}</p>
         <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
         <div class="space-y-2">
-          <div v-for="(line, idx) in form.items" :key="idx" class="line-row">
-            <select v-model="line.product_id" required class="field">
-              <option value="">—</option>
-              <option v-for="p in productsForLine(idx)" :key="p.id" :value="p.id">{{ p.name }}</option>
-            </select>
-            <input v-model.number="line.quantity" type="number" min="1" required class="field qty" />
-            <button type="button" class="text-sm text-red-600" @click="removeLine(idx)"><AppIcon name="trash" :size="16" /> {{ t('inventory.removeLine') }}</button>
+          <div class="line-head">
+            <span>{{ t('inventory.product') }}</span>
+            <span>{{ t('inventory.qtyShort') }}</span>
+            <span>{{ t('inventory.purchasePrice') }}</span>
+            <span></span>
+          </div>
+          <div v-for="(line, idx) in form.items" :key="idx" class="line-block">
+            <div class="line-row">
+              <select v-model="line.product_id" required class="field" @change="onProductChange(idx)">
+                <option value="">—</option>
+                <option v-for="p in productsForLine(idx)" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+              <input v-model.number="line.quantity" type="number" min="1" required class="field qty" />
+              <input v-model.number="line.unit_cost" type="number" min="0" step="0.01" required class="field cost" />
+              <button type="button" class="text-sm text-red-600" @click="removeLine(idx)"><AppIcon name="trash" :size="16" /> {{ t('inventory.removeLine') }}</button>
+            </div>
+            <p v-if="lineAverageCost(line) != null" class="cmp-hint">
+              {{ t('inventory.weightedAverage', { cost: formatMoney(lineAverageCost(line) ?? 0) }) }}
+            </p>
           </div>
           <button v-if="form.items.length < products.length" type="button" class="text-sm text-brand-600" @click="addLine"><AppIcon name="plus" :size="16" /> {{ t('inventory.addLine') }}</button>
         </div>
@@ -298,6 +323,7 @@ async function confirm(id: string, status: string) {
         name: item.product?.name ?? '—',
         sku: item.product?.sku,
         quantity: item.quantity_ordered ?? item.quantity,
+        note: formatMoney(item.unit_cost ?? 0),
       }))"
       @close="showDetails = false"
     />
@@ -306,9 +332,31 @@ async function confirm(id: string, status: string) {
 
 <style scoped>
 
-.line-row { display: flex; align-items: center; gap: 0.5rem; }
-.line-row > .field { flex: 1 1 14rem; min-width: 0; }
-.line-row > .qty { flex: 0 0 6.5rem; width: 6.5rem; padding-left: 0.4rem; padding-right: 0.35rem; text-align: center; }
+.line-head,
+.line-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem 8.5rem auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+.line-head {
+  color: var(--color-text-muted, #64748b);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.line-head span:nth-child(2),
+.line-head span:nth-child(3) { text-align: center; }
+.line-row > .qty,
+.line-row > .cost {
+  width: 100%;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.cmp-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: #b45309;
+}
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}

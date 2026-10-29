@@ -23,6 +23,18 @@ class StoreStockLocation
             });
     }
 
+    public function attachMissing(): void
+    {
+        Store::query()
+            ->whereDoesntHave('stockWarehouse')
+            ->orderByDesc('is_main')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->each(function (Store $store): void {
+                $this->forStore($store);
+            });
+    }
+
     public function forStore(Store $store): Warehouse
     {
         $linked = Warehouse::query()->where('store_id', $store->id)->first();

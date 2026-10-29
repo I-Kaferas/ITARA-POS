@@ -204,6 +204,102 @@ class PurchasePhase14Test extends TestCase
         $this->assertSame(0, SupplierTransaction::query()->where('purchase_order_id', $poId)->count());
     }
 
+    public function test_receipt_keeps_cost_when_purchase_price_matches_stock(): void
+    {
+        $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $product->update(['cost_price' => 100000]);
+
+        $this->postJson("/api/v1/warehouses/{$warehouse->id}/movements", [
+            'product_id' => $product->id,
+            'movement_type' => 'INITIAL_STOCK',
+            'quantity' => 10,
+            'unit_cost' => 100000,
+        ], $headers)->assertCreated();
+
+        $create = $this->postJson('/api/v1/purchase-orders', [
+            'warehouse_id' => $warehouse->id,
+            'supplier_id' => $this->fixture['supplier']->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 4, 'unit_cost' => 100000],
+            ],
+        ], $headers)->assertCreated();
+
+        $poId = $create->json('data.id');
+        $itemId = $create->json('data.items.0.id');
+
+        $this->postJson("/api/v1/purchase-orders/{$poId}/submit", [], $headers)->assertOk();
+        $this->postJson("/api/v1/purchase-orders/{$poId}/approve", [], $headers)->assertOk();
+        $this->postJson("/api/v1/purchase-orders/{$poId}/receive", [
+            'items' => [['purchase_order_item_id' => $itemId, 'quantity' => 4]],
+        ], $headers)->assertCreated();
+
+        $this->assertSame(100000, $product->fresh()->cost_price);
+    }
+
+    public function test_receipt_applies_weighted_average_cost_when_purchase_price_changes(): void
+    {
+        $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $product->update(['cost_price' => 100000]);
+
+        $this->postJson("/api/v1/warehouses/{$warehouse->id}/movements", [
+            'product_id' => $product->id,
+            'movement_type' => 'INITIAL_STOCK',
+            'quantity' => 10,
+            'unit_cost' => 100000,
+        ], $headers)->assertCreated();
+
+        $create = $this->postJson('/api/v1/purchase-orders', [
+            'warehouse_id' => $warehouse->id,
+            'supplier_id' => $this->fixture['supplier']->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 10, 'unit_cost' => 200000],
+            ],
+        ], $headers)->assertCreated();
+
+        $poId = $create->json('data.id');
+        $itemId = $create->json('data.items.0.id');
+
+        $this->postJson("/api/v1/purchase-orders/{$poId}/submit", [], $headers)->assertOk();
+        $this->postJson("/api/v1/purchase-orders/{$poId}/approve", [], $headers)->assertOk();
+        $this->postJson("/api/v1/purchase-orders/{$poId}/receive", [
+            'items' => [['purchase_order_item_id' => $itemId, 'quantity' => 10]],
+        ], $headers)->assertCreated();
+
+        // (10 × 100000 + 10 × 200000) / 20 = 150000
+        $this->assertSame(150000, $product->fresh()->cost_price);
+        $this->assertSame(20, StockBalance::query()->where('product_id', $product->id)->sum('quantity_on_hand'));
+    }
+
+    public function test_receipt_replaces_cost_when_stock_is_empty(): void
+    {
+        $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+        $product = $this->fixture['product'];
+        $product->update(['cost_price' => 80000]);
+
+        $create = $this->postJson('/api/v1/purchase-orders', [
+            'warehouse_id' => $this->fixture['warehouse']->id,
+            'supplier_id' => $this->fixture['supplier']->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 6, 'unit_cost' => 50000],
+            ],
+        ], $headers)->assertCreated();
+
+        $poId = $create->json('data.id');
+        $itemId = $create->json('data.items.0.id');
+
+        $this->postJson("/api/v1/purchase-orders/{$poId}/submit", [], $headers)->assertOk();
+        $this->postJson("/api/v1/purchase-orders/{$poId}/approve", [], $headers)->assertOk();
+        $this->postJson("/api/v1/purchase-orders/{$poId}/receive", [
+            'items' => [['purchase_order_item_id' => $itemId, 'quantity' => 6]],
+        ], $headers)->assertCreated();
+
+        $this->assertSame(50000, $product->fresh()->cost_price);
+    }
+
     public function test_purchase_order_statuses_endpoint(): void
     {
         $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);

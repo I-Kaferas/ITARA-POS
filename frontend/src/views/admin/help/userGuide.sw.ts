@@ -615,7 +615,7 @@ export const guideChapters: GuideChapter[] = [
         route: '/admin/inventory/supplies',
         summary: 'Ingiza bidhaa bila mzunguko kamili wa ununuzi.',
         steps: [
-          'Bofya ugavi mpya, ongeza mistari na uhifadhi rasimu.',
+          'Bofya ugavi mpya na uongeze mistari. Bei ya ununuzi inachukuliwa kutoka kwa stoo; ikibadilika, gharama ya wastani inawekwa stoo inapopokelewa.',
           'Thibitisha, idhinisha, kisha weka stoo.',
         ],
         tips: ['Muuzaji si lazima: bila muuzaji, stoo bado inaongezeka.'],

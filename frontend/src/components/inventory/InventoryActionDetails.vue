@@ -14,7 +14,7 @@ defineProps<{
   confirmedBy?: string
   approvedBy?: string
   fields?: { label: string; value?: string | null }[]
-  items?: { name: string; sku?: string | null; quantity?: number | string | null }[]
+  items?: { name: string; sku?: string | null; quantity?: number | string | null; note?: string | null }[]
   steps?: { label: string; done: boolean; active: boolean }[]
 }>()
 
@@ -71,6 +71,7 @@ const { t } = useI18n()
               <td class="px-3 py-2">
                 <span class="block font-medium">{{ item.name }}</span>
                 <span v-if="item.sku" class="text-xs text-slate-500">{{ item.sku }}</span>
+                <span v-if="item.note" class="block text-xs text-slate-500">{{ item.note }}</span>
               </td>
               <td class="px-3 py-2 text-right">{{ item.quantity ?? '—' }}</td>
             </tr>

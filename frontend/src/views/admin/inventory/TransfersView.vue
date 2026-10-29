@@ -69,6 +69,14 @@ const form = ref({
   items: [{ product_id: '', quantity: 1 }],
 })
 
+const filledLines = computed(() => form.value.items.filter(line => line.product_id).length)
+const transferUnits = computed(() =>
+  form.value.items.reduce((sum, line) => {
+    if (!line.product_id) return sum
+    return sum + Math.max(0, Math.trunc(Number(line.quantity) || 0))
+  }, 0),
+)
+
 onMounted(async () => {
   await store.loadStockTransfers()
   warehouses.value = await store.loadAllWarehouses()
@@ -348,58 +356,117 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
     <AppModal
       :open="showModal"
       :title="t('inventory.newTransfer')"
+      :subtitle="t('inventory.entryHint')"
       icon="transfer"
       tone="info"
       size="xl"
       @close="showModal = false"
     >
-      <form class="space-y-3" @submit.prevent="save">
-        <div>
-          <FieldLabel icon="stores">{{ t('inventory.storeA') }}</FieldLabel>
-          <input class="field" :value="sourceWarehouse?.name || '—'" readonly tabindex="-1">
-          <p class="text-xs text-slate-500">{{ t('inventory.transferSourceFixed') }}</p>
-        </div>
-        <div>
-          <FieldLabel icon="stores">{{ t('inventory.storeB') }}</FieldLabel>
-          <select v-model="form.destination_warehouse_id" required class="field">
-            <option value="">—</option>
-            <option v-for="w in destinationWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
-          </select>
-        </div>
-        <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
-        <p v-else-if="!sourceWarehouse" class="text-sm text-red-600">{{ t('inventory.transferNoSource') }}</p>
-        <p v-else-if="!destinationWarehouses.length" class="text-sm text-red-600">
-          {{ t('inventory.needDestination') }}
-          <router-link to="/admin/organization/stores" class="underline">{{ t('org.tabs.stores') }}</router-link>
-        </p>
-        <p class="text-xs text-slate-500">{{ t('inventory.entryHint') }}</p>
-        <p class="text-xs text-slate-500">{{ t('inventory.stockableOnly') }}</p>
-        <div class="space-y-2">
-          <div v-for="(line, idx) in form.items" :key="idx" class="line-row">
-            <select v-model="line.product_id" required class="field" @change="onProduct(idx)">
-              <option value="">—</option>
-              <option v-for="p in productsForLine(idx)" :key="p.id" :value="p.id">
-                {{ p.name }} · {{ t('inventory.available') }} {{ availableOf(p.id) }}
-              </option>
-            </select>
-            <input
-              v-model.number="line.quantity"
-              type="number"
-              min="1"
-              :max="line.product_id ? availableOf(line.product_id) : undefined"
-              required
-              class="field qty"
-              @input="clampLine(idx)"
-            />
-            <button type="button" class="text-sm text-red-600" @click="removeLine(idx)"><AppIcon name="trash" :size="16" /> {{ t('inventory.removeLine') }}</button>
+      <form id="transfer-form" class="xfer-form" @submit.prevent="save">
+        <section class="xfer-route" :aria-label="t('inventory.newTransfer')">
+          <div class="xfer-store xfer-store--locked">
+            <FieldLabel icon="stores">{{ t('inventory.storeA') }}</FieldLabel>
+            <input class="field" :value="sourceWarehouse?.name || '—'" readonly tabindex="-1">
+            <p class="xfer-note">{{ t('inventory.transferSourceFixed') }}</p>
           </div>
-          <button v-if="form.items.length < products.length" type="button" class="text-sm text-brand-600" @click="addLine"><AppIcon name="plus" :size="16" /> {{ t('inventory.addLine') }}</button>
-        </div>
-        <div class="app-modal__actions">
-          <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !sourceWarehouse || !destinationWarehouses.length">{{ t('inventory.saveEntry') }}</button>
+          <div class="xfer-arrow" aria-hidden="true">
+            <AppIcon name="chevron-right" :size="18" />
+          </div>
+          <div class="xfer-store">
+            <FieldLabel icon="stores">{{ t('inventory.storeB') }}</FieldLabel>
+            <select v-model="form.destination_warehouse_id" required class="field">
+              <option value="">—</option>
+              <option v-for="w in destinationWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
+            </select>
+            <p v-if="!destinationWarehouses.length" class="xfer-note xfer-note--warn">
+              {{ t('inventory.needDestination') }}
+              <router-link to="/admin/organization/stores" class="underline">{{ t('org.tabs.stores') }}</router-link>
+            </p>
+          </div>
+        </section>
+
+        <p v-if="formError" class="xfer-alert" role="alert">{{ formError }}</p>
+        <p v-else-if="!sourceWarehouse" class="xfer-alert" role="alert">{{ t('inventory.transferNoSource') }}</p>
+        <p v-else class="xfer-hint">{{ t('inventory.stockableOnly') }}</p>
+
+        <section class="xfer-lines">
+          <header class="xfer-lines__head">
+            <div>
+              <h3 class="xfer-lines__title">{{ t('inventory.articles') }}</h3>
+              <p class="xfer-lines__meta">{{ filledLines }} {{ t('inventory.articles') }} · {{ transferUnits }} {{ t('inventory.qtyShort') }}</p>
+            </div>
+            <button
+              v-if="form.items.length < products.length"
+              type="button"
+              class="btn-secondary xfer-add"
+              @click="addLine"
+            >
+              <AppIcon name="plus" :size="16" /> {{ t('inventory.addLine') }}
+            </button>
+          </header>
+          <div class="xfer-lines__list">
+            <div class="xfer-line xfer-line--head">
+              <span>{{ t('inventory.articles') }}</span>
+              <span>{{ t('inventory.available') }}</span>
+              <span>{{ t('inventory.qtyShort') }}</span>
+              <span class="sr-only">{{ t('inventory.removeLine') }}</span>
+            </div>
+            <div v-for="(line, idx) in form.items" :key="idx" class="xfer-line">
+              <select v-model="line.product_id" required class="field" @change="onProduct(idx)">
+                <option value="">—</option>
+                <option v-for="p in productsForLine(idx)" :key="p.id" :value="p.id">
+                  {{ p.name }} · {{ availableOf(p.id) }}
+                </option>
+              </select>
+              <span
+                class="xfer-avail"
+                :class="{ 'xfer-avail--empty': line.product_id && availableOf(line.product_id) < 1 }"
+              >
+                {{ line.product_id ? availableOf(line.product_id) : '—' }}
+              </span>
+              <input
+                v-model.number="line.quantity"
+                type="number"
+                min="1"
+                :max="line.product_id ? availableOf(line.product_id) : undefined"
+                required
+                class="field xfer-qty"
+                :aria-label="t('inventory.qtyShort')"
+                @input="clampLine(idx)"
+              />
+              <button
+                type="button"
+                class="xfer-remove"
+                :aria-label="t('inventory.removeLine')"
+                :title="t('inventory.removeLine')"
+                @click="removeLine(idx)"
+              >
+                <AppIcon name="trash" :size="16" />
+              </button>
+            </div>
+            <p v-if="!filledLines" class="xfer-empty">{{ t('inventory.needItems') }}</p>
+          </div>
+        </section>
+
+        <div class="xfer-notes">
+          <FieldLabel icon="note">{{ t('inventory.notes') }}</FieldLabel>
+          <textarea v-model="form.notes" class="field" rows="2" />
         </div>
       </form>
+      <template #footer>
+        <button type="button" class="btn-secondary" @click="showModal = false">
+          <AppIcon name="close" :size="16" /> {{ t('common.cancel') }}
+        </button>
+        <button
+          type="submit"
+          form="transfer-form"
+          class="btn-primary"
+          :class="{ 'is-busy': saving }"
+          :disabled="saving || !sourceWarehouse || !destinationWarehouses.length"
+        >
+          {{ t('inventory.saveEntry') }}
+        </button>
+      </template>
     </AppModal>
 
     <InventoryActionDetails
@@ -430,12 +497,231 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
 </template>
 
 <style scoped>
+:global(.app-modal--drawer .app-modal__body:has(> .xfer-form)) {
+  display: flex;
+  flex-direction: column;
+}
 
-.line-row { display: flex; align-items: center; gap: 0.5rem; }
-.line-row > .field { flex: 1 1 14rem; min-width: 0; }
-.line-row > .qty { flex: 0 0 6.5rem; width: 6.5rem; padding-left: 0.4rem; padding-right: 0.35rem; text-align: center; }
-input[readonly].field { background: var(--color-surface-muted, #f4f6f8); }
+.xfer-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  height: 100%;
+}
 
-.btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
-.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
+.xfer-route {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.xfer-store {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+}
+
+.xfer-store--locked {
+  background: var(--color-canvas);
+}
+
+.xfer-store :is(input, select) {
+  width: 100%;
+}
+
+.xfer-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-brand-700);
+}
+
+.xfer-note {
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.xfer-note--warn,
+.xfer-alert {
+  color: var(--color-danger);
+}
+
+.xfer-alert,
+.xfer-hint {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--color-brand-700);
+  background: var(--color-surface);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.xfer-alert {
+  border-left-color: var(--color-danger);
+}
+
+.xfer-lines {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+}
+
+.xfer-lines__head {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.xfer-lines__title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.xfer-lines__meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.xfer-add {
+  flex-shrink: 0;
+}
+
+.xfer-lines__list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.xfer-empty {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 2rem 1.5rem;
+  color: var(--color-text-faint);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.xfer-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem 5.5rem 2.5rem;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.xfer-line--head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-canvas);
+  color: var(--color-text-faint);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.xfer-line--head span:nth-child(2),
+.xfer-line--head span:nth-child(3) {
+  text-align: right;
+}
+
+.xfer-avail {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.xfer-avail--empty {
+  color: var(--color-danger);
+}
+
+.xfer-qty {
+  text-align: center;
+}
+
+.xfer-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0;
+  background: var(--color-surface);
+  color: var(--color-danger);
+  cursor: pointer;
+}
+
+.xfer-remove:hover {
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.xfer-notes {
+  flex-shrink: 0;
+}
+
+.xfer-notes textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+input[readonly].field {
+  background: var(--color-surface-muted, #f4f6f8);
+}
+
+.text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600)); }
+
+@media (max-width: 720px) {
+  .xfer-route {
+    grid-template-columns: 1fr;
+  }
+
+  .xfer-arrow {
+    transform: rotate(90deg);
+  }
+
+  .xfer-line,
+  .xfer-line--head {
+    grid-template-columns: minmax(0, 1fr) 4.25rem 2.5rem;
+  }
+
+  .xfer-line--head span:nth-child(2),
+  .xfer-avail {
+    display: none;
+  }
+}
 </style>

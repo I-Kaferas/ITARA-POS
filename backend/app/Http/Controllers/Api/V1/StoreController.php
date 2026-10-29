@@ -31,7 +31,10 @@ class StoreController extends Controller
     public function indexAll(Request $request): JsonResponse
     {
         $stores = Store::query()
-            ->with(['branch.company'])
+            ->with([
+                'branch.company',
+                'stockWarehouse:id,tenant_id,branch_id,store_id,name,code,is_active',
+            ])
             ->orderBy('name');
 
         $user = $request->user();

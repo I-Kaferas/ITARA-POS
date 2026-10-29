@@ -63,6 +63,7 @@ class StockAdjustmentService
                 'performed_by' => $performedBy?->id,
             ]);
 
+            $this->assertIssueFitsStock($warehouse, $movementType, $items);
             $this->syncItems($adjustment, $items);
 
             return $adjustment->fresh(['warehouse', 'items.product:id,sku,name']);
@@ -168,6 +169,45 @@ class StockAdjustmentService
         throw ValidationException::withMessages([
             'quantity' => ["Stock insuffisant pour {$product->name}. Disponible : {$have['display']}, demandé : {$need['display']}."],
         ]);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     */
+    private function assertIssueFitsStock(Warehouse $warehouse, InventoryMovementType $movementType, array $items): void
+    {
+        if (! $movementType->isOutbound()) {
+            return;
+        }
+
+        $demand = [];
+        $products = [];
+        foreach ($items as $item) {
+            $product = Product::query()->findOrFail($item['product_id']);
+            if (! $product->requiresStock()) {
+                continue;
+            }
+            $resolved = $this->openingStock->resolveLine(
+                $product,
+                (int) $item['quantity'],
+                $item['sale_unit_id'] ?? null,
+                (int) ($item['unit_cost'] ?? 0),
+            );
+            $demand[$product->id] = ($demand[$product->id] ?? 0) + $resolved['base_quantity'];
+            $products[$product->id] = $product;
+        }
+
+        foreach ($demand as $productId => $quantity) {
+            $product = $products[$productId];
+            $available = $this->stockBalanceService->availableQuantity($warehouse, $product);
+            if ($quantity <= $available) {
+                continue;
+            }
+            $have = $this->openingStock->describe($product, $available);
+            throw ValidationException::withMessages([
+                'items' => ["La quantité demandée pour {$product->name} dépasse le stock disponible ({$have['display']})."],
+            ]);
+        }
     }
 
     /** @param  list<array<string, mixed>>  $items */

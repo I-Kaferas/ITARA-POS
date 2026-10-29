@@ -13,11 +13,13 @@ use App\Models\GoodsReceiptItem;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
+use App\Models\StockBalance;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Accounting\AccountingEntryService;
 use App\Services\Audit\AuditLogService;
 use App\Services\Inventory\InventoryMovementService;
+use App\Services\Inventory\WeightedAverageCost;
 use App\Services\Supplier\SupplierLedgerService;
 use App\Services\Transactions\TransactionEngine;
 use Illuminate\Support\Facades\DB;
@@ -120,6 +122,8 @@ class GoodsReceiptService
                     'unit_cost' => $poItem->unit_cost,
                 ]);
 
+                $this->applyWeightedAverageCost($poItem, $qty);
+
                 $this->movementService->record([
                     'warehouse' => $purchaseOrder->warehouse,
                     'product' => $poItem->product,
@@ -172,6 +176,36 @@ class GoodsReceiptService
 
             return $receipt->load(['items.product:id,sku,name', 'invoice']);
         });
+    }
+
+    /**
+     * When the purchase price differs from the stock cost, replace it with the
+     * weighted average of the quantity already on hand and this receipt.
+     * Stock is read before the inbound movement so the incoming quantity is not counted twice.
+     */
+    private function applyWeightedAverageCost(PurchaseOrderItem $poItem, int $qty): void
+    {
+        $product = $poItem->product;
+        $product->refresh();
+
+        $purchaseCost = (int) $poItem->unit_cost;
+        $currentCost = (int) $product->cost_price;
+
+        if ($purchaseCost === $currentCost) {
+            return;
+        }
+
+        $onHand = (int) StockBalance::query()
+            ->where('product_id', $product->id)
+            ->sum('quantity_on_hand');
+
+        $newCost = WeightedAverageCost::compute($onHand, $currentCost, $qty, $purchaseCost);
+
+        if ($newCost === $currentCost) {
+            return;
+        }
+
+        $product->update(['cost_price' => $newCost]);
     }
 
     private function createInvoice(

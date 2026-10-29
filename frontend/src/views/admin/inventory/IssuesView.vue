@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { extractApiErrorMessage } from '../../../api/client'
 import InventoryActionDetails from '../../../components/inventory/InventoryActionDetails.vue'
@@ -89,7 +89,6 @@ async function refresh() {
 }
 
 async function openCreate() {
-  products.value = (await store.loadAllProducts()).filter(isStockableProduct)
   formError.value = ''
   form.value = {
     warehouse_id: warehouses.value[0]?.id ?? '',
@@ -98,7 +97,11 @@ async function openCreate() {
     items: [emptyLine()],
   }
   showModal.value = true
-  await loadStock(form.value.warehouse_id)
+  const [loadedProducts] = await Promise.all([
+    store.loadAllProducts(),
+    loadStock(form.value.warehouse_id),
+  ])
+  products.value = loadedProducts.filter(isStockableProduct)
 }
 
 async function loadStock(warehouseId: string) {
@@ -107,11 +110,16 @@ async function loadStock(warehouseId: string) {
     return
   }
   try {
-    await store.loadStockBalances(warehouseId)
+    await store.loadStockBalances(warehouseId, false)
     balances.value = [...store.stockBalances]
   } catch {
     balances.value = []
   }
+}
+
+async function onWarehouse(warehouseId: string) {
+  await loadStock(warehouseId)
+  form.value.items.forEach((_, index) => clampLine(index))
 }
 
 function addLine() {
@@ -134,6 +142,7 @@ function productsForLine(index: number) {
 }
 
 async function onProduct(index: number) {
+  await nextTick()
   const line = form.value.items[index]
   if (!line?.product_id) {
     form.value.items[index] = emptyLine()
@@ -149,9 +158,43 @@ async function onProduct(index: number) {
       sale_unit_id: base?.id ?? '',
       bottle_volume_ml: Number(detailProduct.bottle_volume_ml ?? 0),
     }
+    clampLine(index)
   } catch (error) {
     notify(extractApiErrorMessage(error), 'error')
   }
+}
+
+function availableBase(productId: string) {
+  const row = balances.value.find(item => item.product_id === productId)
+  return Math.max(0, Math.trunc(Number(row?.quantity_available ?? row?.quantity_on_hand ?? 0)))
+}
+
+function maxEntered(line: IssueLine) {
+  if (!line.product_id) return 0
+  const base = availableBase(line.product_id)
+  const unit = line.units.find(item => item.id === line.sale_unit_id)
+  if (line.bottle_volume_ml > 0 && unit?.volume_ml) {
+    return Math.floor(base / unit.volume_ml)
+  }
+  return base
+}
+
+function maxLabel(line: IssueLine) {
+  const max = maxEntered(line)
+  const unit = line.units.find(item => item.id === line.sale_unit_id)
+  return unit?.name ? `${max} ${unit.name}` : String(max)
+}
+
+function clampLine(index: number) {
+  const line = form.value.items[index]
+  if (!line?.product_id) return
+  const max = maxEntered(line)
+  if (max < 1) {
+    line.quantity = 0
+    return
+  }
+  const qty = Math.trunc(Number(line.quantity) || 0)
+  line.quantity = Math.min(Math.max(qty, 1), max)
 }
 
 function available(productId: string, bottleMl: number) {
@@ -208,6 +251,15 @@ async function openDetails(id: string) {
 }
 
 async function save() {
+  for (const line of form.value.items) {
+    if (!line.product_id) continue
+    const qty = Math.trunc(Number(line.quantity) || 0)
+    if (qty > maxEntered(line)) {
+      const name = products.value.find(product => product.id === line.product_id)?.name ?? line.product_id
+      formError.value = t('inventory.issueQtyExceeds', { name, available: maxLabel(line) })
+      return
+    }
+  }
   const items = form.value.items
     .filter(line => line.product_id && line.quantity >= 1)
     .map(line => ({
@@ -348,7 +400,7 @@ async function complete(id: string) {
       <form class="space-y-3" @submit.prevent="save">
         <div>
           <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
-          <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" @update:model-value="loadStock" />
+          <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" @update:model-value="onWarehouse" />
         </div>
         <div>
           <FieldLabel icon="transfer">{{ t('inventory.movementType') }}</FieldLabel>
@@ -368,10 +420,18 @@ async function complete(id: string) {
             <div class="line-row">
               <select v-model="line.product_id" required class="field name" @change="onProduct(idx)">
                 <option value="">—</option>
-                <option v-for="product in productsForLine(idx)" :key="product.id" :value="product.id">{{ product.name }}</option>
+                <option v-for="product in productsForLine(idx)" :key="product.id" :value="product.id">{{ product.name }} · {{ t('inventory.availableStock') }} {{ available(product.id, Number(product.bottle_volume_ml || 0)) }}</option>
               </select>
-              <input v-model.number="line.quantity" type="number" min="1" required class="field qty" />
-              <select v-if="line.units.length" v-model="line.sale_unit_id" class="field unit">
+              <input
+                v-model.number="line.quantity"
+                type="number"
+                :min="line.product_id && maxEntered(line) < 1 ? 0 : 1"
+                :max="line.product_id ? maxEntered(line) : undefined"
+                required
+                class="field qty"
+                @input="clampLine(idx)"
+              />
+              <select v-if="line.units.length" v-model="line.sale_unit_id" class="field unit" @change="clampLine(idx)">
                 <option v-for="unit in line.units" :key="unit.id" :value="unit.id">{{ unit.name }}</option>
               </select>
               <button type="button" class="text-sm text-red-600" @click="removeLine(idx)"><AppIcon name="trash" :size="16" /> {{ t('inventory.removeLine') }}</button>

@@ -23,7 +23,6 @@ const store = useBackofficeStore()
 
 const isEdit = computed(() => Boolean(route.params.id))
 const saveError = ref('')
-const saveNotice = ref('')
 const catalogId = ref((route.query.catalogId as string) ?? '')
 const saving = ref(false)
 const uploading = ref(false)
@@ -241,7 +240,6 @@ function buildPayload() {
 
 async function save() {
   saveError.value = ''
-  saveNotice.value = ''
 
   if (!form.value.sku.trim() || !form.value.name.trim()) {
     activeTab.value = 'general'
@@ -274,11 +272,7 @@ async function save() {
       product.value = await store.loadProduct(saved.id)
       images.value = product.value.images ?? []
     }
-    saveNotice.value = t('common.saved')
-
-    if (!isEdit.value) {
-      await router.replace({ name: 'product-edit', params: { id: saved.id } })
-    }
+    await router.push({ name: 'products' })
   } catch (error) {
     saveError.value = extractApiErrorMessage(error, t('products.saveFailed'))
   } finally {
@@ -649,7 +643,6 @@ async function removeImage() {
       </section>
 
       <p v-if="saveError" class="form-alert form-alert--error" role="alert">{{ saveError }}</p>
-      <p v-if="saveNotice" class="form-alert form-alert--success" role="status">{{ saveNotice }}</p>
       <div class="form-actions">
         <button type="button" class="btn-secondary" @click="router.push({ name: 'products' })"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
         <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">

@@ -123,6 +123,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
   const galleryImages = ref<GalleryImage[]>([])
   const stores = ref<Store[]>([])
   const warehouses = ref<Warehouse[]>([])
+  const warehouseCatalog = ref<Warehouse[]>([])
   const devices = ref<Device[]>([])
   const cashRegisters = ref<CashRegister[]>([])
   const cashierShifts = ref<CashierShift[]>([])
@@ -168,6 +169,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     galleryImages.value = []
     stores.value = []
     warehouses.value = []
+    warehouseCatalog.value = []
     devices.value = []
     cashRegisters.value = []
     cashierShifts.value = []
@@ -1041,10 +1043,15 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     await api.delete(`/stores/${storeId}/products/${productId}`)
   }
 
-  async function loadAllWarehouses(): Promise<Warehouse[]> {
+  let warehouseCatalogRefresh: Promise<Warehouse[]> | null = null
+
+  async function fetchWarehouseCatalog(): Promise<Warehouse[]> {
     try {
       const fromList = unwrapWarehouses(await api.get<{ data: Warehouse[] | { data?: Warehouse[] } }>('/warehouses'))
-      if (fromList.length) return fromList
+      if (fromList.length) {
+        warehouseCatalog.value = fromList
+        return fromList
+      }
     } catch {
       // Fall back to the branch listing used by organization screens.
     }
@@ -1064,7 +1071,24 @@ export const useBackofficeStore = defineStore('backoffice', () => {
         }
       }
     }
-    return all
+    if (all.length) warehouseCatalog.value = all
+    return warehouseCatalog.value
+  }
+
+  async function loadAllWarehouses(): Promise<Warehouse[]> {
+    if (warehouseCatalog.value.length) {
+      if (!warehouseCatalogRefresh) {
+        warehouseCatalogRefresh = fetchWarehouseCatalog().finally(() => {
+          warehouseCatalogRefresh = null
+        })
+      }
+      return warehouseCatalog.value
+    }
+
+    warehouseCatalogRefresh ??= fetchWarehouseCatalog().finally(() => {
+      warehouseCatalogRefresh = null
+    })
+    return warehouseCatalogRefresh
   }
 
   // Suppliers
@@ -2097,6 +2121,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadCurrencies, saveCurrency, deleteCurrency, loadCurrencyRates, saveCurrencyRate, convertCurrency,
     loadPaymentMethods, savePaymentMethod, updatePaymentMethod, deletePaymentMethod, reorderPaymentMethods,
     loadBranches, saveBranch, deleteBranch, loadBranchProfile, addBranchExpense, loadStores, saveStore, deleteStore,
+    warehouses, warehouseCatalog,
     loadWarehouses, saveWarehouse, deleteWarehouse, loadDevices, saveDevice, deleteDevice, revokeDevice, regenerateDeviceToken,
     loadCashRegisters, saveCashRegister, deleteCashRegister,
     loadStoreCashierShifts, loadMyCashierShifts, loadCashierShiftDetail, loadCurrentCashierShift, openCashierShift, closeCashierShift,

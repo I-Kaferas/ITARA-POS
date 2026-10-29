@@ -4,6 +4,8 @@ namespace Tests\Feature\Inventory;
 
 use App\Enums\InventoryMovementType;
 use App\Models\StockBalance;
+use App\Models\Store;
+use App\Models\StoreProduct;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryMovementService;
 use App\Services\Inventory\StockAdjustmentService;
@@ -187,6 +189,75 @@ class InventoryPhase11Test extends TestCase
         $this->getJson("/api/v1/warehouses/{$destination->id}/stock", $headers)
             ->assertOk()
             ->assertJsonPath('data.data.0.quantity_on_hand', 10);
+    }
+
+    public function test_received_transfer_imports_product_into_destination_store(): void
+    {
+        $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+        $product = $this->fixture['product'];
+        $sourceStore = $this->fixture['store'];
+
+        $source = $this->fixture['warehouse'];
+        $source->update(['store_id' => $sourceStore->id]);
+
+        $destinationStore = Store::create([
+            'tenant_id' => $this->fixture['tenant']->id,
+            'branch_id' => $this->fixture['branch']->id,
+            'name' => 'Store B',
+            'code' => 'STB',
+            'is_active' => true,
+        ]);
+
+        $destination = Warehouse::create([
+            'tenant_id' => $this->fixture['tenant']->id,
+            'branch_id' => $this->fixture['branch']->id,
+            'store_id' => $destinationStore->id,
+            'name' => 'Warehouse B',
+            'code' => 'WH-B2',
+            'is_active' => true,
+        ]);
+
+        $product->importToStore($sourceStore, priceOverride: 2500);
+
+        app(InventoryMovementService::class)->record([
+            'warehouse' => $source,
+            'product' => $product,
+            'movement_type' => InventoryMovementType::InitialStock,
+            'quantity' => 8,
+        ]);
+
+        $transfer = $this->postJson('/api/v1/stock-transfers', [
+            'source_warehouse_id' => $source->id,
+            'destination_warehouse_id' => $destination->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 3],
+            ],
+        ], $headers)->assertCreated()->json('data');
+
+        $this->assertFalse($product->isImportedInStore($destinationStore));
+
+        $this->postJson("/api/v1/stock-transfers/{$transfer['id']}/confirm", [], $headers)->assertOk();
+        $this->postJson("/api/v1/stock-transfers/{$transfer['id']}/approve", [], $headers)->assertOk();
+        $this->postJson("/api/v1/stock-transfers/{$transfer['id']}/ship", [], $headers)->assertOk();
+        $this->assertFalse($product->isImportedInStore($destinationStore));
+
+        $this->postJson("/api/v1/stock-transfers/{$transfer['id']}/receive", [], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed');
+
+        $this->assertTrue($product->fresh()->isImportedInStore($destinationStore));
+
+        $imported = StoreProduct::query()
+            ->where('store_id', $destinationStore->id)
+            ->where('product_id', $product->id)
+            ->first();
+
+        $this->assertNotNull($imported);
+        $this->assertTrue($imported->is_available);
+        $this->assertSame(2500, StoreProduct::query()
+            ->where('store_id', $sourceStore->id)
+            ->where('product_id', $product->id)
+            ->value('price_override'));
     }
 
     public function test_stock_adjustment_records_damage_movement(): void

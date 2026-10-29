@@ -7,6 +7,7 @@ use App\Enums\StockTransferStatus;
 use App\Models\Product;
 use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
+use App\Models\Store;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Transactions\TransactionEngine;
@@ -186,6 +187,8 @@ class StockTransferService
                 $item->update(['quantity_received' => $quantity]);
             }
 
+            $this->importReceivedProducts($transfer, $performedBy);
+
             $transfer->update([
                 'status' => StockTransferStatus::Completed,
                 'received_at' => now(),
@@ -205,6 +208,32 @@ class StockTransferService
             ->count();
 
         return 'TRF-'.str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * A received product belongs to the destination store, not only to its warehouse stock.
+     * Without this row it stays under "From the catalog" on the store page.
+     */
+    private function importReceivedProducts(StockTransfer $transfer, ?User $performedBy): void
+    {
+        $storeId = $transfer->destinationWarehouse?->store_id;
+        if (! $storeId) {
+            return;
+        }
+
+        $store = Store::query()->find($storeId);
+        if (! $store) {
+            return;
+        }
+
+        foreach ($transfer->items as $item) {
+            $product = $item->product;
+            if (! $product || $product->isImportedInStore($store)) {
+                continue;
+            }
+
+            $product->importToStore($store, importedBy: $performedBy?->id);
+        }
     }
 
     /**

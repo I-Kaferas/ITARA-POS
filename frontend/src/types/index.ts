@@ -203,6 +203,7 @@ export interface Store {
   is_active: boolean
   is_main?: boolean
   branch?: Branch & { company?: Company }
+  stock_warehouse?: Warehouse | null
 }
 
 export interface Warehouse {
