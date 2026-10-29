@@ -24,6 +24,7 @@ type ExpenseRow = {
   branch?: { name: string } | null
   user?: { name: string } | null
   cash_register_session?: { id: string; register?: { name: string } | null } | null
+  status?: string
 }
 type OpenSession = { id: string; label: string }
 
@@ -60,6 +61,15 @@ onMounted(async () => {
 async function load() {
   const params = listFilterParams(filters.value, { categoryKey: 'expense_category_id' })
   rows.value = (await store.loadExpenses(params)) as ExpenseRow[]
+}
+
+async function act(row: ExpenseRow, action: 'submit' | 'approve' | 'reject' | 'pay' | 'cancel') {
+  if (action === 'submit') await store.submitExpense(row.id)
+  else if (action === 'approve') await store.decideExpense(row.id, 'approved')
+  else if (action === 'reject') await store.decideExpense(row.id, 'rejected')
+  else if (action === 'pay') await store.payExpense(row.id, { amount: row.amount, payment_method: 'cash' })
+  else await store.cancelExpense(row.id)
+  await load()
 }
 
 useRealtimeSync(realtimeTopics.expenses, load)
@@ -145,6 +155,8 @@ async function save() {
             <th class="px-4 py-3 text-left font-medium">{{ t('expenses.user') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('expenses.session') }}</th>
             <th class="px-4 py-3 text-right font-medium">{{ t('expenses.amount') }}</th>
+            <th class="px-4 py-3 text-left font-medium">{{ t('expenses.workflow.status') }}</th>
+            <th class="px-4 py-3 text-left font-medium">{{ t('expenses.workflow.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -156,6 +168,16 @@ async function save() {
             <td class="px-4 py-3">{{ row.user?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ row.cash_register_session?.register?.name ?? '—' }}</td>
             <td class="px-4 py-3 text-right font-medium">{{ formatMoney(row.amount) }}</td>
+            <td class="px-4 py-3">{{ t(`expenses.workflow.states.${row.status || 'paid'}`) }}</td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-1">
+                <button v-if="row.status === 'draft'" type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="act(row, 'submit')">{{ t('expenses.workflow.submit') }}</button>
+                <button v-if="row.status === 'submitted'" type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="act(row, 'approve')">{{ t('expenses.workflow.approve') }}</button>
+                <button v-if="row.status === 'submitted'" type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="act(row, 'reject')">{{ t('expenses.workflow.reject') }}</button>
+                <button v-if="row.status === 'approved'" type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="act(row, 'pay')">{{ t('expenses.workflow.pay') }}</button>
+                <button v-if="row.status === 'draft' || row.status === 'submitted' || row.status === 'approved'" type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="act(row, 'cancel')">{{ t('expenses.workflow.cancel') }}</button>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>

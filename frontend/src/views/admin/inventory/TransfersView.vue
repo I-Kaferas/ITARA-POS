@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { extractApiErrorMessage } from '../../../api/client'
 import InventoryActionDetails from '../../../components/inventory/InventoryActionDetails.vue'
@@ -12,7 +12,8 @@ import ListPager from '../../../components/ui/ListPager.vue'
 import { useClientPager } from '../../../composables/useClientPager'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
-import type { Product, StockTransferDetail, Warehouse } from '../../../types'
+import { useContextStore } from '../../../stores/context'
+import type { Product, StockBalance, StockTransferDetail, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
 import { emptyListFilters, inPeriod, matchesSearch, type ListFilters } from '../../../utils/listFilters'
@@ -20,10 +21,12 @@ import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
+const context = useContextStore()
 const { notify, confirm: confirmDialog } = useConfirm()
 
 const warehouses = ref<Warehouse[]>([])
 const products = ref<Product[]>([])
+const sourceStock = ref<StockBalance[]>([])
 const showModal = ref(false)
 const showDetails = ref(false)
 const detailsLoading = ref(false)
@@ -33,6 +36,9 @@ const formError = ref('')
 
 const destinationWarehouses = computed(() =>
   warehouses.value.filter(w => w.id !== form.value.source_warehouse_id),
+)
+const sourceWarehouse = computed(() =>
+  warehouses.value.find(w => w.store_id && w.store_id === context.currentStoreId) ?? null,
 )
 const filters = ref<ListFilters>(emptyListFilters('all'))
 const warehouseOptions = computed(() => warehouses.value.map(w => ({ id: w.id, name: w.name })))
@@ -80,7 +86,12 @@ watch(() => form.value.source_warehouse_id, (sourceId) => {
 
 async function openCreate() {
   products.value = (await store.loadAllProducts()).filter(isStockableProduct)
-  const sourceId = warehouses.value[0]?.id ?? ''
+  const sourceId = sourceWarehouse.value?.id ?? ''
+  sourceStock.value = []
+  if (sourceId) {
+    await store.loadStockBalances(sourceId, false)
+    sourceStock.value = store.stockBalances.slice()
+  }
   formError.value = ''
   form.value = {
     source_warehouse_id: sourceId,
@@ -89,6 +100,25 @@ async function openCreate() {
     items: [{ product_id: '', quantity: 1 }],
   }
   showModal.value = true
+}
+
+function availableOf(productId: string) {
+  if (!productId) return 0
+  return sourceStock.value
+    .filter(row => row.product_id === productId)
+    .reduce((sum, row) => sum + Number(row.quantity_available ?? row.quantity_on_hand ?? 0), 0)
+}
+
+function clampLine(index: number) {
+  const line = form.value.items[index]
+  if (!line?.product_id) return
+  const available = availableOf(line.product_id)
+  const qty = Math.trunc(Number(line.quantity) || 0)
+  line.quantity = available < 1 ? 0 : Math.min(Math.max(qty, 1), available)
+}
+
+function onProduct(index: number) {
+  void nextTick(() => clampLine(index))
 }
 
 function productsForLine(index: number) {
@@ -180,6 +210,11 @@ function nextAction(status: string) {
 
 async function save() {
   formError.value = ''
+  form.value.source_warehouse_id = sourceWarehouse.value?.id ?? ''
+  if (!form.value.source_warehouse_id) {
+    formError.value = t('inventory.transferNoSource')
+    return
+  }
   if (!form.value.destination_warehouse_id) {
     formError.value = t('inventory.needDestination')
     return
@@ -189,6 +224,15 @@ async function save() {
     return
   }
 
+  for (const line of form.value.items.filter(item => item.product_id)) {
+    const available = availableOf(line.product_id)
+    if (Math.trunc(Number(line.quantity) || 0) > available) {
+      const name = products.value.find(product => product.id === line.product_id)?.name ?? ''
+      formError.value = t('inventory.transferQtyExceeds', { name, available })
+      return
+    }
+  }
+
   const items = form.value.items
     .filter(i => i.product_id && i.quantity > 0)
     .map(i => ({ product_id: i.product_id, quantity: Math.trunc(i.quantity) }))
@@ -196,6 +240,15 @@ async function save() {
   if (!items.length) {
     formError.value = t('inventory.needItems')
     return
+  }
+
+  for (const item of items) {
+    const available = availableOf(item.product_id)
+    if (item.quantity > available) {
+      const name = products.value.find(product => product.id === item.product_id)?.name ?? ''
+      formError.value = t('inventory.transferQtyExceeds', { name, available })
+      return
+    }
   }
 
   saving.value = true
@@ -303,9 +356,8 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
       <form class="space-y-3" @submit.prevent="save">
         <div>
           <FieldLabel icon="stores">{{ t('inventory.storeA') }}</FieldLabel>
-          <select v-model="form.source_warehouse_id" required class="field">
-            <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
-          </select>
+          <input class="field" :value="sourceWarehouse?.name || '—'" readonly tabindex="-1">
+          <p class="text-xs text-slate-500">{{ t('inventory.transferSourceFixed') }}</p>
         </div>
         <div>
           <FieldLabel icon="stores">{{ t('inventory.storeB') }}</FieldLabel>
@@ -315,6 +367,7 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
           </select>
         </div>
         <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
+        <p v-else-if="!sourceWarehouse" class="text-sm text-red-600">{{ t('inventory.transferNoSource') }}</p>
         <p v-else-if="!destinationWarehouses.length" class="text-sm text-red-600">
           {{ t('inventory.needDestination') }}
           <router-link to="/admin/organization/stores" class="underline">{{ t('org.tabs.stores') }}</router-link>
@@ -323,18 +376,28 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
         <p class="text-xs text-slate-500">{{ t('inventory.stockableOnly') }}</p>
         <div class="space-y-2">
           <div v-for="(line, idx) in form.items" :key="idx" class="line-row">
-            <select v-model="line.product_id" required class="field">
+            <select v-model="line.product_id" required class="field" @change="onProduct(idx)">
               <option value="">—</option>
-              <option v-for="p in productsForLine(idx)" :key="p.id" :value="p.id">{{ p.name }}</option>
+              <option v-for="p in productsForLine(idx)" :key="p.id" :value="p.id">
+                {{ p.name }} · {{ t('inventory.available') }} {{ availableOf(p.id) }}
+              </option>
             </select>
-            <input v-model.number="line.quantity" type="number" min="1" required class="field qty" />
+            <input
+              v-model.number="line.quantity"
+              type="number"
+              min="1"
+              :max="line.product_id ? availableOf(line.product_id) : undefined"
+              required
+              class="field qty"
+              @input="clampLine(idx)"
+            />
             <button type="button" class="text-sm text-red-600" @click="removeLine(idx)"><AppIcon name="trash" :size="16" /> {{ t('inventory.removeLine') }}</button>
           </div>
           <button v-if="form.items.length < products.length" type="button" class="text-sm text-brand-600" @click="addLine"><AppIcon name="plus" :size="16" /> {{ t('inventory.addLine') }}</button>
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !destinationWarehouses.length">{{ t('inventory.saveEntry') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !sourceWarehouse || !destinationWarehouses.length">{{ t('inventory.saveEntry') }}</button>
         </div>
       </form>
     </AppModal>
@@ -371,6 +434,7 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
 .line-row { display: flex; align-items: center; gap: 0.5rem; }
 .line-row > .field { flex: 1 1 14rem; min-width: 0; }
 .line-row > .qty { flex: 0 0 6.5rem; width: 6.5rem; padding-left: 0.4rem; padding-right: 0.35rem; text-align: center; }
+input[readonly].field { background: var(--color-surface-muted, #f4f6f8); }
 
 .btn-secondary { border-radius: 0.5rem; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; }
 .text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}

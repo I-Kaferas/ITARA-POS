@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\RecurringExpense;
@@ -147,7 +148,7 @@ class ExpenseController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $this->ensureCategories();
-        $query = Expense::query()->with('expenseCategory');
+        $query = Expense::query()->with('expenseCategory')->where('status', 'paid');
 
         if ($request->filled('from')) {
             $query->whereDate('occurred_on', '>=', $request->date('from'));
@@ -268,9 +269,44 @@ class ExpenseController extends Controller
         ]);
     }
 
-    public function generate(): JsonResponse
+    public function generate(Request $request): JsonResponse
     {
-        return response()->json(['data' => ['created' => 0]]);
+        $created = 0;
+        $due = RecurringExpense::query()
+            ->where('is_active', true)
+            ->whereDate('next_due_on', '<=', now()->toDateString())
+            ->get();
+
+        foreach ($due as $row) {
+            $branchId = $row->branch_id ?: Branch::query()->where('tenant_id', $row->tenant_id)->orderBy('created_at')->value('id');
+            if (! $branchId || ! $row->expense_category_id) {
+                continue;
+            }
+
+            $this->expenses->record([
+                'branch_id' => $branchId,
+                'store_id' => $row->store_id,
+                'expense_category_id' => $row->expense_category_id,
+                'description' => $row->name,
+                'amount' => (int) $row->amount,
+                'user_id' => $row->user_id,
+                'occurred_on' => $row->next_due_on?->toDateString(),
+                'notes' => $row->notes,
+                'currency_code' => $row->currency_code,
+            ], $request->user());
+
+            $next = $this->followingDate(
+                $row->next_due_on?->toDateString() ?? now()->toDateString(),
+                (string) $row->frequency,
+                $row->ends_on?->toDateString(),
+            );
+            $row->update($next === null
+                ? ['is_active' => false]
+                : ['next_due_on' => $next]);
+            $created++;
+        }
+
+        return response()->json(['data' => ['created' => $created]]);
     }
 
     public function rules(): JsonResponse
@@ -295,22 +331,64 @@ class ExpenseController extends Controller
 
     public function submit(Expense $expense): JsonResponse
     {
-        return response()->json(['data' => $expense]);
+        $this->assertTransition($expense, ['draft']);
+        $expense->update(['status' => 'submitted']);
+
+        return response()->json(['data' => $this->presentExpense($expense)]);
     }
 
-    public function decide(Expense $expense): JsonResponse
+    public function decide(Request $request, Expense $expense): JsonResponse
     {
-        return response()->json(['data' => $expense]);
+        $data = $request->validate([
+            'decision' => ['required', 'string', Rule::in(['approved', 'rejected'])],
+            'comment' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $this->assertTransition($expense, ['submitted']);
+        $expense->update([
+            'status' => $data['decision'] === 'approved' ? 'approved' : 'rejected',
+            'decision' => $data['decision'],
+            'decision_comment' => $data['comment'] ?? null,
+            'decided_at' => now(),
+        ]);
+
+        return response()->json(['data' => $this->presentExpense($expense)]);
     }
 
-    public function pay(Expense $expense): JsonResponse
+    public function pay(Request $request, Expense $expense): JsonResponse
     {
-        return response()->json(['data' => $expense]);
+        $data = $request->validate([
+            'amount' => ['required', 'integer', 'min:1'],
+            'payment_method' => ['required', 'string', 'max:40'],
+            'reference' => ['nullable', 'string', 'max:80'],
+            'idempotency_key' => ['nullable', 'string', 'max:80'],
+        ]);
+        $this->assertTransition($expense, ['approved']);
+        $paid = $this->expenses->pay($expense->load(['branch', 'expenseCategory']), $request->user(), $data);
+
+        return response()->json(['data' => $paid]);
     }
 
     public function cancel(Expense $expense): JsonResponse
     {
-        return response()->json(['data' => $expense]);
+        $this->assertTransition($expense, ['draft', 'submitted', 'approved']);
+        $expense->update(['status' => 'cancelled']);
+
+        return response()->json(['data' => $this->presentExpense($expense)]);
+    }
+
+    /** @param  list<string>  $allowed */
+    private function assertTransition(Expense $expense, array $allowed): void
+    {
+        if (! in_array($expense->status, $allowed, true)) {
+            throw ValidationException::withMessages([
+                'status' => ["Cette dépense ne peut pas passer de « {$expense->status} » à l'étape demandée."],
+            ]);
+        }
+    }
+
+    private function presentExpense(Expense $expense): Expense
+    {
+        return $expense->fresh(['expenseCategory', 'branch', 'user', 'cashRegisterSession.register']);
     }
 
     /**
@@ -402,6 +480,23 @@ class ExpenseController extends Controller
         }
 
         if ($end && $date->gt($end)) {
+            return null;
+        }
+
+        return $date->toDateString();
+    }
+
+    private function followingDate(string $from, string $frequency, ?string $endsOn): ?string
+    {
+        $date = Carbon::parse($from)->startOfDay();
+        $date = match ($frequency) {
+            'daily' => $date->addDay(),
+            'weekly' => $date->addWeek(),
+            'quarterly' => $date->addMonths(3),
+            'yearly' => $date->addYear(),
+            default => $date->addMonth(),
+        };
+        if ($endsOn && $date->gt(Carbon::parse($endsOn)->startOfDay())) {
             return null;
         }
 

@@ -570,7 +570,7 @@ const router = createRouter({
         {
               path: 'hotel/invoices',
               name: 'hotel-invoices',
-              component: () => import('../views/admin/hotel/HotelSectionView.vue'),
+              component: () => import('../views/admin/hotel/HotelInvoicesView.vue'),
               meta: { requiresAuth: true },
             },
         {

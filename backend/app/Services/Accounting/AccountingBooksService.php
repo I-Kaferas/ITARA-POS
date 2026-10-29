@@ -82,7 +82,7 @@ class AccountingBooksService
             return collect();
         }
 
-        $query = Expense::query()->where('tenant_id', $tenantId);
+        $query = Expense::query()->where('tenant_id', $tenantId)->where('status', 'paid');
         if ($from) {
             $query->whereDate('occurred_on', '>=', $from);
         }

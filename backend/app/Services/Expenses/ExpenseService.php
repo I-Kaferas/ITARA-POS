@@ -85,25 +85,56 @@ class ExpenseService
                 'currency_code' => strtoupper($data['currency_code'] ?? 'FBU'),
                 'occurred_on' => $data['occurred_on'] ?? now()->toDateString(),
                 'notes' => $data['notes'] ?? null,
+                'status' => 'draft',
             ]);
 
-            if ($session !== null) {
+            return $expense->load(['expenseCategory', 'branch', 'user', 'cashRegisterSession.register']);
+        });
+    }
+
+    /**
+     * @param  array{amount: int, payment_method: string, reference?: string|null}  $data
+     */
+    public function pay(Expense $expense, User $actor, array $data): Expense
+    {
+        if ((int) $data['amount'] !== (int) $expense->amount) {
+            throw ValidationException::withMessages([
+                'amount' => ['Le montant payé doit être égal à la dépense.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($expense, $actor, $data): Expense {
+            $expense->loadMissing(['branch', 'expenseCategory']);
+            $session = null;
+            if ($expense->cash_register_session_id) {
+                if ($expense->branch === null) {
+                    throw ValidationException::withMessages([
+                        'cash_register_session_id' => ['La succursale de cette dépense est introuvable.'],
+                    ]);
+                }
+                $session = $this->sessionForBranch($expense->branch, $expense->cash_register_session_id);
                 $this->sessions->recordMovement(
                     register: $session->register,
                     session: $session,
                     type: CashMovementType::Expense,
                     amount: $expense->amount,
                     user: $actor,
-                    description: $category->name.' · '.$expense->description,
+                    description: ($expense->expenseCategory?->name ?? $expense->category).' · '.$expense->description,
                     reference: $expense->id,
                     referenceType: $expense->getMorphClass(),
                     referenceId: $expense->id,
                 );
             }
 
+            $expense->update([
+                'status' => 'paid',
+                'payment_method' => $data['payment_method'],
+                'payment_reference' => $data['reference'] ?? null,
+                'paid_at' => now(),
+            ]);
             $this->transactionEngine->recordExpense($expense);
 
-            return $expense->load(['expenseCategory', 'branch', 'user', 'cashRegisterSession.register']);
+            return $expense->fresh(['expenseCategory', 'branch', 'user', 'cashRegisterSession.register']);
         });
     }
 

@@ -209,6 +209,7 @@ export interface Warehouse {
   id: string
   tenant_id: string
   branch_id: string
+  store_id?: string | null
   name: string
   code: string
   is_active: boolean

@@ -8,6 +8,7 @@ use App\Models\Warehouse;
 use App\Services\Inventory\StockTransferService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class StockTransferController extends Controller
 {
@@ -58,6 +59,12 @@ class StockTransferController extends Controller
 
         $source = Warehouse::query()->findOrFail($data['source_warehouse_id']);
         $destination = Warehouse::query()->findOrFail($data['destination_warehouse_id']);
+
+        if (app()->bound('store.id') && (string) $source->store_id !== (string) app('store.id')) {
+            throw ValidationException::withMessages([
+                'source_warehouse_id' => ['Le magasin source doit être le magasin courant.'],
+            ]);
+        }
 
         $transfer = $this->transferService->create(
             source: $source,

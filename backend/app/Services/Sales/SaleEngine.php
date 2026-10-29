@@ -121,8 +121,7 @@ class SaleEngine
 
             $warehouse = $this->warehouseFromPayload($store, $payload);
             $skipStock = (bool) ($payload['skip_stock'] ?? false);
-            $replay = (bool) ($payload['sync_replay'] ?? false);
-            if (! $skipStock && ! $replay) {
+            if (! $skipStock) {
                 $this->validateStock($warehouse, $cart);
             }
 

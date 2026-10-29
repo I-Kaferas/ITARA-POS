@@ -2752,7 +2752,7 @@ class ReportService
             if ($to) {
                 $expenseQuery->whereDate('occurred_on', '<=', $to->toDateString());
             }
-            $expenseRows = $expenseQuery->get(['amount', 'cash_register_session_id']);
+            $expenseRows = $expenseQuery->where('status', 'paid')->get(['amount', 'cash_register_session_id']);
             $expenses = (int) $expenseRows->sum('amount');
             $unpaid = (int) $expenseRows
                 ->filter(fn (Expense $expense) => $expense->cash_register_session_id === null)

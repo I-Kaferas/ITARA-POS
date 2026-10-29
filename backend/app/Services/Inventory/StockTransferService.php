@@ -18,6 +18,7 @@ class StockTransferService
     public function __construct(
         private readonly InventoryMovementService $movementService,
         private readonly TransactionEngine $transactionEngine,
+        private readonly StockBalanceService $stockBalance,
     ) {}
 
     /**
@@ -46,6 +47,8 @@ class StockTransferService
                 'items' => ['At least one item is required.'],
             ]);
         }
+
+        $this->assertSourceCovers($source, $items);
 
         return DB::transaction(function () use ($source, $destination, $items, $requestedBy, $notes): StockTransfer {
             $transfer = StockTransfer::query()->create([
@@ -202,5 +205,30 @@ class StockTransferService
             ->count();
 
         return 'TRF-'.str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * @param  list<array{product_id: string, quantity: int}>  $items
+     */
+    private function assertSourceCovers(Warehouse $source, array $items): void
+    {
+        $demand = [];
+        foreach ($items as $item) {
+            $productId = (string) $item['product_id'];
+            $demand[$productId] = ($demand[$productId] ?? 0) + (int) $item['quantity'];
+        }
+
+        foreach ($demand as $productId => $quantity) {
+            $product = Product::query()->findOrFail($productId);
+            if (! $product->requiresStock()) {
+                continue;
+            }
+            $available = $this->stockBalance->availableQuantity($source, $product);
+            if ($quantity > $available) {
+                throw ValidationException::withMessages([
+                    'items' => ["La quantité demandée pour {$product->name} dépasse le stock du magasin source ({$available})."],
+                ]);
+            }
+        }
     }
 }

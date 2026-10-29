@@ -26,6 +26,13 @@ class BranchExpense extends Model
         'currency_code',
         'occurred_on',
         'notes',
+        'status',
+        'decision',
+        'decision_comment',
+        'payment_method',
+        'payment_reference',
+        'decided_at',
+        'paid_at',
     ];
 
     protected function casts(): array

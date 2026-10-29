@@ -154,6 +154,16 @@ function weekday(value?: string | null) {
   return new Intl.DateTimeFormat(locale.value, { weekday: 'short' }).format(new Date(`${value.slice(0, 10)}T00:00:00`))
 }
 
+async function generateDue() {
+  loading.value = true
+  try {
+    await store.generateRecurringExpenses()
+    rows.value = (await store.loadRecurringExpenses()) as RecurringRow[]
+  } finally {
+    loading.value = false
+  }
+}
+
 async function load() {
   loading.value = true
   try {
@@ -244,6 +254,9 @@ async function toggleActive(row: RecurringRow, close = false) {
         <button class="btn-secondary" type="button" :disabled="loading" @click="load">
           <AppIcon name="refresh" :size="16" />
           {{ t('expenses.recurringView.refresh') }}
+        </button>
+        <button class="btn-secondary" type="button" :disabled="loading" @click="generateDue">
+          {{ t('expenses.recurringView.generate') }}
         </button>
         <button class="btn-primary" type="button" @click="openCreate()">
           <AppIcon name="plus" :size="16" />
