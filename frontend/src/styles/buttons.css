@@ -348,6 +348,11 @@ html[data-theme="dark"] :is(.row-action--edit, :is(.app-content, .app-modal) :is
   --ra-fg-h: #fff;
 }
 
+html[data-theme="dark"] :is(.row-action--danger, :is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):is(.text-red-600, .link-danger), :is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):has(> .app-icon--trash)) {
+  --ra-fg: #f6c2be;
+  --ra-bd: rgba(226, 120, 112, 0.42);
+}
+
 html[data-theme="dark"] :is(.row-action--confirm, :is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):is(.text-brand-600, .text-slate-600, .link):has(> .app-icon--check)) {
   --ra-bg: #3e6d9c;
   --ra-bd: #3e6d9c;

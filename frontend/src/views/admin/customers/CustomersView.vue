@@ -206,7 +206,7 @@ async function remove(item: Customer) {
               <th class="px-4 py-3 text-left font-medium">{{ t('customers.phone') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('auth.email') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
-              <th class="px-4 py-3 text-right">{{ t('common.edit') }}</th>
+              <th class="px-4 py-3 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">

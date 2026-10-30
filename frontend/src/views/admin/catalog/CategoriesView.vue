@@ -159,7 +159,7 @@ async function remove(category: Category) {
               <th class="px-4 py-3 text-left font-medium">{{ t('org.name') }}</th>
               <th class="px-4 py-3 text-left font-medium">Slug</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
-              <th class="px-4 py-3 text-right">{{ t('common.edit') }}</th>
+              <th class="px-4 py-3 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">

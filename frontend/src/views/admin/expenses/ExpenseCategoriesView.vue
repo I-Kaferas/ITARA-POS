@@ -121,7 +121,7 @@ async function save() {
             <th class="px-4 py-3 text-left font-medium">{{ t('expenses.name') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('expenses.code') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('expenses.description') }}</th>
-            <th class="px-4 py-3 text-right font-medium">{{ t('common.edit') }}</th>
+            <th class="px-4 py-3 text-right font-medium">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">

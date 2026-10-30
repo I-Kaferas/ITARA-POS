@@ -4953,6 +4953,7 @@
     }
   },
   "common": {
+    "actions": "Actions",
     "loading": "Chargement...",
     "saving": "Enregistrement…",
     "saveChanges": "Enregistrer les modifications",

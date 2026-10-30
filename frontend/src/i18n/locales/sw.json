@@ -4864,6 +4864,7 @@
     }
   },
   "common": {
+    "actions": "Vitendo",
     "loading": "Inapakia...",
     "saving": "Inahifadhi…",
     "saveChanges": "Hifadhi mabadiliko",

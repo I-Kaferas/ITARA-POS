@@ -117,7 +117,7 @@ async function remove(s: Store) {
               <th class="px-4 py-3 text-left font-medium">{{ t('org.code') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('org.mainStore') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
-              <th class="px-4 py-3 text-right">{{ t('common.edit') }}</th>
+              <th class="px-4 py-3 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">

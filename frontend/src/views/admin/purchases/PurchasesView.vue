@@ -328,7 +328,7 @@ function invoiceStatusActive(status: string): boolean {
             <th class="px-4 py-3 text-right font-medium">{{ t('products.price') }}</th>
             <th class="px-4 py-3 text-right font-medium">{{ t('purchases.outstanding') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
-            <th class="px-4 py-3 text-right font-medium">{{ t('common.edit') }}</th>
+            <th class="px-4 py-3 text-right font-medium">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">

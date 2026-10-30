@@ -260,7 +260,7 @@ function formatDate(value?: string | null) {
               <th class="px-4 py-3 text-left font-medium">{{ t('promotions.minQty') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('promotions.maxUses') }}</th>
               <th class="px-4 py-3 text-left font-medium">{{ t('products.active') }}</th>
-              <th class="px-4 py-3 text-right">{{ t('common.edit') }}</th>
+              <th class="px-4 py-3 text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
