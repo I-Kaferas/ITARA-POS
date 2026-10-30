@@ -3821,6 +3821,22 @@
       "quickNav": "Quick Navigation",
       "emptyAlerts": "No low-stock items",
       "emptyMovements": "No recent movements",
+      "openInventory": "Open inventory",
+      "unitsOnHand": "Units on hand",
+      "unitsAvailable": "Available",
+      "stores": "Stores",
+      "valueByStore": "Value by store",
+      "valueByCategory": "Value by category",
+      "topCategories": "Top categories by stock value",
+      "emptyCategories": "No stock value recorded yet",
+      "needsAttention": "{count} items need attention",
+      "allHealthy": "All stock levels are healthy",
+      "ofCatalogue": "of {count} catalogue items",
+      "openAlerts": "{count} out of stock",
+      "pendingOrders": "Purchase orders in progress",
+      "total12Months": "12-month total",
+      "monthlyAverage": "Monthly average",
+      "reorderAt": "Reorder at {count}",
       "links": {
         "products": "Products",
         "categories": "Categories",
@@ -4307,6 +4323,18 @@
       "listHint": "{count} reservation(s)",
       "empty": "No reservations for these filters.",
       "nights": "night(s)",
+      "estimate": "Estimated total",
+      "estimateHint": "Taxes included, based on the selected type rate.",
+      "emptyHint": "Create a reservation or adjust the filters.",
+      "searchAria": "Search reservations",
+      "guests": "{adults} ad. · {children} ch.",
+      "kpi": {
+        "arrivalsToday": "Arrivals today",
+        "departuresToday": "Departures today",
+        "inHouse": "In house",
+        "next7": "Next 7 days",
+        "pipeline": "Active bookings value"
+      },
       "deleteTitle": "Delete reservation",
       "deleteConfirm": "Delete the reservation for {name}?",
       "cols": {
@@ -4320,7 +4348,9 @@
         "total": "Total",
         "status": "Reservation status",
         "actions": "Actions",
-        "detail": "Detail"
+        "detail": "Detail",
+        "stay": "Stay",
+        "lodging": "Lodging"
       },
       "progress": {
         "in_progress": "In progress",
@@ -4343,7 +4373,10 @@
         "colType": "Type",
         "noPhoto": "No catalog photo",
         "noEmail": "No guest e-mail for notification.",
-        "notifySubject": "Your reservation {code}"
+        "notifySubject": "Your reservation {code}",
+        "amounts": "Amounts",
+        "dates": "Stay dates",
+        "balance": "Balance due"
       },
       "filters": {
         "title": "Filters",

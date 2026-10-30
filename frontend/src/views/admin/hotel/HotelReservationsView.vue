@@ -24,7 +24,7 @@ type SpaceKind = 'guest_room' | 'conference' | 'reception'
 type ClientMode = 'new' | 'existing'
 type Channel = 'direct' | 'phone' | 'walk_in' | 'booking_com' | 'expedia' | 'other'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const { confirm: confirmDialog } = useConfirm()
@@ -52,7 +52,7 @@ const statusFilter = ref<StatusFilter>('all')
 const datePreset = ref<DatePreset>('all')
 const dateFrom = ref('')
 const dateTo = ref('')
-const filtersOpen = ref(true)
+const filtersOpen = ref(false)
 
 const formTitle = computed(() =>
   editingId.value ? t('hotel.reservations.editTitle') : t('hotel.reservations.createTitle'),
@@ -97,49 +97,90 @@ function isHistory(row: Doc) {
   return ['checked_out', 'cancelled', 'no_show'].includes(status)
 }
 
-const filteredReservations = computed(() => {
-  const q = listSearch.value.trim().toLowerCase()
-  const from = dateFrom.value
-  const to = dateTo.value
+function dayOf(value: unknown) {
+  return String(value || '').slice(0, 10)
+}
+
+function matchesSearchAndDates(row: Doc) {
   const today = todayIso()
-  const next7 = addDaysIso(7)
+  const arrive = dayOf(row.arrive_on)
+  if (datePreset.value === 'today' && arrive !== today) return false
+  if (datePreset.value === 'arrivals_today' && arrive !== today) return false
+  if (datePreset.value === 'next7' && (arrive < today || arrive > addDaysIso(7))) return false
+  if (dateFrom.value && arrive < dateFrom.value) return false
+  if (dateTo.value && arrive > dateTo.value) return false
 
-  return reservations.value.filter((row) => {
-    const history = isHistory(row)
-    if (listScope.value === 'active' && history) return false
-    if (listScope.value === 'history' && !history) return false
+  const q = listSearch.value.trim().toLowerCase()
+  if (!q) return true
+  const hay = `${row.guest_name || ''} ${row.guest_email || ''} ${row.stay_code || ''} ${row.reservation_no || ''} ${row.id || ''} ${row.guest_phone || ''} ${row.type_name || ''} ${row.room_number || ''}`.toLowerCase()
+  return hay.includes(q)
+}
 
-    if (statusFilter.value !== 'all' && reservationBucket(row) !== statusFilter.value) return false
+const baseRows = computed(() =>
+  reservations.value.filter(row =>
+    (listScope.value === 'history') === isHistory(row) && matchesSearchAndDates(row),
+  ),
+)
 
-    const arrive = String(row.arrive_on || '').slice(0, 10)
-    if (datePreset.value === 'today' && arrive !== today) return false
-    if (datePreset.value === 'arrivals_today' && arrive !== today) return false
-    if (datePreset.value === 'next7' && (arrive < today || arrive > next7)) return false
-
-    if (from && arrive < from) return false
-    if (to && arrive > to) return false
-
-    if (!q) return true
-    const hay = `${row.guest_name || ''} ${row.guest_email || ''} ${row.stay_code || ''} ${row.reservation_no || ''} ${row.id || ''} ${row.guest_phone || ''} ${row.type_name || ''} ${row.room_number || ''}`.toLowerCase()
-    return hay.includes(q)
-  })
-})
+const filteredReservations = computed(() =>
+  statusFilter.value === 'all'
+    ? baseRows.value
+    : baseRows.value.filter(row => reservationBucket(row) === statusFilter.value),
+)
 const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredReservations)
 
-const activeFilterCount = computed(() => {
-  let n = 0
-  if (statusFilter.value !== 'all') n += 1
-  if (datePreset.value !== 'all') n += 1
-  if (dateFrom.value) n += 1
-  if (dateTo.value) n += 1
-  if (listSearch.value.trim()) n += 1
-  return n
+const statusCounts = computed(() => {
+  const counts: Record<StatusFilter, number> = { all: baseRows.value.length, pending: 0, confirmed: 0, guaranteed: 0 }
+  for (const row of baseRows.value) counts[reservationBucket(row)] += 1
+  return counts
 })
 
-const scopeTabs = computed(() => ([
-  { id: 'active' as const, label: t('hotel.reservations.filters.active') },
-  { id: 'history' as const, label: t('hotel.reservations.filters.history') },
-]))
+const dateFilterCount = computed(() =>
+  (datePreset.value !== 'all' ? 1 : 0) + (dateFrom.value ? 1 : 0) + (dateTo.value ? 1 : 0),
+)
+
+const activeFilterCount = computed(() =>
+  dateFilterCount.value
+  + (statusFilter.value !== 'all' ? 1 : 0)
+  + (listSearch.value.trim() ? 1 : 0),
+)
+
+const scopeTabs = computed(() => {
+  const history = reservations.value.filter(isHistory).length
+  return [
+    { id: 'active' as const, label: t('hotel.reservations.filters.active'), count: reservations.value.length - history },
+    { id: 'history' as const, label: t('hotel.reservations.filters.history'), count: history },
+  ]
+})
+
+const kpis = computed(() => {
+  const today = todayIso()
+  const next7 = addDaysIso(7)
+  let arrivals = 0
+  let departures = 0
+  let inHouse = 0
+  let upcoming = 0
+  let valueCents = 0
+  for (const row of reservations.value) {
+    if (isHistory(row)) continue
+    const arrive = dayOf(row.arrive_on)
+    const depart = dayOf(row.depart_on)
+    if (arrive === today) arrivals += 1
+    if (depart === today) departures += 1
+    if (progressKey(row) === 'in_progress') inHouse += 1
+    if (arrive >= today && arrive <= next7) upcoming += 1
+    valueCents += rowTotalCents(row)
+  }
+  return { arrivals, departures, inHouse, upcoming, valueCents }
+})
+
+function applyKpi(preset: DatePreset) {
+  listScope.value = 'active'
+  statusFilter.value = 'all'
+  dateFrom.value = ''
+  dateTo.value = ''
+  datePreset.value = datePreset.value === preset ? 'all' : preset
+}
 
 const statusFilters = computed(() => ([
   { id: 'all' as const, label: t('hotel.reservations.filters.allStatuses') },
@@ -323,7 +364,53 @@ function initials(name?: string) {
   return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase()
 }
 
-function rowCurrency(row: Doc) {
+const AVATAR_TONES = 6
+
+function avatarTone(name?: string) {
+  const key = String(name || '')
+  let hash = 0
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) >>> 0
+  return hash % AVATAR_TONES
+}
+
+function dayParts(value: unknown) {
+  const iso = dayOf(value)
+  if (!iso) return null
+  const date = new Date(`${iso}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return null
+  const loc = String(locale.value || 'fr')
+  const clean = (s: string) => s.replace(/\.$/, '')
+  return {
+    iso,
+    day: date.getDate(),
+    month: clean(date.toLocaleDateString(loc, { month: 'short' })),
+    weekday: clean(date.toLocaleDateString(loc, { weekday: 'short' })),
+    long: date.toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+  }
+}
+
+function canEdit(row: Doc) {
+  return !['checked_in', 'checked_out'].includes(String(row.status || ''))
+}
+
+function balanceCents(row: Doc) {
+  return Math.max(0, rowTotalCents(row) - Number(row.deposit_collected_cents || 0))
+}
+
+const formNights = computed(() => {
+  const { arrive_on, depart_on } = form.value
+  if (!arrive_on || !depart_on) return 0
+  return Math.max(0, Math.round((new Date(depart_on).getTime() - new Date(arrive_on).getTime()) / 86400000))
+})
+
+const formEstimateCents = computed(() => {
+  const type = selectedType.value
+  if (!type) return 0
+  const rate = Number(type.base_price_cents ?? type.rate ?? 0)
+  return computeStayTaxes(Math.max(0, formNights.value * rate), hotelSettings.value).totalCents
+})
+
+function rowCurrency(_row?: Doc) {
   return getAppCurrency()
 }
 
@@ -523,9 +610,8 @@ async function save() {
 }
 
 async function remove(row: Doc) {
-  const ok = await confirmDialog({
+  const ok = await confirmDialog(t('hotel.reservations.deleteConfirm', { name: row.guest_name }), {
     title: t('hotel.reservations.deleteTitle'),
-    message: t('hotel.reservations.deleteConfirm', { name: row.guest_name }),
     confirmLabel: t('common.delete'),
     danger: true,
   })
@@ -536,12 +622,12 @@ async function remove(row: Doc) {
       id: row.id,
     })).data.docs
     if (editingId.value === row.id) closeForm()
+    if (detailRow.value?.id === row.id) closeDetail()
   } catch (err) {
     const message = extractApiErrorMessage(err)
     if (message.toLowerCase().includes('force=1') || message.toLowerCase().includes('pénalité') || message.toLowerCase().includes('penalty')) {
-      const force = await confirmDialog({
+      const force = await confirmDialog(`${message}\n\n${t('hotel.settings.cancelForceHint')}`, {
         title: t('hotel.reservations.deleteTitle'),
-        message: `${message}\n\n${t('hotel.settings.cancelForceHint')}`,
         confirmLabel: t('common.delete'),
         danger: true,
       })
@@ -552,6 +638,7 @@ async function remove(row: Doc) {
         force: 1,
       })).data.docs
       if (editingId.value === row.id) closeForm()
+      if (detailRow.value?.id === row.id) closeDetail()
       return
     }
     error.value = message
@@ -562,181 +649,306 @@ async function remove(row: Doc) {
 <template>
   <HotelChrome scroll-body>
     <div class="rsv">
-      <div class="rsv__toolbar">
-        <div class="rsv__toolbar-top">
-          <input
-            v-model="listSearch"
-            class="field rsv__search"
-            :placeholder="t('hotel.reservations.filters.searchPh')"
-          >
-          <div class="rsv__scope">
+      <section class="rsv-kpis" :aria-label="t('hotel.reservations.listTitle')">
+        <button
+          type="button"
+          class="rsv-kpi"
+          :class="{ 'rsv-kpi--on': datePreset === 'arrivals_today' }"
+          @click="applyKpi('arrivals_today')"
+        >
+          <span class="rsv-kpi__icon rsv-kpi__icon--in"><AppIcon name="key" :size="16" /></span>
+          <span class="rsv-kpi__body">
+            <small>{{ t('hotel.reservations.kpi.arrivalsToday') }}</small>
+            <strong>{{ kpis.arrivals }}</strong>
+          </span>
+        </button>
+        <div class="rsv-kpi rsv-kpi--static">
+          <span class="rsv-kpi__icon rsv-kpi__icon--out"><AppIcon name="logout" :size="16" /></span>
+          <span class="rsv-kpi__body">
+            <small>{{ t('hotel.reservations.kpi.departuresToday') }}</small>
+            <strong>{{ kpis.departures }}</strong>
+          </span>
+        </div>
+        <div class="rsv-kpi rsv-kpi--static">
+          <span class="rsv-kpi__icon rsv-kpi__icon--house"><AppIcon name="bed" :size="16" /></span>
+          <span class="rsv-kpi__body">
+            <small>{{ t('hotel.reservations.kpi.inHouse') }}</small>
+            <strong>{{ kpis.inHouse }}</strong>
+          </span>
+        </div>
+        <button
+          type="button"
+          class="rsv-kpi"
+          :class="{ 'rsv-kpi--on': datePreset === 'next7' }"
+          @click="applyKpi('next7')"
+        >
+          <span class="rsv-kpi__icon rsv-kpi__icon--next"><AppIcon name="calendar" :size="16" /></span>
+          <span class="rsv-kpi__body">
+            <small>{{ t('hotel.reservations.kpi.next7') }}</small>
+            <strong>{{ kpis.upcoming }}</strong>
+          </span>
+        </button>
+        <div class="rsv-kpi rsv-kpi--static rsv-kpi--feature">
+          <span class="rsv-kpi__icon"><AppIcon name="coins" :size="16" /></span>
+          <span class="rsv-kpi__body">
+            <small>{{ t('hotel.reservations.kpi.pipeline') }}</small>
+            <strong>{{ formatMoney(kpis.valueCents, rowCurrency()) }}</strong>
+          </span>
+        </div>
+      </section>
+
+      <section class="rsv-panel">
+        <header class="rsv-panel__head">
+          <div class="rsv-panel__title">
+            <h3>{{ t('hotel.reservations.listTitle') }}</h3>
+            <span class="rsv-panel__count">{{ filteredReservations.length }}</span>
+          </div>
+          <div class="rsv-seg" role="tablist">
             <button
               v-for="tab in scopeTabs"
               :key="tab.id"
               type="button"
-              class="rsv__scope-btn"
-              :class="{ 'rsv__scope-btn--on': listScope === tab.id }"
+              role="tab"
+              class="rsv-seg__btn"
+              :class="{ 'rsv-seg__btn--on': listScope === tab.id }"
+              :aria-selected="listScope === tab.id"
               @click="listScope = tab.id"
             >
               {{ tab.label }}
+              <em>{{ tab.count }}</em>
             </button>
           </div>
-          <button
-            type="button"
-            class="btn-secondary rsv__filters-toggle"
-            :class="{ 'rsv__filters-toggle--on': filtersOpen }"
-            :aria-expanded="filtersOpen"
-            @click="filtersOpen = !filtersOpen"
-          >
-            <AppIcon name="layers" :size="13" />
-            {{ filtersOpen ? t('filters.hide') : t('filters.show') }}
-            <em v-if="activeFilterCount">{{ activeFilterCount }}</em>
-            <AppIcon
-              name="chevron-right"
-              :size="12"
-              class="rsv__filters-caret"
-              :class="{ 'rsv__filters-caret--open': filtersOpen }"
-            />
-          </button>
-          <span class="rsv__count">{{ t('hotel.reservations.listHint', { count: filteredReservations.length }) }}</span>
-          <button type="button" class="btn-primary rsv__new" @click="openCreate">
+          <button type="button" class="btn-primary rsv-panel__new" @click="openCreate">
             <AppIcon name="plus" :size="16" />
             {{ t('hotel.reservations.createTitle') }}
           </button>
-        </div>
+        </header>
 
-        <div class="fold-panel" :class="{ 'is-open': filtersOpen }">
-        <div class="fold-panel__body rsv__filters" :inert="!filtersOpen">
-          <div class="rsv__chips">
+        <div class="rsv-toolbar">
+          <label class="rsv-search">
+            <AppIcon name="search" :size="15" class="rsv-search__icon" />
+            <input
+              v-model="listSearch"
+              class="field field--compact rsv-search__input"
+              type="search"
+              :aria-label="t('hotel.reservations.searchAria')"
+              :placeholder="t('hotel.reservations.filters.searchPh')"
+            >
+            <button
+              v-if="listSearch"
+              type="button"
+              class="rsv-search__clear"
+              :aria-label="t('hotel.reservations.filters.clear')"
+              @click="listSearch = ''"
+            >
+              <AppIcon name="close" :size="13" />
+            </button>
+          </label>
+
+          <div class="rsv-status">
             <button
               v-for="item in statusFilters"
               :key="item.id"
               type="button"
-              class="rsv__chip"
-              :class="{ 'rsv__chip--on': statusFilter === item.id }"
+              class="rsv-status__btn"
+              :class="[`rsv-status__btn--${item.id}`, { 'rsv-status__btn--on': statusFilter === item.id }]"
               @click="statusFilter = item.id"
             >
+              <i v-if="item.id !== 'all'" class="rsv-dot" />
               {{ item.label }}
+              <em>{{ statusCounts[item.id] }}</em>
             </button>
           </div>
 
-          <div class="rsv__chips">
+          <div class="rsv-toolbar__end">
             <button
-              v-for="item in datePresets"
-              :key="item.id"
               type="button"
-              class="rsv__chip"
-              :class="{ 'rsv__chip--on': datePreset === item.id }"
-              @click="setDatePreset(item.id)"
+              class="rsv-filter-btn"
+              :class="{ 'rsv-filter-btn--on': filtersOpen || dateFilterCount > 0 }"
+              :aria-expanded="filtersOpen"
+              @click="filtersOpen = !filtersOpen"
             >
-              {{ item.label }}
+              <AppIcon name="calendar" :size="14" />
+              {{ filtersOpen ? t('filters.hide') : t('filters.show') }}
+              <em v-if="dateFilterCount">{{ dateFilterCount }}</em>
+              <AppIcon
+                name="chevron-down"
+                :size="13"
+                class="rsv-filter-btn__caret"
+                :class="{ 'rsv-filter-btn__caret--open': filtersOpen }"
+              />
             </button>
-          </div>
-
-          <div class="rsv__dates">
-            <div>
-              <FieldLabel icon="calendar">{{ t('hotel.reservations.filters.from') }}</FieldLabel>
-              <input v-model="dateFrom" class="field" type="date" @change="datePreset = 'all'">
-            </div>
-            <div>
-              <FieldLabel icon="calendar">{{ t('hotel.reservations.filters.to') }}</FieldLabel>
-              <input v-model="dateTo" class="field" type="date" @change="datePreset = 'all'">
-            </div>
             <button
               v-if="activeFilterCount"
               type="button"
-              class="btn-secondary rsv__clear"
+              class="rsv-reset"
               @click="clearFilters"
             >
+              <AppIcon name="close" :size="13" />
               {{ t('hotel.reservations.filters.clear') }}
             </button>
           </div>
         </div>
-        </div>
-      </div>
 
-      <div class="rsv__list">
-        <div class="rsv__list-head">
-          <div>
-            <h3>
-              <AppIcon name="calendar" :size="15" />
-              {{ t('hotel.reservations.listTitle') }}
-            </h3>
-            <p>{{ t('hotel.reservations.listHint', { count: filteredReservations.length }) }}</p>
+        <div class="fold-panel" :class="{ 'is-open': filtersOpen }">
+          <div class="fold-panel__body" :inert="!filtersOpen">
+            <div class="rsv-filters">
+              <div class="rsv-filters__presets">
+                <button
+                  v-for="item in datePresets"
+                  :key="item.id"
+                  type="button"
+                  class="rsv-chip"
+                  :class="{ 'rsv-chip--on': datePreset === item.id }"
+                  @click="setDatePreset(item.id)"
+                >
+                  {{ item.label }}
+                </button>
+              </div>
+              <div class="rsv-filters__range">
+                <label>
+                  <span>{{ t('hotel.reservations.filters.from') }}</span>
+                  <input v-model="dateFrom" class="field field--compact" type="date" @change="datePreset = 'all'">
+                </label>
+                <AppIcon name="chevron-right" :size="14" class="rsv-filters__arrow" />
+                <label>
+                  <span>{{ t('hotel.reservations.filters.to') }}</span>
+                  <input v-model="dateTo" class="field field--compact" type="date" @change="datePreset = 'all'">
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 
         <p v-if="error && !formOpen && !detailOpen" class="rsv__error rsv__error--inline">{{ error }}</p>
         <LoadingBlock v-if="loading" variant="table" :label="t('common.loading')" />
-        <div v-else class="rsv__table-wrap">
-          <table class="ui-table rsv__table">
-            <thead>
-              <tr>
-                <th>{{ t('hotel.reservations.cols.reference') }}</th>
-                <th>{{ t('hotel.reservations.cols.client') }}</th>
-                <th>{{ t('hotel.reservations.cols.category') }}</th>
-                <th>{{ t('hotel.reservations.cols.typeSpace') }}</th>
-                <th>{{ t('hotel.reservations.cols.duration') }}</th>
-                <th>{{ t('hotel.reservations.cols.arrive') }}</th>
-                <th>{{ t('hotel.reservations.cols.depart') }}</th>
-                <th>{{ t('hotel.reservations.cols.total') }}</th>
-                <th>{{ t('hotel.reservations.cols.status') }}</th>
-                <th>{{ t('hotel.reservations.cols.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in paged" :key="row.id">
-                <td>
-                  <div class="rsv__ref">
+        <template v-else>
+          <div v-if="filteredReservations.length" class="rsv-table-wrap">
+            <table class="rsv-table">
+              <thead>
+                <tr>
+                  <th>{{ t('hotel.reservations.cols.reference') }}</th>
+                  <th>{{ t('hotel.reservations.cols.client') }}</th>
+                  <th>{{ t('hotel.reservations.cols.lodging') }}</th>
+                  <th>{{ t('hotel.reservations.cols.stay') }}</th>
+                  <th class="rsv-table__num">{{ t('hotel.reservations.cols.total') }}</th>
+                  <th>{{ t('hotel.guests.cols.status') }}</th>
+                  <th class="rsv-table__actions"><span class="sr-only">{{ t('hotel.reservations.cols.actions') }}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="row in paged"
+                  :key="row.id"
+                  class="rsv-row"
+                  tabindex="0"
+                  @click="openDetail(row)"
+                  @keydown.enter.self="openDetail(row)"
+                >
+                  <td class="rsv-row__ref">
                     <strong>{{ bookingCode(row) }}</strong>
-                    <small>{{ reservationNo(row) }}</small>
-                  </div>
-                </td>
-                <td>
-                  <div class="rsv__client">
-                    <span class="rsv__avatar">{{ initials(row.guest_name) }}</span>
-                    <div>
-                      <strong>{{ row.guest_name || '—' }}</strong>
-                      <small v-if="row.guest_email">{{ row.guest_email }}</small>
+                    <small>{{ reservationNo(row) }} · {{ channelLabel(row.channel) }}</small>
+                  </td>
+                  <td>
+                    <div class="rsv-client">
+                      <span class="rsv-avatar" :class="`rsv-avatar--${avatarTone(row.guest_name)}`">{{ initials(row.guest_name) }}</span>
+                      <div>
+                        <strong>{{ row.guest_name || '—' }}</strong>
+                        <small>{{ row.guest_phone || row.guest_email || '—' }}</small>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td>{{ spaceLabel(row.space_kind) }}</td>
-                <td>
-                  <div class="rsv__type">
-                    <strong>{{ row.type_name || '—' }}</strong>
-                    <small v-if="row.room_number">#{{ row.room_number }}</small>
-                    <small v-else>{{ t('hotel.reservations.roomAtCheckin') }}</small>
-                  </div>
-                </td>
-                <td>{{ nightsOf(row) }} {{ t('hotel.reservations.nights') }}</td>
-                <td>{{ String(row.arrive_on || '').slice(0, 10) || '—' }}</td>
-                <td>{{ String(row.depart_on || '').slice(0, 10) || '—' }}</td>
-                <td>
-                  <strong>{{ formatMoney(rowTotalCents(row), rowCurrency(row)) }}</strong>
-                </td>
-                <td>
-                  <div class="rsv__status-stack">
-                    <span class="rsv-pill" :class="`rsv-pill--${bookingStatusKey(row)}`">
-                      {{ bookingStatusLabel(row) }}
-                    </span>
-                    <span class="rsv-pill" :class="`rsv-pill--${progressKey(row)}`">
-                      {{ progressLabel(row) }}
-                    </span>
-                  </div>
-                </td>
-                <td class="rsv__row-actions">
-                  <button type="button" class="rsv__detail-btn" @click="openDetail(row)">
-                    {{ t('hotel.reservations.cols.detail') }}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-if="!filteredReservations.length" class="rsv__empty">{{ t('hotel.reservations.empty') }}</p>
-          <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
-        </div>
-      </div>
+                  </td>
+                  <td>
+                    <div class="rsv-lodging">
+                      <strong>{{ row.type_name || '—' }}</strong>
+                      <small>
+                        <span class="rsv-tag">{{ spaceLabel(row.space_kind) }}</span>
+                        <span v-if="row.room_number" class="rsv-room">#{{ row.room_number }}</span>
+                      </small>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="rsv-stay">
+                      <span v-if="dayParts(row.arrive_on)" class="rsv-day" :title="dayParts(row.arrive_on)?.long">
+                        <b>{{ dayParts(row.arrive_on)?.day }}</b>
+                        <small>{{ dayParts(row.arrive_on)?.month }}</small>
+                      </span>
+                      <span class="rsv-stay__bridge">
+                        <em>{{ nightsOf(row) }} {{ t('hotel.reservations.nights') }}</em>
+                      </span>
+                      <span v-if="dayParts(row.depart_on)" class="rsv-day" :title="dayParts(row.depart_on)?.long">
+                        <b>{{ dayParts(row.depart_on)?.day }}</b>
+                        <small>{{ dayParts(row.depart_on)?.month }}</small>
+                      </span>
+                    </div>
+                  </td>
+                  <td class="rsv-table__num">
+                    <strong class="rsv-money">{{ formatMoney(rowTotalCents(row), rowCurrency(row)) }}</strong>
+                    <small class="rsv-sub">{{ t('hotel.reservations.guests', { adults: row.adults ?? 1, children: row.children ?? 0 }) }}</small>
+                  </td>
+                  <td>
+                    <div class="rsv-states">
+                      <span class="rsv-pill" :class="`rsv-pill--${bookingStatusKey(row)}`">
+                        <i class="rsv-dot" />
+                        {{ bookingStatusLabel(row) }}
+                      </span>
+                      <span class="rsv-progress" :class="`rsv-progress--${progressKey(row)}`">
+                        {{ progressLabel(row) }}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="rsv-table__actions" @click.stop>
+                    <div class="rsv-row__actions">
+                      <button
+                        v-if="canEdit(row)"
+                        type="button"
+                        class="rsv-icon-btn"
+                        :title="t('common.edit')"
+                        :aria-label="t('common.edit')"
+                        @click="openEdit(row)"
+                      >
+                        <AppIcon name="edit" :size="15" />
+                      </button>
+                      <button
+                        v-if="canEdit(row)"
+                        type="button"
+                        class="rsv-icon-btn rsv-icon-btn--danger"
+                        :title="t('common.delete')"
+                        :aria-label="t('common.delete')"
+                        @click="remove(row)"
+                      >
+                        <AppIcon name="trash" :size="15" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="rsv-empty">
+            <span class="rsv-empty__icon"><AppIcon name="calendar" :size="22" /></span>
+            <strong>{{ t('hotel.reservations.empty') }}</strong>
+            <p>{{ t('hotel.reservations.emptyHint') }}</p>
+            <div class="rsv-empty__actions">
+              <button v-if="activeFilterCount" type="button" class="btn-secondary" @click="clearFilters">
+                {{ t('hotel.reservations.filters.clear') }}
+              </button>
+              <button type="button" class="btn-primary" @click="openCreate">
+                <AppIcon name="plus" :size="15" />
+                {{ t('hotel.reservations.createTitle') }}
+              </button>
+            </div>
+          </div>
+          <ListPager
+            v-if="filteredReservations.length"
+            :page="page"
+            :last-page="lastPage"
+            :total="total"
+            :per-page="perPage"
+            @change="setPage"
+          />
+        </template>
+      </section>
     </div>
 
     <AppModal
@@ -910,9 +1122,16 @@ async function remove(row: Doc) {
           />
         </section>
 
-        <div class="rsv__actions">
-          <button type="button" class="btn-secondary" @click="closeForm"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
+        <div class="rsv__footer">
+          <div class="rsv__estimate">
+            <small>{{ t('hotel.reservations.estimate') }}</small>
+            <strong>{{ formatMoney(formEstimateCents, rowCurrency()) }}</strong>
+            <span>{{ formNights }} {{ t('hotel.reservations.nights') }} · {{ t('hotel.reservations.estimateHint') }}</span>
+          </div>
+          <div class="rsv__actions">
+            <button type="button" class="btn-secondary" @click="closeForm"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
+            <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving"><AppIcon name="check" :size="16" /> {{ saving ? t('common.saving') : t('common.save') }}</button>
+          </div>
         </div>
       </form>
     </AppModal>
@@ -924,120 +1143,155 @@ async function remove(row: Doc) {
       @close="closeDetail"
     >
       <div v-if="detailRow" class="rd">
-        <header class="rd__hero">
-          <div class="rd__hero-main">
-            <span class="rd__eyebrow">{{ spaceLabel(detailRow.space_kind) }}</span>
-            <h3>{{ bookingCode(detailRow) }}</h3>
-            <p class="rd__guest">{{ detailRow.guest_name || '—' }}</p>
-            <div class="rd__pills">
-              <span class="rsv-pill" :class="`rsv-pill--${bookingStatusKey(detailRow)}`">{{ bookingStatusLabel(detailRow) }}</span>
-              <span class="rsv-pill" :class="`rsv-pill--${progressKey(detailRow)}`">{{ progressLabel(detailRow) }}</span>
+        <header class="rd-hero">
+          <div class="rd-hero__who">
+            <span class="rsv-avatar rsv-avatar--lg" :class="`rsv-avatar--${avatarTone(detailRow.guest_name)}`">{{ initials(detailRow.guest_name) }}</span>
+            <div>
+              <span class="rd-hero__eyebrow">{{ spaceLabel(detailRow.space_kind) }} · {{ channelLabel(detailRow.channel) }}</span>
+              <h3>{{ detailRow.guest_name || '—' }}</h3>
+              <p class="rd-hero__code">
+                <strong>{{ bookingCode(detailRow) }}</strong>
+                <span>{{ reservationNo(detailRow) }}</span>
+              </p>
+              <div class="rd-hero__pills">
+                <span class="rsv-pill" :class="`rsv-pill--${bookingStatusKey(detailRow)}`"><i class="rsv-dot" />{{ bookingStatusLabel(detailRow) }}</span>
+                <span class="rsv-progress" :class="`rsv-progress--${progressKey(detailRow)}`">{{ progressLabel(detailRow) }}</span>
+              </div>
             </div>
           </div>
-          <div class="rd__hero-actions">
-            <button type="button" class="btn-secondary" @click="notifyGuest(detailRow)">
-              {{ t('hotel.reservations.detail.notify') }}
-            </button>
-            <button
-              v-if="canOpenStay(detailRow)"
-              type="button"
-              class="btn-primary"
-              @click="openStay(detailRow)"
-            >
-              <AppIcon name="eye" :size="16" />
-              {{ t('hotel.reservations.detail.openStay') }}
-            </button>
-            <button
-              v-if="!['checked_in', 'checked_out'].includes(String(detailRow.status))"
-              type="button"
-              class="btn-secondary"
-              @click="editFromDetail"
-            >
-              <AppIcon name="edit" :size="16" />
-              {{ t('common.edit') }}
-            </button>
+          <div class="rd-hero__total">
+            <small>{{ t('hotel.reservations.cols.total') }}</small>
+            <strong>{{ formatMoney(rowTotalCents(detailRow), rowCurrency(detailRow)) }}</strong>
+            <span>{{ nightsOf(detailRow) }} {{ t('hotel.reservations.nights') }} · {{ t('hotel.reservations.guests', { adults: detailRow.adults ?? 1, children: detailRow.children ?? 0 }) }}</span>
           </div>
         </header>
 
-        <p class="rd__note">{{ t('hotel.reservations.detail.statusLockedNote') }}</p>
+        <div class="rd-actions">
+          <button type="button" class="btn-secondary" @click="notifyGuest(detailRow)">
+            <AppIcon name="mail" :size="15" />
+            {{ t('hotel.reservations.detail.notify') }}
+          </button>
+          <button
+            v-if="canEdit(detailRow)"
+            type="button"
+            class="btn-secondary"
+            @click="editFromDetail"
+          >
+            <AppIcon name="edit" :size="15" />
+            {{ t('common.edit') }}
+          </button>
+          <button
+            v-if="canOpenStay(detailRow)"
+            type="button"
+            class="btn-primary"
+            @click="openStay(detailRow)"
+          >
+            <AppIcon name="eye" :size="15" />
+            {{ t('hotel.reservations.detail.openStay') }}
+          </button>
+        </div>
 
-        <section class="rd__card">
-          <h4>{{ t('hotel.reservations.detail.stayDetails') }}</h4>
-          <dl class="rd__kv">
-            <div><dt>{{ t('hotel.reservations.roomType') }}</dt><dd>{{ detailRow.type_name || '—' }}</dd></div>
-            <div>
-              <dt>{{ t('hotel.reservations.detail.assignedRoom') }}</dt>
-              <dd>{{ detailRow.room_number ? `#${detailRow.room_number}` : t('hotel.reservations.roomAtCheckin') }}</dd>
-            </div>
-            <div><dt>{{ t('hotel.reservations.arriveOn') }}</dt><dd>{{ String(detailRow.arrive_on || '').slice(0, 10) || '—' }}</dd></div>
-            <div><dt>{{ t('hotel.reservations.departOn') }}</dt><dd>{{ String(detailRow.depart_on || '').slice(0, 10) || '—' }}</dd></div>
-            <div><dt>{{ t('hotel.reservations.detail.stayLength') }}</dt><dd>{{ nightsOf(detailRow) }} {{ t('hotel.reservations.nights') }}</dd></div>
-            <div><dt>{{ t('hotel.reservations.adults') }}</dt><dd>{{ detailRow.adults ?? 1 }}</dd></div>
-            <div><dt>{{ t('hotel.reservations.children') }}</dt><dd>{{ detailRow.children ?? 0 }}</dd></div>
-            <div><dt>{{ t('hotel.stays.detail.source') }}</dt><dd>{{ channelLabel(detailRow.channel) }}</dd></div>
-            <div><dt>{{ t('hotel.reservations.cols.total') }}</dt><dd>{{ formatMoney(rowTotalCents(detailRow), rowCurrency(detailRow)) }}</dd></div>
-            <div>
-              <dt>{{ t('hotel.stays.detail.depositRequired') }}</dt>
-              <dd>{{ formatMoney(Number(detailRow.deposit_cents || 0), rowCurrency(detailRow)) }}</dd>
-            </div>
-            <div>
-              <dt>{{ t('hotel.reservations.detail.collected') }}</dt>
-              <dd>{{ formatMoney(Number(detailRow.deposit_collected_cents || 0), rowCurrency(detailRow)) }}</dd>
-            </div>
-          </dl>
+        <section class="rd-timeline" :aria-label="t('hotel.reservations.detail.dates')">
+          <div class="rd-timeline__end">
+            <small>{{ t('hotel.reservations.arriveOn') }}</small>
+            <strong>{{ dayParts(detailRow.arrive_on)?.long || '—' }}</strong>
+            <span><AppIcon name="clock" :size="12" /> {{ t('hotel.settings.checkIn') }} · {{ hotelSettings.check_in_time }}</span>
+          </div>
+          <div class="rd-timeline__bridge">
+            <em>{{ nightsOf(detailRow) }} {{ t('hotel.reservations.nights') }}</em>
+          </div>
+          <div class="rd-timeline__end rd-timeline__end--out">
+            <small>{{ t('hotel.reservations.departOn') }}</small>
+            <strong>{{ dayParts(detailRow.depart_on)?.long || '—' }}</strong>
+            <span><AppIcon name="clock" :size="12" /> {{ t('hotel.settings.checkOut') }} · {{ hotelSettings.check_out_time }}</span>
+          </div>
         </section>
 
-        <section class="rd__card">
-          <h4>{{ t('hotel.reservations.detail.contact') }}</h4>
-          <dl class="rd__kv">
-            <div><dt>{{ t('hotel.reservations.email') }}</dt><dd>{{ detailRow.guest_email || '—' }}</dd></div>
-            <div><dt>{{ t('hotel.reservations.phone') }}</dt><dd>{{ detailRow.guest_phone || '—' }}</dd></div>
-            <div v-if="detailRow.special_requests" class="rd__span">
-              <dt>{{ t('hotel.reservations.specialRequests') }}</dt>
-              <dd>{{ detailRow.special_requests }}</dd>
-            </div>
-          </dl>
-        </section>
+        <div class="rd-grid">
+          <section class="rd-card">
+            <h4><AppIcon name="bed" :size="15" /> {{ t('hotel.reservations.detail.stayDetails') }}</h4>
+            <dl class="rd-kv">
+              <div><dt>{{ t('hotel.reservations.roomType') }}</dt><dd>{{ detailRow.type_name || '—' }}</dd></div>
+              <div><dt>{{ t('hotel.stays.detail.source') }}</dt><dd>{{ channelLabel(detailRow.channel) }}</dd></div>
+              <div><dt>{{ t('hotel.reservations.adults') }}</dt><dd>{{ detailRow.adults ?? 1 }}</dd></div>
+              <div><dt>{{ t('hotel.reservations.children') }}</dt><dd>{{ detailRow.children ?? 0 }}</dd></div>
+              <div class="rd-kv__wide">
+                <dt>{{ t('hotel.reservations.detail.assignedRoom') }}</dt>
+                <dd v-if="detailRow.room_number">#{{ detailRow.room_number }}</dd>
+                <dd v-else class="rd-kv__muted">{{ t('hotel.reservations.roomAtCheckin') }}</dd>
+              </div>
+            </dl>
+          </section>
 
-        <section class="rd__card">
-          <h4>{{ t('hotel.reservations.detail.historyTitle') }}</h4>
-          <div class="rd__table-wrap">
-            <table class="ui-table rd__table">
+          <section class="rd-card">
+            <h4><AppIcon name="coins" :size="15" /> {{ t('hotel.reservations.detail.amounts') }}</h4>
+            <dl class="rd-amounts">
+              <div><dt>{{ t('hotel.reservations.cols.total') }}</dt><dd>{{ formatMoney(rowTotalCents(detailRow), rowCurrency(detailRow)) }}</dd></div>
+              <div><dt>{{ t('hotel.stays.detail.depositRequired') }}</dt><dd>{{ formatMoney(Number(detailRow.deposit_cents || 0), rowCurrency(detailRow)) }}</dd></div>
+              <div><dt>{{ t('hotel.reservations.detail.collected') }}</dt><dd class="rd-amounts__ok">{{ formatMoney(Number(detailRow.deposit_collected_cents || 0), rowCurrency(detailRow)) }}</dd></div>
+              <div class="rd-amounts__total"><dt>{{ t('hotel.reservations.detail.balance') }}</dt><dd>{{ formatMoney(balanceCents(detailRow), rowCurrency(detailRow)) }}</dd></div>
+            </dl>
+          </section>
+
+          <section class="rd-card">
+            <h4><AppIcon name="account" :size="15" /> {{ t('hotel.reservations.detail.contact') }}</h4>
+            <ul class="rd-contact">
+              <li>
+                <AppIcon name="mail" :size="14" />
+                <a v-if="detailRow.guest_email" :href="`mailto:${detailRow.guest_email}`">{{ detailRow.guest_email }}</a>
+                <span v-else>—</span>
+              </li>
+              <li>
+                <AppIcon name="phone" :size="14" />
+                <a v-if="detailRow.guest_phone" :href="`tel:${detailRow.guest_phone}`">{{ detailRow.guest_phone }}</a>
+                <span v-else>—</span>
+              </li>
+            </ul>
+            <div v-if="detailRow.special_requests" class="rd-requests">
+              <small>{{ t('hotel.reservations.specialRequests') }}</small>
+              <p>{{ detailRow.special_requests }}</p>
+            </div>
+          </section>
+        </div>
+
+        <p class="rd-note"><AppIcon name="check" :size="14" /> {{ t('hotel.reservations.detail.statusLockedNote') }}</p>
+
+        <section class="rd-card">
+          <h4><AppIcon name="calendar" :size="15" /> {{ t('hotel.reservations.detail.historyTitle') }} <em>{{ detailHistory.length }}</em></h4>
+          <div class="rd-table-wrap">
+            <table class="rsv-table rd-table">
               <thead>
                 <tr>
                   <th>{{ t('hotel.reservations.cols.reference') }}</th>
-                  <th>{{ t('hotel.reservations.detail.colImage') }}</th>
                   <th>{{ t('hotel.reservations.detail.colType') }}</th>
                   <th>{{ t('hotel.rooms.room') }}</th>
-                  <th>{{ t('hotel.reservations.arriveOn') }}</th>
-                  <th>{{ t('hotel.reservations.departOn') }}</th>
+                  <th>{{ t('hotel.reservations.cols.stay') }}</th>
                   <th>{{ t('hotel.stays.detail.guests') }}</th>
                   <th>{{ t('hotel.reservations.cols.status') }}</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in detailHistory" :key="item.id">
-                  <td>
-                    <div class="rsv__ref">
-                      <strong>{{ bookingCode(item) }}</strong>
-                      <small>{{ reservationNo(item) }}</small>
-                    </div>
+                <tr v-for="item in detailHistory" :key="item.id" :class="{ 'rd-table__current': item.id === detailRow.id }">
+                  <td class="rsv-row__ref">
+                    <strong>{{ bookingCode(item) }}</strong>
+                    <small>{{ reservationNo(item) }}</small>
                   </td>
                   <td>
-                    <div class="rd__thumb">
-                      <img v-if="typeCover(item)" :src="typeCover(item)" alt="">
-                      <span v-else>{{ t('hotel.reservations.detail.noPhoto') }}</span>
+                    <div class="rd-type">
+                      <span class="rd-thumb">
+                        <img v-if="typeCover(item)" :src="typeCover(item)" :alt="t('hotel.reservations.detail.colImage')">
+                        <AppIcon v-else name="bed" :size="14" />
+                      </span>
+                      {{ item.type_name || '—' }}
                     </div>
                   </td>
-                  <td>{{ item.type_name || '—' }}</td>
                   <td>{{ item.room_number ? `#${item.room_number}` : '—' }}</td>
-                  <td>{{ String(item.arrive_on || '').slice(0, 10) || '—' }}</td>
-                  <td>{{ String(item.depart_on || '').slice(0, 10) || '—' }}</td>
+                  <td class="rd-table__dates">{{ dayOf(item.arrive_on) || '—' }} → {{ dayOf(item.depart_on) || '—' }}</td>
                   <td>{{ Number(item.adults || 0) + Number(item.children || 0) }}</td>
                   <td>
-                    <div class="rsv__status-stack">
-                      <span class="rsv-pill" :class="`rsv-pill--${bookingStatusKey(item)}`">{{ bookingStatusLabel(item) }}</span>
-                      <span class="rsv-pill" :class="`rsv-pill--${progressKey(item)}`">{{ progressLabel(item) }}</span>
+                    <div class="rsv-states">
+                      <span class="rsv-pill" :class="`rsv-pill--${bookingStatusKey(item)}`"><i class="rsv-dot" />{{ bookingStatusLabel(item) }}</span>
+                      <span class="rsv-progress" :class="`rsv-progress--${progressKey(item)}`">{{ progressLabel(item) }}</span>
                     </div>
                   </td>
                 </tr>
@@ -1055,92 +1309,899 @@ async function remove(row: Doc) {
 .rsv {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 0;
+  gap: 1rem;
   width: 100%;
+  padding-bottom: 1.25rem;
 }
 
-.rsv__toolbar {
-  flex-shrink: 0;
-  padding: 0.85rem 1rem;
-  border: 1px solid #d7e2ea;
+/* ── KPIs ─────────────────────────────────────────── */
+.rsv-kpis {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 720px) {
+  .rsv-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 1200px) {
+  .rsv-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.35fr); }
+}
+.rsv-kpi {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--color-border);
   border-radius: 0.9rem;
   background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.rsv-kpi:not(.rsv-kpi--static):hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.rsv-kpi:focus-visible { outline: none; box-shadow: var(--shadow-glow); }
+.rsv-kpi--static { cursor: default; }
+.rsv-kpi--on {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+.rsv-kpi__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex-shrink: 0;
+  border-radius: 0.7rem;
+  background: var(--color-table-header);
+  color: var(--color-text-secondary);
+}
+.rsv-kpi__icon--in { background: var(--color-success-bg); color: var(--color-success); }
+.rsv-kpi__icon--out { background: var(--color-warning-bg); color: var(--color-warning); }
+.rsv-kpi__icon--house { background: var(--color-info-bg); color: var(--color-info); }
+.rsv-kpi__icon--next { background: var(--color-accent-soft); color: var(--color-accent); }
+.rsv-kpi__body {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;}
+  gap: 0.1rem;
+  min-width: 0;
+}
+.rsv-kpi__body small {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rsv-kpi__body strong {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  line-height: 1.15;
+  font-weight: 750;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rsv-kpi--feature {
+  grid-column: 1 / -1;
+  padding-block: 0.6rem;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-800));
+}
+@media (min-width: 1200px) {
+  .rsv-kpi--feature { grid-column: auto; padding-block: 0.75rem; }
+}
+.rsv-kpi--feature .rsv-kpi__icon { background: rgba(255, 255, 255, 0.12); color: var(--color-accent); }
+.rsv-kpi--feature .rsv-kpi__body small { color: rgba(255, 255, 255, 0.72); }
+.rsv-kpi--feature .rsv-kpi__body strong { color: #fff; font-size: 1.3rem; }
 
-.rsv__toolbar-top {
+/* ── Panel / toolbar ─────────────────────────────── */
+.rsv-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.rsv-panel__head {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
   align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.15rem 0.85rem;
 }
-
-.rsv__search {
-  flex: 1 1 14rem;
-  min-width: 12rem;
+.rsv-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: auto;
 }
+.rsv-panel__title h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.rsv-panel__count {
+  min-width: 1.6rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-table-header);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.rsv-panel__new { flex-shrink: 0; }
 
-.rsv__count {
-  margin-left: auto;
-  font-size: 0.8rem;
+.rsv-seg {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-radius: 0.7rem;
+  background: var(--color-table-header);
+}
+.rsv-seg__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  border-radius: 0.55rem;
+  padding: 0.38rem 0.8rem;
+  background: transparent;
   color: var(--color-text-muted);
-  font-weight: 650;}
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.rsv-seg__btn em {
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.rsv-seg__btn--on {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
 
-.rsv__new {
+.rsv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.15rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-table-row-hover);
+}
+.rsv-search {
+  position: relative;
+  display: block;
+  flex: 1 1 16rem;
+  min-width: 12rem;
+  max-width: 26rem;
+}
+.rsv-search__icon {
+  position: absolute;
+  top: 50%;
+  left: 0.8rem;
+  z-index: 1;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+.rsv-search .rsv-search__input {
+  width: 100%;
+  padding-left: 2.3rem !important;
+  padding-right: 2.2rem !important;
+}
+.rsv-search__input::-webkit-search-cancel-button { display: none; }
+.rsv-search__clear {
+  position: absolute;
+  top: 50%;
+  right: 0.6rem;
+  z-index: 1;
+  display: inline-flex;
+  transform: translateY(-50%);
+  border: 0;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: var(--color-table-header);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.rsv-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.rsv-status__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: var(--control-md, 40px);
+  padding: 0 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.rsv-status__btn:hover { border-color: var(--color-border-strong); }
+.rsv-status__btn em {
+  font-style: normal;
+  min-width: 1.3rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--color-table-header);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.rsv-status__btn--on {
+  border-color: var(--color-brand-600);
+  background: var(--color-brand-600);
+  color: #fff;
+}
+.rsv-status__btn--on em { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.rsv-status__btn--pending { --dot: var(--color-warning); }
+.rsv-status__btn--confirmed { --dot: var(--color-info); }
+.rsv-status__btn--guaranteed { --dot: var(--color-success); }
+
+.rsv-toolbar__end {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+.rsv-filter-btn,
+.rsv-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: var(--control-md, 40px);
+  padding: 0 0.75rem;
+  border-radius: 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rsv-filter-btn {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+.rsv-filter-btn--on { border-color: var(--color-brand-500); color: var(--color-text-primary); }
+.rsv-filter-btn em {
+  font-style: normal;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+.rsv-filter-btn__caret { transition: transform 0.2s ease; color: var(--color-text-muted); }
+.rsv-filter-btn__caret--open { transform: rotate(180deg); }
+.rsv-reset {
+  border: 0;
+  background: transparent;
+  color: var(--color-danger);
+}
+.rsv-reset:hover { background: var(--color-danger-bg); }
+
+.rsv-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.25rem;
+  padding: 0.85rem 1.15rem;
+  border-top: 1px dashed var(--color-border);
+  background: var(--color-table-row-hover);
+}
+.rsv-filters__presets { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.rsv-filters__range { display: flex; align-items: flex-end; gap: 0.5rem; }
+.rsv-filters__range label { display: flex; flex-direction: column; gap: 0.25rem; }
+.rsv-filters__range span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.rsv-filters__range .field { width: 10.5rem; }
+.rsv-filters__arrow { margin-bottom: 0.65rem; color: var(--color-text-faint); }
+.rsv-chip {
+  height: 2rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rsv-chip--on {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+}
+
+/* ── Table ───────────────────────────────────────── */
+.rsv-table-wrap { overflow-x: auto; border-top: 1px solid var(--color-border); }
+.rsv-table {
+  width: 100%;
+  min-width: 52rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.rsv-table th,
+.rsv-panel .rsv-table th {
+  position: sticky;
+  top: 0;
+  padding: 0.65rem 0.75rem;
+  background: var(--color-table-header);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.rsv-table td,
+.rsv-panel .rsv-table td {
+  padding: 0.8rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+.rsv-table tbody tr:last-child td { border-bottom: 0; }
+.rsv-table__num { text-align: right !important; }
+.rsv-table__actions { width: 1%; }
+.rsv-row { cursor: pointer; transition: background 0.12s ease; }
+.rsv-row:hover td,
+.rsv-row:focus-visible td { background: var(--color-table-row-hover); }
+.rsv-row:focus-visible { outline: none; }
+.rsv-row:focus-visible td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
+
+.rsv-row__ref strong {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.rsv-row__ref small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.rsv-client { display: flex; align-items: center; gap: 0.6rem; min-width: 8.5rem; }
+.rsv-client strong {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: var(--color-text-primary);
+}
+.rsv-client small { display: block; margin-top: 0.1rem; font-size: 0.74rem; color: var(--color-text-muted); }
+.rsv-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex-shrink: 0;
+  border-radius: 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+.rsv-avatar--lg { width: 3.4rem; height: 3.4rem; border-radius: 1rem; font-size: 1.05rem; }
+.rsv-avatar--0 { background: light-dark(#e8f1f7, rgba(47, 111, 154, 0.3)); color: light-dark(#2f6f9a, #a9cbe3); }
+.rsv-avatar--1 { background: light-dark(#e8f6ef, rgba(15, 122, 77, 0.3)); color: light-dark(#0f7a4d, #9fd8bd); }
+.rsv-avatar--2 { background: light-dark(#fbf3e4, rgba(184, 110, 9, 0.3)); color: light-dark(#b86e09, #ecc48a); }
+.rsv-avatar--3 { background: light-dark(#f3ecfb, rgba(124, 77, 186, 0.3)); color: light-dark(#7c4dba, #cdb5ee); }
+.rsv-avatar--4 { background: light-dark(#fbedec, rgba(194, 65, 58, 0.3)); color: light-dark(#c2413a, #eeb0ac); }
+.rsv-avatar--5 { background: light-dark(#e6f5f6, rgba(14, 124, 134, 0.3)); color: light-dark(#0e7c86, #9fd9de); }
+
+.rsv-lodging strong { display: block; font-size: 0.85rem; font-weight: 650; color: var(--color-text-primary); }
+.rsv-lodging small { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.25rem; }
+.rsv-tag {
+  padding: 0.08rem 0.45rem;
+  border-radius: 0.35rem;
+  background: var(--color-table-header);
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.rsv-room {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.rsv-stay { display: flex; align-items: center; gap: 0.4rem; }
+.rsv-day {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  padding: 0.25rem 0;
+  border: 1px solid var(--color-border);
+  border-radius: 0.55rem;
+  background: var(--color-surface);
+  line-height: 1;
+}
+.rsv-day b {
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 750;
+  color: var(--color-text-primary);
+}
+.rsv-day small {
+  margin-top: 0.15rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.rsv-stay__bridge {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  min-width: 3.8rem;
+}
+.rsv-stay__bridge::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  border-top: 1.5px dashed var(--color-border-strong);
+}
+.rsv-stay__bridge em {
+  position: relative;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.rsv-row:hover .rsv-stay__bridge em,
+.rsv-row:hover .rsv-day { background: var(--color-surface); }
+
+.rsv-money {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rsv-sub { display: block; margin-top: 0.15rem; font-size: 0.72rem; color: var(--color-text-muted); white-space: nowrap; }
+
+.rsv-states { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+.rsv-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--dot, currentColor);
   flex-shrink: 0;
 }
+.rsv-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.rsv-pill--guaranteed { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8); }
+.rsv-pill--confirmed { background: var(--color-info-bg); color: light-dark(#1d4ed8, #a0b5ef); }
+.rsv-pill--pending { background: var(--color-warning-bg); color: light-dark(#c2410c, #e5af99); }
+.rsv-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-left: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.rsv-progress::before {
+  content: '';
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+}
+.rsv-progress--in_progress { color: var(--color-warning); }
+.rsv-progress--in_progress::before { background: currentColor; }
+.rsv-progress--done { color: var(--color-success); }
+.rsv-progress--done::before { background: currentColor; }
 
-.rsv__list {
-  padding: 0;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.9rem;
+.rsv-row__actions { display: flex; justify-content: flex-end; gap: 0.25rem; }
+.rsv-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.rsv-icon-btn:hover {
+  border-color: var(--color-border);
   background: var(--color-surface);
-  display: flex;
-  flex-direction: column;}
+  color: var(--color-text-primary);
+}
+.rsv-icon-btn--danger:hover { border-color: transparent; background: var(--color-danger-bg); color: var(--color-danger); }
 
-.rsv__form--modal {
-  padding: 0.15rem 0 0.25rem;
+.rsv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 3rem 1.5rem 3.25rem;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+.rsv-empty__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin-bottom: 0.4rem;
+  border-radius: 1rem;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.rsv-empty strong { font-size: 0.95rem; color: var(--color-text-primary); }
+.rsv-empty p { margin: 0; font-size: 0.84rem; color: var(--color-text-muted); }
+.rsv-empty__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.9rem; }
+
+.rsv-panel :deep(.list-pager) { padding: 0.75rem 1.15rem; border-top: 1px solid var(--color-border); }
+
+/* Cards on narrow screens */
+@media (max-width: 760px) {
+  .rsv-panel__head { padding: 0.9rem; }
+  .rsv-toolbar, .rsv-filters { padding: 0.75rem 0.9rem; }
+  .rsv-search { max-width: none; flex-basis: 100%; }
+  .rsv-toolbar__end { margin-left: 0; }
+  .rsv-panel__new { width: 100%; justify-content: center; }
+  .rsv-table { min-width: 0; }
+  .rsv-table thead { display: none; }
+  .rsv-table, .rsv-table tbody, .rsv-table tr, .rsv-table td { display: block; }
+  .rsv-table tbody { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem; }
+  .rsv-row {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    gap: 0.55rem 0.75rem;
+    padding: 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.85rem;
+  }
+  .rsv-panel .rsv-table td { padding: 0; border: 0 !important; }
+  .rsv-row:hover td { background: transparent; }
+  .rsv-row td:nth-child(1) { order: 1; }
+  .rsv-row td:nth-child(6) { order: 2; justify-self: end; }
+  .rsv-row td:nth-child(2) { order: 3; grid-column: 1 / -1; }
+  .rsv-row td:nth-child(3) { order: 4; }
+  .rsv-row td:nth-child(5) { order: 5; }
+  .rsv-row td:nth-child(4) { order: 6; }
+  .rsv-row td:nth-child(7) { order: 7; align-self: end; }
+  .rsv-states { align-items: flex-end; }
 }
 
+/* ── Detail modal ────────────────────────────────── */
+.rd { display: flex; flex-direction: column; gap: 1rem; }
+.rd-hero {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 100% 0%, var(--color-accent-soft), transparent 55%),
+    var(--color-table-row-hover);
+}
+.rd-hero__who { display: flex; gap: 0.95rem; align-items: flex-start; min-width: 0; }
+.rd-hero__eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+.rd-hero h3 {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 750;
+  color: var(--color-text-primary);
+}
+.rd-hero__code { display: flex; gap: 0.5rem; align-items: baseline; margin: 0.2rem 0 0; }
+.rd-hero__code strong { font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-text-secondary); }
+.rd-hero__code span { font-size: 0.75rem; color: var(--color-text-muted); }
+.rd-hero__pills { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+.rd-hero__total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.15rem;
+  text-align: right;
+}
+.rd-hero__total small {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+.rd-hero__total strong {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 750;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.rd-hero__total span { font-size: 0.78rem; color: var(--color-text-muted); }
+
+.rd-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.rd-timeline {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+.rd-timeline__end {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-success);
+  border-radius: 0.8rem;
+  background: var(--color-surface);
+}
+.rd-timeline__end--out { border-left-color: var(--color-warning); }
+.rd-timeline__end small {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.rd-timeline__end strong { font-size: 0.92rem; color: var(--color-text-primary); }
+.rd-timeline__end strong::first-letter { text-transform: uppercase; }
+.rd-timeline__end span { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; color: var(--color-text-muted); }
+.rd-timeline__bridge { position: relative; display: flex; justify-content: center; min-width: 5.5rem; }
+.rd-timeline__bridge::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  border-top: 2px dashed var(--color-border-strong);
+}
+.rd-timeline__bridge em {
+  position: relative;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--color-brand-600);
+  color: #fff;
+  font-style: normal;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .rd-timeline { grid-template-columns: 1fr; }
+  .rd-timeline__bridge { min-height: 1.75rem; }
+  .rd-timeline__bridge::before { top: 0; bottom: 0; left: 50%; right: auto; border-top: 0; border-left: 2px dashed var(--color-border-strong); }
+  .rd-hero__total { align-items: flex-start; text-align: left; }
+}
+
+.rd-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+.rd-card {
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.9rem;
+  background: var(--color-surface);
+}
+.rd-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.8rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.rd-card h4 :deep(svg) { color: var(--color-text-muted); }
+.rd-card h4 em {
+  font-style: normal;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-table-header);
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
+.rd-kv { margin: 0; display: grid; gap: 0.7rem 1rem; grid-template-columns: 1fr 1fr; }
+.rd-kv > div { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.rd-kv dt { font-size: 0.72rem; font-weight: 600; color: var(--color-text-muted); }
+.rd-kv dd { margin: 0; font-size: 0.86rem; font-weight: 650; color: var(--color-text-primary); }
+.rd-kv dd.rd-kv__muted { font-size: 0.76rem; font-weight: 500; color: var(--color-text-muted); }
+.rd-kv__wide { grid-column: 1 / -1; }
+
+.rd-amounts { margin: 0; display: flex; flex-direction: column; }
+.rd-amounts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px dashed var(--color-border);
+}
+.rd-amounts dt { font-size: 0.8rem; color: var(--color-text-muted); }
+.rd-amounts dd { margin: 0; font-size: 0.86rem; font-weight: 650; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.rd-amounts__ok { color: var(--color-success) !important; }
+.rd-amounts .rd-amounts__total { border-bottom: 0; padding-top: 0.6rem; }
+.rd-amounts__total dt { font-weight: 700; color: var(--color-text-primary); }
+.rd-amounts__total dd { font-size: 1rem; font-weight: 750; }
+
+.rd-contact { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.rd-contact li { display: flex; align-items: center; gap: 0.55rem; font-size: 0.85rem; color: var(--color-text-secondary); min-width: 0; }
+.rd-contact li :deep(svg) { color: var(--color-text-muted); flex-shrink: 0; }
+.rd-contact a { color: var(--color-ink-brand, var(--color-brand-600)); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.rd-contact a:hover { text-decoration: underline; }
+.rd-requests {
+  margin-top: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  background: var(--color-accent-soft);
+}
+.rd-requests small { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); }
+.rd-requests p { margin: 0.2rem 0 0; font-size: 0.84rem; color: var(--color-text-primary); line-height: 1.45; }
+
+.rd-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.7rem;
+  background: var(--color-info-bg);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.rd-note :deep(svg) { margin-top: 0.1rem; color: var(--color-info); flex-shrink: 0; }
+
+.rd-table-wrap { overflow-x: auto; margin: 0 -1.05rem -1rem; border-top: 1px solid var(--color-border); }
+.rd-table { min-width: 44rem; }
+.rd-table td { font-size: 0.8rem; }
+.rd-table__current td { background: var(--color-accent-soft); }
+.rd-table__dates { font-family: var(--font-mono); font-size: 0.74rem !important; white-space: nowrap; }
+.rd-type { display: flex; align-items: center; gap: 0.55rem; }
+.rd-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 1.9rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 0.4rem;
+  background: var(--color-table-header);
+  color: var(--color-text-faint);
+}
+.rd-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── Form modal ──────────────────────────────────── */
+.rsv__form--modal { padding: 0.15rem 0 0.25rem; }
 .rsv__intro-text {
   margin: 0 0 0.35rem;
   font-size: 0.875rem;
   color: var(--color-text-muted);
-  line-height: 1.45;}
-
-.rsv__list-head h3,
-.rsv__block h3 {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--color-text-primary);}
-
+  line-height: 1.45;
+}
 .rsv__error {
   margin: 0.85rem 0 0;
   padding: 0.7rem 0.85rem;
   border-radius: 0.7rem;
   background: var(--color-danger-bg);
   color: light-dark(#b91c1c, #e2a0a0);
-  font-size: 0.85rem;}
-.rsv__error--inline {
-  margin: 0 1.2rem 0.85rem;
+  font-size: 0.85rem;
 }
+.rsv__error--inline { margin: 0 1.15rem 0.85rem; }
 
-.rsv__block { margin-top: 1.2rem; display: flex; flex-direction: column; gap: 0.7rem; }
-.rsv__block h3 { font-size: 0.92rem; }
-.rsv__block h3 :deep(svg) { color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));}
+.rsv__block {
+  margin-top: 1rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.rsv__block h3 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  color: var(--color-text-primary);
+}
+.rsv__block h3 :deep(svg) { color: var(--color-ink-brand, var(--color-brand-600)); }
 .rsv__label {
   margin: 0;
-  font-size: 0.78rem;
-  font-weight: 650;
+  font-size: 0.74rem;
+  font-weight: 700;
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;}
-.rsv__hint { margin: 0; font-size: 0.72rem; color: var(--color-text-faint);}
-.rsv__link { color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600))); font-weight: 600; text-decoration: none;}
+  letter-spacing: 0.04em;
+}
+.rsv__hint { margin: 0; font-size: 0.72rem; color: var(--color-text-faint); }
+.rsv__link { color: var(--color-ink-brand, var(--color-brand-600)); font-weight: 600; text-decoration: none; }
 .rsv__grid { display: grid; gap: 0.85rem 1rem; grid-template-columns: 1fr; }
 @media (min-width: 720px) {
   .rsv__grid { grid-template-columns: 1fr 1fr; }
@@ -1149,9 +2210,16 @@ async function remove(row: Doc) {
 
 .rsv__modes { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .rsv__mode {
-  display: inline-flex; align-items: center; gap: 0.35rem;
-  border: 1px solid #d7e2ea; border-radius: 999px; padding: 0.35rem 0.7rem;
-  font-size: 0.8rem; cursor: pointer; background: var(--color-surface);}
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: var(--color-surface);
+}
 .rsv__mode input { accent-color: var(--color-brand-600); }
 .rsv__mode--on { border-color: var(--color-brand-500); background: var(--color-brand-50); }
 
@@ -1160,311 +2228,111 @@ async function remove(row: Doc) {
   .rsv__spaces { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .rsv__space {
-  position: relative; display: flex; flex-direction: column; gap: 0.2rem;
-  border: 1px solid #d7e2ea; border-radius: 0.75rem; padding: 0.7rem 0.75rem; cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 .rsv__space input { position: absolute; opacity: 0; pointer-events: none; }
-.rsv__space strong { font-size: 0.82rem; color: var(--color-text-primary);}
-.rsv__space span { font-size: 0.72rem; color: var(--color-text-muted); line-height: 1.35;}
-.rsv__space--on { border-color: var(--color-brand-500); background: var(--color-brand-50); }
+.rsv__space strong { font-size: 0.82rem; color: var(--color-text-primary); }
+.rsv__space span { font-size: 0.72rem; color: var(--color-text-muted); line-height: 1.35; }
+.rsv__space--on { border-color: var(--color-brand-500); background: var(--color-brand-50); box-shadow: inset 0 0 0 1px var(--color-brand-500); }
 .rsv__space-icon {
-  display: inline-flex; width: 1.6rem; height: 1.6rem; align-items: center; justify-content: center;
-  border-radius: 0.4rem; background: #eef4f8; color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600))); margin-bottom: 0.15rem;}
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.2rem;
+  border-radius: 0.5rem;
+  background: var(--color-table-header);
+  color: var(--color-ink-brand, var(--color-brand-600));
+}
 
 .rsv__money { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.4rem; }
-.rsv__money span { font-weight: 700; color: var(--color-ink-brand, var(--color-brand-600));}
+.rsv__money span { font-weight: 700; color: var(--color-ink-brand, var(--color-brand-600)); }
 .rsv__status-pill {
-  display: inline-flex; align-items: center; min-height: 2.4rem;
-  padding: 0.45rem 0.75rem; border-radius: 0.65rem;
-  background: var(--color-success-bg); color: light-dark(#047857, #96c6b8); border: 1px solid #a7f3d0; font-size: 0.85rem; font-weight: 650;}
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.65rem;
+  background: var(--color-success-bg);
+  color: light-dark(#047857, #96c6b8);
+  font-size: 0.85rem;
+  font-weight: 650;
+}
 
 .rsv__pick { display: flex; flex-direction: column; gap: 0.45rem; }
 .rsv__picked {
-  display: flex; flex-direction: column; gap: 0.15rem;
-  padding: 0.65rem 0.75rem; border-radius: 0.7rem; background: #f3f6f8; border: 1px solid #d7e2ea;
-}
-.rsv__picked strong { font-size: 0.9rem; color: var(--color-text-primary);}
-.rsv__picked small { color: var(--color-text-muted);}
-.rsv__customer-list {
-  max-height: 10rem; overflow: auto; border: 1px solid #e4e8ec; border-radius: 0.7rem;
-  display: flex; flex-direction: column;
-}
-.rsv__customer {
-  display: flex; flex-direction: column; gap: 0.1rem; text-align: left;
-  padding: 0.55rem 0.7rem; border: 0; border-bottom: 1px solid #eef2f6; background: var(--color-surface); cursor: pointer;}
-.rsv__customer:hover { background: var(--color-table-header);}
-.rsv__customer strong { font-size: 0.84rem; color: var(--color-text-primary);}
-.rsv__customer small { font-size: 0.72rem; color: var(--color-text-muted);}
-
-.rsv__actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.1rem; }
-
-.rsv__filters-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  padding: 0.35rem 0.7rem;
-  flex-shrink: 0;
-}
-.rsv__filters-toggle--on {
-  border-color: var(--color-brand-500, var(--color-brand-600));
-  background: #f3f6f8;
-}
-.rsv__filters-caret {
-  transition: transform 0.15s ease;
-  transform: rotate(90deg);
-  color: var(--color-text-muted);}
-.rsv__filters-caret--open {
-  transform: rotate(-90deg);
-}
-.rsv__filters-toggle em {
-  font-style: normal;
-  font-weight: 750;
-  min-width: 1.2rem;
-  height: 1.2rem;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-brand-600, var(--color-brand-600));
-  color: #fff;
-  font-size: 0.7rem;
-}
-.rsv__filters {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  flex-shrink: 0;
-  padding-top: 0.15rem;
-  border-top: 1px solid #eef2f6;
-}
-.rsv__scope {
-  display: inline-flex;
-  gap: 0.25rem;
-  padding: 0.2rem;
-  border-radius: 0.7rem;
-  background: #eef3f7;
-  width: fit-content;
-  flex-shrink: 0;
-}
-.rsv__scope-btn {
-  border: 0;
-  background: transparent;
-  border-radius: 0.55rem;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 650;
-  color: var(--color-text-muted);
-  cursor: pointer;}
-.rsv__scope-btn--on {
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);}
-.rsv__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-.rsv__chip {
-  border: 1px solid #d7e2ea;
-  border-radius: 999px;
-  background: var(--color-surface);
-  padding: 0.3rem 0.65rem;
-  font-size: 0.78rem;
-  color: var(--color-text-secondary);
-  cursor: pointer;}
-.rsv__chip--on {
-  border-color: var(--color-brand-500, var(--color-brand-600));
-  background: #eef4f8;
-  color: var(--color-text-primary);
-  font-weight: 650;}
-.rsv__dates {
-  display: grid;
-  gap: 0.65rem;
-  grid-template-columns: 1fr;
-  align-items: end;
-}
-@media (min-width: 640px) {
-  .rsv__dates { grid-template-columns: 1fr 1fr auto; max-width: 36rem; }
-}
-.rsv__clear { height: 2.4rem; }
-
-.rsv__list-head {
-  display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start;
-  padding: 1.15rem 1.2rem 0.85rem; flex-shrink: 0;
-}
-.rsv__list-head h3 { font-size: 1rem; }
-.rsv__list-head h3 :deep(svg) { color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));}
-.rsv__list-head p { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--color-text-muted);}
-
-.rsv__table-wrap {
-  overflow-x: auto;
-  padding: 0 0.35rem 1.1rem;
-}
-.rsv__table {
-  width: 100%;
-  min-width: 64rem;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-.rsv__table th {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--color-text-muted);
-  font-weight: 700;
-  white-space: nowrap;}
-.rsv__table td {
-  vertical-align: top;
-  padding-top: 0.85rem;
-  padding-bottom: 0.85rem;
-}
-.rsv__ref,
-.rsv__type {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.7rem;
+  background: var(--color-table-header);
+  border: 1px solid var(--color-border);
 }
-.rsv__ref strong,
-.rsv__type strong {
-  font-size: 0.86rem;
-  color: var(--color-text-primary);}
-.rsv__ref small,
-.rsv__type small {
-  font-size: 0.72rem;
-  color: var(--color-text-muted);}
-.rsv__client {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  min-width: 10rem;
-}
-.rsv__avatar {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  background: #eef4f8;
-  color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.72rem;
-  font-weight: 750;
-  flex-shrink: 0;}
-.rsv__client strong {
-  display: block;
-  font-size: 0.86rem;
-  color: var(--color-text-primary);}
-.rsv__client small {
-  display: block;
-  margin-top: 0.1rem;
-  font-size: 0.72rem;
-  color: var(--color-text-muted);}
-.rsv__status-stack {
+.rsv__picked strong { font-size: 0.9rem; color: var(--color-text-primary); }
+.rsv__picked small { color: var(--color-text-muted); }
+.rsv__customer-list {
+  max-height: 10rem;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.7rem;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  align-items: flex-start;
 }
-.rsv-pill {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 0.18rem 0.55rem;
-  font-size: 0.7rem;
-  font-weight: 650;
-  white-space: nowrap;
-}
-.rsv-pill--guaranteed { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
-.rsv-pill--confirmed { background: var(--color-info-bg); color: light-dark(#1d4ed8, #a0b5ef);}
-.rsv-pill--pending { background: var(--color-warning-bg); color: light-dark(#c2410c, #e5af99);}
-.rsv-pill--in_progress { background: var(--color-warning-bg); color: light-dark(#b45309, #d49b70);}
-.rsv-pill--upcoming { background: var(--color-table-header); color: var(--color-text-secondary);}
-.rsv-pill--done { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
-.rsv-pill--closed { background: var(--color-table-header); color: var(--color-text-muted);}
-.rsv__row-actions { white-space: nowrap; }
-.rsv__detail-btn {
-  border: 0;
-  background: none;
-  color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0;}
-.rsv__detail-btn:hover { text-decoration: underline; }
-
-.rd { display: flex; flex-direction: column; gap: 1rem; }
-.rd__hero {
+.rsv__customer {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.1rem;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  cursor: pointer;
 }
-.rd__eyebrow {
-  display: inline-block;
-  font-size: 0.72rem;
+.rsv__customer:hover { background: var(--color-table-row-hover); }
+.rsv__customer strong { font-size: 0.84rem; color: var(--color-text-primary); }
+.rsv__customer small { font-size: 0.72rem; color: var(--color-text-muted); }
+.rsv__muted { margin: 0; padding: 1.2rem; text-align: center; color: var(--color-text-muted); font-size: 0.875rem; }
+
+.rsv__footer {
+  position: sticky;
+  bottom: -1.5rem;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin: 1.1rem 0 -1.5rem;
+  padding: 0.85rem 0 1.5rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.rsv__estimate { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.rsv__estimate small {
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-text-muted);}
-.rd__hero h3 {
-  margin: 0.2rem 0 0;
-  font-size: 1.25rem;
-  color: var(--color-text-primary);}
-.rd__guest {
-  margin: 0.25rem 0 0;
-  font-size: 1rem;
-  font-weight: 650;
-  color: var(--color-text-secondary);}
-.rd__pills { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.55rem; }
-.rd__hero-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
-.rd__note {
-  margin: 0;
-  padding: 0.7rem 0.85rem;
-  border-radius: 0.7rem;
-  background: var(--color-table-header);
-  border: 1px solid #e2e8f0;
   color: var(--color-text-muted);
-  font-size: 0.82rem;
-  line-height: 1.45;}
-.rd__card {
-  border: 1px solid #d7e2ea;
-  border-radius: 0.85rem;
-  padding: 1rem 1.05rem;
-  background: var(--color-surface);}
-.rd__card h4 {
-  margin: 0 0 0.75rem;
-  font-size: 0.95rem;
-  color: var(--color-text-primary);}
-.rd__kv {
-  margin: 0;
-  display: grid;
-  gap: 0.75rem 1.1rem;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 }
-.rd__kv > div { display: flex; flex-direction: column; gap: 0.2rem; }
-.rd__kv dt { font-size: 0.72rem; color: var(--color-text-muted); font-weight: 650;}
-.rd__kv dd { margin: 0; font-size: 0.88rem; color: var(--color-text-primary); font-weight: 600;}
-.rd__span { grid-column: 1 / -1; }
-.rd__table-wrap { overflow-x: auto; }
-.rd__table { width: 100%; min-width: 48rem; }
-.rd__thumb {
-  width: 3.4rem;
-  height: 2.5rem;
-  border-radius: 0.45rem;
-  overflow: hidden;
-  background: var(--color-table-header);
-  border: 1px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.62rem;
-  color: var(--color-text-faint);
-  text-align: center;
-  padding: 0.15rem;}
-.rd__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.rsv__muted, .rsv__empty {
-  margin: 0; padding: 1.2rem; text-align: center; color: var(--color-text-muted); font-size: 0.875rem;}
+.rsv__estimate strong {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 750;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.rsv__estimate span { font-size: 0.72rem; color: var(--color-text-faint); }
+.rsv__actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 </style>

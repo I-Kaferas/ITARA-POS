@@ -3824,6 +3824,22 @@
       "quickNav": "Navigation rapide",
       "emptyAlerts": "Aucun article en stock bas",
       "emptyMovements": "Aucun mouvement récent",
+      "openInventory": "Ouvrir l'inventaire",
+      "unitsOnHand": "Unités en stock",
+      "unitsAvailable": "Disponibles",
+      "stores": "Magasins",
+      "valueByStore": "Valeur par magasin",
+      "valueByCategory": "Valeur par catégorie",
+      "topCategories": "Catégories principales par valeur de stock",
+      "emptyCategories": "Aucune valeur de stock enregistrée",
+      "needsAttention": "{count} articles à surveiller",
+      "allHealthy": "Tous les niveaux de stock sont sains",
+      "ofCatalogue": "sur {count} articles du catalogue",
+      "openAlerts": "{count} en rupture",
+      "pendingOrders": "Bons de commande en cours",
+      "total12Months": "Total sur 12 mois",
+      "monthlyAverage": "Moyenne mensuelle",
+      "reorderAt": "Seuil {count}",
       "links": {
         "products": "Produits",
         "categories": "Catégories",
@@ -4310,6 +4326,18 @@
       "listHint": "{count} réservation(s)",
       "empty": "Aucune réservation pour ces filtres.",
       "nights": "nuit(s)",
+      "estimate": "Total estimé",
+      "estimateHint": "Taxes incluses, selon le tarif du type choisi.",
+      "emptyHint": "Créez une réservation ou ajustez les filtres.",
+      "searchAria": "Rechercher une réservation",
+      "guests": "{adults} ad. · {children} enf.",
+      "kpi": {
+        "arrivalsToday": "Arrivées du jour",
+        "departuresToday": "Départs du jour",
+        "inHouse": "En cours",
+        "next7": "7 prochains jours",
+        "pipeline": "Valeur des réservations actives"
+      },
       "deleteTitle": "Supprimer la réservation",
       "deleteConfirm": "Supprimer la réservation de {name} ?",
       "cols": {
@@ -4323,7 +4351,9 @@
         "total": "Total",
         "status": "Statut réservation",
         "actions": "Actions",
-        "detail": "Détail"
+        "detail": "Détail",
+        "stay": "Séjour",
+        "lodging": "Hébergement"
       },
       "progress": {
         "in_progress": "En cours",
@@ -4346,7 +4376,10 @@
         "colType": "Type",
         "noPhoto": "Aucune photo catalogue",
         "noEmail": "Aucun e-mail client pour la notification.",
-        "notifySubject": "Votre réservation {code}"
+        "notifySubject": "Votre réservation {code}",
+        "amounts": "Montants",
+        "dates": "Dates du séjour",
+        "balance": "Reste à encaisser"
       },
       "filters": {
         "title": "Filtres",

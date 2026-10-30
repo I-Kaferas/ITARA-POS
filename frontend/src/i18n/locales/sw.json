@@ -3735,6 +3735,22 @@
       "quickNav": "Urambazaji wa haraka",
       "emptyAlerts": "Hakuna bidhaa zenye stoo ndogo",
       "emptyMovements": "Hakuna mienendo",
+      "openInventory": "Fungua stoo",
+      "unitsOnHand": "Vipimo vilivyopo",
+      "unitsAvailable": "Vinavyopatikana",
+      "stores": "Maduka",
+      "valueByStore": "Thamani kwa duka",
+      "valueByCategory": "Thamani kwa kategoria",
+      "topCategories": "Kategoria kuu kwa thamani ya stoo",
+      "emptyCategories": "Hakuna thamani ya stoo iliyorekodiwa",
+      "needsAttention": "Bidhaa {count} zinahitaji uangalizi",
+      "allHealthy": "Viwango vyote vya stoo viko salama",
+      "ofCatalogue": "kati ya bidhaa {count} za katalogi",
+      "openAlerts": "{count} zimeisha",
+      "pendingOrders": "Oda za ununuzi zinazoendelea",
+      "total12Months": "Jumla ya miezi 12",
+      "monthlyAverage": "Wastani wa mwezi",
+      "reorderAt": "Kiwango {count}",
       "links": {
         "products": "Bidhaa",
         "categories": "Kategoria",
@@ -4221,6 +4237,18 @@
       "listHint": "Nafasi {count}",
       "empty": "Hakuna nafasi kwa vichujio hivi.",
       "nights": "usiku",
+      "estimate": "Jumla inayokadiriwa",
+      "estimateHint": "Kodi imejumuishwa, kulingana na bei ya aina iliyochaguliwa.",
+      "emptyHint": "Pokea nafasi mpya au badilisha vichujio.",
+      "searchAria": "Tafuta nafasi",
+      "guests": "Wakubwa {adults} · watoto {children}",
+      "kpi": {
+        "arrivalsToday": "Wanaowasili leo",
+        "departuresToday": "Wanaoondoka leo",
+        "inHouse": "Wanaokaa sasa",
+        "next7": "Siku 7 zijazo",
+        "pipeline": "Thamani ya nafasi hai"
+      },
       "deleteTitle": "Futa nafasi",
       "deleteConfirm": "Futa nafasi ya {name}?",
       "cols": {
@@ -4234,7 +4262,9 @@
         "total": "Jumla",
         "status": "Hali ya nafasi",
         "actions": "Vitendo",
-        "detail": "Maelezo"
+        "detail": "Maelezo",
+        "stay": "Kukaa",
+        "lodging": "Malazi"
       },
       "progress": {
         "in_progress": "Inaendelea",
@@ -4257,7 +4287,10 @@
         "colType": "Aina",
         "noPhoto": "Hakuna picha ya katalogi",
         "noEmail": "Hakuna barua pepe ya mteja kwa arifa.",
-        "notifySubject": "Nafasi yako {code}"
+        "notifySubject": "Nafasi yako {code}",
+        "amounts": "Kiasi",
+        "dates": "Tarehe za kukaa",
+        "balance": "Salio la kulipwa"
       },
       "filters": {
         "title": "Vichujio",
