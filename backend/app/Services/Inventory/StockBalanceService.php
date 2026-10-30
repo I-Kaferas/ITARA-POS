@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\StockBalance;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class StockBalanceService
 {
@@ -21,9 +22,23 @@ class StockBalanceService
                 batchId: $movement->batch_id,
             );
 
-            $balance->quantity_on_hand += $movement->quantity;
-            $balance->last_movement_id = $movement->id;
-            $balance->save();
+            $delta = (int) $movement->quantity;
+            $query = StockBalance::query()->whereKey($balance->id);
+            if ($delta < 0 && ! StockBalanceGuard::allowsNegative()) {
+                $query->where('quantity_on_hand', '>=', abs($delta));
+            }
+
+            $updated = $query->update([
+                'quantity_on_hand' => DB::raw('quantity_on_hand + ('.$delta.')'),
+                'last_movement_id' => $movement->id,
+                'updated_at' => now(),
+            ]);
+
+            if ($updated === 0) {
+                throw ValidationException::withMessages([
+                    'quantity' => ['Insufficient stock for this operation.'],
+                ]);
+            }
 
             return $balance->fresh();
         });

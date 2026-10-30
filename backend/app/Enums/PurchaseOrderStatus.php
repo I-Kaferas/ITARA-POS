@@ -20,7 +20,7 @@ enum PurchaseOrderStatus: string
 
     public function canEdit(): bool
     {
-        return $this === self::Draft;
+        return in_array($this, [self::Draft, self::Pending], true);
     }
 
     public function canSubmit(): bool

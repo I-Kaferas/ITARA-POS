@@ -27,4 +27,6 @@ class PermissionCatalog {
       canAny(const ['devices.manage', 'settings.manage']);
 
   bool get canSync => canAny(const ['sync.run', 'sync.manage', 'admin']);
+
+  bool get canAdjustStock => canAny(const ['inventory.adjust', 'stock.adjust', 'inventory.manage']);
 }

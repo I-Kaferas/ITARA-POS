@@ -75,6 +75,104 @@ class FullPhysicalCountService
     }
 
     /**
+     * @param  list<string>  $productIds
+     * @return array{count: InventoryCount, summary: array<string, mixed>}
+     */
+    public function startSpot(
+        Warehouse $warehouse,
+        User $user,
+        array $productIds,
+        ?string $countedAt,
+        ?string $notes,
+    ): array {
+        $products = $this->stockableProducts($productIds);
+        if ($products->isEmpty()) {
+            throw ValidationException::withMessages([
+                'product_ids' => ['Sélectionnez au moins un article quantifiable à compter.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($warehouse, $user, $products, $countedAt, $notes): array {
+            $count = InventoryCount::query()->create([
+                'tenant_id' => $warehouse->tenant_id,
+                'count_number' => $this->nextNumber($warehouse->tenant_id),
+                'warehouse_id' => $warehouse->id,
+                'count_type' => 'spot',
+                'counted_at' => $countedAt,
+                'lock_movements' => false,
+                'status' => InventoryCountStatus::InProgress,
+                'notes' => $notes,
+                'performed_by' => $user->id,
+                'started_at' => now(),
+            ]);
+
+            $this->createItems($count, $products, $this->systemQuantities($warehouse->id, $products->pluck('id')->all()));
+            $this->auditLogService->log('inventory_count.created', $count, $user->id, [
+                'count_number' => $count->count_number,
+                'warehouse_id' => $warehouse->id,
+                'count_type' => 'spot',
+            ]);
+
+            return $this->present($count->fresh());
+        });
+    }
+
+    /**
+     * @param  list<string>  $productIds
+     * @return array{count: InventoryCount, summary: array<string, mixed>}
+     */
+    public function addProducts(InventoryCount $count, array $productIds, User $user): array
+    {
+        $this->assertItemsEditable($count);
+
+        $existing = $count->items()->pluck('product_id')->all();
+        $products = $this->stockableProducts(array_values(array_diff($productIds, $existing)));
+        if ($products->isEmpty()) {
+            throw ValidationException::withMessages([
+                'product_ids' => ['Ces articles sont déjà dans l’inventaire ou ne sont pas quantifiables.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($count, $products, $user): array {
+            $quantities = $count->status === InventoryCountStatus::Scheduled
+                ? null
+                : $this->systemQuantities($count->warehouse_id, $products->pluck('id')->all());
+            $this->createItems($count, $products, $quantities);
+            $this->auditLogService->log('inventory_count.items_added', $count, $user->id, [
+                'products' => $products->pluck('name')->all(),
+            ]);
+
+            return $this->present($count->fresh());
+        });
+    }
+
+    /**
+     * @return array{count: InventoryCount, summary: array<string, mixed>}
+     */
+    public function removeItem(InventoryCount $count, string $itemId, User $user): array
+    {
+        $this->assertItemsEditable($count);
+
+        $item = InventoryCountItem::query()
+            ->where('inventory_count_id', $count->id)
+            ->where('id', $itemId)
+            ->firstOrFail();
+
+        if ($count->items()->count() <= 1) {
+            throw ValidationException::withMessages([
+                'items' => ['Un inventaire doit contenir au moins un article.'],
+            ]);
+        }
+
+        $item->delete();
+        $this->auditLogService->log('inventory_count.item_removed', $count, $user->id, [
+            'product_id' => $item->product_id,
+        ]);
+
+        return $this->present($count->fresh());
+    }
+
+    /**
      * @param  list<array{id: string, entered_quantity?: int|null, remainder_ml?: int|null, sale_unit_id?: string|null, variance_reason?: string|null, notes?: string|null}>  $lines
      */
     public function saveLines(InventoryCount $count, array $lines, User $user): array
@@ -289,12 +387,6 @@ class FullPhysicalCountService
 
     private function snapshotProducts(InventoryCount $count, Warehouse $warehouse, ?string $categoryId): void
     {
-        $quantities = StockBalance::query()
-            ->where('warehouse_id', $warehouse->id)
-            ->selectRaw('product_id, SUM(quantity_on_hand) as qty')
-            ->groupBy('product_id')
-            ->pluck('qty', 'product_id');
-
         $products = Product::query()
             ->with(['saleUnits', 'unitModel', 'category:id,name'])
             ->where('is_active', true)
@@ -303,15 +395,53 @@ class FullPhysicalCountService
             ->orderBy('name')
             ->get();
 
+        $this->createItems($count, $products, $this->systemQuantities($warehouse->id));
+    }
+
+    /**
+     * @param  list<string>  $productIds
+     * @return \Illuminate\Database\Eloquent\Collection<int, Product>
+     */
+    private function stockableProducts(array $productIds)
+    {
+        return Product::query()
+            ->with(['saleUnits', 'unitModel'])
+            ->whereIn('id', $productIds)
+            ->whereNotIn('product_type', Product::nonStockableTypes())
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * @param  list<string>|null  $productIds
+     * @return \Illuminate\Support\Collection<string, mixed>
+     */
+    private function systemQuantities(string $warehouseId, ?array $productIds = null)
+    {
+        return StockBalance::query()
+            ->where('warehouse_id', $warehouseId)
+            ->when($productIds !== null, fn ($query) => $query->whereIn('product_id', $productIds))
+            ->selectRaw('product_id, SUM(quantity_on_hand) as qty')
+            ->groupBy('product_id')
+            ->pluck('qty', 'product_id');
+    }
+
+    /**
+     * System quantities stay null while a cycle count is only scheduled; they are captured when it starts.
+     *
+     * @param  iterable<Product>  $products
+     * @param  \Illuminate\Support\Collection<string, mixed>|null  $quantities
+     */
+    private function createItems(InventoryCount $count, iterable $products, $quantities): void
+    {
         foreach ($products as $product) {
             $unit = $this->openingStock->resolveUnit($product, null);
-            $system = (int) ($quantities[$product->id] ?? 0);
             InventoryCountItem::query()->create([
                 'tenant_id' => $count->tenant_id,
                 'inventory_count_id' => $count->id,
                 'product_id' => $product->id,
                 'sale_unit_id' => $unit['id'],
-                'system_quantity' => $system,
+                'system_quantity' => $quantities === null ? null : (int) ($quantities[$product->id] ?? 0),
                 'counted_quantity' => 0,
                 'entered_quantity' => null,
                 'unit_name' => $unit['name'],
@@ -380,6 +510,11 @@ class FullPhysicalCountService
     private function assertEditable(InventoryCount $count): void
     {
         $this->assertStatus($count, [InventoryCountStatus::Draft, InventoryCountStatus::InProgress, InventoryCountStatus::Review]);
+    }
+
+    private function assertItemsEditable(InventoryCount $count): void
+    {
+        $this->assertStatus($count, [InventoryCountStatus::Scheduled, InventoryCountStatus::Draft, InventoryCountStatus::InProgress]);
     }
 
     /** @param  list<InventoryCountStatus>  $allowed */

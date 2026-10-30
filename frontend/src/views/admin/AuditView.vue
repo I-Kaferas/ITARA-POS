@@ -42,7 +42,7 @@ watchLiveSearch([from, to], load, 0)
     <template #subtitle>{{ t('audit.subtitle') }}</template>
 
     <FilterFold class="mb-4">
-    <div class="flex flex-wrap items-end gap-3">
+    <div class="grid gap-3 md:grid-cols-3">
       <div>
         <FieldLabel icon="filter">Action</FieldLabel>
         <input v-model="action" type="search" class="field" placeholder="sale.completed" />

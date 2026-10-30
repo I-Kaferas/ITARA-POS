@@ -61,6 +61,12 @@ class PosMenuScreen extends StatelessWidget {
             route: AppRoutes.barcode,
           ),
           _MenuEntry(
+            icon: Icons.search,
+            label: tr('Recherche'),
+            subtitle: tr('Produits, ventes, clients, tables'),
+            route: AppRoutes.search,
+          ),
+          _MenuEntry(
             icon: Icons.sync_outlined,
             label: tr('Synchronisation'),
             subtitle: tr('File offline'),

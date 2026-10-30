@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../sync/offline_store.dart';
 import '../../../sync/sync_engine.dart';
+import '../../health/presentation/pos_health_card.dart';
 import 'package:pos_mobile/core/i18n/tr.dart';
 import 'package:pos_mobile/core/theme/app_typography.dart';
 
@@ -75,6 +76,8 @@ class _SyncScreenState extends State<SyncScreen> {
           BlocBuilder<NetworkBloc, NetworkState>(
             builder: (context, network) => _OperatingModeCard(state: network),
           ),
+          const SizedBox(height: 16),
+          const PosHealthCard(),
           const SizedBox(height: 16),
           Wrap(
             spacing: 10,

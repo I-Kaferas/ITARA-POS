@@ -70,6 +70,44 @@ class StockAdjustmentService
         });
     }
 
+    /**
+     * @param  list<array{
+     *     product_id: string,
+     *     quantity: int,
+     *     product_variant_id?: string|null,
+     *     batch_id?: string|null,
+     *     unit_cost?: int|null,
+     *     sale_unit_id?: string|null,
+     *     notes?: string|null,
+     * }>  $items
+     */
+    public function update(StockAdjustment $adjustment, array $items, ?string $reason = null): StockAdjustment
+    {
+        if ($adjustment->status !== StockAdjustmentStatus::Draft) {
+            throw ValidationException::withMessages([
+                'status' => ['Seule une saisie non confirmée peut être modifiée.'],
+            ]);
+        }
+
+        if ($items === []) {
+            throw ValidationException::withMessages([
+                'items' => ['At least one item is required.'],
+            ]);
+        }
+
+        $adjustment->load('warehouse');
+
+        return DB::transaction(function () use ($adjustment, $items, $reason): StockAdjustment {
+            $this->assertIssueFitsStock($adjustment->warehouse, $adjustment->movement_type, $items);
+
+            $adjustment->update(['reason' => $reason]);
+            $adjustment->items()->delete();
+            $this->syncItems($adjustment, $items);
+
+            return $adjustment->fresh(['warehouse', 'items.product:id,sku,name']);
+        });
+    }
+
     public function confirm(StockAdjustment $adjustment, ?User $confirmedBy = null): StockAdjustment
     {
         if ($adjustment->status !== StockAdjustmentStatus::Draft) {

@@ -619,6 +619,107 @@ class OfflineSyncTest extends TestCase
             ->sum('quantity_on_hand'));
     }
 
+    public function test_sync_push_keeps_online_and_offline_sales_without_double_subtract(): void
+    {
+        $headers = $this->storeHeaders();
+        $store = $this->fixture['store'];
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $product->importToStore($store);
+        $this->stock($warehouse->id, $product->id, 20);
+
+        $this->postJson("/api/v1/stores/{$store->id}/sales", [
+            'idempotency_key' => (string) Str::uuid(),
+            'warehouse_id' => $warehouse->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 4],
+            ],
+            'payments' => [
+                ['method' => 'cash', 'amount' => 4000],
+            ],
+        ], $headers)->assertCreated();
+        $this->assertSame(16, $this->onHand($warehouse->id, $product->id));
+
+        $uuid = (string) Str::uuid();
+        $operation = $this->pushSale($uuid, $warehouse->id, $product->id, 3, 3000);
+
+        $this->postJson('/api/v1/sync/push', ['operations' => [$operation]], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.results.0.status', 'synced');
+        $this->assertSame(13, $this->onHand($warehouse->id, $product->id));
+
+        $this->postJson('/api/v1/sync/push', ['operations' => [$operation]], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.results.0.status', 'synced');
+        $this->assertSame(13, $this->onHand($warehouse->id, $product->id));
+        $this->assertSame(1, Sale::query()->where('idempotency_key', $uuid)->count());
+
+        $overflow = (string) Str::uuid();
+        $warning = $this->postJson('/api/v1/sync/push', [
+            'operations' => [$this->pushSale($overflow, $warehouse->id, $product->id, 20, 20000)],
+        ], $headers)->assertOk();
+        $warning->assertJsonPath('data.results.0.status', 'synced');
+        $this->assertNotNull($warning->json('data.results.0.stock_warning'));
+        $this->assertSame(-7, $this->onHand($warehouse->id, $product->id));
+        $this->assertSame(3, InventoryMovement::query()->where('product_id', $product->id)->where('movement_type', 'SALE')->count());
+    }
+
+    public function test_sync_push_keeps_the_first_sale_when_the_batch_stops_midway(): void
+    {
+        $headers = $this->storeHeaders();
+        $store = $this->fixture['store'];
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $product->importToStore($store);
+        $this->stock($warehouse->id, $product->id, 20);
+
+        $registerA = (string) Str::uuid();
+        $broken = (string) Str::uuid();
+        $batch = [
+            $this->pushSale($registerA, $warehouse->id, $product->id, 2, 2000),
+            $this->pushSale($broken, $warehouse->id, (string) Str::uuid(), 1, 1000),
+        ];
+
+        $first = $this->postJson('/api/v1/sync/push', ['operations' => $batch], $headers)->assertOk();
+        $first->assertJsonPath('data.results.0.status', 'synced');
+        $first->assertJsonPath('data.results.1.status', 'failed');
+        $this->assertSame(18, $this->onHand($warehouse->id, $product->id));
+
+        $retry = $this->postJson('/api/v1/sync/push', ['operations' => $batch], $headers)->assertOk();
+        $retry->assertJsonPath('data.results.0.status', 'synced');
+        $retry->assertJsonPath('data.results.1.status', 'failed');
+        $this->assertSame(18, $this->onHand($warehouse->id, $product->id));
+        $this->assertSame(1, Sale::query()->where('idempotency_key', $registerA)->count());
+
+        $registerB = (string) Str::uuid();
+        $this->postJson('/api/v1/sync/push', [
+            'operations' => [$this->pushSale($registerB, $warehouse->id, $product->id, 5, 5000)],
+        ], $headers)->assertOk()->assertJsonPath('data.results.0.status', 'synced');
+        $this->assertSame(13, $this->onHand($warehouse->id, $product->id));
+        $this->assertSame(2, InventoryMovement::query()->where('product_id', $product->id)->where('movement_type', 'SALE')->count());
+    }
+
+    /** @return array<string, mixed> */
+    private function pushSale(string $uuid, string $warehouseId, string $productId, int $quantity, int $amount): array
+    {
+        return [
+            'id' => $uuid,
+            'entity_type' => 'sale',
+            'entity_id' => $uuid,
+            'operation' => 'create',
+            'payload' => [
+                'idempotency_key' => $uuid,
+                'warehouse_id' => $warehouseId,
+                'items' => [
+                    ['product_id' => $productId, 'quantity' => $quantity],
+                ],
+                'payments' => [
+                    ['method' => 'cash', 'amount' => $amount],
+                ],
+            ],
+        ];
+    }
+
     /** @param  array<string, mixed>  $payload */
     private function operation(string $uuid, string $domain, string $entityType, string $operation, array $payload, ?string $baseVersion = null): array
     {

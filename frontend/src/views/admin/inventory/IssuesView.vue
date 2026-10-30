@@ -360,7 +360,7 @@ async function complete(id: string) {
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.reason') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
-            <th />
+            <th class="px-4 py-3 text-right font-medium">{{ t('inventory.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -371,10 +371,12 @@ async function complete(id: string) {
             <td class="px-4 py-3 text-slate-600">{{ row.reason ?? '—' }}</td>
             <td class="px-4 py-3"><StatusBadge :active="row.status === 'completed'" :label="statusLabel(row.status)" /></td>
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
-            <td class="px-4 py-3 text-right">
-              <button class="text-slate-600" @click="openDetails(row.id)">{{ t('inventory.viewDetails') }}</button>
-              <button v-if="row.status === 'draft'" class="ml-3 text-brand-600" @click="confirmIssue(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirm') }}</button>
-              <button v-else-if="row.status === 'approved'" class="ml-3 text-brand-600" @click="complete(row.id)">{{ t('inventory.confirmFinal') }}</button>
+            <td class="px-4 py-3">
+              <div class="row-actions">
+                <button class="row-action row-action--view" @click="openDetails(row.id)"><AppIcon name="eye" :size="16" /> {{ t('inventory.viewDetails') }}</button>
+                <button v-if="row.status === 'draft'" class="row-action row-action--confirm" @click="confirmIssue(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirm') }}</button>
+                <button v-else-if="row.status === 'approved'" class="row-action row-action--approve" @click="complete(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirmFinal') }}</button>
+              </div>
             </td>
           </tr>
         </tbody>

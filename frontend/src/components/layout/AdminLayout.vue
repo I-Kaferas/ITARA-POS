@@ -206,7 +206,6 @@ const navSections = computed(() => [
           { name: 'pos-overview', to: '/admin/pos/overview', label: t('nav.posOverview'), icon: 'dashboard' },
           { name: 'pos-terminal', to: '/admin/pos/terminal', label: t('nav.posTerminal'), icon: 'device-pos' },
           { name: 'pos-orders', to: '/admin/pos/orders', label: t('nav.posOrders'), icon: 'sales' },
-          { name: 'pos-qr-orders', to: '/admin/pos/qr-orders', label: t('nav.posQrOrders'), icon: 'sales' },
           { name: 'sales-returns', to: '/admin/sales/returns', label: t('sales.tabs.returns'), icon: 'transfer' },
           { name: 'pos-shifts', to: '/admin/pos/shifts', label: t('nav.posShifts'), icon: 'shift' },
           { name: 'pos-reservations', to: '/admin/pos/reservations', label: t('nav.posReservations'), icon: 'calendar' },

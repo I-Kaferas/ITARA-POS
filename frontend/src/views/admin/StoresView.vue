@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { pushToast } from '../../composables/useToast'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import PageFrame from '../../components/layout/PageFrame.vue'
@@ -41,7 +42,13 @@ const classifyUnitId = ref('')
 const classifyAttributes = ref<Record<string, string>>({})
 const applying = ref(false)
 const classifyError = ref('')
-const classifyNotice = ref('')
+const showAttributes = ref(false)
+const storeFilter = ref('all')
+const lastCatalogIndex = ref<number | null>(null)
+const lastImportedIndex = ref<number | null>(null)
+let rangeClick = false
+
+const CLEAR_VALUE = '__clear__'
 
 const firstName = computed(() => auth.user?.name?.split(' ')[0] ?? '')
 const currentStore = computed(() => context.currentStore)
@@ -63,23 +70,38 @@ const notImported = computed(() => availableProducts.value.filter(product => !im
 
 const filteredCatalog = computed(() => notImported.value.filter(product => matchesProduct(product, catalogQuery.value)))
 const filteredImported = computed(() =>
-  store.storeProducts.filter(item => matchesProduct(item.product, storeQuery.value)),
+  store.storeProducts.filter(item => matchesStoreFilter(item) && matchesProduct(item.product, storeQuery.value)),
 )
 
 const selectedCount = computed(() => selectedIds.value.length)
 const selectedImportedCount = computed(() => selectedImportedIds.value.length)
 const waitingCount = computed(() => notImported.value.length)
 const inStoreCount = computed(() => store.storeProducts.length)
+const hasSelection = computed(() => selectedCount.value > 0 || selectedImportedCount.value > 0)
 const hasClassifyValues = computed(() =>
   Boolean(classifyCategoryId.value || classifyBrandId.value || classifyUnitId.value || attributePayload().length),
 )
+const allVisibleImportedSelected = computed(() =>
+  filteredImported.value.length > 0
+  && filteredImported.value.every(item => selectedImportedIds.value.includes(item.product_id)),
+)
+const allVisibleCatalogSelected = computed(() =>
+  filteredCatalog.value.length > 0
+  && filteredCatalog.value.every(product => selectedIds.value.includes(product.id)),
+)
+const emptyOptionLabel = computed(() => (selectedImportedCount.value ? t('stores.keepValue') : t('stores.noValue')))
 
 onMounted(loadPage)
+
+watch(catalogQuery, () => { lastCatalogIndex.value = null })
+watch(storeQuery, () => { lastImportedIndex.value = null })
+watch(storeFilter, clearImportedSelection)
 
 watch(() => context.currentStoreId, async (id) => {
   selectedIds.value = []
   selectedImportedIds.value = []
   storeQuery.value = ''
+  storeFilter.value = 'all'
   resetClassify()
   if (!id) return
   await Promise.all([
@@ -129,6 +151,55 @@ const categoryOptions = computed(() => flattenCategories(store.categories))
 const brandOptions = computed(() => store.brands.filter((item: Brand) => item.is_active !== false))
 const unitOptions = computed(() => store.units.filter((item: Unit) => item.is_active !== false))
 const attributeOptions = computed(() => store.catalogAttributes.filter((item: CatalogAttribute) => item.is_active !== false))
+const categoryNames = computed(() => new Map(categoryOptions.value.map(item => [item.id, item.name])))
+
+function countUsed(
+  idOf: (item: StoreProductItem) => string | null | undefined,
+  labelOf: (id: string, item: StoreProductItem) => string,
+) {
+  const map = new Map<string, { id: string; label: string; count: number }>()
+  for (const item of store.storeProducts) {
+    const id = idOf(item)
+    if (!id) continue
+    const entry = map.get(id) ?? { id, label: labelOf(id, item), count: 0 }
+    entry.count += 1
+    map.set(id, entry)
+  }
+  return [...map.values()].sort((a, b) => a.label.localeCompare(b.label))
+}
+
+const usedCategories = computed(() =>
+  countUsed(item => item.category_id, (id, item) => categoryNames.value.get(id) ?? item.category?.name ?? '—'),
+)
+const usedBrands = computed(() => countUsed(item => item.brand_id, (_, item) => item.brand?.name ?? '—'))
+const usedUnits = computed(() =>
+  countUsed(item => item.unit_id, (_, item) => (item.unit ? `${item.unit.name} (${item.unit.code})` : '—')),
+)
+
+const quickFilters = computed(() => [
+  { value: 'all', label: t('stores.filterAll'), count: store.storeProducts.length },
+  { value: 'no-category', label: t('stores.filterNoCategory'), count: store.storeProducts.filter(item => !item.category_id).length },
+  { value: 'no-brand', label: t('stores.filterNoBrand'), count: store.storeProducts.filter(item => !item.brand_id).length },
+  { value: 'no-unit', label: t('stores.filterNoUnit'), count: store.storeProducts.filter(item => !item.unit_id).length },
+])
+
+const valueFilter = computed({
+  get: () => (storeFilter.value.includes(':') ? storeFilter.value : ''),
+  set: (value: string) => { storeFilter.value = value || 'all' },
+})
+
+function matchesStoreFilter(item: StoreProductItem) {
+  const filter = storeFilter.value
+  if (filter === 'all') return true
+  if (filter === 'no-category') return !item.category_id
+  if (filter === 'no-brand') return !item.brand_id
+  if (filter === 'no-unit') return !item.unit_id
+  const [kind, id] = filter.split(':')
+  if (kind === 'category') return item.category_id === id
+  if (kind === 'brand') return item.brand_id === id
+  if (kind === 'unit') return item.unit_id === id
+  return true
+}
 
 async function loadTaxonomies(storeId: string) {
   await Promise.all([
@@ -157,7 +228,7 @@ function resetClassify() {
   classifyUnitId.value = ''
   classifyAttributes.value = {}
   classifyError.value = ''
-  classifyNotice.value = ''
+  showAttributes.value = false
 }
 
 function attributePayload() {
@@ -169,11 +240,16 @@ function attributePayload() {
     .filter(row => row.value)
 }
 
+function pickedValue(value: string) {
+  if (!value) return undefined
+  return value === CLEAR_VALUE ? null : value
+}
+
 function taxonomyPayload() {
   return {
-    category_id: classifyCategoryId.value || null,
-    brand_id: classifyBrandId.value || null,
-    unit_id: classifyUnitId.value || null,
+    category_id: pickedValue(classifyCategoryId.value),
+    brand_id: pickedValue(classifyBrandId.value),
+    unit_id: pickedValue(classifyUnitId.value),
     attributes: attributePayload(),
   }
 }
@@ -209,48 +285,84 @@ function productImage(product?: Product | null) {
   return product?.images?.find(image => image.is_primary)?.cdn_url ?? product?.images?.[0]?.cdn_url ?? ''
 }
 
-function toggle(id: string) {
-  selectedIds.value = selectedIds.value.includes(id)
-    ? selectedIds.value.filter(item => item !== id)
-    : [...selectedIds.value, id]
+function rememberRangeClick(event: MouseEvent) {
+  rangeClick = event.shiftKey
 }
 
-function selectVisible() {
+function pickRows(current: string[], ids: string[], index: number, anchor: number | null) {
+  const target = ids[index]
+  if (!target) return current
+  const selecting = !current.includes(target)
+  const range = rangeClick && anchor !== null && anchor < ids.length
+    ? ids.slice(Math.min(anchor, index), Math.max(anchor, index) + 1)
+    : [target]
+  rangeClick = false
+  const next = new Set(current)
+  for (const id of range) {
+    if (selecting) next.add(id)
+    else next.delete(id)
+  }
+  return [...next]
+}
+
+function pickCatalogRow(index: number) {
+  selectedIds.value = pickRows(selectedIds.value, filteredCatalog.value.map(product => product.id), index, lastCatalogIndex.value)
+  lastCatalogIndex.value = index
+}
+
+function pickImportedRow(index: number) {
+  selectedImportedIds.value = pickRows(
+    selectedImportedIds.value,
+    filteredImported.value.map(item => item.product_id),
+    index,
+    lastImportedIndex.value,
+  )
+  lastImportedIndex.value = index
+}
+
+function toggleVisibleCatalog() {
   const visible = filteredCatalog.value.map(product => product.id)
-  selectedIds.value = [...new Set([...selectedIds.value, ...visible])]
+  selectedIds.value = allVisibleCatalogSelected.value
+    ? selectedIds.value.filter(id => !visible.includes(id))
+    : [...new Set([...selectedIds.value, ...visible])]
+}
+
+function toggleVisibleImported() {
+  const visible = filteredImported.value.map(item => item.product_id)
+  selectedImportedIds.value = allVisibleImportedSelected.value
+    ? selectedImportedIds.value.filter(id => !visible.includes(id))
+    : [...new Set([...selectedImportedIds.value, ...visible])]
 }
 
 function clearSelection() {
   selectedIds.value = []
-}
-
-function toggleImported(id: string) {
-  selectedImportedIds.value = selectedImportedIds.value.includes(id)
-    ? selectedImportedIds.value.filter(item => item !== id)
-    : [...selectedImportedIds.value, id]
-}
-
-function selectVisibleImported() {
-  const visible = filteredImported.value.map(item => item.product_id)
-  selectedImportedIds.value = [...new Set([...selectedImportedIds.value, ...visible])]
+  lastCatalogIndex.value = null
 }
 
 function clearImportedSelection() {
   selectedImportedIds.value = []
+  lastImportedIndex.value = null
+}
+
+function clearAllSelections() {
+  clearSelection()
+  clearImportedSelection()
+  classifyError.value = ''
 }
 
 async function importSelected() {
   if (!context.currentStoreId || !selectedIds.value.length) return
   importing.value = true
   classifyError.value = ''
-  classifyNotice.value = ''
   try {
     const count = selectedIds.value.length
     await store.importToStore(context.currentStoreId, selectedIds.value, taxonomyPayload())
-    selectedIds.value = []
+    clearSelection()
     catalogQuery.value = ''
-    classifyNotice.value = t('stores.importedWithClassify', { count })
+    pushToast({ tone: 'success', message: t('stores.importedWithClassify', { count }) })
     await store.loadStoreProducts(context.currentStoreId)
+  } catch (error) {
+    classifyError.value = extractApiErrorMessage(error, t('common.error'))
   } finally {
     importing.value = false
   }
@@ -264,11 +376,11 @@ async function applyToImported() {
   }
   applying.value = true
   classifyError.value = ''
-  classifyNotice.value = ''
   try {
+    const count = selectedImportedIds.value.length
     await store.classifyStoreProducts(context.currentStoreId, selectedImportedIds.value, taxonomyPayload())
-    classifyNotice.value = t('stores.classifyApplied', { count: selectedImportedIds.value.length })
-    selectedImportedIds.value = []
+    clearImportedSelection()
+    pushToast({ tone: 'success', message: t('stores.classifyApplied', { count }) })
     await store.loadStoreProducts(context.currentStoreId)
   } catch (error) {
     classifyError.value = extractApiErrorMessage(error, t('stores.classifyRequired'))
@@ -361,83 +473,11 @@ async function savePriceOverride() {
           <strong>{{ waitingCount }}</strong>
           <span>{{ t('stores.waiting') }}</span>
         </div>
-        <div class="home-chip" :class="{ 'home-chip--active': selectedCount }">
-          <AppIcon name="import" :size="16" />
-          <strong>{{ selectedCount }}</strong>
-          <span>{{ t('stores.selected') }}</span>
-        </div>
-        <div class="home-chip" :class="{ 'home-chip--active': selectedImportedCount }">
-          <AppIcon name="stores" :size="16" />
-          <strong>{{ selectedImportedCount }}</strong>
-          <span>{{ t('stores.selectedInStore') }}</span>
-        </div>
+        <p class="home-strip__tip">
+          <AppIcon name="sparkles" :size="14" />
+          {{ t('stores.bulkTip') }}
+        </p>
       </div>
-
-      <section v-if="currentStore" class="classify-card">
-        <div class="classify-card__intro">
-          <h3>{{ t('stores.classifyTitle') }}</h3>
-          <p>{{ t('stores.classifyHint') }}</p>
-        </div>
-        <div class="taxonomy-grid">
-          <div>
-            <FieldLabel icon="layers">{{ t('catalog.tabs.categories') }}</FieldLabel>
-            <select v-model="classifyCategoryId" class="ui-input">
-              <option value="">—</option>
-              <option v-for="cat in categoryOptions" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-            </select>
-          </div>
-          <div>
-            <FieldLabel icon="catalog">{{ t('catalog.tabs.brands') }}</FieldLabel>
-            <select v-model="classifyBrandId" class="ui-input">
-              <option value="">—</option>
-              <option v-for="brand in brandOptions" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
-            </select>
-          </div>
-          <div>
-            <FieldLabel icon="package">{{ t('nav.units') }}</FieldLabel>
-            <select v-model="classifyUnitId" class="ui-input">
-              <option value="">—</option>
-              <option v-for="unit in unitOptions" :key="unit.id" :value="unit.id">{{ unit.name }} ({{ unit.code }})</option>
-            </select>
-          </div>
-        </div>
-        <div v-if="attributeOptions.length" class="taxonomy-grid">
-          <div v-for="attribute in attributeOptions" :key="attribute.id">
-            <FieldLabel icon="sparkles">{{ attribute.name }}</FieldLabel>
-            <select
-              class="ui-input"
-              :value="classifyAttributes[attribute.id] ?? ''"
-              @change="setClassifyAttribute(attribute.id, $event)"
-            >
-              <option value="">—</option>
-              <option v-for="value in attribute.values" :key="`${attribute.id}-${value}`" :value="value">{{ value }}</option>
-            </select>
-          </div>
-        </div>
-        <p class="m-0 text-xs text-slate-500">{{ t('stores.taxonomyHint') }}</p>
-        <p v-if="classifyError" class="m-0 text-sm text-red-600">{{ classifyError }}</p>
-        <p v-else-if="classifyNotice" class="m-0 text-sm text-teal-700">{{ classifyNotice }}</p>
-        <div class="classify-card__actions">
-          <button
-            type="button"
-            class="ui-btn ui-btn--primary"
-            :disabled="!selectedCount || importing"
-            @click="importSelected"
-          >
-            <AppIcon name="import" :size="16" />
-            {{ importing ? t('common.loading') : `${t('stores.importSelected')}${selectedCount ? ` (${selectedCount})` : ''}` }}
-          </button>
-          <button
-            type="button"
-            class="ui-btn ui-btn--secondary"
-            :disabled="!selectedImportedCount || applying"
-            @click="applyToImported"
-          >
-            <AppIcon name="check" :size="16" />
-            {{ applying ? t('common.loading') : `${t('stores.applyToImported')}${selectedImportedCount ? ` (${selectedImportedCount})` : ''}` }}
-          </button>
-        </div>
-      </section>
 
       <EmptyState
         v-if="!currentStore"
@@ -465,27 +505,36 @@ async function savePriceOverride() {
                 :placeholder="t('stores.searchCatalog')"
               />
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" :disabled="!filteredCatalog.length" @click="selectVisible">
-                {{ t('stores.selectVisible') }}
-              </button>
-              <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" :disabled="!selectedCount" @click="clearSelection">
+            <div class="select-bar">
+              <label class="select-bar__all">
+                <input
+                  class="product-row__check"
+                  type="checkbox"
+                  :checked="allVisibleCatalogSelected"
+                  :disabled="!filteredCatalog.length"
+                  @change="toggleVisibleCatalog"
+                />
+                {{ t('stores.selectVisibleCount', { count: filteredCatalog.length }) }}
+              </label>
+              <span v-if="selectedCount" class="select-bar__count">{{ t('stores.selectedCount', { count: selectedCount }) }}</span>
+              <button v-if="selectedCount" type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="clearSelection">
                 {{ t('stores.clearSelection') }}
               </button>
             </div>
 
             <div class="product-list">
               <label
-                v-for="product in filteredCatalog"
+                v-for="(product, index) in filteredCatalog"
                 :key="product.id"
                 class="product-row"
                 :class="{ 'product-row--selected': selectedIds.includes(product.id) }"
+                @mousedown="rememberRangeClick"
               >
                 <input
                   class="product-row__check"
                   type="checkbox"
                   :checked="selectedIds.includes(product.id)"
-                  @change="toggle(product.id)"
+                  @change="pickCatalogRow(index)"
                 />
                 <img
                   v-if="productImage(product)"
@@ -525,16 +574,6 @@ async function savePriceOverride() {
               />
               <p v-else-if="!filteredCatalog.length" class="empty-line">{{ t('stores.noMatch') }}</p>
             </div>
-
-            <button
-              type="button"
-              class="ui-btn ui-btn--primary mt-auto w-full"
-              :disabled="!selectedCount || importing"
-              @click="importSelected"
-            >
-              <AppIcon name="import" :size="16" />
-              {{ importing ? t('common.loading') : `${t('stores.importSelected')}${selectedCount ? ` (${selectedCount})` : ''}` }}
-            </button>
           </div>
         </section>
 
@@ -557,27 +596,68 @@ async function savePriceOverride() {
               />
             </div>
 
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" :disabled="!filteredImported.length" @click="selectVisibleImported">
-                {{ t('stores.selectVisible') }}
+            <div v-if="store.storeProducts.length" class="filter-row">
+              <button
+                v-for="filter in quickFilters"
+                :key="filter.value"
+                type="button"
+                class="filter-chip"
+                :class="{ 'filter-chip--active': storeFilter === filter.value }"
+                @click="storeFilter = filter.value"
+              >
+                {{ filter.label }}
+                <span class="filter-chip__count">{{ filter.count }}</span>
               </button>
-              <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" :disabled="!selectedImportedCount" @click="clearImportedSelection">
+              <select v-model="valueFilter" class="ui-input filter-select" :aria-label="t('stores.filterByValue')">
+                <option value="">{{ t('stores.filterByValue') }}</option>
+                <optgroup v-if="usedCategories.length" :label="t('catalog.tabs.categories')">
+                  <option v-for="entry in usedCategories" :key="`f-cat-${entry.id}`" :value="`category:${entry.id}`">
+                    {{ entry.label }} ({{ entry.count }})
+                  </option>
+                </optgroup>
+                <optgroup v-if="usedBrands.length" :label="t('catalog.tabs.brands')">
+                  <option v-for="entry in usedBrands" :key="`f-brand-${entry.id}`" :value="`brand:${entry.id}`">
+                    {{ entry.label }} ({{ entry.count }})
+                  </option>
+                </optgroup>
+                <optgroup v-if="usedUnits.length" :label="t('nav.units')">
+                  <option v-for="entry in usedUnits" :key="`f-unit-${entry.id}`" :value="`unit:${entry.id}`">
+                    {{ entry.label }} ({{ entry.count }})
+                  </option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div class="select-bar">
+              <label class="select-bar__all">
+                <input
+                  class="product-row__check"
+                  type="checkbox"
+                  :checked="allVisibleImportedSelected"
+                  :disabled="!filteredImported.length"
+                  @change="toggleVisibleImported"
+                />
+                {{ t('stores.selectVisibleCount', { count: filteredImported.length }) }}
+              </label>
+              <span v-if="selectedImportedCount" class="select-bar__count">{{ t('stores.selectedCount', { count: selectedImportedCount }) }}</span>
+              <button v-if="selectedImportedCount" type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="clearImportedSelection">
                 {{ t('stores.clearSelection') }}
               </button>
             </div>
 
             <div class="product-list">
               <label
-                v-for="item in filteredImported"
+                v-for="(item, index) in filteredImported"
                 :key="item.id"
                 class="product-row"
                 :class="{ 'product-row--selected': selectedImportedIds.includes(item.product_id) }"
+                @mousedown="rememberRangeClick"
               >
                 <input
                   class="product-row__check"
                   type="checkbox"
                   :checked="selectedImportedIds.includes(item.product_id)"
-                  @change="toggleImported(item.product_id)"
+                  @change="pickImportedRow(index)"
                 />
                 <img
                   v-if="productImage(item.product)"
@@ -596,6 +676,7 @@ async function savePriceOverride() {
                     <span v-else class="text-slate-400"> · {{ t('stores.catalogPrice') }}</span>
                   </p>
                   <p v-if="taxonomyLabel(item)" class="product-row__meta">{{ taxonomyLabel(item) }}</p>
+                  <p v-else class="product-row__meta product-row__meta--warn">{{ t('stores.unclassified') }}</p>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
                   <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click.prevent="openPriceEdit(item)">
@@ -620,6 +701,103 @@ async function savePriceOverride() {
           </div>
         </section>
       </div>
+
+      <Transition name="bulk-bar">
+        <section v-if="currentStore && hasSelection" class="bulk-bar" aria-live="polite">
+          <div class="bulk-bar__head">
+            <div class="bulk-bar__counts">
+              <span v-if="selectedImportedCount" class="bulk-bar__count">
+                <AppIcon name="stores" :size="15" />
+                {{ t('stores.bulkInStore', { count: selectedImportedCount }) }}
+              </span>
+              <span v-if="selectedCount" class="bulk-bar__count">
+                <AppIcon name="import" :size="15" />
+                {{ t('stores.bulkFromCatalog', { count: selectedCount }) }}
+              </span>
+            </div>
+            <div class="bulk-bar__actions">
+              <button
+                v-if="attributeOptions.length"
+                type="button"
+                class="bulk-bar__toggle"
+                @click="showAttributes = !showAttributes"
+              >
+                <AppIcon name="sparkles" :size="14" />
+                {{ showAttributes ? t('stores.hideAttributes') : t('stores.showAttributes', { count: attributeOptions.length }) }}
+              </button>
+              <button type="button" class="ui-btn ui-btn--ghost ui-btn--sm" @click="clearAllSelections">
+                <AppIcon name="close" :size="15" />
+                {{ t('stores.clearSelection') }}
+              </button>
+              <button
+                v-if="selectedImportedCount"
+                type="button"
+                class="ui-btn ui-btn--primary ui-btn--sm"
+                :title="t('stores.keepHint')"
+                :disabled="applying || !hasClassifyValues"
+                @click="applyToImported"
+              >
+                <AppIcon name="check" :size="16" />
+                {{ applying ? t('common.loading') : t('stores.applyCount', { count: selectedImportedCount }) }}
+              </button>
+              <button
+                v-if="selectedCount"
+                type="button"
+                class="ui-btn ui-btn--sm"
+                :class="selectedImportedCount ? 'ui-btn--secondary' : 'ui-btn--primary'"
+                :disabled="importing"
+                @click="importSelected"
+              >
+                <AppIcon name="import" :size="16" />
+                {{ importing ? t('common.loading') : t('stores.importCount', { count: selectedCount }) }}
+              </button>
+            </div>
+          </div>
+
+          <div class="bulk-bar__fields">
+            <div>
+              <FieldLabel icon="layers">{{ t('catalog.tabs.categories') }}</FieldLabel>
+              <select v-model="classifyCategoryId" class="ui-input">
+                <option value="">{{ emptyOptionLabel }}</option>
+                <option v-if="selectedImportedCount" :value="CLEAR_VALUE">{{ t('stores.clearValue') }}</option>
+                <option v-for="cat in categoryOptions" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+              </select>
+            </div>
+            <div>
+              <FieldLabel icon="catalog">{{ t('catalog.tabs.brands') }}</FieldLabel>
+              <select v-model="classifyBrandId" class="ui-input">
+                <option value="">{{ emptyOptionLabel }}</option>
+                <option v-if="selectedImportedCount" :value="CLEAR_VALUE">{{ t('stores.clearValue') }}</option>
+                <option v-for="brand in brandOptions" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
+              </select>
+            </div>
+            <div>
+              <FieldLabel icon="package">{{ t('nav.units') }}</FieldLabel>
+              <select v-model="classifyUnitId" class="ui-input">
+                <option value="">{{ emptyOptionLabel }}</option>
+                <option v-if="selectedImportedCount" :value="CLEAR_VALUE">{{ t('stores.clearValue') }}</option>
+                <option v-for="unit in unitOptions" :key="unit.id" :value="unit.id">{{ unit.name }} ({{ unit.code }})</option>
+              </select>
+            </div>
+          </div>
+
+          <div v-if="showAttributes && attributeOptions.length" class="bulk-bar__fields">
+            <div v-for="attribute in attributeOptions" :key="attribute.id">
+              <FieldLabel icon="sparkles">{{ attribute.name }}</FieldLabel>
+              <select
+                class="ui-input"
+                :value="classifyAttributes[attribute.id] ?? ''"
+                @change="setClassifyAttribute(attribute.id, $event)"
+              >
+                <option value="">{{ emptyOptionLabel }}</option>
+                <option v-for="value in attribute.values" :key="`${attribute.id}-${value}`" :value="value">{{ value }}</option>
+              </select>
+            </div>
+          </div>
+
+          <p v-if="classifyError" class="m-0 text-sm text-red-600">{{ classifyError }}</p>
+        </section>
+      </Transition>
       </div>
     </template>
 
@@ -710,6 +888,7 @@ async function savePriceOverride() {
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.6rem;
   margin-bottom: 1rem;
 }
@@ -870,7 +1049,8 @@ async function savePriceOverride() {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
-  cursor: pointer;}
+  cursor: pointer;
+  user-select: none;}
 
 .product-row:hover {
   border-color: var(--color-border-strong);
@@ -944,31 +1124,177 @@ async function savePriceOverride() {
   font-size: 0.875rem;
   text-align: center;}
 
-.classify-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  margin-bottom: 1rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);}
-
-.classify-card__intro h3 {
+.home-strip__tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   margin: 0;
-  color: var(--color-text-primary);
-  font-size: 1rem;
-  font-weight: 650;}
-
-.classify-card__intro p {
-  margin: 0.2rem 0 0;
   color: var(--color-text-muted);
-  font-size: 0.82rem;}
+  font-size: 0.8rem;
+}
 
-.classify-card__actions {
+.select-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  min-height: 2rem;
+}
+
+.select-bar__all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-left: 0.8rem;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.select-bar__count {
+  color: var(--color-ink-brand, var(--color-brand-700));
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.9rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-chip:hover {
+  border-color: var(--color-border-strong);
+}
+
+.filter-chip--active {
+  border-color: var(--color-brand-600);
+  background: var(--color-brand-50);
+  color: var(--color-ink-brand, var(--color-brand-700));
+}
+
+.filter-chip__count {
+  color: var(--color-text-faint);
+  font-weight: 700;
+}
+
+.filter-chip--active .filter-chip__count {
+  color: inherit;
+}
+
+.filter-select {
+  width: auto;
+  min-width: 12rem;
+  max-width: 100%;
+  height: 1.9rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 0.78rem;
+}
+
+.bulk-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--color-brand-600);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: 0 -8px 24px rgb(15 23 42 / 0.12);
+}
+
+.bulk-bar__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bulk-bar__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+}
+
+.bulk-bar__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.bulk-bar__fields {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .bulk-bar__fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.bulk-bar__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink-brand, var(--color-brand-700));
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bulk-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.bulk-bar-enter-active,
+.bulk-bar-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.bulk-bar-enter-from,
+.bulk-bar-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.product-row__meta--warn {
+  color: light-dark(#b45309, #d49b70);
 }
 
 .taxonomy-grid {

@@ -37,6 +37,14 @@ class PurchaseOrderController extends Controller
             $query->where('supplier_id', $request->string('supplier_id'));
         }
 
+        if ($request->filled('from')) {
+            $query->where('created_at', '>=', $request->date('from')->startOfDay());
+        }
+
+        if ($request->filled('to')) {
+            $query->where('created_at', '<=', $request->date('to')->endOfDay());
+        }
+
         return response()->json([
             'data' => $query->paginate($request->pageSize()),
         ]);
@@ -94,6 +102,7 @@ class PurchaseOrderController extends Controller
     public function update(Request $request, PurchaseOrder $purchaseOrder): JsonResponse
     {
         $data = $request->validate([
+            'supplier_id' => ['sometimes', 'nullable', 'uuid', 'exists:suppliers,id'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'expected_at' => ['nullable', 'date'],
             'items' => ['required', 'array', 'min:1'],
@@ -109,6 +118,7 @@ class PurchaseOrderController extends Controller
             items: $data['items'],
             notes: $data['notes'] ?? null,
             expectedAt: isset($data['expected_at']) ? new \DateTimeImmutable($data['expected_at']) : null,
+            attributes: array_intersect_key($data, array_flip(['supplier_id', 'notes'])),
         );
 
         return response()->json(['data' => $purchaseOrder]);

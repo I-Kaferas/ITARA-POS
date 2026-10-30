@@ -71,6 +71,8 @@ export interface PosCartLine {
   lineId: string
   product: PosProduct
   quantity: number
+  /** Override in minor units. Absent means the catalog price on `product.price`. */
+  unitPrice?: number
   saleUnitId?: string
   variantId?: string
   lineDiscountFixed?: number

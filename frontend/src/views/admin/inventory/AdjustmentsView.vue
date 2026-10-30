@@ -12,6 +12,7 @@ import ModuleFilters from '../../../components/ui/ModuleFilters.vue'
 import ListPager from '../../../components/ui/ListPager.vue'
 import { useClientPager } from '../../../composables/useClientPager'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { Product, StockAdjustmentDetail, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
@@ -20,15 +21,22 @@ import AppIcon from '../../../components/ui/AppIcon.vue'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
+const context = useContextStore()
 const { notify, confirm: confirmDialog } = useConfirm()
 
 const warehouses = ref<Warehouse[]>([])
-const products = ref<Product[]>([])
+const products = ref<Pick<Product, 'id' | 'name'>[]>([])
+const editingId = ref<string | null>(null)
+const editingWarehouseName = ref('')
+const currentWarehouse = computed(() =>
+  warehouses.value.find(w => w.store_id && w.store_id === context.currentStoreId) ?? null,
+)
 const showModal = ref(false)
 const showDetails = ref(false)
 const detailsLoading = ref(false)
 const detail = ref<StockAdjustmentDetail | null>(null)
 const saving = ref(false)
+const formError = ref('')
 
 const movementTypes = [
   { value: 'ADJUSTMENT_IN', label: t('inventory.types.adjustmentIn') },
@@ -67,14 +75,65 @@ onMounted(async () => {
   warehouses.value = await store.loadAllWarehouses()
 })
 
+async function loadStoreStockables(): Promise<Product[]> {
+  const storeId = context.currentStoreId
+  if (!storeId) return []
+  return (await store.loadStoreProducts(storeId))
+    .map(item => item.product)
+    .filter(isStockableProduct)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 async function openCreate() {
-  products.value = (await store.loadAllProducts()).filter(isStockableProduct)
+  try {
+    products.value = await loadStoreStockables()
+  } catch (error) {
+    notify(extractApiErrorMessage(error))
+    return
+  }
+  formError.value = ''
+  editingId.value = null
+  editingWarehouseName.value = ''
   form.value = {
-    warehouse_id: warehouses.value[0]?.id ?? '',
+    warehouse_id: currentWarehouse.value?.id ?? '',
     movement_type: 'ADJUSTMENT_IN',
     reason: '',
     items: [{ product_id: '', quantity: 1 }],
   }
+  showModal.value = true
+}
+
+async function openEdit(id: string) {
+  let adjustment: StockAdjustmentDetail
+  try {
+    const [loaded, stockables] = await Promise.all([store.loadStockAdjustment(id), loadStoreStockables()])
+    adjustment = loaded
+    products.value = stockables
+  } catch (error) {
+    notify(extractApiErrorMessage(error))
+    return
+  }
+  if (adjustment.status !== 'draft') {
+    await store.loadStockAdjustments()
+    return
+  }
+  const known = new Set(products.value.map(p => p.id))
+  for (const item of adjustment.items ?? []) {
+    if (!known.has(item.product_id)) {
+      products.value.push({ id: item.product_id, name: item.product?.name ?? item.product_id })
+      known.add(item.product_id)
+    }
+  }
+  formError.value = ''
+  editingId.value = adjustment.id
+  editingWarehouseName.value = adjustment.warehouse?.name ?? ''
+  form.value = {
+    warehouse_id: adjustment.warehouse_id,
+    movement_type: adjustment.movement_type ?? 'ADJUSTMENT_IN',
+    reason: adjustment.reason ?? '',
+    items: (adjustment.items ?? []).map(item => ({ product_id: item.product_id, quantity: item.quantity })),
+  }
+  if (!form.value.items.length) addLine()
   showModal.value = true
 }
 
@@ -103,7 +162,7 @@ async function openDetails(id: string) {
   try {
     detail.value = await store.loadStockAdjustment(id)
   } catch (error) {
-    notify(extractApiErrorMessage(error), 'error')
+    notify(extractApiErrorMessage(error))
     showDetails.value = false
   } finally {
     detailsLoading.value = false
@@ -118,16 +177,41 @@ function statusLabel(status: string) {
 }
 
 async function save() {
+  formError.value = ''
+  const items = form.value.items.filter(i => i.product_id && i.quantity > 0)
+  if (editingId.value) {
+    saving.value = true
+    try {
+      await store.updateStockAdjustment(editingId.value, {
+        reason: form.value.reason || undefined,
+        items,
+      })
+      showModal.value = false
+      await store.loadStockAdjustments()
+    } catch (error) {
+      formError.value = extractApiErrorMessage(error)
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+  form.value.warehouse_id = currentWarehouse.value?.id ?? ''
+  if (!form.value.warehouse_id) {
+    formError.value = t('inventory.adjustmentNoStore')
+    return
+  }
   saving.value = true
   try {
     await store.createStockAdjustment({
       warehouse_id: form.value.warehouse_id,
       movement_type: form.value.movement_type,
       reason: form.value.reason || undefined,
-      items: form.value.items.filter(i => i.product_id && i.quantity > 0),
+      items,
     })
     showModal.value = false
     await store.loadStockAdjustments()
+  } catch (error) {
+    formError.value = extractApiErrorMessage(error)
   } finally {
     saving.value = false
   }
@@ -203,7 +287,7 @@ async function complete(id: string) {
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.reason') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
-            <th />
+            <th class="px-4 py-3 text-right font-medium">{{ t('inventory.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -213,10 +297,13 @@ async function complete(id: string) {
             <td class="px-4 py-3 text-slate-600">{{ row.reason ?? '—' }}</td>
             <td class="px-4 py-3"><StatusBadge :active="row.status === 'completed'" :label="statusLabel(row.status)" /></td>
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
-            <td class="px-4 py-3 text-right">
-              <button class="text-slate-600" @click="openDetails(row.id)">{{ t('inventory.viewDetails') }}</button>
-              <button v-if="row.status === 'draft'" class="ml-3 text-brand-600" @click="confirm(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirm') }}</button>
-              <button v-else-if="row.status === 'approved'" class="ml-3 text-brand-600" @click="complete(row.id)">{{ t('inventory.confirmFinal') }}</button>
+            <td class="px-4 py-3">
+              <div class="row-actions">
+                <button class="row-action row-action--view" @click="openDetails(row.id)"><AppIcon name="eye" :size="16" /> {{ t('inventory.viewDetails') }}</button>
+                <button v-if="row.status === 'draft'" class="row-action row-action--edit" @click="openEdit(row.id)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button v-if="row.status === 'draft'" class="row-action row-action--confirm" @click="confirm(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirm') }}</button>
+                <button v-else-if="row.status === 'approved'" class="row-action row-action--approve" @click="complete(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirmFinal') }}</button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -233,7 +320,7 @@ async function complete(id: string) {
 
     <AppModal
       :open="showModal"
-      :title="t('inventory.newAdjustment')"
+      :title="editingId ? t('inventory.editAdjustment') : t('inventory.newAdjustment')"
       icon="adjust"
       tone="warning"
       size="xl"
@@ -242,13 +329,14 @@ async function complete(id: string) {
       <form class="space-y-3" @submit.prevent="save">
         <div>
           <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
-          <select v-model="form.warehouse_id" required class="field">
-            <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
-          </select>
+          <input class="field" :value="(editingId ? editingWarehouseName : currentWarehouse?.name) || '—'" readonly tabindex="-1">
+          <p class="mt-1 text-xs text-slate-500">{{ t('inventory.adjustmentStoreFixed') }}</p>
         </div>
+        <p v-if="!editingId && !currentWarehouse" class="text-sm text-red-600">{{ t('inventory.adjustmentNoStore') }}</p>
+        <p v-else-if="!products.length" class="text-sm text-amber-700">{{ t('inventory.supplyNoProducts') }}</p>
         <div>
           <FieldLabel icon="transfer">{{ t('inventory.movementType') }}</FieldLabel>
-          <select v-model="form.movement_type" required class="field">
+          <select v-model="form.movement_type" required class="field" :disabled="!!editingId">
             <option v-for="mt in movementTypes" :key="mt.value" :value="mt.value">{{ mt.label }}</option>
           </select>
         </div>
@@ -269,9 +357,10 @@ async function complete(id: string) {
           </div>
           <button type="button" class="text-sm text-brand-600" @click="addLine"><AppIcon name="plus" :size="16" /> {{ t('inventory.addLine') }}</button>
         </div>
+        <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('inventory.saveEntry') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || (!editingId && !currentWarehouse)">{{ editingId ? t('common.saveChanges') : t('inventory.saveEntry') }}</button>
         </div>
       </form>
     </AppModal>

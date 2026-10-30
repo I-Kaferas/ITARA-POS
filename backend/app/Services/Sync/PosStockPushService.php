@@ -9,6 +9,7 @@ use App\Models\SyncEvent;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryMovementService;
 use App\Services\Inventory\StockBalanceService;
+use App\Services\Inventory\StoreStockLocation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +23,7 @@ class PosStockPushService
     public function __construct(
         private readonly InventoryMovementService $movements,
         private readonly StockBalanceService $balances,
+        private readonly StoreStockLocation $stockLocations,
     ) {}
 
     /**
@@ -103,7 +105,8 @@ class PosStockPushService
                         'product' => $product,
                         'movement_type' => $movementType,
                         'quantity' => $absolute,
-                        'allow_negative' => false,
+                        // A posted stock count reflects the shelf even below zero.
+                        'allow_negative' => str_starts_with((string) ($payload['reason'] ?? ''), 'count:'),
                         'auto_allocate' => false,
                         'notes' => 'pos_sync:'.$uuid,
                         'performed_by' => null,
@@ -221,19 +224,8 @@ class PosStockPushService
             }
         }
 
-        $warehouse = Warehouse::query()
-            ->where('branch_id', $store->branch_id)
-            ->where('is_active', true)
-            ->orderBy('created_at')
-            ->first();
-
-        if ($warehouse === null) {
-            throw ValidationException::withMessages([
-                'warehouse_id' => ['No active warehouse found for this store branch.'],
-            ]);
-        }
-
-        return $warehouse;
+        // Same depot as POS sales, so an adjustment lands where the sale was deducted.
+        return $this->stockLocations->forStore($store);
     }
 
     private function resolveMovementType(string $rawType, int $delta): InventoryMovementType
@@ -248,6 +240,9 @@ class PosStockPushService
             'EXPIRED' => InventoryMovementType::Expired,
             'PRODUCTION_IN', 'ADJUSTMENT_IN' => InventoryMovementType::AdjustmentIn,
             'PRODUCTION_OUT', 'ADJUSTMENT_OUT' => InventoryMovementType::AdjustmentOut,
+            'TRANSFER_IN' => InventoryMovementType::TransferIn,
+            'TRANSFER_OUT' => InventoryMovementType::TransferOut,
+            'PURCHASE_RETURN' => InventoryMovementType::PurchaseReturn,
             'PURCHASE' => InventoryMovementType::Purchase,
             'INITIAL_STOCK', 'OPENING' => InventoryMovementType::InitialStock,
             default => $delta >= 0

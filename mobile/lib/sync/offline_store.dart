@@ -10,6 +10,7 @@ import '../core/config/app_config.dart';
 import '../core/config/terminal_config_repository.dart';
 import '../data/local/document_dao.dart';
 import '../data/local/local_database.dart';
+import '../features/inventory/data/inventory_ledger.dart';
 import '../features/pos/domain/pos_models.dart';
 import '../features/shifts/data/local_shifts_store.dart';
 import 'outbox/sync_outbox.dart';
@@ -156,6 +157,7 @@ class OfflineStore {
             'name': product.name,
             'price': product.price,
             'category_id': product.categoryId,
+            'server_stock': json['last_cloud_qty'],
             'json': jsonEncode(json),
             'updated_at': DateTime.now().toIso8601String(),
           },
@@ -476,7 +478,21 @@ class OfflineStore {
       idKey: 'id',
     );
 
+    if (data['warehouses'] is List) {
+      await setCheckpoint('warehouses_json', jsonEncode(_mapList(data['warehouses'])));
+    }
+
     await setCheckpoint('references_synced_at', DateTime.now().toIso8601String());
+  }
+
+  Future<List<Map<String, dynamic>>> warehouseDocuments() async {
+    final raw = await checkpoint('warehouses_json');
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      return _mapList(jsonDecode(raw));
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<Map<String, dynamic>> referenceDocument() async {
@@ -488,6 +504,7 @@ class OfflineStore {
       'permissions': await _documentsFrom('permissions'),
       'roles': await _documentsFrom('roles'),
       'users': await _documentsFrom('users'),
+      'warehouses': await warehouseDocuments(),
     };
   }
 
@@ -1006,6 +1023,12 @@ class OfflineStore {
     final productId = payload['product_id']?.toString() ?? '';
     final delta = _asInt(payload['quantity'] ?? payload['delta']);
     final type = (payload['type']?.toString() ?? 'ADJUSTMENT').toUpperCase();
+    final warehouseId = payload['warehouse_id']?.toString().trim();
+    final saleWarehouse = (await checkpoint('sale_warehouse_id'))?.trim() ?? '';
+    // A Slave flags movements on another depot; older Slaves do not send the
+    // flag, so the depot is compared with the sale depot as well.
+    final affectsOnHand = payload['affects_on_hand'] != false &&
+        (warehouseId == null || warehouseId.isEmpty || saleWarehouse.isEmpty || warehouseId == saleWarehouse);
     if (productId.isEmpty) {
       return {
         'id': queueId,
@@ -1023,21 +1046,35 @@ class OfflineStore {
             DateTime.now().toIso8601String();
         await txn.insert('stock_movements', {
           'id': uuid,
-          'sale_id': payload['sale_id']?.toString() ?? uuid,
+          'sale_id': payload['sale_id']?.toString() ?? payload['document_id']?.toString() ?? uuid,
           'product_id': productId,
           'quantity': delta,
           'type': type,
           'created_at': now,
+          if (warehouseId != null && warehouseId.isNotEmpty) 'warehouse_id': warehouseId,
+          'sync_status': affectsOnHand ? 'pending' : InventoryLedger.otherWarehouseStatus,
         });
-        if (delta != 0) {
+        if (!affectsOnHand && delta != 0) {
+          await SaleStock.applyDelta(
+            txn: txn,
+            productId: productId,
+            storeId: TerminalConfigRepository.instance.config.storeId,
+            warehouseId: warehouseId,
+            delta: delta,
+          );
+        }
+        if (affectsOnHand && delta != 0) {
           // _applyStockDelta expects positive qty to deduct; invert for inbound.
           final absQty = delta.abs();
+          // A counted shelf is the truth even when it drives the balance below zero.
+          final counted = payload['reason']?.toString().startsWith('count:') ?? false;
           if (delta < 0) {
             stock.add(await _applyStockDelta(
               txn,
               productId,
               absQty,
-              authoritative: true,
+              authoritative: !counted,
+              warehouseId: warehouseId,
             ));
           } else {
             // Positive delta = inbound: apply as negative deduction (add stock).
@@ -1046,6 +1083,7 @@ class OfflineStore {
               productId,
               -absQty,
               authoritative: false,
+              warehouseId: warehouseId,
             ));
           }
         }
@@ -1445,6 +1483,7 @@ class OfflineStore {
           'sales',
           {
             'sync_status': SyncQueueStatus.synced.name,
+            'synced_at': DateTime.now().toIso8601String(),
             if (serverId != null) 'server_id': serverId,
           },
           where: 'id = ?',
@@ -1472,6 +1511,14 @@ class OfflineStore {
 
   Future<void> markFailed(String queueId, String error, {required int attempts}) async {
     await SyncOutbox.instance.markFailed(queueId, error, retryCount: attempts);
+    final entry = await SyncOutbox.instance.find(queueId);
+    if (entry?.entity == 'sale' && entry!.entityId.isNotEmpty) {
+      final db = await _db;
+      await db.rawUpdate(
+        'UPDATE sales SET retry_count = COALESCE(retry_count, 0) + 1 WHERE id = ?',
+        [entry.entityId],
+      );
+    }
     await log('error', error);
   }
 
@@ -2210,6 +2257,7 @@ class OfflineStore {
       SELECT m.product_id AS product_id, SUM(m.quantity) AS delta
       FROM stock_movements m
       WHERE UPPER(m.type) != 'SALE'
+        AND IFNULL(m.sync_status, 'pending') != '${InventoryLedger.otherWarehouseStatus}'
         AND (
           NOT EXISTS (
             SELECT 1 FROM ${SyncOutbox.table} o
@@ -2470,9 +2518,8 @@ class OfflineStore {
           if (rows.isEmpty) continue;
           final json = jsonDecode(rows.first['json'] as String) as Map<String, dynamic>;
           final currentVersion = _asInt(json['stock_version']);
-          if (version != null && version > 0 && version < currentVersion) {
-            continue;
-          }
+          // Local stock_version is incremented by each sale and is not the
+          // server sequence. Comparing them dropped online sales and adjustments.
           final pendingDelta = _pendingDelta(pending, productId, json);
           final localQty = _asIntOrNull(json['quantity_on_hand']);
           json['quantity_on_hand'] = mergeOnHand(
@@ -2482,12 +2529,15 @@ class OfflineStore {
             lastCloud: _asIntOrNull(json['last_cloud_qty']),
           );
           json['last_cloud_qty'] = quantity;
-          if (version != null && version >= currentVersion) {
+          if (version != null && version > currentVersion) {
             json['stock_version'] = version;
           }
           await txn.update(
             'products',
-            {'json': jsonEncode(json)},
+            {
+              'json': jsonEncode(json),
+              'server_stock': quantity,
+            },
             where: 'product_id = ?',
             whereArgs: [productId],
           );

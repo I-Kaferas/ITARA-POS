@@ -884,6 +884,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:inventory.adjust');
         Route::get('stock-adjustments/{stockAdjustment}', [StockAdjustmentController::class, 'show'])
             ->middleware('permission:inventory.view');
+        Route::put('stock-adjustments/{stockAdjustment}', [StockAdjustmentController::class, 'update'])
+            ->middleware('permission:inventory.adjust');
         Route::post('stock-adjustments/{stockAdjustment}/confirm', [StockAdjustmentController::class, 'confirm'])
             ->middleware('permission:inventory.adjust');
         Route::post('stock-adjustments/{stockAdjustment}/complete', [StockAdjustmentController::class, 'complete'])
@@ -924,6 +926,10 @@ Route::prefix('v1')->group(function () {
         Route::post('inventory-counts/{inventoryCount}/start', [InventoryCountController::class, 'startCycle'])
             ->middleware('permission:inventory.count.enter,inventory.adjust');
         Route::patch('inventory-counts/{inventoryCount}/lines', [InventoryCountController::class, 'saveFullLines'])
+            ->middleware('permission:inventory.count.enter,inventory.adjust');
+        Route::post('inventory-counts/{inventoryCount}/items', [InventoryCountController::class, 'addItems'])
+            ->middleware('permission:inventory.count.enter,inventory.adjust');
+        Route::delete('inventory-counts/{inventoryCount}/items/{item}', [InventoryCountController::class, 'removeItem'])
             ->middleware('permission:inventory.count.enter,inventory.adjust');
         Route::post('inventory-counts/{inventoryCount}/submit', [InventoryCountController::class, 'submitFull'])
             ->middleware('permission:inventory.count.enter,inventory.count.review,inventory.adjust');
@@ -1108,7 +1114,7 @@ Route::prefix('v1')->group(function () {
         Route::get('purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])
             ->middleware('permission:purchases.view');
         Route::patch('purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'update'])
-            ->middleware('permission:purchases.manage');
+            ->middleware('permission:purchases.manage,inventory.manage');
         Route::post('purchase-orders/{purchaseOrder}/confirm', [PurchaseOrderController::class, 'confirm'])
             ->middleware('permission:purchases.manage,inventory.manage');
         Route::post('purchase-orders/{purchaseOrder}/submit', [PurchaseOrderController::class, 'submit'])

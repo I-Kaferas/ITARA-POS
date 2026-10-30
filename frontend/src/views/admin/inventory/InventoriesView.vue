@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { api, extractApiErrorMessage } from '../../../api/client'
 import InventoryLayout from '../../../components/inventory/InventoryLayout.vue'
 import OpeningBalanceModal from '../../../components/inventory/OpeningBalanceModal.vue'
-import WarehouseOptions from '../../../components/inventory/WarehouseOptions.vue'
+import CurrentWarehouseField from '../../../components/inventory/CurrentWarehouseField.vue'
 import FullCountSheet from '../../../components/inventory/FullCountSheet.vue'
 import CycleCountModal from '../../../components/inventory/CycleCountModal.vue'
 import { useConfirm } from '../../../composables/useConfirm'
@@ -32,7 +32,11 @@ const { notify, confirm: confirmDialog } = useConfirm()
 const COUNT_TYPES: CountType[] = ['opening', 'full', 'cycle', 'spot']
 
 const warehouses = ref<Warehouse[]>([])
+const currentWarehouse = computed(() =>
+  warehouses.value.find(w => w.store_id && w.store_id === context.currentStoreId) ?? null,
+)
 const products = ref<Product[]>([])
+const stockableProducts = computed(() => products.value.filter(isStockableProduct))
 const categories = ref<Category[]>([])
 const stockedIds = ref<Set<string>>(new Set())
 const onHandByProduct = ref<Record<string, number>>({})
@@ -139,6 +143,10 @@ watch(() => form.value.warehouse_id, () => {
   void refreshStock()
 })
 
+watch(currentWarehouse, (warehouse) => {
+  form.value.warehouse_id = warehouse?.id ?? ''
+}, { immediate: true })
+
 watch(() => form.value.count_type, () => {
   applyTypeSelection()
 })
@@ -149,7 +157,7 @@ async function onOpeningCreated() {
 
 async function openCreate() {
   form.value = {
-    warehouse_id: warehouses.value[0]?.id ?? '',
+    warehouse_id: currentWarehouse.value?.id ?? '',
     count_type: 'full',
     counted_at: today(),
     notes: '',
@@ -216,6 +224,8 @@ function openRow(row: { id: string; count_type?: string }) {
 }
 
 async function save() {
+  form.value.warehouse_id = currentWarehouse.value?.id ?? ''
+  if (!form.value.warehouse_id) return
   saving.value = true
   try {
     if (form.value.count_type === 'opening') {
@@ -383,7 +393,7 @@ async function completeFromPreview() {
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.articles') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.countDate') }}</th>
-            <th />
+            <th class="px-4 py-3 text-right font-medium">{{ t('inventory.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -394,10 +404,12 @@ async function completeFromPreview() {
             <td class="px-4 py-3">{{ row.items_count ?? '—' }}</td>
             <td class="px-4 py-3"><StatusBadge :active="row.status === 'completed'" :label="statusLabel(row.status)" /></td>
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.counted_at ?? row.created_at) }}</td>
-            <td class="px-4 py-3 text-right" @click.stop>
-              <button class="text-slate-600" @click="openRow(row)">{{ t('inventory.viewDetails') }}</button>
-              <button v-if="row.status === 'draft'" class="ml-3 text-brand-600" @click="openPreview(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirm') }}</button>
-              <button v-else-if="row.status === 'confirmed'" class="ml-3 text-brand-600" @click="openPreview(row.id)">{{ t('inventory.confirmFinal') }}</button>
+            <td class="px-4 py-3" @click.stop>
+              <div class="row-actions">
+                <button class="row-action row-action--view" @click="openRow(row)"><AppIcon name="eye" :size="16" /> {{ t('inventory.viewDetails') }}</button>
+                <button v-if="row.status === 'draft'" class="row-action row-action--confirm" @click="openPreview(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirm') }}</button>
+                <button v-else-if="row.status === 'confirmed'" class="row-action row-action--approve" @click="openPreview(row.id)"><AppIcon name="check" :size="16" /> {{ t('inventory.confirmFinal') }}</button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -414,20 +426,20 @@ async function completeFromPreview() {
 
     <CycleCountModal
       :open="showCycle"
-      :warehouses="warehouses"
+      :warehouse="currentWarehouse"
       :categories="flatCategories"
       :products="products"
       :users="store.users"
-      :warehouse-id="form.warehouse_id"
       @close="showCycle = false"
       @created="(id) => { showCycle = false; fullCountId = id; showFullCount = true; store.loadInventoryCounts() }"
     />
 
     <FullCountSheet
       :open="showFullCount"
-      :warehouses="warehouses"
+      :warehouse="currentWarehouse"
       :categories="flatCategories"
       :users="store.users"
+      :products="stockableProducts"
       :count-id="fullCountId"
       @close="showFullCount = false"
       @changed="store.loadInventoryCounts()"
@@ -435,9 +447,8 @@ async function completeFromPreview() {
 
     <OpeningBalanceModal
       :open="showOpening"
-      :warehouses="warehouses"
+      :warehouse="currentWarehouse"
       :products="products"
-      :warehouse-id="form.warehouse_id"
       @close="showOpening = false"
       @created="onOpeningCreated"
     />
@@ -452,10 +463,7 @@ async function completeFromPreview() {
     >
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid gap-3 sm:grid-cols-2">
-          <div>
-            <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
-            <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" />
-          </div>
+          <CurrentWarehouseField :warehouse="currentWarehouse" />
           <div>
             <FieldLabel icon="calendar">{{ t('inventory.countDate') }} *</FieldLabel>
             <input v-model="form.counted_at" type="date" required class="field" />
@@ -530,7 +538,7 @@ async function completeFromPreview() {
 
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || (form.count_type === 'spot' && !selectedProducts.length)">
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || !currentWarehouse || (form.count_type === 'spot' && !selectedProducts.length)">
             <AppIcon name="plus" :size="16" />
             {{ form.count_type === 'opening' ? t('inventory.createOpening') : form.count_type === 'full' ? t('inventory.startFullCount') : form.count_type === 'cycle' ? t('inventory.planCycle') : t('inventory.startSpotCount') }}
           </button>

@@ -649,6 +649,7 @@ class AppShell extends StatelessWidget {
   _NavItem _currentPage(String location) {
     if (location == AppRoutes.barcode) return _barcodeItem;
     if (location == AppRoutes.sync) return _syncItem;
+    if (location == AppRoutes.search) return _menuItem;
     if (location == AppRoutes.cashierSettings ||
         location == AppRoutes.hub ||
         location == AppRoutes.masterConfiguration) {

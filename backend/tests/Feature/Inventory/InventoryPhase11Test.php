@@ -3,6 +3,7 @@
 namespace Tests\Feature\Inventory;
 
 use App\Enums\InventoryMovementType;
+use App\Models\Product;
 use App\Models\StockBalance;
 use App\Models\Store;
 use App\Models\StoreProduct;
@@ -287,6 +288,98 @@ class InventoryPhase11Test extends TestCase
         $this->getJson("/api/v1/warehouses/{$warehouse->id}/stock", $headers)
             ->assertOk()
             ->assertJsonPath('data.data.0.quantity_on_hand', 27);
+    }
+
+    public function test_draft_stock_adjustment_items_can_be_edited_until_confirmed(): void
+    {
+        $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+
+        $id = $this->postJson('/api/v1/stock-adjustments', [
+            'warehouse_id' => $warehouse->id,
+            'movement_type' => 'ADJUSTMENT_IN',
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ],
+        ], $headers)->assertCreated()->json('data.id');
+
+        $this->putJson("/api/v1/stock-adjustments/{$id}", [
+            'reason' => 'Recount',
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 5],
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+        ], $headers)->assertOk()
+            ->assertJsonPath('data.status', 'draft')
+            ->assertJsonPath('data.reason', 'Recount')
+            ->assertJsonCount(2, 'data.items')
+            ->assertJsonPath('data.items.0.quantity', 5);
+
+        $this->postJson("/api/v1/stock-adjustments/{$id}/confirm", [], $headers)->assertOk();
+
+        $this->putJson("/api/v1/stock-adjustments/{$id}", [
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 9],
+            ],
+        ], $headers)->assertUnprocessable();
+    }
+
+    public function test_spot_count_articles_can_be_added_and_removed_before_submission(): void
+    {
+        $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+        $warehouse = $this->fixture['warehouse'];
+        $product = $this->fixture['product'];
+        $other = Product::create([
+            'tenant_id' => $product->tenant_id,
+            'catalog_id' => $product->catalog_id,
+            'sku' => 'INV11-002',
+            'name' => 'Second product',
+            'base_price' => 500,
+            'is_active' => true,
+        ]);
+
+        app(InventoryMovementService::class)->record([
+            'warehouse' => $warehouse,
+            'product' => $other,
+            'movement_type' => InventoryMovementType::InitialStock,
+            'quantity' => 7,
+        ]);
+
+        $id = $this->postJson('/api/v1/inventory-counts/spot', [
+            'warehouse_id' => $warehouse->id,
+            'counted_at' => now()->toDateString(),
+            'product_ids' => [$product->id],
+        ], $headers)->assertCreated()
+            ->assertJsonPath('data.count_type', 'spot')
+            ->assertJsonCount(1, 'data.items')
+            ->json('data.id');
+
+        $added = $this->postJson("/api/v1/inventory-counts/{$id}/items", [
+            'product_ids' => [$product->id, $other->id],
+        ], $headers)->assertOk()
+            ->assertJsonCount(2, 'data.items')
+            ->json('data.items');
+
+        $otherLine = collect($added)->firstWhere('product_id', $other->id);
+        $this->assertSame(7, $otherLine['system_quantity']);
+
+        $firstLine = collect($added)->firstWhere('product_id', $product->id);
+        $this->deleteJson("/api/v1/inventory-counts/{$id}/items/{$firstLine['id']}", [], $headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'data.items');
+
+        $this->deleteJson("/api/v1/inventory-counts/{$id}/items/{$otherLine['id']}", [], $headers)
+            ->assertUnprocessable();
+
+        $this->patchJson("/api/v1/inventory-counts/{$id}/lines", [
+            'lines' => [['id' => $otherLine['id'], 'entered_quantity' => 7]],
+        ], $headers)->assertOk();
+        $this->postJson("/api/v1/inventory-counts/{$id}/submit", [], $headers)->assertOk();
+
+        $this->postJson("/api/v1/inventory-counts/{$id}/items", [
+            'product_ids' => [$product->id],
+        ], $headers)->assertUnprocessable();
     }
 
     public function test_batch_creation_and_tracking(): void

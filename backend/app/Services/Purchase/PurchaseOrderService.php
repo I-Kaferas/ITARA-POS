@@ -80,19 +80,23 @@ class PurchaseOrderService
      *     tax_rate?: float,
      * }>  $items
      */
-    public function update(PurchaseOrder $purchaseOrder, array $items, ?string $notes = null, ?\DateTimeInterface $expectedAt = null): PurchaseOrder
+    /** @param array<string, mixed> $attributes */
+    public function update(PurchaseOrder $purchaseOrder, array $items, ?string $notes = null, ?\DateTimeInterface $expectedAt = null, array $attributes = []): PurchaseOrder
     {
         if (! $purchaseOrder->status->canEdit()) {
             throw ValidationException::withMessages([
-                'status' => ['Only draft purchase orders can be edited.'],
+                'status' => ['Only purchase orders awaiting approval can be edited.'],
             ]);
         }
 
-        return DB::transaction(function () use ($purchaseOrder, $items, $notes, $expectedAt): PurchaseOrder {
-            $purchaseOrder->update(array_filter([
-                'notes' => $notes,
-                'expected_at' => $expectedAt,
-            ], fn ($v) => $v !== null));
+        return DB::transaction(function () use ($purchaseOrder, $items, $notes, $expectedAt, $attributes): PurchaseOrder {
+            $purchaseOrder->update([
+                ...array_filter([
+                    'notes' => $notes,
+                    'expected_at' => $expectedAt,
+                ], fn ($v) => $v !== null),
+                ...array_intersect_key($attributes, array_flip(['supplier_id', 'notes'])),
+            ]);
 
             $this->syncItems($purchaseOrder, $items);
             $purchaseOrder->refreshTotals();

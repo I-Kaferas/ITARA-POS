@@ -29,6 +29,7 @@ import '../../features/setup/presentation/slave_setup_wizard.dart';
 import '../../features/cash_register/presentation/cash_register_screen.dart';
 import '../../features/shifts/presentation/shifts_screen.dart';
 import '../../features/stock/presentation/stock_screen.dart';
+import '../../features/search/presentation/global_search_screen.dart';
 import '../../features/sync/presentation/sync_screen.dart';
 import '../../sync/local_master_server.dart';
 import '../../sync/sync_engine.dart';
@@ -269,6 +270,10 @@ class AppRouter {
                     GoRoute(
                       path: 'sync',
                       builder: (_, __) => const SyncScreen(),
+                    ),
+                    GoRoute(
+                      path: 'search',
+                      builder: (_, __) => const GlobalSearchScreen(),
                     ),
                   ],
                 ),

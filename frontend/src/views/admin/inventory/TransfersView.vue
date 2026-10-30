@@ -324,7 +324,7 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.storeB') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
-            <th class="px-4 py-3 text-right font-medium">{{ t('common.edit') }}</th>
+            <th class="px-4 py-3 text-right font-medium">{{ t('inventory.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -334,11 +334,13 @@ async function advance(id: string, kind: 'request' | 'validate' | 'ship' | 'rece
             <td class="px-4 py-3">{{ row.destination_warehouse?.name ?? '—' }}</td>
             <td class="px-4 py-3"><StatusBadge :active="row.status === 'completed'" :label="statusLabel(row.status)" /></td>
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
-            <td class="px-4 py-3 text-right">
-              <button class="text-slate-600" @click="openDetails(row.id)">{{ t('inventory.viewDetails') }}</button>
-              <button v-if="nextAction(row.status)" class="ml-3 text-brand-600" @click="advance(row.id, nextAction(row.status)!.kind)">
-                {{ nextAction(row.status)!.label }}
-              </button>
+            <td class="px-4 py-3">
+              <div class="row-actions">
+                <button class="row-action row-action--view" @click="openDetails(row.id)"><AppIcon name="eye" :size="16" /> {{ t('inventory.viewDetails') }}</button>
+                <button v-if="nextAction(row.status)" class="row-action row-action--confirm" @click="advance(row.id, nextAction(row.status)!.kind)">
+                  <AppIcon name="check" :size="16" /> {{ nextAction(row.status)!.label }}
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>

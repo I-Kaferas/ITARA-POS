@@ -1017,9 +1017,10 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     },
   ) {
     const payload: Record<string, unknown> = { product_ids: productIds }
-    if (taxonomy.category_id) payload.category_id = taxonomy.category_id
-    if (taxonomy.brand_id) payload.brand_id = taxonomy.brand_id
-    if (taxonomy.unit_id) payload.unit_id = taxonomy.unit_id
+    // undefined = keep current value, null = clear it
+    if (taxonomy.category_id !== undefined) payload.category_id = taxonomy.category_id
+    if (taxonomy.brand_id !== undefined) payload.brand_id = taxonomy.brand_id
+    if (taxonomy.unit_id !== undefined) payload.unit_id = taxonomy.unit_id
     if (taxonomy.attributes?.length) payload.attributes = taxonomy.attributes
     return (await api.post<ApiListResponse<StoreProductItem>>(`/stores/${storeId}/products/classify`, payload)).data
   }
@@ -1524,6 +1525,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.post<ApiItemResponse<StockAdjustment>>('/stock-adjustments', payload)).data
   }
 
+  async function updateStockAdjustment(id: string, payload: {
+    reason?: string
+    items: { product_id: string; quantity: number; sale_unit_id?: string | null; product_variant_id?: string | null }[]
+  }) {
+    return (await api.put<ApiItemResponse<StockAdjustment>>(`/stock-adjustments/${id}`, payload)).data
+  }
+
   async function loadStockAdjustment(id: string) {
     return (await api.get<ApiItemResponse<StockAdjustmentDetail>>(`/stock-adjustments/${id}`)).data
   }
@@ -1604,6 +1612,14 @@ export const useBackofficeStore = defineStore('backoffice', () => {
 
   async function saveFullCountLines(id: string, lines: FullCountLineInput[]) {
     return api.patch<{ data: InventoryCountDetail; summary: FullCountSummary }>(`/inventory-counts/${id}/lines`, { lines })
+  }
+
+  async function addInventoryCountItems(id: string, productIds: string[]) {
+    return api.post<{ data: InventoryCountDetail; summary: FullCountSummary }>(`/inventory-counts/${id}/items`, { product_ids: productIds })
+  }
+
+  async function removeInventoryCountItem(id: string, itemId: string) {
+    return api.delete<{ data: InventoryCountDetail; summary: FullCountSummary }>(`/inventory-counts/${id}/items/${itemId}`)
   }
 
   async function submitFullCount(id: string) {
@@ -1836,6 +1852,14 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     items: { product_id: string; quantity: number; unit_cost: number; product_variant_id?: string | null }[]
   }) {
     return (await api.post<ApiItemResponse<PurchaseOrderDetail>>('/purchase-orders', payload)).data
+  }
+
+  async function updatePurchaseOrder(id: string, payload: {
+    supplier_id?: string | null
+    notes?: string | null
+    items: { product_id: string; quantity: number; unit_cost: number; product_variant_id?: string | null }[]
+  }) {
+    return (await api.patch<ApiItemResponse<PurchaseOrderDetail>>(`/purchase-orders/${id}`, payload)).data
   }
 
   async function submitPurchaseOrder(id: string) {
@@ -2151,11 +2175,11 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadStockBalances, loadStockTransfers, loadStockAdjustments, loadInventoryAlerts,
     acknowledgeInventoryAlert, resolveInventoryAlert, refreshInventoryAlerts,
     createStockTransfer, loadStockTransfer, confirmStockTransfer, approveStockTransfer, shipStockTransfer, receiveStockTransfer,
-    createStockAdjustment, loadStockAdjustment, confirmStockAdjustment, completeStockAdjustment,
+    createStockAdjustment, updateStockAdjustment, loadStockAdjustment, confirmStockAdjustment, completeStockAdjustment,
     loadInventoryCounts, loadInventoryCount, createInventoryCount, createOpeningBalance, loadOpenedProductIds, loadStockLedger,
     loadTaxReport, loadTaxRegister, calculateTaxes, loadTaxGroups, saveTaxGroup, deleteTaxGroup,
     loadTaxClasses, saveTaxClass, deleteTaxClass, loadTaxRules, saveTaxRule, deleteTaxRule,
-    startFullCount, startSpotCount, saveFullCountLines, submitFullCount, reviewFullCount, approveFullCount, cancelFullCount,
+    startFullCount, startSpotCount, saveFullCountLines, addInventoryCountItems, removeInventoryCountItem, submitFullCount, reviewFullCount, approveFullCount, cancelFullCount,
     planCycleCount, suggestCycleCounts, loadCycleDashboard, generateCycleCounts, startCycleCount, saveCycleRules,
     updateInventoryCount, confirmInventoryCount, completeInventoryCount,
     confirmPurchaseOrderStep,
@@ -2166,7 +2190,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     loadCustomerAddresses, saveCustomerAddress, deleteCustomerAddress,
     loadSupplierContacts, saveSupplierContact, deleteSupplierContact,
     loadInventoryMovements, createInventoryMovement,
-    loadPurchaseOrder, createPurchaseOrder, submitPurchaseOrder, approvePurchaseOrder,
+    loadPurchaseOrder, createPurchaseOrder, updatePurchaseOrder, submitPurchaseOrder, approvePurchaseOrder,
     cancelPurchaseOrder, receivePurchaseOrder,
     saveUser, deleteUser,
     loadAuditLogs,

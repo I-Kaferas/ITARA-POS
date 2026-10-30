@@ -186,8 +186,8 @@ function reset() {
   grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
   align-items: end;
   gap: var(--field-gap) var(--space-3);
-  width: min(100%, 58rem);
-  margin-left: auto;
+  width: 100%;
+  margin-left: 0;
 }
 .filters > * {
   width: 100%;

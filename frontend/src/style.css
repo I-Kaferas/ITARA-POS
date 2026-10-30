@@ -1320,9 +1320,9 @@ kbd {
   align-items: end;
   justify-items: stretch;
   gap: 0.75rem 1rem;
-  width: min(100%, 58rem);
+  width: 100%;
   max-width: 100%;
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .app-content:not(:has(.pos-root)) [class$="__filters"]:has(:is(.field, select, input)):not(:has([class*="__chip"])) > * {
@@ -4369,7 +4369,6 @@ body.nav-drawer-open {
   background: #dc2626;
   color: #fff;
 }
-
 .app-content .rounded-xl > p.text-center,
 .app-content .rounded-2xl > p.text-center {
   padding: var(--space-9) var(--space-6);
@@ -5289,7 +5288,6 @@ html[data-theme="dark"] .app-modal table td button.text-brand-600:hover {
   background: #3d5f8a;
   color: #fff;
 }
-
 html[data-theme="dark"] :is(.app-modal__mark, .action-tile__icon, .field-icon) {
   background: #24384c;
   color: var(--color-ink-brand);

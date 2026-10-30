@@ -88,6 +88,29 @@ class StockAdjustmentController extends Controller
         return response()->json(['data' => $adjustment], 201);
     }
 
+    public function update(Request $request, StockAdjustment $stockAdjustment): JsonResponse
+    {
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:1000'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'uuid', 'exists:products,id'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.sale_unit_id' => ['nullable', 'uuid', 'exists:product_sale_units,id'],
+            'items.*.product_variant_id' => ['nullable', 'uuid', 'exists:product_variants,id'],
+            'items.*.batch_id' => ['nullable', 'uuid', 'exists:batches,id'],
+            'items.*.unit_cost' => ['nullable', 'integer', 'min:0'],
+            'items.*.notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        return response()->json([
+            'data' => $this->adjustmentService->update(
+                adjustment: $stockAdjustment,
+                items: $data['items'],
+                reason: $data['reason'] ?? null,
+            ),
+        ]);
+    }
+
     public function confirm(Request $request, StockAdjustment $stockAdjustment): JsonResponse
     {
         return response()->json([

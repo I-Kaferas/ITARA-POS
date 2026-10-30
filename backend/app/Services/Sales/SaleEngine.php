@@ -120,8 +120,11 @@ class SaleEngine
             $cart = $this->cartEngine->calculateForStore($store, $payload);
 
             $warehouse = $this->warehouseFromPayload($store, $payload);
+            // A sale already taken on a terminal is replayed even if the warehouse
+            // is now short. The balance may go negative and stays visible for a count.
+            $replay = (bool) ($payload['sync_replay'] ?? false);
             $skipStock = (bool) ($payload['skip_stock'] ?? false);
-            if (! $skipStock) {
+            if (! $skipStock && ! $replay) {
                 $this->validateStock($warehouse, $cart);
             }
 

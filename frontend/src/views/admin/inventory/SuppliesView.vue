@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { extractApiErrorMessage } from '../../../api/client'
 import InventoryActionDetails from '../../../components/inventory/InventoryActionDetails.vue'
@@ -9,6 +9,7 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import FieldLabel from '../../../components/ui/FieldLabel.vue'
 import { useConfirm } from '../../../composables/useConfirm'
 import { useBackofficeStore } from '../../../stores/backoffice'
+import { useContextStore } from '../../../stores/context'
 import type { Product, PurchaseOrderDetail, Warehouse } from '../../../types'
 import { isStockableProduct } from '../../../utils/product'
 import { formatDate, formatDateTime } from '../../../utils/format'
@@ -16,15 +17,23 @@ import { formatMoney } from '../../../utils/money'
 import { weightedAverageCost } from '../../../utils/weightedAverageCost'
 import AppIcon from '../../../components/ui/AppIcon.vue'
 import ListPager from '../../../components/ui/ListPager.vue'
+import FilterFold from '../../../components/ui/FilterFold.vue'
 import { useClientPager } from '../../../composables/useClientPager'
+import { watchLiveSearch } from '../../../composables/useLiveSearch'
 
 const { t } = useI18n()
 const store = useBackofficeStore()
+const context = useContextStore()
 const { notify, confirm: confirmDialog } = useConfirm()
 
 const warehouses = ref<Warehouse[]>([])
 const products = ref<Product[]>([])
+const currentWarehouse = computed(() =>
+  warehouses.value.find(w => w.store_id && w.store_id === context.currentStoreId) ?? null,
+)
 const showModal = ref(false)
+const editingId = ref<string | null>(null)
+const editingWarehouseName = ref('')
 const showDetails = ref(false)
 const detailsLoading = ref(false)
 const detail = ref<PurchaseOrderDetail | null>(null)
@@ -37,11 +46,33 @@ const form = ref({
   items: [{ product_id: '', quantity: 1, unit_cost: 0 }],
 })
 
+const from = ref('')
+const to = ref('')
+
 const { page, lastPage, total, perPage, paged, setPage } = useClientPager(() => store.purchaseOrders)
+
+function loadOrders() {
+  return store.loadPurchaseOrders({ from: from.value, to: to.value })
+}
+
+async function applyDateFilter() {
+  try {
+    await loadOrders()
+  } catch (error) {
+    notify(extractApiErrorMessage(error))
+  }
+}
+
+function clearDates() {
+  from.value = ''
+  to.value = ''
+}
+
+watchLiveSearch(() => `${from.value}|${to.value}`, applyDateFilter, 0)
 
 onMounted(async () => {
   try {
-    await Promise.all([store.loadPurchaseOrders(), store.loadSuppliers()])
+    await Promise.all([loadOrders(), store.loadSuppliers()])
     warehouses.value = await store.loadAllWarehouses()
   } catch (error) {
     notify(extractApiErrorMessage(error))
@@ -81,15 +112,74 @@ function removeLine(index: number) {
   if (!form.value.items.length) addLine()
 }
 
+async function loadStoreStockables(): Promise<Product[]> {
+  const storeId = context.currentStoreId
+  if (!storeId) return []
+  return (await store.loadStoreProducts(storeId))
+    .map(item => item.product)
+    .filter(isStockableProduct)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 async function openCreate() {
-  products.value = (await store.loadAllProducts()).filter(isStockableProduct)
+  const warehouseId = currentWarehouse.value?.id ?? ''
+  try {
+    products.value = await loadStoreStockables()
+  } catch (error) {
+    notify(extractApiErrorMessage(error))
+    return
+  }
   formError.value = ''
+  editingId.value = null
+  editingWarehouseName.value = ''
   form.value = {
-    warehouse_id: warehouses.value[0]?.id ?? '',
+    warehouse_id: warehouseId,
     supplier_id: '',
     notes: '',
     items: [{ product_id: '', quantity: 1, unit_cost: 0 }],
   }
+  showModal.value = true
+}
+
+function canEdit(status: string) {
+  return ['draft', 'pending'].includes(status)
+}
+
+async function openEdit(id: string) {
+  let order: PurchaseOrderDetail
+  try {
+    const [loaded, stockables] = await Promise.all([store.loadPurchaseOrder(id), loadStoreStockables()])
+    order = loaded
+    products.value = stockables
+  } catch (error) {
+    notify(extractApiErrorMessage(error))
+    return
+  }
+  if (!canEdit(order.status)) {
+    await loadOrders()
+    return
+  }
+  const known = new Set(products.value.map(p => p.id))
+  for (const item of order.items ?? []) {
+    if (!known.has(item.product_id)) {
+      products.value.push({ id: item.product_id, name: item.product?.name ?? item.product_id, sku: item.product?.sku ?? '' } as Product)
+      known.add(item.product_id)
+    }
+  }
+  formError.value = ''
+  editingId.value = order.id
+  editingWarehouseName.value = order.warehouse?.name ?? ''
+  form.value = {
+    warehouse_id: order.warehouse_id,
+    supplier_id: order.supplier_id ?? '',
+    notes: order.notes ?? '',
+    items: (order.items ?? []).map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity_ordered ?? item.quantity ?? 1,
+      unit_cost: (item.unit_cost ?? 0) / 100,
+    })),
+  }
+  if (!form.value.items.length) addLine()
   showModal.value = true
 }
 
@@ -149,6 +239,13 @@ async function receiveRemaining(id: string) {
 
 async function save() {
   formError.value = ''
+  if (!editingId.value) {
+    form.value.warehouse_id = currentWarehouse.value?.id ?? ''
+    if (!form.value.warehouse_id) {
+      formError.value = t('inventory.supplyNoStore')
+      return
+    }
+  }
   const items = form.value.items
     .filter(line => line.product_id && line.quantity > 0)
     .map(line => ({
@@ -164,14 +261,22 @@ async function save() {
 
   saving.value = true
   try {
-    await store.createPurchaseOrder({
-      warehouse_id: form.value.warehouse_id,
-      supplier_id: form.value.supplier_id || null,
-      notes: form.value.notes || undefined,
-      items,
-    })
+    if (editingId.value) {
+      await store.updatePurchaseOrder(editingId.value, {
+        supplier_id: form.value.supplier_id || null,
+        notes: form.value.notes || null,
+        items,
+      })
+    } else {
+      await store.createPurchaseOrder({
+        warehouse_id: form.value.warehouse_id,
+        supplier_id: form.value.supplier_id || null,
+        notes: form.value.notes || undefined,
+        items,
+      })
+    }
     showModal.value = false
-    await store.loadPurchaseOrders()
+    await loadOrders()
   } catch (error) {
     formError.value = extractApiErrorMessage(error)
   } finally {
@@ -196,17 +301,32 @@ async function confirm(id: string, status: string) {
     if (status !== 'draft') {
       await receiveRemaining(id)
     }
-    await store.loadPurchaseOrders()
+    await loadOrders()
   } catch (error) {
     await notify(extractApiErrorMessage(error))
-    await store.loadPurchaseOrders()
+    await loadOrders()
   }
 }
 </script>
 
 <template>
   <InventoryLayout>
-    <div class="mb-4 flex justify-end">
+    <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <FilterFold class="supplies-filters min-w-0 flex-1">
+        <div class="grid items-end gap-3 sm:grid-cols-[repeat(2,minmax(14rem,20rem))_auto]">
+          <div>
+            <FieldLabel icon="calendar">{{ t('reports.from') }}</FieldLabel>
+            <input v-model="from" type="date" class="field w-full" :max="to || undefined" />
+          </div>
+          <div>
+            <FieldLabel icon="calendar">{{ t('reports.to') }}</FieldLabel>
+            <input v-model="to" type="date" class="field w-full" :min="from || undefined" />
+          </div>
+          <button v-if="from || to" type="button" class="btn-secondary" @click="clearDates">
+            <AppIcon name="close" :size="16" /> {{ t('filters.reset') }}
+          </button>
+        </div>
+      </FilterFold>
       <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> {{ t('inventory.newSupply') }}</button>
     </div>
 
@@ -219,7 +339,7 @@ async function confirm(id: string, status: string) {
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.supplier') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('products.status') }}</th>
             <th class="px-4 py-3 text-left font-medium">{{ t('inventory.date') }}</th>
-            <th class="px-4 py-3 text-right font-medium">{{ t('common.edit') }}</th>
+            <th class="px-4 py-3 text-right font-medium">{{ t('inventory.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -231,11 +351,19 @@ async function confirm(id: string, status: string) {
               <StatusBadge :active="['received', 'completed'].includes(row.status)" :label="statusLabel(row.status)" />
             </td>
             <td class="px-4 py-3 text-slate-500">{{ formatDate(row.created_at) }}</td>
-            <td class="px-4 py-3 text-right">
-              <button class="text-slate-600" @click="openDetails(row.id)">{{ t('inventory.viewDetails') }}</button>
-              <button v-if="canConfirm(row.status)" class="ml-3 text-brand-600" @click="confirm(row.id, row.status)">
-                {{ confirmLabel(row.status) }}
-              </button>
+            <td class="px-4 py-3">
+              <div class="row-actions">
+                <button class="row-action row-action--view" @click="openDetails(row.id)"><AppIcon name="eye" :size="16" /> {{ t('inventory.viewDetails') }}</button>
+                <button v-if="canEdit(row.status)" class="row-action row-action--edit" @click="openEdit(row.id)"><AppIcon name="edit" :size="16" /> {{ t('common.edit') }}</button>
+                <button
+                  v-if="canConfirm(row.status)"
+                  class="row-action"
+                  :class="row.status === 'draft' ? 'row-action--confirm' : 'row-action--approve'"
+                  @click="confirm(row.id, row.status)"
+                >
+                  <AppIcon name="check" :size="16" /> {{ confirmLabel(row.status) }}
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -252,7 +380,7 @@ async function confirm(id: string, status: string) {
 
     <AppModal
       :open="showModal"
-      :title="t('inventory.newSupply')"
+      :title="editingId ? t('inventory.editSupply') : t('inventory.newSupply')"
       icon="purchases"
       tone="info"
       size="xl"
@@ -261,10 +389,11 @@ async function confirm(id: string, status: string) {
       <form class="space-y-3" @submit.prevent="save">
         <div>
           <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
-          <select v-model="form.warehouse_id" required class="field">
-            <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
-          </select>
+          <input class="field" :value="(editingId ? editingWarehouseName : currentWarehouse?.name) || '—'" readonly tabindex="-1">
+          <p class="mt-1 text-xs text-slate-500">{{ t('inventory.supplyStoreFixed') }}</p>
         </div>
+        <p v-if="!editingId && !currentWarehouse" class="text-sm text-red-600">{{ t('inventory.supplyNoStore') }}</p>
+        <p v-else-if="!products.length" class="text-sm text-amber-700">{{ t('inventory.supplyNoProducts') }}</p>
         <div>
           <FieldLabel icon="suppliers">{{ t('inventory.supplier') }}</FieldLabel>
           <select v-model="form.supplier_id" class="field">
@@ -300,7 +429,7 @@ async function confirm(id: string, status: string) {
         </div>
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showModal = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
-          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving">{{ t('inventory.saveEntry') }}</button>
+          <button type="submit" class="btn-primary" :class="{ 'is-busy': saving }" :disabled="saving || (!editingId && !currentWarehouse)">{{ editingId ? t('common.saveChanges') : t('inventory.saveEntry') }}</button>
         </div>
       </form>
     </AppModal>
@@ -332,6 +461,9 @@ async function confirm(id: string, status: string) {
 
 <style scoped>
 
+.supplies-filters :deep(.filter-fold__toggle) {
+  align-self: flex-start;
+}
 .line-head,
 .line-row {
   display: grid;

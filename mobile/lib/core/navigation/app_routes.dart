@@ -31,6 +31,7 @@ abstract final class AppRoutes {
   static const expenses = '/dashboard/expenses';
   static const barcode = '/dashboard/barcode';
   static const sync = '/dashboard/sync';
+  static const search = '/dashboard/search';
 
   /// Screens reserved to administrators; the shell hides its navigation on them.
   static bool isConfiguration(String location) =>

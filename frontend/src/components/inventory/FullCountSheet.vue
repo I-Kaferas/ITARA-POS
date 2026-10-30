@@ -5,7 +5,7 @@ import AppIcon from '../ui/AppIcon.vue'
 import AppModal from '../ui/AppModal.vue'
 import FieldLabel from '../ui/FieldLabel.vue'
 import LoadingBlock from '../ui/LoadingBlock.vue'
-import WarehouseOptions from './WarehouseOptions.vue'
+import CurrentWarehouseField from './CurrentWarehouseField.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
 import type { Category, InventoryCountDetail, InventoryCountItem, Warehouse } from '../../types'
@@ -30,6 +30,7 @@ const REASONS = [
 
 type LineDraft = {
   id: string
+  product_id: string
   name: string
   sku: string
   barcodes: string[]
@@ -49,9 +50,10 @@ type LineDraft = {
 
 const props = defineProps<{
   open: boolean
-  warehouses: Warehouse[]
+  warehouse: Warehouse | null
   categories: Category[]
   users: { id: string; name: string }[]
+  products?: { id: string; name: string; sku?: string | null }[]
   countId?: string | null
 }>()
 
@@ -73,6 +75,7 @@ const lines = ref<LineDraft[]>([])
 const dirty = ref(new Set<string>())
 const cancelling = ref(false)
 const cancelReason = ref('')
+const addProductId = ref('')
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 
 const setup = ref(blankSetup())
@@ -99,6 +102,11 @@ function blankSetup() {
 const active = computed(() => Boolean(detail.value))
 const status = computed(() => detail.value?.status ?? '')
 const editable = computed(() => ['draft', 'in_progress', 'review'].includes(status.value))
+const itemsEditable = computed(() => ['scheduled', 'draft', 'in_progress'].includes(status.value))
+const addableProducts = computed(() => {
+  const used = new Set(lines.value.map(line => line.product_id))
+  return (props.products ?? []).filter(product => !used.has(product.id))
+})
 const title = computed(() => detail.value?.count_number || t('inventory.fullCountTitle'))
 
 const visibleLines = computed(() => {
@@ -151,6 +159,7 @@ watch(() => [props.open, props.countId] as const, ([open, id]) => {
   }
   error.value = ''
   cancelling.value = false
+  addProductId.value = ''
   query.value = ''
   varianceFilter.value = 'all'
   if (id) void load(id)
@@ -165,7 +174,7 @@ function resetSetup() {
   dirty.value = new Set()
   setup.value = {
     ...blankSetup(),
-    warehouse_id: props.warehouses[0]?.id ?? '',
+    warehouse_id: props.warehouse?.id ?? '',
   }
 }
 
@@ -223,6 +232,7 @@ function mapLines(items: InventoryCountItem[]): LineDraft[] {
     const tracks = bottle > 0 && units.length > 0
     return {
       id: item.id,
+      product_id: item.product_id,
       name: item.product?.name ?? '—',
       sku: item.product?.sku ?? '',
       barcodes: [item.product?.barcode, ...(item.product?.barcodes ?? []).map((row) => row.barcode)].filter((code): code is string => !!code),
@@ -361,6 +371,37 @@ async function persist(showSaved = true, manageSaving = true) {
   }
 }
 
+async function addProduct() {
+  if (!detail.value || !addProductId.value) return
+  saving.value = true
+  error.value = ''
+  try {
+    if (dirty.value.size) await persist(false, false)
+    applyCount(await store.addInventoryCountItems(detail.value.id, [addProductId.value]))
+    addProductId.value = ''
+    emit('changed')
+  } catch (err) {
+    error.value = extractApiErrorMessage(err)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function removeLine(line: LineDraft) {
+  if (!detail.value) return
+  saving.value = true
+  error.value = ''
+  try {
+    if (dirty.value.size) await persist(false, false)
+    applyCount(await store.removeInventoryCountItem(detail.value.id, line.id))
+    emit('changed')
+  } catch (err) {
+    error.value = extractApiErrorMessage(err)
+  } finally {
+    saving.value = false
+  }
+}
+
 async function runAction(action: 'submit' | 'review' | 'approve' | 'complete' | 'start') {
   if (!detail.value) return
   saving.value = true
@@ -428,10 +469,7 @@ function statusLabel(value: string) {
     <form v-if="!active && !loading" class="space-y-3" @submit.prevent="start">
       <p class="text-sm text-slate-600">{{ t('inventory.fullCountHint') }}</p>
       <div class="grid gap-3 sm:grid-cols-2">
-        <div>
-          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
-          <WarehouseOptions v-model="setup.warehouse_id" :warehouses="warehouses" />
-        </div>
+        <CurrentWarehouseField :warehouse="warehouse" />
         <div>
           <FieldLabel icon="calendar">{{ t('inventory.countDate') }}</FieldLabel>
           <input v-model="setup.counted_at" type="date" required class="field" />
@@ -505,6 +543,17 @@ function statusLabel(value: string) {
         />
         <input v-model="query" class="field max-w-xs" :placeholder="t('inventory.searchProduct')" />
       </div>
+      <div v-if="itemsEditable && products" class="flex flex-wrap items-center gap-2">
+        <select v-model="addProductId" class="field max-w-xs">
+          <option value="">{{ t('inventory.addArticlePlaceholder') }}</option>
+          <option v-for="product in addableProducts" :key="product.id" :value="product.id">
+            {{ product.name }}<template v-if="product.sku"> · {{ product.sku }}</template>
+          </option>
+        </select>
+        <button type="button" class="btn-secondary" :class="{ 'is-busy': saving }" :disabled="saving || !addProductId" @click="addProduct">
+          <AppIcon name="plus" :size="16" /> {{ t('inventory.addArticle') }}
+        </button>
+      </div>
       <p v-if="scanMessage" class="m-0 text-sm text-slate-600">{{ scanMessage }}</p>
       <p class="m-0 text-xs text-slate-500">{{ t('inventory.physicalHint') }}</p>
       <div class="flex flex-wrap gap-2">
@@ -530,6 +579,15 @@ function statusLabel(value: string) {
               <td class="px-3 py-2">
                 <span class="block font-medium">{{ line.name }}</span>
                 <span class="text-xs text-slate-500">{{ line.sku }}<template v-if="line.category"> · {{ line.category }}</template></span>
+                <button
+                  v-if="itemsEditable && lines.length > 1"
+                  type="button"
+                  class="mt-1 block text-xs text-red-600"
+                  :disabled="saving"
+                  @click="removeLine(line)"
+                >
+                  <AppIcon name="trash" :size="14" /> {{ t('inventory.removeLine') }}
+                </button>
               </td>
               <td class="px-3 py-2">{{ systemLabel(line) }}</td>
               <td class="px-3 py-2">

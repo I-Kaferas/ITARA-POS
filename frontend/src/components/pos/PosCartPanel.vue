@@ -2,10 +2,11 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '../ui/AppIcon.vue'
+import PosEditLineModal from './PosEditLineModal.vue'
 import { debounceFn } from '../../composables/useLiveSearch'
 import { usePosStore } from '../../stores/pos'
 import { formatMoney } from '../../utils/money'
-import { cartLineStockUnits, catalogOnHand, needsSaleQuantity } from '../../utils/product'
+import { needsSaleQuantity } from '../../utils/product'
 import type { PosCartLine, PosCustomerOption } from '../../types/pos'
 
 const props = defineProps<{
@@ -34,19 +35,41 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const pos = usePosStore()
 
-function reservedUnits(productId: string) {
-  return props.lines.reduce((sum, line) => {
-    if (line.isAccompaniment || line.product.product_id !== productId || !needsSaleQuantity(line.product)) return sum
-    return sum + cartLineStockUnits(line.product, line.quantity, line.saleUnitId)
-  }, 0)
+const editing = ref<PosCartLine | null>(null)
+const editError = ref('')
+
+function linePrice(line: PosCartLine) {
+  return line.unitPrice ?? line.product.price
 }
 
 function canIncrement(line: PosCartLine) {
   if (line.isAccompaniment || !needsSaleQuantity(line.product)) return false
-  const onHand = catalogOnHand(line.product)
-  if (onHand === null) return true
-  if (onHand <= 0) return false
-  return reservedUnits(line.product.product_id) + cartLineStockUnits(line.product, 1, line.saleUnitId) <= onHand
+  const cap = pos.maxQuantity(line.lineId)
+  if (cap === null) return true
+  return line.quantity < cap
+}
+
+function openEdit(line: PosCartLine) {
+  if (line.isAccompaniment) return
+  editError.value = ''
+  editing.value = line
+}
+
+function closeEdit() {
+  editing.value = null
+  editError.value = ''
+}
+
+function saveEdit(payload: { quantity: number; unitPrice: number }) {
+  const line = editing.value
+  if (!line) return
+  const saved = pos.updateLine(line.lineId, payload)
+  if (!saved) {
+    const cap = pos.maxQuantity(line.lineId)
+    editError.value = t('pos.quantityMax', { max: cap ?? 0 })
+    return
+  }
+  closeEdit()
 }
 
 const customerQuery = ref('')
@@ -253,30 +276,38 @@ function lineImage(line: PosCartLine) {
                 <span v-if="line.isAccompaniment" class="pos-cart__free">{{ t('accompaniments.priceFree') }}</span>
               </p>
               <p class="pos-cart__unit">
-                {{ formatMoney(line.product.price, currency) }}
+                {{ formatMoney(linePrice(line), currency) }}
                 <template v-if="needsSaleQuantity(line.product) && !line.isAccompaniment">
                   × {{ line.quantity }}
                 </template>
               </p>
             </div>
-            <button class="pos-cart__remove" type="button" :title="t('common.delete')" @click="emit('remove', line.lineId)">
-              <AppIcon name="trash" :size="14" />
-            </button>
+            <div class="pos-cart__actions">
+              <button
+                v-if="!line.isAccompaniment"
+                class="pos-cart__edit"
+                type="button"
+                :title="t('pos.editPriceQty')"
+                @click="openEdit(line)"
+              >
+                <AppIcon name="edit" :size="14" />
+              </button>
+              <button class="pos-cart__remove" type="button" :title="t('common.delete')" @click="emit('remove', line.lineId)">
+                <AppIcon name="trash" :size="14" />
+              </button>
+            </div>
           </div>
           <div class="pos-cart__line-bottom">
             <div v-if="needsSaleQuantity(line.product) && !line.isAccompaniment" class="pos-cart__qty">
               <button type="button" @click="emit('decrement', line.lineId)">−</button>
-              <input
-                type="number"
-                min="1"
-                :value="line.quantity"
-                @change="emit('quantity', line.lineId, Math.max(1, Number(($event.target as HTMLInputElement).value) || 1))"
-              />
+              <button type="button" class="pos-cart__qty-value" :title="t('pos.editPriceQty')" @click="openEdit(line)">
+                {{ line.quantity }}
+              </button>
               <button type="button" :disabled="!canIncrement(line)" @click="emit('increment', line.lineId)">+</button>
             </div>
             <span v-else class="pos-cart__no-qty">{{ t('pos.noQuantity') }}</span>
             <span class="pos-cart__amount">
-              {{ formatMoney(lineTotals?.[line.lineId] ?? line.product.price * line.quantity, currency) }}
+              {{ formatMoney(lineTotals?.[line.lineId] ?? linePrice(line) * line.quantity, currency) }}
             </span>
           </div>
         </div>
@@ -296,6 +327,15 @@ function lineImage(line: PosCartLine) {
       <span>{{ t('pos.orderDate') }}</span>
       <input v-model="pos.orderDate" type="date" :aria-label="t('pos.orderDate')" />
     </label>
+
+    <PosEditLineModal
+      :line="editing"
+      :currency="currency"
+      :max-quantity="editing ? pos.maxQuantity(editing.lineId) : null"
+      :error="editError"
+      @close="closeEdit"
+      @save="saveEdit"
+    />
   </aside>
 </template>
 
@@ -578,10 +618,16 @@ function lineImage(line: PosCartLine) {
   padding: 0.1rem 0.4rem;
 }
 
+.pos-cart__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.pos-cart__edit,
 .pos-cart__remove {
   border: 0;
-  background: color-mix(in srgb, #dc2626 10%, transparent);
-  color: #dc2626;
   width: 1.55rem;
   height: 1.55rem;
   border-radius: 8px;
@@ -589,6 +635,16 @@ function lineImage(line: PosCartLine) {
   display: grid;
   place-items: center;
   flex-shrink: 0;
+}
+
+.pos-cart__edit {
+  background: color-mix(in srgb, var(--color-brand-600, #12243c) 12%, transparent);
+  color: var(--color-brand-600, #12243c);
+}
+
+.pos-cart__remove {
+  background: color-mix(in srgb, #dc2626 10%, transparent);
+  color: #dc2626;
 }
 
 .pos-cart__unit {
@@ -635,20 +691,16 @@ function lineImage(line: PosCartLine) {
   color: #fff;
 }
 
-.pos-cart__qty input {
-  width: 2rem;
+.pos-cart__qty-value {
+  min-width: 1.7rem;
   border: 0;
   background: transparent;
   text-align: center;
   font-size: 0.8rem;
   font-weight: 750;
   color: var(--color-text-primary);
-}
-
-.pos-cart__qty input::-webkit-outer-spin-button,
-.pos-cart__qty input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+  cursor: pointer;
+  padding: 0 0.15rem;
 }
 
 .pos-cart__amount {

@@ -7,6 +7,7 @@ defineProps<{
 
 <template>
   <svg
+    :class="`app-icon app-icon--${name}`"
     :width="size ?? 18"
     :height="size ?? 18"
     viewBox="0 0 24 24"

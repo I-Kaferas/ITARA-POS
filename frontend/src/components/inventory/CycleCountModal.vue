@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
 import FieldLabel from '../ui/FieldLabel.vue'
-import WarehouseOptions from './WarehouseOptions.vue'
+import CurrentWarehouseField from './CurrentWarehouseField.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useBackofficeStore } from '../../stores/backoffice'
 import type { Category, CycleDashboard, CycleSuggestion, Product, Warehouse } from '../../types'
@@ -13,11 +13,10 @@ import AppIcon from '../ui/AppIcon.vue'
 
 const props = defineProps<{
   open: boolean
-  warehouses: Warehouse[]
+  warehouse: Warehouse | null
   categories: Category[]
   products: Product[]
   users: { id: string; name: string }[]
-  warehouseId?: string
 }>()
 
 const emit = defineEmits<{
@@ -87,7 +86,7 @@ watch(() => props.open, (open) => {
   dashboard.value = null
   form.value = {
     ...blankForm(),
-    warehouse_id: props.warehouseId || props.warehouses[0]?.id || '',
+    warehouse_id: props.warehouse?.id ?? '',
   }
   void refresh()
 })
@@ -220,10 +219,7 @@ async function generate() {
       </div>
 
       <div class="grid gap-3 sm:grid-cols-2">
-        <div>
-          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
-          <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" />
-        </div>
+        <CurrentWarehouseField :warehouse="warehouse" />
         <div>
           <FieldLabel icon="calendar">{{ t('inventory.plannedDate') }}</FieldLabel>
           <input v-model="form.counted_at" type="date" required class="field" />

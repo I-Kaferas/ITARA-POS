@@ -179,6 +179,32 @@ void main() {
     expect(pending['p2'], 5);
   });
 
+  test('online sale while an offline sale is still pending', () {
+    // Server was 10, this POS sold 3 offline (local 7, pending -3).
+    // Another register sold 5 online, so the server is now 5.
+    // Display = 5 + (-3) = 2, without dropping the unsynced sale.
+    expect(
+      OfflineStore.mergeOnHand(incoming: 5, pending: -3, local: 7, lastCloud: 10),
+      2,
+    );
+  });
+
+  test('push accepted but not yet acknowledged does not subtract twice', () {
+    // Server already applied the sale of 3 (10 → 7) and the POS marked it synced,
+    // so pending is 0 even if the ACK packet was lost.
+    expect(
+      OfflineStore.mergeOnHand(incoming: 7, pending: 0, local: 7, lastCloud: 10),
+      7,
+    );
+  });
+
+  test('two registers: cloud delta is kept on top of the local pending sale', () {
+    expect(
+      OfflineStore.mergeOnHand(incoming: 15, pending: -2, local: 18, lastCloud: 20),
+      13,
+    );
+  });
+
   test('catalog snapshot does not restore the pre-sale quantity', () {
     expect(
       OfflineStore.mergeOnHand(incoming: 61, pending: 0, local: 58, lastCloud: 61),

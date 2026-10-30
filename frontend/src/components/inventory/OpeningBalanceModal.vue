@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
 import FieldLabel from '../ui/FieldLabel.vue'
 import LoadingBlock from '../ui/LoadingBlock.vue'
-import WarehouseOptions from './WarehouseOptions.vue'
+import CurrentWarehouseField from './CurrentWarehouseField.vue'
 import { extractApiErrorMessage } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
 import { useBackofficeStore } from '../../stores/backoffice'
@@ -17,7 +17,7 @@ type SaleUnit = { id: string; name: string; volume_ml: number; is_base?: boolean
 
 const props = defineProps<{
   open: boolean
-  warehouses: Warehouse[]
+  warehouse: Warehouse | null
   products: Product[]
 }>()
 
@@ -84,7 +84,7 @@ watch(() => props.open, (open) => {
   productQuery.value = ''
   lines.value = {}
   form.value = {
-    warehouse_id: props.warehouses[0]?.id ?? '',
+    warehouse_id: props.warehouse?.id ?? '',
     counted_at: today(),
   }
   void loadCatalogProducts()
@@ -219,10 +219,7 @@ async function submit() {
 
     <form v-else class="space-y-3" @submit.prevent="submit">
       <div class="grid gap-3 sm:grid-cols-2">
-        <div>
-          <FieldLabel icon="inventory">{{ t('inventory.warehouse') }}</FieldLabel>
-          <WarehouseOptions v-model="form.warehouse_id" :warehouses="warehouses" />
-        </div>
+        <CurrentWarehouseField :warehouse="warehouse" />
         <div>
           <FieldLabel icon="calendar">{{ t('inventory.openingDate') }}</FieldLabel>
           <input v-model="form.counted_at" type="date" required class="field" />

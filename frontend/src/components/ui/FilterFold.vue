@@ -31,6 +31,10 @@ const { t } = useI18n()
   max-width: 100%;
   min-width: 0;
 }
+.filter-fold:has(:is(.grid, .ui-toolbar, .shifts-toolbar, [class$="__filters"])) {
+  width: 100%;
+  align-items: stretch;
+}
 .filter-fold__toggle {
   display: inline-flex;
   align-items: center;

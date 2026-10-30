@@ -178,8 +178,8 @@
   grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
   justify-content: end;
   align-items: end;
-  width: min(100%, 58rem);
-  margin-left: auto;
+  width: 100%;
+  margin-left: 0;
 }
 
 .ui-toolbar:not(:has(> .grid)) > .filter-fold,
@@ -218,6 +218,141 @@
 
 :is([class*="row-actions"], .ui-table__actions) :is(button, a) {
   margin: 0;
+}
+
+/* ─── Row actions ───────────────────────────────────────────────────
+   One look for every per-row action: view (outline), edit (soft brand),
+   confirm (brand), approve (success), danger (soft red).
+   New code uses .row-action + a variant. Older text buttons in table cells
+   and *row-actions containers get the same look; the variant follows the icon. */
+.row-action.row-action,
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:is(.text-brand-600, .text-red-600, .text-slate-500, .text-slate-600, .text-emerald-600, .text-amber-700, .link, .link-danger, .link-btn, .ui-btn--ghost):not(.row-action) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: var(--control-sm, 32px);
+  min-height: var(--control-sm, 32px);
+  min-width: 0;
+  padding: 0 0.75rem;
+  border: 1px solid var(--ra-bd, var(--color-border-strong));
+  border-radius: var(--radius-sm, 8px);
+  background: var(--ra-bg, var(--color-surface, #fff));
+  color: var(--ra-fg, var(--color-text-secondary));
+  box-shadow: var(--ra-shadow, none);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: var(--weight-semibold, 600);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transform: none;
+  transition:
+    background-color var(--motion-fast, 150ms) ease,
+    border-color var(--motion-fast, 150ms) ease,
+    color var(--motion-fast, 150ms) ease,
+    box-shadow var(--motion-fast, 150ms) ease;
+}
+
+.row-action.row-action:hover:not(:disabled),
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:is(.text-brand-600, .text-red-600, .text-slate-500, .text-slate-600, .text-emerald-600, .text-amber-700, .link, .link-danger, .link-btn, .ui-btn--ghost):not(.row-action):hover:not(:disabled) {
+  border-color: var(--ra-bd-h, color-mix(in srgb, var(--color-brand-600) 32%, var(--color-border-strong)));
+  background: var(--ra-bg-h, var(--color-brand-50));
+  color: var(--ra-fg-h, var(--color-ink-brand, var(--color-brand-700)));
+  text-decoration: none;
+  transform: none;
+}
+
+.row-action.row-action:disabled,
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:is(.text-brand-600, .text-red-600, .text-slate-500, .text-slate-600, .text-emerald-600, .text-amber-700, .link, .link-danger, .link-btn, .ui-btn--ghost):not(.row-action):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+td > .row-actions {
+  flex-wrap: nowrap;
+}
+
+:is(.app-content, .app-modal) td:has(> button:is(.row-action, .text-brand-600, .text-red-600, .text-slate-500, .text-slate-600, .text-emerald-600, .text-amber-700, .link, .link-danger, .link-btn)) {
+  white-space: nowrap;
+}
+
+:is(.app-content, .app-modal) td > :is(button, a) + :is(button.row-action, button:is(.text-brand-600, .text-red-600, .text-slate-500, .text-slate-600, .text-emerald-600, .text-amber-700, .link, .link-danger, .link-btn, .ui-btn--ghost)) {
+  margin-left: var(--btn-gap, 8px);
+}
+
+.row-action svg,
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action) > svg {
+  flex: none;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+/* Variants only set colours, so the cascade order below decides. */
+.row-action--edit,
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):is(.text-brand-600, .text-amber-700),
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):has(> .app-icon--edit) {
+  --ra-bg: var(--color-brand-50);
+  --ra-fg: var(--color-ink-brand, var(--color-brand-700));
+  --ra-bd: color-mix(in srgb, var(--color-brand-600) 18%, transparent);
+  --ra-bg-h: var(--color-brand-100);
+  --ra-fg-h: var(--color-ink-brand, var(--color-brand-800));
+  --ra-bd-h: color-mix(in srgb, var(--color-brand-600) 36%, transparent);
+}
+
+.row-action--view,
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):has(> .app-icon--eye) {
+  --ra-bg: var(--color-surface, #fff);
+  --ra-fg: var(--color-text-secondary);
+  --ra-bd: var(--color-border-strong);
+  --ra-bg-h: var(--color-brand-50);
+  --ra-fg-h: var(--color-ink-brand, var(--color-brand-700));
+  --ra-bd-h: color-mix(in srgb, var(--color-brand-600) 32%, var(--color-border-strong));
+}
+
+.row-action--confirm,
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):is(.text-brand-600, .text-slate-600, .link):has(> .app-icon--check) {
+  --ra-bg: var(--color-brand-600);
+  --ra-fg: #fff;
+  --ra-bd: var(--color-brand-600);
+  --ra-bg-h: var(--color-brand-700);
+  --ra-fg-h: #fff;
+  --ra-bd-h: var(--color-brand-700);
+  --ra-shadow: 0 1px 2px color-mix(in srgb, var(--color-brand-900) 24%, transparent);
+}
+
+.row-action--approve,
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action).text-emerald-600 {
+  --ra-bg: var(--color-success);
+  --ra-fg: #fff;
+  --ra-bd: var(--color-success);
+  --ra-bg-h: color-mix(in srgb, var(--color-success) 85%, #000);
+  --ra-fg-h: #fff;
+  --ra-bd-h: color-mix(in srgb, var(--color-success) 85%, #000);
+  --ra-shadow: 0 1px 2px color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+.row-action--danger,
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):is(.text-red-600, .link-danger),
+:is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):has(> .app-icon--trash) {
+  --ra-bg: var(--color-danger-bg);
+  --ra-fg: light-dark(#b91c1c, #e2a0a0);
+  --ra-bd: color-mix(in srgb, var(--color-danger) 22%, transparent);
+  --ra-bg-h: #dc2626;
+  --ra-fg-h: #fff;
+  --ra-bd-h: #dc2626;
+}
+
+html[data-theme="dark"] :is(.row-action--edit, :is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):is(.text-brand-600, .text-amber-700), :is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):has(> .app-icon--edit)) {
+  --ra-bg-h: #3d5f8a;
+  --ra-fg-h: #fff;
+}
+
+html[data-theme="dark"] :is(.row-action--confirm, :is(.app-content, .app-modal) :is(td, [class*="row-actions"]) button:not(.row-action):is(.text-brand-600, .text-slate-600, .link):has(> .app-icon--check)) {
+  --ra-bg: #3e6d9c;
+  --ra-bd: #3e6d9c;
+  --ra-bg-h: #4d7eaf;
+  --ra-bd-h: #4d7eaf;
 }
 
 @media (max-width: 720px) {

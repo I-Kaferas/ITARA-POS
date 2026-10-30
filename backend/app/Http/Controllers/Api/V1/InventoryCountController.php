@@ -217,6 +217,25 @@ class InventoryCountController extends Controller
         ]);
     }
 
+    public function addItems(Request $request, InventoryCount $inventoryCount): JsonResponse
+    {
+        $data = $request->validate([
+            'product_ids' => ['required', 'array', 'min:1'],
+            'product_ids.*' => ['uuid', 'exists:products,id'],
+        ]);
+
+        $result = $this->fullCountService->addProducts($inventoryCount, $data['product_ids'], $request->user());
+
+        return response()->json(['data' => $result['count'], 'summary' => $result['summary']]);
+    }
+
+    public function removeItem(Request $request, InventoryCount $inventoryCount, string $item): JsonResponse
+    {
+        $result = $this->fullCountService->removeItem($inventoryCount, $item, $request->user());
+
+        return response()->json(['data' => $result['count'], 'summary' => $result['summary']]);
+    }
+
     public function submitFull(Request $request, InventoryCount $inventoryCount): JsonResponse
     {
         $result = $this->fullCountService->submit($inventoryCount, $request->user());

@@ -466,24 +466,36 @@ export const usePosStore = defineStore('pos', () => {
     scheduleCalculate()
   }
 
+  function linePricePayload(line: PosCartLine): { unit_price?: number; is_accompaniment?: boolean } {
+    if (line.isAccompaniment) return { unit_price: 0, is_accompaniment: true }
+    if (line.unitPrice != null) return { unit_price: line.unitPrice }
+    return {}
+  }
+
+  /** Max sale quantity for this line, in the line's own unit. Null when stock is not tracked. */
+  function maxQuantity(lineId: string): number | null {
+    const line = lines.value.find(item => item.lineId === lineId)
+    if (!line || line.isAccompaniment || !needsSaleQuantity(line.product)) return null
+    const catalogProduct = products.value.find(item => item.product_id === line.product.product_id) ?? line.product
+    const onHand = catalogOnHand(catalogProduct)
+    if (onHand === null) return null
+    const lineUnits = cartLineStockUnits(line.product, line.quantity, line.saleUnitId)
+    const reserved = cartReservedByProductId.value[line.product.product_id] ?? 0
+    const free = onHand - (reserved - lineUnits)
+    const perUnit = cartLineStockUnits(line.product, 1, line.saleUnitId)
+    if (perUnit <= 0) return 0
+    return Math.max(0, Math.floor(free / perUnit))
+  }
+
   function updateQuantity(lineId: string, quantity: number) {
     const line = lines.value.find(l => l.lineId === lineId)
-    if (!line) return
-    if (!needsSaleQuantity(line.product)) return
-    const nextQty = quantity < 1 ? 1 : Math.trunc(quantity)
-    if (!line.isAccompaniment) {
-      const catalogProduct = products.value.find(item => item.product_id === line.product.product_id) ?? line.product
-      const onHand = catalogOnHand(catalogProduct)
-      if (onHand !== null) {
-        const lineUnits = cartLineStockUnits(line.product, line.quantity, line.saleUnitId)
-        const reserved = cartReservedByProductId.value[line.product.product_id] ?? 0
-        const free = onHand - (reserved - lineUnits)
-        const nextUnits = cartLineStockUnits(line.product, nextQty, line.saleUnitId)
-        if (nextUnits > free) {
-          setStatus(`Stock insuffisant (disponible: ${Math.max(0, free)})`, true)
-          return
-        }
-      }
+    if (!line || line.isAccompaniment) return
+    let nextQty = quantity < 1 ? 1 : Math.trunc(quantity)
+    const cap = maxQuantity(lineId)
+    if (cap !== null && nextQty > cap) {
+      setStatus(`Stock insuffisant (disponible: ${Math.max(0, cap)})`, true)
+      if (cap < 1 || cap === line.quantity) return
+      nextQty = cap
     }
     lines.value = lines.value.map(item => {
       if (item.lineId === lineId || item.parentLineId === lineId) {
@@ -492,6 +504,26 @@ export const usePosStore = defineStore('pos', () => {
       return item
     })
     scheduleCalculate()
+  }
+
+  function updateLine(lineId: string, input: { quantity: number; unitPrice: number }): boolean {
+    const line = lines.value.find(item => item.lineId === lineId)
+    if (!line || line.isAccompaniment) return false
+    const nextQty = input.quantity < 1 ? 1 : Math.trunc(input.quantity)
+    const cap = maxQuantity(lineId)
+    if (cap !== null && nextQty > cap) {
+      setStatus(`Stock insuffisant (disponible: ${Math.max(0, cap)})`, true)
+      return false
+    }
+    const price = Math.max(0, Math.trunc(input.unitPrice))
+    const unitPrice = price === line.product.price ? undefined : price
+    lines.value = lines.value.map(item => {
+      if (item.lineId === lineId) return { ...item, quantity: nextQty, unitPrice }
+      if (item.parentLineId === lineId) return { ...item, quantity: nextQty }
+      return item
+    })
+    scheduleCalculate()
+    return true
   }
 
   function incrementQuantity(lineId: string) {
@@ -569,7 +601,7 @@ export const usePosStore = defineStore('pos', () => {
           product_variant_id: line.variantId,
           sale_unit_id: line.saleUnitId,
           quantity: line.quantity,
-          ...(line.isAccompaniment ? { unit_price: 0, is_accompaniment: true } : {}),
+          ...linePricePayload(line),
           line_discount: line.lineDiscountFixed
             ? { type: 'fixed' as const, value: line.lineDiscountFixed }
             : undefined,
@@ -629,7 +661,7 @@ export const usePosStore = defineStore('pos', () => {
         product_variant_id: line.variantId,
         sale_unit_id: line.saleUnitId,
         quantity: line.quantity,
-        ...(line.isAccompaniment ? { unit_price: 0, is_accompaniment: true } : {}),
+        ...linePricePayload(line),
         line_discount: line.lineDiscountFixed
           ? { type: 'fixed' as const, value: line.lineDiscountFixed }
           : undefined,
@@ -757,15 +789,18 @@ export const usePosStore = defineStore('pos', () => {
       const lineDiscount = discounts.find(discount =>
         discount.sale_item_id === item.id && discount.discount_type === 'line',
       )
+      const soldPrice = item.unit_price
+      const overridden = catalog != null && soldPrice !== catalog.price
       return {
         lineId: item.id,
         quantity: item.quantity,
+        unitPrice: overridden ? soldPrice : undefined,
         lineDiscountFixed: lineDiscount?.amount,
         product: catalog ?? {
           product_id: item.product_id ?? item.id,
           sku: item.product_sku ?? '',
           name: item.product_name ?? 'Article',
-          price: item.unit_price,
+          price: soldPrice,
         },
       }
     })
@@ -1008,7 +1043,7 @@ export const usePosStore = defineStore('pos', () => {
             sale_unit_id: line.saleUnitId,
             quantity: line.quantity,
             stock_quantity: tracksStock ? line.quantity * unit : 0,
-            ...(line.isAccompaniment ? { unit_price: 0, is_accompaniment: true } : {}),
+            ...linePricePayload(line),
             line_discount: line.lineDiscountFixed
               ? { type: 'fixed' as const, value: line.lineDiscountFixed }
               : undefined,
@@ -1162,6 +1197,8 @@ export const usePosStore = defineStore('pos', () => {
     addAccompaniments,
     removeLine,
     updateQuantity,
+    updateLine,
+    maxQuantity,
     incrementQuantity,
     decrementQuantity,
     setCustomer,

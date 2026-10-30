@@ -633,13 +633,22 @@ class CloudSyncEngine extends ChangeNotifier {
       if (queueId.isEmpty) continue;
       final row = acceptedById[queueId];
       final status = item['status']?.toString() ?? 'failed';
-      if (status == 'synced') {
+      if (status == 'synced' || item['already_processed'] == true) {
+        final entityId = item['entity_id']?.toString() ?? row?['entity_id']?.toString() ?? '';
+        final serverId = item['server_id']?.toString();
+        // The server has applied the delta. Mark the sale synced before ACK so a
+        // dropped acknowledgement cannot subtract the same quantity again on pull.
+        await OfflineStore.instance.markSynced(
+          queueId,
+          entityId,
+          serverId: serverId == null || serverId.isEmpty ? null : serverId,
+          serverReference: item['reference']?.toString(),
+        );
         readyForAck.add({
           'id': queueId,
-          'entity_id': item['entity_id']?.toString() ?? row?['entity_id'],
+          'entity_id': entityId,
           'entity_type': row?['entity_type'] ?? row?['entity'] ?? 'sale',
-          'server_id': item['server_id']?.toString(),
-          'attempts': syncAsInt(row?['attempts']),
+          'server_id': serverId,
         });
       } else {
         failed++;
@@ -652,24 +661,12 @@ class CloudSyncEngine extends ChangeNotifier {
     }
 
     if (readyForAck.isNotEmpty) {
-      final ackIds = await _acknowledge(readyForAck);
-      for (final item in readyForAck) {
-        final queueId = item['id'] as String;
-        if (!ackIds.contains(queueId)) {
-          failed++;
-          await OfflineStore.instance.markFailed(
-            queueId,
-            'ACK cloud manquant',
-            attempts: syncAsInt(item['attempts']) + 1,
-          );
-          continue;
-        }
-        await OfflineStore.instance.markSynced(
-          queueId,
-          item['entity_id'] as String,
-          serverId: (item['server_id'] as String?)?.isEmpty == true
-              ? null
-              : item['server_id'] as String?,
+      try {
+        await _acknowledge(readyForAck);
+      } catch (error) {
+        await OfflineStore.instance.log(
+          'error',
+          'ACK cloud ignoré après application: $error',
         );
       }
     }

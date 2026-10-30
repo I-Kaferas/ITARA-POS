@@ -17,7 +17,7 @@ import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import ListPager from '../../../components/ui/ListPager.vue'
 import { useClientPager } from '../../../composables/useClientPager'
 
-type Tab = 'report' | 'register' | 'groups' | 'classes' | 'rules' | 'calculator'
+type Tab = 'report' | 'register' | 'journal' | 'groups' | 'classes' | 'rules' | 'calculator'
 
 const COUNTRIES = [
   { code: '', label: 'all' },
@@ -72,6 +72,7 @@ const calcResult = ref<{ net: number; tax_total: number; total: number; lines: {
 const tabs = computed(() => [
   { id: 'report' as Tab, label: t('catalog.tax.tabs.report') },
   { id: 'register' as Tab, label: t('catalog.tax.tabs.register') },
+  { id: 'journal' as Tab, label: t('catalog.tax.tabs.journal') },
   { id: 'groups' as Tab, label: t('catalog.tax.tabs.groups') },
   { id: 'classes' as Tab, label: t('catalog.tax.tabs.classes') },
   { id: 'rules' as Tab, label: t('catalog.tax.tabs.rules') },
@@ -457,8 +458,25 @@ function toggleCalcTax(id: string, checked: boolean) {
           <p v-if="!filteredTaxes.length" class="empty">{{ t('org.empty') }}</p>
           <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
         </div>
+      </section>
+
+      <section v-else-if="tab === 'journal'" class="space-y-4">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div class="flex flex-wrap gap-3">
+            <div>
+              <FieldLabel icon="calendar">{{ t('catalog.tax.from') }}</FieldLabel>
+              <input v-model="period.from" type="date" class="field" />
+            </div>
+            <div>
+              <FieldLabel icon="calendar">{{ t('catalog.tax.to') }}</FieldLabel>
+              <input v-model="period.to" type="date" class="field" />
+            </div>
+          </div>
+          <button type="button" class="btn-primary" @click="refreshFiscal">
+            <AppIcon name="recycle" :size="15" />{{ t('catalog.tax.refresh') }}
+          </button>
+        </div>
         <div class="panel">
-          <h3 class="px-4 py-3 text-sm font-medium">{{ t('catalog.tax.journal') }}</h3>
           <table class="min-w-full text-sm">
             <thead class="bg-slate-50">
               <tr>

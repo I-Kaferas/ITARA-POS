@@ -144,6 +144,46 @@ class PurchasePhase14Test extends TestCase
         $this->assertSame(PurchaseOrderStatus::Completed->value, $po->status->value);
     }
 
+    public function test_order_can_be_edited_until_approved(): void
+    {
+        $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);
+        $product = $this->fixture['product'];
+
+        $create = $this->postJson('/api/v1/purchase-orders', [
+            'warehouse_id' => $this->fixture['warehouse']->id,
+            'supplier_id' => $this->fixture['supplier']->id,
+            'items' => [['product_id' => $product->id, 'quantity' => 2, 'unit_cost' => 100]],
+        ], $headers)->assertCreated();
+        $poId = $create->json('data.id');
+
+        $this->patchJson("/api/v1/purchase-orders/{$poId}", [
+            'supplier_id' => null,
+            'items' => [['product_id' => $product->id, 'quantity' => 3, 'unit_cost' => 150]],
+        ], $headers)->assertOk()
+            ->assertJsonPath('data.items.0.quantity_ordered', 3);
+
+        $po = PurchaseOrder::query()->findOrFail($poId);
+        $this->assertNull($po->supplier_id);
+        $this->assertSame(450, (int) $po->total);
+
+        $this->postJson("/api/v1/purchase-orders/{$poId}/confirm", [], $headers)->assertOk()
+            ->assertJsonPath('data.status', PurchaseOrderStatus::Pending->value);
+
+        $this->patchJson("/api/v1/purchase-orders/{$poId}", [
+            'items' => [['product_id' => $product->id, 'quantity' => 5, 'unit_cost' => 150]],
+        ], $headers)->assertOk()
+            ->assertJsonPath('data.items.0.quantity_ordered', 5);
+
+        $this->postJson("/api/v1/purchase-orders/{$poId}/confirm", [], $headers)->assertOk()
+            ->assertJsonPath('data.status', PurchaseOrderStatus::Approved->value);
+
+        $this->patchJson("/api/v1/purchase-orders/{$poId}", [
+            'items' => [['product_id' => $product->id, 'quantity' => 9, 'unit_cost' => 150]],
+        ], $headers)->assertStatus(422);
+
+        $this->assertSame(5, PurchaseOrder::with('items')->findOrFail($poId)->items->first()->quantity_ordered);
+    }
+
     public function test_cannot_receive_unapproved_order(): void
     {
         $headers = $this->tenantHeaders($this->fixture['token'], $this->fixture['tenant']);

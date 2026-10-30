@@ -64,7 +64,7 @@ class LocalDatabase {
     final path = p.join(dir.path, 'pos_offline.sqlite');
     return openDatabase(
       path,
-      version: 17,
+      version: 18,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -74,6 +74,7 @@ class LocalDatabase {
             name TEXT,
             price INTEGER,
             category_id TEXT,
+            server_stock INTEGER,
             json TEXT NOT NULL,
             updated_at TEXT
           )
@@ -99,6 +100,8 @@ class LocalDatabase {
             method TEXT,
             sync_status TEXT NOT NULL,
             server_id TEXT,
+            synced_at TEXT,
+            retry_count INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL
           )
         ''');
@@ -160,6 +163,7 @@ class LocalDatabase {
         await _createAppLogs(db);
         await _createPrintedDocuments(db);
         await _upgradeStockLedgerV17(db);
+        await _upgradeStockSyncV18(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -212,6 +216,9 @@ class LocalDatabase {
         }
         if (oldVersion < 17) {
           await _upgradeStockLedgerV17(db);
+        }
+        if (oldVersion < 18) {
+          await _upgradeStockSyncV18(db);
         }
       },
     );
@@ -551,6 +558,14 @@ class LocalDatabase {
         opened_at TEXT NOT NULL
       )
     ''');
+  }
+
+  /// Last server on-hand (`products.server_stock`) and sale sync bookkeeping.
+  /// Displayed stock stays `quantity_on_hand` = server_stock + pending deltas.
+  static Future<void> _upgradeStockSyncV18(Database db) async {
+    await _addColumn(db, 'products', 'server_stock', 'INTEGER');
+    await _addColumn(db, 'sales', 'synced_at', 'TEXT');
+    await _addColumn(db, 'sales', 'retry_count', 'INTEGER NOT NULL DEFAULT 0');
   }
 
   static Future<void> _upgradeStockLedgerV17(Database db) async {

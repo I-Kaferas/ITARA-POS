@@ -11,12 +11,14 @@ use App\Models\Device;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Sale;
+use App\Models\StockBalance;
 use App\Models\Store;
 use App\Models\SyncEvent;
 use App\Models\SyncFailure;
 use App\Models\Tax;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Catalog\PosCatalogSyncService;
 use App\Services\Payments\CompanyPaymentMethodService;
@@ -261,12 +263,27 @@ class SyncController extends Controller
             })
             ->values();
 
+        $saleWarehouseId = $this->sales->saleWarehouseId($store, null);
+        $warehouses = Warehouse::query()
+            ->where('branch_id', $store->branch_id)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->map(fn (Warehouse $warehouse) => [
+                'id' => $warehouse->id,
+                'name' => $warehouse->name,
+                'code' => $warehouse->code,
+                'is_sale' => $warehouse->id === $saleWarehouseId,
+            ])
+            ->values();
+
         return response()->json([
             'data' => [
                 'store_id' => $store->id,
                 'server_time' => now()->toIso8601String(),
                 'payment_methods' => $paymentMethods,
                 'units' => $units,
+                'warehouses' => $warehouses,
                 'currencies' => $currencies,
                 'taxes' => $taxes,
                 'permissions' => $permissions,
@@ -506,6 +523,7 @@ class SyncController extends Controller
                 'status' => 'synced',
                 'server_id' => $sale->id,
                 'reference' => $sale->reference,
+                'stock_warning' => $this->negativeStockWarning($sale),
             ];
         } catch (ValidationException $exception) {
             $existing = Sale::query()
@@ -544,6 +562,29 @@ class SyncController extends Controller
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
+    /**
+     * Replay of an offline sale may drive on-hand below zero. The shortage is
+     * kept (not rejected) and reported so a count can correct it.
+     */
+    private function negativeStockWarning(Sale $sale): ?string
+    {
+        $sale->loadMissing('items');
+        $productIds = $sale->items->pluck('product_id')->filter()->unique()->values();
+        if ($productIds->isEmpty() || $sale->warehouse_id === null) {
+            return null;
+        }
+
+        $negative = StockBalance::query()
+            ->where('warehouse_id', $sale->warehouse_id)
+            ->whereIn('product_id', $productIds)
+            ->where('quantity_on_hand', '<', 0)
+            ->exists();
+
+        return $negative
+            ? 'Stock négatif après rejeu. Le mouvement est enregistré ; faites un inventaire.'
+            : null;
+    }
+
     private function applySaleHold(Store $store, array $operation, Request $request, array $payload, string $entityId): array
     {
         $user = $request->user();
