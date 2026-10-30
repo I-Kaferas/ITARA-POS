@@ -151,7 +151,7 @@ const storeSplit = computed(() => {
 
 const categories = computed(() => {
   const all = (inventory.value?.by_category ?? []).map(row => ({
-    label: row.label,
+    label: row.label && row.label !== '—' ? row.label : t('reports.uncategorized'),
     value: Number(row.value) || 0,
     quantity: Number(row.quantity) || 0,
   }))
@@ -902,10 +902,7 @@ function qtyLabel(quantity: number) {
   padding: var(--space-6);
   overflow: hidden;
   border-radius: 24px;
-  background:
-    radial-gradient(420px 220px at 100% 0%, rgba(245, 165, 36, 0.22), transparent 70%),
-    radial-gradient(360px 260px at 0% 100%, rgba(99, 102, 241, 0.2), transparent 70%),
-    linear-gradient(135deg, var(--color-brand-600) 0%, var(--color-brand-800) 100%);
+  background: var(--color-brand-500);
   color: #fff;
   box-shadow: var(--shadow-md);
   animation: bright-slide-up var(--motion-slow) var(--ease-out) backwards;
@@ -1093,7 +1090,7 @@ function qtyLabel(quantity: number) {
   line-height: 1;
 }
 
-.sd-ring__center span {
+.sd-ring__center > span {
   max-width: 10ch;
   margin-top: var(--space-1);
   color: var(--color-text-muted);
@@ -1404,7 +1401,7 @@ a.sd-callout:hover {
   width: min(100%, 36px);
   height: 100%;
   border-radius: 8px 8px 3px 3px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--color-brand-600) 55%, transparent), color-mix(in srgb, var(--color-brand-600) 30%, transparent));
+  background: color-mix(in srgb, var(--color-brand-600) 40%, transparent);
   transform: scaleY(var(--bar, 0));
   transform-origin: bottom;
   transition: background var(--motion-fast) var(--ease-out);
@@ -1412,11 +1409,11 @@ a.sd-callout:hover {
 }
 
 .chart__col:hover .chart__bar {
-  background: linear-gradient(180deg, var(--color-brand-500), var(--color-brand-700));
+  background: var(--color-brand-600);
 }
 
 .chart__col.is-current .chart__bar {
-  background: linear-gradient(180deg, #f7b445, var(--color-accent, #f5a524));
+  background: var(--color-accent, #f5a524);
 }
 
 .chart__tip {

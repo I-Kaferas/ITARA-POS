@@ -14,8 +14,6 @@ import { useBackofficeStore } from '../../../stores/backoffice'
 import { formatMoney, parseMoneyInput } from '../../../utils/money'
 import { getAppCurrency } from '../../../utils/currency'
 import HotelChrome from './HotelChrome.vue'
-import ListPager from '../../../components/ui/ListPager.vue'
-import { useClientPager } from '../../../composables/useClientPager'
 
 type Doc = Record<string, any>
 type SpaceKind = 'guest_room' | 'conference' | 'reception'
@@ -28,7 +26,9 @@ const store = useBackofficeStore()
 
 const docs = ref<Doc[]>([])
 const editingId = ref<string | null>(null)
-const selectedCategoryId = ref<string | null>(null)
+const selectedCategoryId = ref('')
+const search = ref('')
+const hkFilter = ref<HkStatus | 'all'>('all')
 const saving = ref(false)
 const hkSavingId = ref<string | null>(null)
 const loading = ref(false)
@@ -178,11 +178,79 @@ const filteredRooms = computed(() => {
     return String(a.number ?? '').localeCompare(String(b.number ?? ''), undefined, { numeric: true, sensitivity: 'base' })
   })
 })
-const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredRooms)
+const summary = computed(() => {
+  const counts = { total: rooms.value.length, active: 0, ready: 0, toClean: 0, blocked: 0 }
+  for (const room of rooms.value) {
+    if (room.is_active !== false) counts.active += 1
+    const status = normalizeHk(room.housekeeping_status)
+    if (status === 'clean' || status === 'inspected') counts.ready += 1
+    else if (status === 'dirty' || status === 'cleaning') counts.toClean += 1
+    else counts.blocked += 1
+  }
+  return counts
+})
 
-const selectedCategory = computed(() =>
-  categories.value.find(item => item.id === selectedCategoryId.value) ?? null,
+const hkTabs = computed(() => {
+  const counts = new Map<HkStatus, number>()
+  for (const room of filteredRooms.value) {
+    const status = normalizeHk(room.housekeeping_status)
+    counts.set(status, (counts.get(status) ?? 0) + 1)
+  }
+  return [
+    { key: 'all' as const, label: t('hotel.rooms.allStatuses'), count: filteredRooms.value.length, tone: 'all' },
+    ...housekeepingStatuses.map(status => ({
+      key: status,
+      label: hkLabel(status),
+      count: counts.get(status) ?? 0,
+      tone: hkTone(status),
+    })),
+  ]
+})
+
+const visibleRooms = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  return filteredRooms.value.filter((room) => {
+    if (hkFilter.value !== 'all' && normalizeHk(room.housekeeping_status) !== hkFilter.value) return false
+    if (!query) return true
+    return [room.number, room.display_name, typeNameOf(room)]
+      .some(value => String(value ?? '').toLowerCase().includes(query))
+  })
+})
+
+const floorGroups = computed(() => {
+  const map = new Map<string, { key: string; title: string; subtitle: string; rooms: Doc[] }>()
+  for (const room of visibleRooms.value) {
+    const key = `${room.building_id ?? ''}|${room.floor_id ?? ''}`
+    let group = map.get(key)
+    if (!group) {
+      const floorDoc = floors.value.find(item => item.id === room.floor_id)
+      const building = room.building_name || buildings.value.find(item => item.id === room.building_id)?.name || ''
+      const wing = room.wing_name || wings.value.find(item => item.id === room.wing_id)?.name || ''
+      const floorTitle = floorDoc
+        ? floorLabel(floorDoc)
+        : room.floor_number != null ? `${t('hotel.rooms.floor')} ${room.floor_number}` : ''
+      group = {
+        key,
+        title: floorTitle || building || t('hotel.rooms.noLocation'),
+        subtitle: floorTitle ? [building, wing].filter(Boolean).join(' · ') : wing,
+        rooms: [],
+      }
+      map.set(key, group)
+    }
+    group.rooms.push(room)
+  }
+  return [...map.values()]
+})
+
+const hasFilters = computed(() =>
+  Boolean(search.value.trim()) || Boolean(selectedCategoryId.value) || hkFilter.value !== 'all',
 )
+
+function clearFilters() {
+  search.value = ''
+  selectedCategoryId.value = ''
+  hkFilter.value = 'all'
+}
 
 const galleryItems = computed(() => {
   const loose = store.galleryImages.map(image => ({
@@ -412,19 +480,41 @@ function floorLabel(item: Doc) {
   return item.name || `${t('hotel.rooms.floor')} ${item.floor_number ?? ''}`.trim()
 }
 
+function normalizeHk(status?: string): HkStatus {
+  return (status && housekeepingStatuses.includes(status as HkStatus) ? status : 'clean') as HkStatus
+}
+
 function hkLabel(status?: string) {
-  const key = status && housekeepingStatuses.includes(status as HkStatus) ? status : 'clean'
-  return t(`hotel.rooms.hk.${key}`)
+  return t(`hotel.rooms.hk.${normalizeHk(status)}`)
 }
 
 function hkTone(status?: string) {
-  const key = (status && housekeepingStatuses.includes(status as HkStatus) ? status : 'clean') as HkStatus
-  return hkMeta[key].tone
+  return hkMeta[normalizeHk(status)].tone
 }
 
 function hkIcon(status?: string) {
-  const key = (status && housekeepingStatuses.includes(status as HkStatus) ? status : 'clean') as HkStatus
-  return hkMeta[key].icon
+  return hkMeta[normalizeHk(status)].icon
+}
+
+function typeNameOf(row: Doc) {
+  return String(row.type_name || roomTypeOf(row)?.name || t('hotel.rooms.otherCategory'))
+}
+
+function roomName(row: Doc) {
+  const name = String(row.display_name ?? '').trim()
+  return name && name !== String(row.number ?? '') ? name : ''
+}
+
+function nightlyPrice(row: Doc) {
+  const type = roomTypeOf(row)
+  const cents = row.price_override_cents != null
+    ? Number(row.price_override_cents)
+    : Number(type?.base_price_cents ?? type?.rate ?? 0)
+  return formatMoney(cents, getAppCurrency())
+}
+
+function onHkChange(row: Doc, event: Event) {
+  setHousekeeping(row, (event.target as HTMLSelectElement).value as HkStatus)
 }
 
 function spaceIcon(kind?: string) {
@@ -521,188 +611,207 @@ function amenitiesOf(row: Doc) {
     .filter((item): item is Doc => Boolean(item))
 }
 
-function selectCategory(id: string | null) {
-  selectedCategoryId.value = id
-}
 </script>
 
 <template>
   <HotelChrome scroll-body>
     <div class="rooms">
-      <div class="rooms__toolbar">
+      <header class="rm-head">
         <p>{{ t('hotel.rooms.locationHint') }}</p>
-        <button type="button" class="ui-btn ui-btn--primary" @click="openCreate">
+        <button type="button" class="btn-primary" @click="openCreate">
+          <AppIcon name="plus" :size="16" />
+          {{ t('hotel.rooms.createTitle') }}
+        </button>
+      </header>
+
+      <dl class="rm-stats">
+        <div class="rm-stat rm-stat--navy">
+          <span class="rm-stat__icon" aria-hidden="true"><AppIcon name="bed" :size="18" /></span>
+          <div>
+            <dt>{{ t('hotel.rooms.statTotal') }}</dt>
+            <dd>{{ summary.total }}</dd>
+            <p>{{ t('hotel.rooms.statActive', { count: summary.active }) }}</p>
+          </div>
+        </div>
+        <div class="rm-stat rm-stat--clean">
+          <span class="rm-stat__icon" aria-hidden="true"><AppIcon name="check" :size="18" /></span>
+          <div>
+            <dt>{{ t('hotel.rooms.statReady') }}</dt>
+            <dd>{{ summary.ready }}</dd>
+            <p>{{ t('hotel.rooms.statReadyHint') }}</p>
+          </div>
+        </div>
+        <div class="rm-stat rm-stat--dirty">
+          <span class="rm-stat__icon" aria-hidden="true"><AppIcon name="broom" :size="18" /></span>
+          <div>
+            <dt>{{ t('hotel.rooms.statToClean') }}</dt>
+            <dd>{{ summary.toClean }}</dd>
+            <p>{{ t('hotel.rooms.statToCleanHint') }}</p>
+          </div>
+        </div>
+        <div class="rm-stat rm-stat--maintenance">
+          <span class="rm-stat__icon" aria-hidden="true"><AppIcon name="adjust" :size="18" /></span>
+          <div>
+            <dt>{{ t('hotel.rooms.statBlocked') }}</dt>
+            <dd>{{ summary.blocked }}</dd>
+            <p>{{ t('hotel.rooms.statBlockedHint') }}</p>
+          </div>
+        </div>
+      </dl>
+
+      <div class="rm-filters">
+        <label class="rm-search">
+          <AppIcon name="search" :size="16" />
+          <input
+            v-model="search"
+            type="search"
+            :placeholder="t('hotel.rooms.searchPlaceholder')"
+            :aria-label="t('hotel.rooms.searchPlaceholder')"
+          >
+        </label>
+        <label class="rm-type">
+          <AppIcon name="catalog" :size="16" />
+          <select v-model="selectedCategoryId" :aria-label="t('hotel.rooms.roomType')">
+            <option value="">{{ t('hotel.rooms.allTypes') }}</option>
+            <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+              {{ cat.name }} ({{ cat.count }})
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <div class="rm-chips" role="group" :aria-label="t('hotel.rooms.hkTitle')">
+        <button
+          v-for="tab in hkTabs"
+          :key="tab.key"
+          type="button"
+          class="rm-chip"
+          :class="[`rm-tone--${tab.tone}`, { 'is-active': hkFilter === tab.key }]"
+          :aria-pressed="hkFilter === tab.key"
+          @click="hkFilter = tab.key"
+        >
+          <i v-if="tab.key !== 'all'" aria-hidden="true" />
+          {{ tab.label }}
+          <span>{{ tab.count }}</span>
+        </button>
+      </div>
+
+      <p v-if="error && !formOpen" class="rm-error" role="alert">
+        <AppIcon name="alert" :size="16" />
+        {{ error }}
+      </p>
+
+      <LoadingBlock v-if="loading" variant="cards" :rows="8" :label="t('common.loading')" />
+
+      <div v-else-if="!rooms.length" class="rm-empty">
+        <span class="rm-empty__icon" aria-hidden="true"><AppIcon name="bed" :size="26" /></span>
+        <p class="rm-empty__title">{{ t('hotel.rooms.empty') }}</p>
+        <p class="rm-empty__desc">{{ t('hotel.rooms.emptyHint') }}</p>
+        <button type="button" class="btn-primary" @click="openCreate">
           <AppIcon name="plus" :size="16" />
           {{ t('hotel.rooms.createTitle') }}
         </button>
       </div>
 
-      <p v-if="error && !formOpen" class="rooms__error">{{ error }}</p>
-
-      <div class="rooms__list">
-        <LoadingBlock v-if="loading" variant="cards" :rows="8" :label="t('common.loading')" />
-        <template v-else>
-          <div class="rooms__browse">
-            <div class="rooms__browse-head">
-              <div>
-                <h3>
-                  <AppIcon :name="selectedCategory ? 'bed' : 'layers'" :size="15" />
-                  {{ selectedCategory ? selectedCategory.name : t('hotel.rooms.categoriesTitle') }}
-                </h3>
-                <p>{{ selectedCategory ? t('hotel.rooms.categoryRooms', { count: filteredRooms.length }) : t('hotel.rooms.categoriesHint') }}</p>
-              </div>
-              <button
-                v-if="selectedCategoryId"
-                type="button"
-                class="btn-secondary"
-                @click="selectCategory(null)"
-              >
-                {{ t('hotel.rooms.backToCategories') }}
-              </button>
-            </div>
-
-            <div v-if="!selectedCategoryId" class="rooms__categories">
-              <button
-                v-for="cat in categories"
-                :key="cat.id"
-                type="button"
-                class="rooms__category"
-                @click="selectCategory(cat.id)"
-              >
-                <span class="rooms__category-media">
-                  <img v-if="cat.photo" :src="cat.photo" :alt="cat.name" />
-                  <span v-else class="rooms__category-fallback">
-                    <AppIcon :name="spaceIcon(cat.space_kind)" :size="18" />
-                  </span>
-                </span>
-                <span class="rooms__category-meta">
-                  <strong>{{ cat.name }}</strong>
-                  <small>
-                    <AppIcon :name="spaceIcon(cat.space_kind)" :size="11" />
-                    {{ spaceLabel(cat.space_kind) }} · {{ t('hotel.rooms.categoryRooms', { count: cat.count }) }}
-                  </small>
-                </span>
-                <AppIcon name="chevron-right" :size="14" class="rooms__category-chevron" />
-              </button>
-              <p v-if="!categories.length" class="rooms__empty">{{ t('hotel.rooms.empty') }}</p>
-            </div>
-
-            <div v-else class="rooms__cards">
-              <article v-for="row in paged" :key="row.id" class="room-card">
-                <div class="room-card__media">
-                  <img v-if="roomPhotos(row)[0]" :src="roomPhotos(row)[0]" :alt="roomTitle(row)" />
-                  <div v-else class="room-card__nophoto">
-                    <AppIcon name="sparkles" :size="22" />
-                    <p>{{ t('hotel.rooms.photoEmptyTitle') }}</p>
-                    <small>{{ t('hotel.rooms.photoEmptyHint') }}</small>
-                  </div>
-                  <span class="room-card__number">
-                    <AppIcon name="tag" :size="11" />
-                    {{ row.number }}
-                  </span>
-                  <span
-                    class="room-card__hk-pill"
-                    :class="`room-card__hk-pill--${hkTone(row.housekeeping_status)}`"
-                  >
-                    <AppIcon :name="hkIcon(row.housekeeping_status)" :size="11" />
-                    {{ hkLabel(row.housekeeping_status) }}
-                  </span>
-                </div>
-
-                <div class="room-card__body">
-                  <div class="room-card__title-row">
-                    <div>
-                      <h4>{{ roomTitle(row) }}</h4>
-                      <p>
-                        <AppIcon :name="spaceIcon(row.space_kind || roomTypeOf(row)?.space_kind)" :size="12" />
-                        {{ spaceLabel(row.space_kind || roomTypeOf(row)?.space_kind) }}
-                      </p>
-                    </div>
-                    <span v-if="row.is_active === false" class="room-card__badge">
-                      <AppIcon name="pause" :size="11" />
-                      {{ t('hotel.rooms.unavailable') }}
-                    </span>
-                  </div>
-
-                  <div class="room-card__hk">
-                    <p>
-                      <AppIcon name="broom" :size="13" />
-                      {{ t('hotel.rooms.changeHk') }}
-                    </p>
-                    <div class="room-card__hk-options">
-                      <button
-                        v-for="status in housekeepingStatuses"
-                        :key="status"
-                        type="button"
-                        class="room-card__hk-btn"
-                        :class="[
-                          `room-card__hk-btn--${hkTone(status)}`,
-                          { 'room-card__hk-btn--on': (row.housekeeping_status || 'clean') === status },
-                        ]"
-                        :disabled="hkSavingId === row.id"
-                        @click="setHousekeeping(row, status)"
-                      >
-                        <AppIcon :name="hkIcon(status)" :size="12" />
-                        {{ hkLabel(status) }}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="room-card__facts">
-                    <span><AppIcon name="bed" :size="13" /> {{ bedLabel(row) }}</span>
-                    <span><AppIcon name="account" :size="13" /> {{ guestsLabel(row) }}</span>
-                    <span><AppIcon name="coins" :size="13" /> {{ priceLabel(row) }}</span>
-                  </div>
-
-                  <div class="room-card__desc">
-                    <p class="room-card__desc-label">
-                      <AppIcon name="note" :size="11" />
-                      {{ t('hotel.rooms.description') }}
-                    </p>
-                    <p v-if="descriptionOf(row)">{{ descriptionOf(row) }}</p>
-                    <p v-else class="room-card__desc-empty">{{ t('hotel.rooms.noDescription') }}</p>
-                  </div>
-
-                  <div class="room-card__amenities">
-                    <p class="room-card__desc-label">
-                      <AppIcon name="sparkles" :size="11" />
-                      {{ t('hotel.rooms.amenities') }}
-                    </p>
-                    <div v-if="amenitiesOf(row).length" class="room-card__amenity-list">
-                      <span v-for="item in amenitiesOf(row)" :key="item.id" class="room-card__amenity">
-                        <AppIcon :name="item.icon_key || 'sparkles'" :size="11" />
-                        {{ item.name }}
-                      </span>
-                    </div>
-                    <p v-else class="room-card__desc-empty">{{ t('hotel.rooms.amenitiesNone') }}</p>
-                  </div>
-
-                  <div class="room-card__actions">
-                    <button type="button" class="btn-secondary" @click="openEdit(row)">
-                      <AppIcon name="adjust" :size="13" />
-                      {{ t('common.edit') }}
-                    </button>
-                    <button type="button" class="btn-danger" @click="remove(row)">
-                      <AppIcon name="trash" :size="13" />
-                      {{ t('common.delete') }}
-                    </button>
-                    <RouterLink
-                      v-if="row.type_id"
-                      class="room-card__type-link"
-                      :to="`/admin/hotel/room-config/room-types`"
-                    >
-                      <AppIcon name="catalog" :size="12" />
-                      {{ t('hotel.rooms.viewType') }}
-                    </RouterLink>
-                  </div>
-                </div>
-              </article>
-              <p v-if="!filteredRooms.length" class="rooms__empty">{{ t('hotel.rooms.emptyCategory') }}</p>
-              <ListPager :page="page" :last-page="lastPage" :total="total" :per-page="perPage" @change="setPage" />
-            </div>
-          </div>
-        </template>
+      <div v-else-if="!visibleRooms.length" class="rm-empty">
+        <span class="rm-empty__icon" aria-hidden="true"><AppIcon name="search" :size="24" /></span>
+        <p class="rm-empty__title">{{ t('hotel.rooms.noResults') }}</p>
+        <button v-if="hasFilters" type="button" class="btn-secondary" @click="clearFilters">
+          {{ t('hotel.rooms.clearFilters') }}
+        </button>
       </div>
+
+      <template v-else>
+        <section v-for="group in floorGroups" :key="group.key" class="rm-floor">
+          <header class="rm-floor__head">
+            <span class="rm-floor__icon" aria-hidden="true"><AppIcon name="floors" :size="16" /></span>
+            <h3>{{ group.title }}</h3>
+            <span v-if="group.subtitle" class="rm-floor__sub">{{ group.subtitle }}</span>
+            <span class="rm-floor__count">{{ t('hotel.rooms.categoryRooms', { count: group.rooms.length }) }}</span>
+          </header>
+
+          <ul class="rm-grid">
+            <li
+              v-for="row in group.rooms"
+              :key="row.id"
+              class="rm-tile"
+              :class="[`rm-tone--${hkTone(row.housekeeping_status)}`, { 'is-off': row.is_active === false }]"
+            >
+              <div class="rm-tile__top">
+                <span class="rm-tile__thumb">
+                  <img v-if="roomPhotos(row)[0]" :src="roomPhotos(row)[0]" :alt="roomTitle(row)" loading="lazy">
+                  <AppIcon v-else :name="spaceIcon(row.space_kind || roomTypeOf(row)?.space_kind)" :size="20" />
+                </span>
+                <div class="rm-tile__id">
+                  <strong>{{ row.number }}</strong>
+                  <span :title="spaceLabel(row.space_kind || roomTypeOf(row)?.space_kind)">{{ typeNameOf(row) }}</span>
+                </div>
+                <span v-if="row.is_active === false" class="rm-off">
+                  <AppIcon name="pause" :size="12" />
+                  {{ t('hotel.rooms.unavailable') }}
+                </span>
+              </div>
+
+              <p v-if="roomName(row)" class="rm-tile__name">{{ roomName(row) }}</p>
+
+              <ul class="rm-tile__facts">
+                <li><AppIcon name="bed" :size="14" />{{ bedLabel(row) }}</li>
+                <li><AppIcon name="account" :size="14" />{{ guestsLabel(row) }}</li>
+              </ul>
+
+              <p class="rm-tile__price">
+                <strong>{{ nightlyPrice(row) }}</strong>
+                <span>/ {{ t('hotel.rooms.perNight') }}</span>
+              </p>
+
+              <div v-if="amenitiesOf(row).length" class="rm-tile__amenities" :title="amenitiesOf(row).map(item => item.name).join(', ')">
+                <span v-for="item in amenitiesOf(row).slice(0, 5)" :key="item.id" class="rm-amenity">
+                  <AppIcon :name="item.icon_key || 'sparkles'" :size="14" />
+                </span>
+                <span v-if="amenitiesOf(row).length > 5" class="rm-amenity rm-amenity--more">
+                  +{{ amenitiesOf(row).length - 5 }}
+                </span>
+              </div>
+
+              <div class="rm-tile__foot">
+                <label class="rm-hk" :class="{ 'is-busy': hkSavingId === row.id }">
+                  <AppIcon :name="hkIcon(row.housekeeping_status)" :size="14" />
+                  <select
+                    :value="row.housekeeping_status || 'clean'"
+                    :disabled="hkSavingId === row.id"
+                    :aria-label="`${t('hotel.rooms.changeHk')} — ${row.number}`"
+                    @change="onHkChange(row, $event)"
+                  >
+                    <option v-for="status in housekeepingStatuses" :key="status" :value="status">
+                      {{ hkLabel(status) }}
+                    </option>
+                  </select>
+                </label>
+                <div class="rm-tile__actions">
+                  <button
+                    type="button"
+                    class="rm-icon-btn"
+                    :title="t('common.edit')"
+                    :aria-label="`${t('common.edit')} ${row.number}`"
+                    @click="openEdit(row)"
+                  >
+                    <AppIcon name="edit" :size="16" />
+                  </button>
+                  <button
+                    type="button"
+                    class="rm-icon-btn rm-icon-btn--danger"
+                    :title="t('common.delete')"
+                    :aria-label="`${t('common.delete')} ${row.number}`"
+                    @click="remove(row)"
+                  >
+                    <AppIcon name="trash" :size="16" />
+                  </button>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </section>
+      </template>
     </div>
 
     <AppModal
@@ -834,7 +943,7 @@ function selectCategory(id: string | null) {
             <div>
               <FieldLabel icon="coins">{{ t('hotel.rooms.priceOverride') }}</FieldLabel>
               <div class="rooms__money">
-                <span>$</span>
+                <span>{{ getAppCurrency() }}</span>
                 <input v-model="form.price_override" class="field" inputmode="decimal" :placeholder="t('hotel.rooms.priceOverridePh')" />
               </div>
               <p class="rooms__hint">{{ t('hotel.rooms.priceOverrideHint', { price: typeDefaultPrice }) }}</p>
@@ -964,383 +1073,643 @@ function selectCategory(id: string | null) {
 
 <style scoped>
 .rooms {
+  --hk-clean: #10a36b;
+  --hk-dirty: #e0533a;
+  --hk-cleaning: #2f6fed;
+  --hk-inspected: #0f9f8f;
+  --hk-maintenance: #ea8a12;
+  --hk-oos: #64748b;
+
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: var(--space-4);
   width: 100%;
+  margin-top: var(--space-2);
 }
 
-.rooms__toolbar {
+.rm-tone--all { --tone: var(--color-brand-500); }
+.rm-tone--clean { --tone: var(--hk-clean); }
+.rm-tone--dirty { --tone: var(--hk-dirty); }
+.rm-tone--cleaning { --tone: var(--hk-cleaning); }
+.rm-tone--inspected { --tone: var(--hk-inspected); }
+.rm-tone--maintenance { --tone: var(--hk-maintenance); }
+.rm-tone--oos { --tone: var(--hk-oos); }
+
+/* ─── Header ──────────────────────────────────────────────────────── */
+.rm-head {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
-.rooms__toolbar p,
+.rm-head p,
 .rooms__intro {
+  max-width: 62ch;
   margin: 0;
-  max-width: 40rem;
   color: var(--color-text-muted);
-  font-size: 0.85rem;
-  line-height: 1.45;}
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
 
 .rooms__form {
   display: flex;
   flex-direction: column;
 }
 
-.rooms__list {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.9rem;
-  background: var(--color-surface);}
-
-.rooms__browse {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  padding: 1.15rem 1.2rem 1.3rem;
+/* ─── Summary ─────────────────────────────────────────────────────── */
+.rm-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
 }
 
-.rooms__browse-head {
+.rm-stat {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-
-.rooms__browse-head h3 {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 1rem;
-  color: var(--color-text-primary);}
-
-.rooms__browse-head h3 :deep(svg) {
-  color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));}
-
-.rooms__browse-head p {
-  margin: 0.25rem 0 0;
-  font-size: 0.8rem;
-  color: var(--color-text-muted);}
-
-.rooms__categories,
-.rooms__cards {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-}
-
-.rooms__category {
-  display: grid;
-  grid-template-columns: 3.4rem 1fr auto;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.55rem;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.8rem;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
   background: var(--color-surface);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;}
-
-.rooms__category:hover {
-  border-color: var(--color-brand-400, #7d9aaf);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--shadow-xs);
 }
 
-.rooms__category-media {
-  width: 3.4rem;
-  height: 3.4rem;
-  border-radius: 0.65rem;
-  overflow: hidden;
-  background: #eef4f8;
-  display: grid;
-  place-items: center;
-  color: var(--color-ink-brand, var(--color-brand-600));}
-
-.rooms__category-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.rooms__category-fallback {
-  display: grid;
-  place-items: center;
-}
-
-.rooms__category-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+.rm-stat > div {
   min-width: 0;
 }
 
-.rooms__category-meta strong {
-  font-size: 0.9rem;
-  color: var(--color-text-primary);}
+.rm-stat--navy { --tone: var(--color-brand-500); }
+.rm-stat--clean { --tone: #10a36b; }
+.rm-stat--dirty { --tone: #e0533a; }
+.rm-stat--maintenance { --tone: #ea8a12; }
 
-.rooms__category-meta small {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  color: var(--color-text-muted);
-  font-size: 0.75rem;}
-
-.rooms__category-chevron {
-  color: var(--color-text-faint);}
-
-.room-card {
+.rm-stat__icon {
   display: grid;
-  grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr);
-  gap: 0.85rem;
-  border: 1px solid #d7e2ea;
-  border-radius: 0.9rem;
-  overflow: hidden;
-  background: var(--color-surface);
-  flex-shrink: 0;}
-
-.room-card__media {
-  position: relative;
-  min-height: 10rem;
-  background: #e8eef3;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tone) 12%, transparent);
+  color: var(--tone);
 }
 
-.room-card__media img {
+.rm-stat dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.rm-stat dd {
+  margin: 2px 0 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.rm-stat p {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--color-text-faint);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Filters ─────────────────────────────────────────────────────── */
+.rm-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.rm-search,
+.rm-type {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-md, 40px);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-faint);
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.rm-search {
+  flex: 1 1 280px;
+}
+
+.rm-type {
+  flex: 0 1 280px;
+}
+
+.rm-search:focus-within,
+.rm-type:focus-within {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.rooms .rm-search input,
+.rooms .rm-type select {
+  flex: 1;
+  min-width: 0;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+
+.rm-type select {
+  cursor: pointer;
+}
+
+.rm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.rm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.rm-chip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--tone);
+}
+
+.rm-chip span {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  line-height: 18px;
+  text-align: center;
+}
+
+.rm-chip:hover {
+  border-color: color-mix(in srgb, var(--tone) 45%, var(--color-border));
+}
+
+.rm-chip.is-active {
+  border-color: color-mix(in srgb, var(--tone) 55%, transparent);
+  background: color-mix(in srgb, var(--tone) 10%, var(--color-surface));
+  color: var(--color-text-primary);
+}
+
+.rm-chip.is-active span {
+  background: var(--tone);
+  color: #fff;
+}
+
+.rm-chip:focus-visible,
+.rm-icon-btn:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+.rm-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 25%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* ─── Empty states ────────────────────────────────────────────────── */
+.rm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2.5rem var(--space-6);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.rm-empty__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: var(--space-2);
+  border-radius: 18px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+
+.rm-empty__title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.rm-empty__desc {
+  max-width: 52ch;
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ─── Floor groups ────────────────────────────────────────────────── */
+.rm-floor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rm-floor__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rm-floor__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+}
+
+.rm-floor__head h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.rm-floor__sub {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.rm-floor__count {
+  margin-left: auto;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+}
+
+/* ─── Room tiles ──────────────────────────────────────────────────── */
+.rm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rm-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  padding-top: calc(var(--space-4) + 3px);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color var(--motion-normal) var(--ease-out),
+    box-shadow var(--motion-normal) var(--ease-out),
+    transform var(--motion-normal) var(--ease-out);
+}
+
+.rm-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--tone);
+}
+
+.rm-tile:hover {
+  border-color: color-mix(in srgb, var(--tone) 40%, var(--color-border));
+  box-shadow: var(--shadow-md);
+  transform: var(--lift);
+}
+
+.rm-tile.is-off {
+  background: var(--color-surface-muted);
+}
+
+.rm-tile.is-off .rm-tile__thumb {
+  filter: grayscale(1);
+  opacity: 0.7;
+}
+
+.rm-tile__top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.rm-tile__thumb {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tone) 10%, var(--color-surface-muted));
+  color: var(--tone);
+}
+
+.rm-tile__thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
 
-.room-card__nophoto {
-  height: 100%;
-  min-height: 10rem;
-  padding: 0.85rem;
+.rm-tile__id {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 0.35rem;
-  color: var(--color-text-muted);}
-
-.room-card__nophoto :deep(svg) {
-  color: var(--color-text-faint);}
-
-.room-card__nophoto p {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 650;
-  color: var(--color-text-primary);}
-
-.room-card__nophoto small {
-  font-size: 0.72rem;
-  line-height: 1.35;
+  min-width: 0;
 }
 
-.room-card__number,
-.room-card__hk-pill {
-  position: absolute;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.18rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
+.rm-tile__id strong {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 1.375rem;
   font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
-.room-card__number {
-  right: 0.45rem;
-  bottom: 0.45rem;
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--color-text-primary);}
-
-.room-card__hk-pill {
-  left: 0.45rem;
-  top: 0.45rem;
-  backdrop-filter: blur(4px);
+.rm-tile__id span {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.room-card__hk-pill--clean { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8);}
-.room-card__hk-pill--dirty { background: var(--color-danger-bg); color: light-dark(#b91c1c, #e2a0a0);}
-.room-card__hk-pill--cleaning { background: var(--color-info-bg); color: light-dark(#1d4ed8, #a0b5ef);}
-.room-card__hk-pill--inspected { background: #f0fdfa; color: light-dark(#0f766e, #9ac5c2);}
-.room-card__hk-pill--maintenance { background: var(--color-warning-bg); color: light-dark(#b45309, #d49b70);}
-.room-card__hk-pill--oos { background: var(--color-table-header); color: var(--color-text-secondary);}
-
-.room-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  padding: 0.85rem 0.85rem 0.9rem 0;
-}
-
-.room-card__title-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.6rem;
-  align-items: flex-start;
-}
-
-.room-card__title-row h4 {
-  margin: 0;
-  font-size: 0.95rem;
-  color: var(--color-text-primary);}
-
-.room-card__title-row p {
-  margin: 0.2rem 0 0;
+.rm-off {
   display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.78rem;
-  color: var(--color-text-muted);}
-
-.room-card__badge {
   flex-shrink: 0;
-  display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.15rem 0.45rem;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 2px 8px;
   border-radius: 999px;
   background: var(--color-danger-bg);
-  color: light-dark(#b91c1c, #e2a0a0);
-  font-size: 0.68rem;
-  font-weight: 700;}
-
-.room-card__hk p {
-  margin: 0 0 0.4rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  font-weight: 650;
-  color: var(--color-text-secondary);}
-
-.room-card__hk-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  color: var(--color-danger);
+  font-size: var(--text-2xs);
+  font-weight: 700;
 }
 
-.room-card__hk-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.28rem;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: var(--color-table-header);
-  padding: 0.28rem 0.55rem;
-  font-size: 0.7rem;
-  cursor: pointer;
+.rm-tile__name {
+  margin: calc(var(--space-1) * -1) 0 0;
+  overflow: hidden;
   color: var(--color-text-secondary);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;}
-
-.room-card__hk-btn--clean { background: var(--color-success-bg); color: light-dark(#047857, #96c6b8); border-color: #a7f3d0;}
-.room-card__hk-btn--dirty { background: var(--color-danger-bg); color: light-dark(#b91c1c, #e2a0a0); border-color: #fecaca;}
-.room-card__hk-btn--cleaning { background: var(--color-info-bg); color: light-dark(#1d4ed8, #a0b5ef); border-color: #bfdbfe;}
-.room-card__hk-btn--inspected { background: #f0fdfa; color: light-dark(#0f766e, #9ac5c2); border-color: #99f6e4;}
-.room-card__hk-btn--maintenance { background: var(--color-warning-bg); color: light-dark(#b45309, #d49b70); border-color: #fde68a;}
-.room-card__hk-btn--oos { background: var(--color-table-header); color: var(--color-text-secondary); border-color: #cbd5e1;}
-
-.room-card__hk-btn--on {
-  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 28%, transparent);
-  font-weight: 700;
-  transform: translateY(-1px);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.room-card__hk-btn:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.room-card__facts {
+.rm-tile__facts {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem 0.85rem;
-  font-size: 0.78rem;
-  color: var(--color-text-secondary);}
-
-.room-card__facts span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.room-card__facts :deep(svg) {
-  color: var(--color-ink-brand, var(--color-brand-600, var(--color-brand-600)));}
-
-.room-card__desc-label {
-  margin: 0 0 0.2rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--color-text-faint);}
-
-.room-card__desc p {
+  gap: var(--space-1) var(--space-4);
   margin: 0;
-  font-size: 0.82rem;
+  padding: 0;
+  list-style: none;
   color: var(--color-text-secondary);
-  line-height: 1.4;}
-
-.room-card__desc-empty {
-  color: var(--color-text-faint) !important;}
-
-.room-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
+  font-size: var(--text-xs);
 }
 
-.room-card__actions .btn-secondary,
-.room-card__actions .btn-danger {
+.rm-tile__facts li {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 6px;
+}
+
+.rm-tile__facts :deep(svg) {
+  color: var(--color-text-faint);
+}
+
+.rm-tile__price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+}
+
+.rm-tile__price strong {
+  color: var(--color-text-primary);
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+}
+
+.rm-tile__price span {
+  color: var(--color-text-faint);
+  font-size: var(--text-2xs);
+}
+
+.rm-tile__amenities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rm-amenity {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+}
+
+.rm-amenity--more {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+}
+
+.rm-tile__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-table-border, var(--color-border));
+}
+
+.rm-hk {
+  position: relative;
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 var(--space-2) 0 10px;
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 10%, var(--color-surface));
+  color: color-mix(in srgb, var(--tone) 85%, var(--color-text-primary));
+  transition: border-color var(--motion-fast) var(--ease-out);
+}
+
+.rm-hk:hover,
+.rm-hk:focus-within {
+  border-color: var(--tone);
+}
+
+.rooms .rm-hk select {
+  flex: 1;
+  min-width: 0;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: inherit;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rm-hk select option {
+  color: var(--color-text-primary);
+}
+
+.rm-hk.is-busy {
+  opacity: 0.6;
+}
+
+.rm-tile__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-1);
+}
+
+.rm-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.rm-icon-btn:hover {
+  border-color: var(--color-brand-300);
+  background: var(--color-brand-50);
+  color: var(--color-ink-brand);
+}
+
+.rm-icon-btn--danger:hover {
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
 .room-card__type-link {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  margin-left: auto;
+  color: var(--color-ink-brand, var(--color-brand-700));
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--color-ink-brand, var(--color-brand-700, var(--color-brand-600)));
-  text-decoration: none;}
+  text-decoration: none;
+}
 
 .room-card__type-link:hover {
   text-decoration: underline;
 }
 
-.btn-danger {
-  border-radius: 0.5rem;
-  padding: 0.45rem 0.85rem;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  cursor: pointer;
-  border: 1px solid #fecaca;
-  background: var(--color-surface);
-  color: light-dark(#b91c1c, #e2a0a0);}
+@media (max-width: 1100px) {
+  .rm-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 
-@media (max-width: 720px) {
-  .room-card {
+@media (max-width: 560px) {
+  .rm-stats {
     grid-template-columns: 1fr;
   }
-  .room-card__body {
-    padding: 0 0.85rem 0.9rem;
+
+  .rm-type {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-tile:hover {
+    transform: none;
   }
 }
 
@@ -1404,7 +1773,6 @@ function selectCategory(id: string | null) {
   .rooms__span { grid-column: 1 / -1; }
 }
 
-textarea
 .rooms__hint { margin: 0.3rem 0 0; font-size: 0.72rem; color: var(--color-text-faint);}
 .rooms__modes { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .rooms__mode {
@@ -1494,12 +1862,8 @@ textarea
 .rooms__gallery-item img { aspect-ratio: 1; width: 100%; object-fit: cover; }
 .rooms__gallery-item span { padding: 0 0.5rem 0.5rem; font-size: 0.75rem; color: var(--color-text-secondary);}
 .rooms__gallery-item--on { border-color: var(--color-brand-500); box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand-500) 40%, transparent); }
-.btn-secondary {
-  border-radius: 0.5rem; padding: 0.45rem 0.85rem; font-weight: 600; font-size: 0.8125rem; cursor: pointer;
-}
 
 
-.btn-secondary { border: 1px solid #d7e2ea; background: var(--color-surface); color: var(--color-text-secondary);}
 .font-semibold { font-weight: 600; }
 .text-brand-600 { color: var(--color-ink-brand, var(--color-brand-600));}
 .text-red-600 { color: light-dark(#dc2626, #f0a4a4);}

@@ -902,7 +902,7 @@ async function remove(row: Doc) {
                       <button
                         v-if="canEdit(row)"
                         type="button"
-                        class="rsv-icon-btn"
+                        class="row-action row-action--edit"
                         :title="t('common.edit')"
                         :aria-label="t('common.edit')"
                         @click="openEdit(row)"
@@ -912,7 +912,7 @@ async function remove(row: Doc) {
                       <button
                         v-if="canEdit(row)"
                         type="button"
-                        class="rsv-icon-btn rsv-icon-btn--danger"
+                        class="row-action row-action--danger"
                         :title="t('common.delete')"
                         :aria-label="t('common.delete')"
                         @click="remove(row)"
@@ -1351,7 +1351,7 @@ async function remove(row: Doc) {
 .rsv-kpi--static { cursor: default; }
 .rsv-kpi--on {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 .rsv-kpi__icon {
   display: inline-flex;
@@ -1367,7 +1367,7 @@ async function remove(row: Doc) {
 .rsv-kpi__icon--in { background: var(--color-success-bg); color: var(--color-success); }
 .rsv-kpi__icon--out { background: var(--color-warning-bg); color: var(--color-warning); }
 .rsv-kpi__icon--house { background: var(--color-info-bg); color: var(--color-info); }
-.rsv-kpi__icon--next { background: var(--color-accent-soft); color: var(--color-accent); }
+.rsv-kpi__icon--next { background: color-mix(in srgb, var(--color-accent) 14%, transparent); color: var(--color-accent); }
 .rsv-kpi__body {
   display: flex;
   flex-direction: column;
@@ -1650,7 +1650,7 @@ async function remove(row: Doc) {
 }
 .rsv-chip--on {
   border-color: var(--color-accent);
-  background: var(--color-accent-soft);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-text-primary);
 }
 
@@ -1757,13 +1757,13 @@ async function remove(row: Doc) {
   color: var(--color-text-secondary);
 }
 
-.rsv-stay { display: flex; align-items: center; gap: 0.4rem; }
+.rsv-stay { display: flex; align-items: center; gap: 0.15rem; }
 .rsv-day {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 2.6rem;
+  width: 2.4rem;
   padding: 0.25rem 0;
   border: 1px solid var(--color-border);
   border-radius: 0.55rem;
@@ -1788,6 +1788,7 @@ async function remove(row: Doc) {
   display: flex;
   justify-content: center;
   min-width: 3.8rem;
+  padding: 0 0.3rem;
 }
 .rsv-stay__bridge::before {
   content: '';
@@ -1866,26 +1867,8 @@ async function remove(row: Doc) {
 .rsv-progress--done { color: var(--color-success); }
 .rsv-progress--done::before { background: currentColor; }
 
-.rsv-row__actions { display: flex; justify-content: flex-end; gap: 0.25rem; }
-.rsv-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid transparent;
-  border-radius: 0.55rem;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-}
-.rsv-icon-btn:hover {
-  border-color: var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-}
-.rsv-icon-btn--danger:hover { border-color: transparent; background: var(--color-danger-bg); color: var(--color-danger); }
+.rsv-row__actions { display: flex; justify-content: flex-end; gap: 0.35rem; }
+.rsv-row__actions .row-action { width: var(--control-sm, 32px); padding: 0; }
 
 .rsv-empty {
   display: flex;
@@ -1904,7 +1887,7 @@ async function remove(row: Doc) {
   height: 3.25rem;
   margin-bottom: 0.4rem;
   border-radius: 1rem;
-  background: var(--color-accent-soft);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
 }
 .rsv-empty strong { font-size: 0.95rem; color: var(--color-text-primary); }
@@ -1955,7 +1938,7 @@ async function remove(row: Doc) {
   border: 1px solid var(--color-border);
   border-radius: 1rem;
   background:
-    radial-gradient(circle at 100% 0%, var(--color-accent-soft), transparent 55%),
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 55%),
     var(--color-table-row-hover);
 }
 .rd-hero__who { display: flex; gap: 0.95rem; align-items: flex-start; min-width: 0; }
@@ -2117,7 +2100,7 @@ async function remove(row: Doc) {
   margin-top: 0.85rem;
   padding: 0.65rem 0.75rem;
   border-radius: 0.65rem;
-  background: var(--color-accent-soft);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 .rd-requests small { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); }
 .rd-requests p { margin: 0.2rem 0 0; font-size: 0.84rem; color: var(--color-text-primary); line-height: 1.45; }
@@ -2139,7 +2122,7 @@ async function remove(row: Doc) {
 .rd-table-wrap { overflow-x: auto; margin: 0 -1.05rem -1rem; border-top: 1px solid var(--color-border); }
 .rd-table { min-width: 44rem; }
 .rd-table td { font-size: 0.8rem; }
-.rd-table__current td { background: var(--color-accent-soft); }
+.rd-table__current td { background: color-mix(in srgb, var(--color-accent) 14%, transparent); }
 .rd-table__dates { font-family: var(--font-mono); font-size: 0.74rem !important; white-space: nowrap; }
 .rd-type { display: flex; align-items: center; gap: 0.55rem; }
 .rd-thumb {
