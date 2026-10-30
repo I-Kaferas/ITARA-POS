@@ -6,7 +6,6 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AppIcon from '../ui/AppIcon.vue'
 import LanguageSwitcher from '../ui/LanguageSwitcher.vue'
 import ModuleSearch from './ModuleSearch.vue'
-import StockAlertBell from './StockAlertBell.vue'
 import { useAuthStore } from '../../stores/auth'
 import { moduleEnabled, moduleRequiredForPath } from '../../modules/registry'
 import { useBrandingStore } from '../../stores/branding'
@@ -1182,7 +1181,6 @@ const pageMotion = computed(() => (route.path.startsWith('/admin/pos/terminal') 
               </div>
             </Transition>
           </Teleport>
-          <StockAlertBell />
           <AppCalculator />
           <button
             v-if="!homeDash"

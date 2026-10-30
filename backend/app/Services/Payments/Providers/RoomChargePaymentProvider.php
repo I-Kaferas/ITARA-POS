@@ -47,12 +47,14 @@ class RoomChargePaymentProvider extends AbstractPaymentProvider
             ]);
         }
         $reservationId = trim((string) ($line->metadata['reservation_id'] ?? ''));
+        $hotelStoreId = trim((string) ($line->metadata['hotel_store_id'] ?? '')) ?: null;
 
         $this->desk->postSaleCharge(
             $context->store,
             $sale,
             $reservationId,
             $line->appliedAmount(),
+            $hotelStoreId,
         );
 
         $this->audit->log(
@@ -61,6 +63,7 @@ class RoomChargePaymentProvider extends AbstractPaymentProvider
             userId: $context->processedBy?->id,
             payload: [
                 'reservation_id' => $reservationId,
+                'hotel_store_id' => $hotelStoreId ?? $context->store->id,
                 'amount' => $line->appliedAmount(),
                 'reference' => $sale->reference,
             ],
@@ -71,6 +74,7 @@ class RoomChargePaymentProvider extends AbstractPaymentProvider
             providerReference: $this->generateReference('STY'),
             metadata: [
                 'reservation_id' => $reservationId,
+                'hotel_store_id' => $hotelStoreId ?? $context->store->id,
             ],
         );
     }

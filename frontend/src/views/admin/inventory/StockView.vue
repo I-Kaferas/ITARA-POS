@@ -91,6 +91,14 @@ const filteredRows = computed(() => {
 })
 
 const { page, lastPage, total, perPage, paged, setPage } = useClientPager(filteredRows)
+const {
+  page: historyPage,
+  lastPage: historyLastPage,
+  total: historyTotal,
+  perPage: historyPerPage,
+  paged: historyPaged,
+  setPage: setHistoryPage,
+} = useClientPager(history, 10)
 
 const stockableRows = computed(() =>
   rows.value.filter(row => !row.product || isStockableProduct({ product_type: row.product.product_type as Product['product_type'] })),
@@ -354,7 +362,7 @@ function clearHistoryDates() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in history" :key="row.id" class="border-t border-slate-100">
+              <tr v-for="row in historyPaged" :key="row.id" class="border-t border-slate-100">
                 <td class="px-3 py-2">
                   <span class="font-mono font-semibold">{{ specCode(row) }}</span>
                   <span class="mt-0.5 block text-xs text-slate-500">
@@ -369,6 +377,14 @@ function clearHistoryDates() {
             </tbody>
           </table>
         </div>
+        <ListPager
+          v-if="!historyLoading"
+          :page="historyPage"
+          :last-page="historyLastPage"
+          :total="historyTotal"
+          :per-page="historyPerPage"
+          @change="setHistoryPage"
+        />
         <div class="app-modal__actions">
           <button type="button" class="btn-secondary" @click="showHistory = false"><AppIcon name="close" :size="16" /> {{ t('common.cancel') }}</button>
         </div>

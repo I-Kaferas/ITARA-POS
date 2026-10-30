@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Desk;
 
+use App\Models\Branch;
 use App\Models\DeskDocument;
 use App\Models\Sale;
 use App\Models\StockBalance;
+use App\Models\Store;
 use App\Services\Desk\HospitalityDesk;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -228,6 +230,99 @@ class StaySaleChargeTest extends TestCase
         $this->assertTrue(collect($original['lines'])->contains(
             fn ($line) => ($line['sale_id'] ?? null) === $sale->json('data.sale.id') && ($line['reservation_id'] ?? null) === $stay['id'],
         ));
+    }
+
+    public function test_bar_of_another_store_in_the_branch_can_charge_a_hotel_stay(): void
+    {
+        $fixture = $this->createTenantFixture('stay-branch', 'stay-branch@test.local');
+        $headers = $this->headers($fixture);
+        $bar = $fixture['store'];
+        $product = $fixture['product'];
+        $warehouse = $fixture['warehouse'];
+        $product->importToStore($bar);
+        $this->postJson("/api/v1/warehouses/{$warehouse->id}/movements", [
+            'product_id' => $product->id,
+            'movement_type' => 'INITIAL_STOCK',
+            'quantity' => 5,
+            'unit_cost' => 500,
+        ], $headers)->assertCreated();
+
+        $hotel = Store::create([
+            'tenant_id' => $bar->tenant_id,
+            'branch_id' => $bar->branch_id,
+            'name' => 'Hôtel du Lac',
+            'code' => 'STAY-BRANCH-HTL',
+            'is_active' => true,
+        ]);
+        $hotelHeaders = array_merge($headers, ['X-Store-ID' => $hotel->id]);
+        $this->getJson('/api/v1/hospitality', $hotelHeaders)->assertOk();
+        $checkedIn = $this->postJson('/api/v1/hospitality/actions', $this->walkIn('Alice Hôte', 'CD-21'), $hotelHeaders)->assertOk();
+        $stay = collect($checkedIn->json('data.docs'))
+            ->first(fn ($doc) => ($doc['kind'] ?? null) === 'reservation' && ($doc['guest_name'] ?? '') === 'Alice Hôte');
+
+        $openStays = collect($this->getJson('/api/v1/hospitality/open-stays', $headers)->assertOk()->json('data'));
+        $listed = $openStays->firstWhere('id', $stay['id']);
+        $this->assertNotNull($listed);
+        $this->assertSame($hotel->id, $listed['store_id']);
+        $this->assertSame('Hôtel du Lac', $listed['store_name']);
+        $this->assertFalse($listed['same_store']);
+
+        $sale = $this->postJson("/api/v1/stores/{$bar->id}/sales", [
+            'warehouse_id' => $warehouse->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+            'payments' => [
+                [
+                    'method' => 'room',
+                    'amount' => 1000,
+                    'metadata' => ['reservation_id' => $stay['id'], 'hotel_store_id' => $hotel->id],
+                ],
+            ],
+        ], $headers)->assertCreated();
+        $saleId = $sale->json('data.sale.id');
+
+        $folio = $this->folio($hotelHeaders, $stay['id']);
+        $posted = collect($folio['lines'])->where('sale_id', $saleId);
+        $this->assertSame(1000, (int) $posted->sum('amount'));
+        $this->assertSame($bar->id, $posted->first()['store_id']);
+
+        $otherBranch = Branch::create([
+            'tenant_id' => $bar->tenant_id,
+            'company_id' => $fixture['company']->id,
+            'name' => 'Autre succursale',
+            'code' => 'STAY-BRANCH-2',
+            'is_active' => true,
+        ]);
+        $farHotel = Store::create([
+            'tenant_id' => $bar->tenant_id,
+            'branch_id' => $otherBranch->id,
+            'name' => 'Hôtel lointain',
+            'code' => 'STAY-BRANCH-FAR',
+            'is_active' => true,
+        ]);
+        $farHeaders = array_merge($headers, ['X-Store-ID' => $farHotel->id]);
+        $this->getJson('/api/v1/hospitality', $farHeaders)->assertOk();
+        $far = $this->postJson('/api/v1/hospitality/actions', $this->walkIn('Bob Loin', 'CD-22'), $farHeaders)->assertOk();
+        $farStay = collect($far->json('data.docs'))
+            ->first(fn ($doc) => ($doc['kind'] ?? null) === 'reservation' && ($doc['guest_name'] ?? '') === 'Bob Loin');
+
+        $this->assertNull(collect($this->getJson('/api/v1/hospitality/open-stays', $headers)->json('data'))
+            ->first(fn ($row) => $row['store_id'] === $farHotel->id));
+
+        $this->postJson("/api/v1/stores/{$bar->id}/sales", [
+            'warehouse_id' => $warehouse->id,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+            'payments' => [
+                [
+                    'method' => 'room',
+                    'amount' => 1000,
+                    'metadata' => ['reservation_id' => $farStay['id'], 'hotel_store_id' => $farHotel->id],
+                ],
+            ],
+        ], $headers)->assertStatus(422);
     }
 
     /** @param  array<string, mixed>  $fixture */

@@ -609,11 +609,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  align-self: flex-start;
-  width: min(100%, calc(100vw - 23rem));
-  max-width: min(100%, calc(100vw - 23rem));
+  align-self: stretch;
+  width: 100%;
   min-width: 0;
-  margin-inline: 0;
 }
 
 .nc-tabs {
@@ -678,14 +676,16 @@ onMounted(() => {
 .nc-bar__actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 
 .nc-list {
-  display: grid;
-  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: 0.85rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .nc-item {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
@@ -719,7 +719,8 @@ onMounted(() => {
   border-radius: 12px;
   background: #12243c;
   color: #fff;
-}
+.nc-item > .ui-btn { align-self: flex-end; }
+.nc-item__copy { display: grid; gap: 0.15rem; min-width: 0; overflow-wrap: anywhere; }
 .nc-item__copy { display: grid; gap: 0.15rem; min-width: 0; }
 .nc-item__event {
   color: #9a6412;
@@ -778,8 +779,5 @@ onMounted(() => {
 .nc-token { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .nc-token .field { flex: 1; min-width: 10rem; }
 .nc-test { display: grid; gap: 0.35rem; max-width: 22rem; }
-
-@media (max-width: 720px) {
-  .nc-item { flex-direction: column; }
 }
 </style>

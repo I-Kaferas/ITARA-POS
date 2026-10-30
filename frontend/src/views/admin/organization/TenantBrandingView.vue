@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import OrganizationLayout from '../../../components/organization/OrganizationLayout.vue'
+import AppIcon from '../../../components/ui/AppIcon.vue'
 import { useBrandingStore } from '../../../stores/branding'
 
 const store = useBrandingStore()
@@ -148,8 +149,9 @@ onMounted(() => { void load() })
         </div>
       </div>
 
-      <div>
-        <button type="button" class="ui-btn ui-btn-primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="save">
+      <div class="flex justify-end border-t border-slate-100 pt-4">
+        <button type="button" class="ui-btn ui-btn--primary" :class="{ 'is-busy': saving }" :disabled="saving" @click="save">
+          <AppIcon name="check" :size="16" />
           {{ saving ? 'Enregistrement…' : 'Enregistrer la marque' }}
         </button>
       </div>

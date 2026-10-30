@@ -2254,7 +2254,70 @@ class HospitalityDesk
     /**
      * Post a POS sale onto the stay folio. The stay, not the room number, owns the charge.
      */
-    public function postSaleCharge(Store $store, Sale $sale, string $reservationId, int $amountCents): void
+    /**
+     * Stays a POS can bill: checked-in reservations of every store in the same branch.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function openStays(Store $store): array
+    {
+        $stores = $this->branchStores($store)->keyBy('id');
+
+        return DeskDocument::query()
+            ->whereIn('store_id', $stores->keys())
+            ->where('kind', 'reservation')
+            ->where('status', 'checked_in')
+            ->orderBy('updated_at')
+            ->get()
+            ->map(function (DeskDocument $doc) use ($stores, $store): array {
+                $payload = $this->present($doc);
+                $hotel = $stores->get($doc->store_id);
+
+                return [
+                    'id' => (string) $doc->code,
+                    'guest_name' => (string) ($payload['guest_name'] ?? ''),
+                    'room_number' => (string) ($payload['room_number'] ?? ''),
+                    'arrive_on' => (string) ($payload['arrive_on'] ?? ''),
+                    'depart_on' => (string) ($payload['depart_on'] ?? ''),
+                    'store_id' => (string) $doc->store_id,
+                    'store_name' => (string) ($hotel?->name ?? ''),
+                    'same_store' => (string) $doc->store_id === (string) $store->id,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /** @return \Illuminate\Support\Collection<int, Store> */
+    private function branchStores(Store $store)
+    {
+        return Store::query()
+            ->where('tenant_id', $store->tenant_id)
+            ->when(
+                $store->branch_id,
+                fn ($query) => $query->where('branch_id', $store->branch_id),
+                fn ($query) => $query->whereKey($store->id),
+            )
+            ->get(['id', 'name', 'tenant_id', 'branch_id']);
+    }
+
+    private function hotelStoreFor(Store $store, ?string $hotelStoreId): Store
+    {
+        if ($hotelStoreId === null || $hotelStoreId === '' || $hotelStoreId === (string) $store->id) {
+            return $store;
+        }
+
+        $hotel = $this->branchStores($store)->firstWhere('id', $hotelStoreId);
+        if (! $hotel instanceof Store) {
+            throw ValidationException::withMessages([
+                'hotel_store_id' => ['Cet hôtel n\'appartient pas à la même succursale.'],
+            ]);
+        }
+
+        return Store::query()->findOrFail($hotel->id);
+    }
+
+    public function postSaleCharge(Store $store, Sale $sale, string $reservationId, int $amountCents, ?string $hotelStoreId = null): void
     {
         if ((string) $sale->tenant_id !== (string) $store->tenant_id || (string) $sale->store_id !== (string) $store->id) {
             throw ValidationException::withMessages([
@@ -2285,7 +2348,8 @@ class HospitalityDesk
             ]);
         }
 
-        $reservation = $this->doc($store, $reservationId);
+        $hotel = $this->hotelStoreFor($store, $hotelStoreId);
+        $reservation = $this->doc($hotel, $reservationId);
         if (($reservation['status'] ?? '') !== 'checked_in') {
             throw ValidationException::withMessages([
                 'reservation_id' => ['Séjour non ouvert.'],
@@ -2299,7 +2363,7 @@ class HospitalityDesk
             ]);
         }
 
-        $folio = $this->doc($store, $folioId);
+        $folio = $this->doc($hotel, $folioId);
         if (($folio['status'] ?? 'open') !== 'open') {
             throw ValidationException::withMessages([
                 'folio_id' => ['Le folio de ce séjour est déjà clos.'],
@@ -2361,7 +2425,7 @@ class HospitalityDesk
         }
 
         $folio['lines'] = $folioLines;
-        $this->save($store, 'folio', $folioId, $folio, (string) ($folio['room_id'] ?? $reservation['room_id'] ?? ''), 'open');
+        $this->save($hotel, 'folio', $folioId, $folio, (string) ($folio['room_id'] ?? $reservation['room_id'] ?? ''), 'open');
     }
 
     /** @param  array<string, mixed>  $action */

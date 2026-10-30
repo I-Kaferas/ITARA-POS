@@ -1268,6 +1268,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:sales.view');
         Route::get('hospitality', [DeskController::class, 'hospitality'])
             ->middleware('permission:sales.view,sales.create');
+        Route::get('hospitality/open-stays', [DeskController::class, 'openStays'])
+            ->middleware('permission:sales.view,sales.create');
         Route::get('hospitality/docs/{code}', [DeskController::class, 'hospitalityDocument'])
             ->middleware('permission:sales.view,sales.create');
         Route::post('hospitality/actions', [DeskController::class, 'hospitalityAction'])

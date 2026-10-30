@@ -523,11 +523,11 @@ const filteredStays = computed(() => {
   const q = stayQuery.value.trim().toLowerCase()
   if (!q) return stayRows.value
   return stayRows.value.filter(row =>
-    `${row.guest_name} ${row.room_number}`.toLowerCase().includes(q),
+    `${row.guest_name} ${row.room_number} ${row.store_name}`.toLowerCase().includes(q),
   )
 })
 
-const selectedStay = computed(() => stayRows.value.find(row => row.id === stayId.value) ?? null)
+const selectedStay = computed(() => stayRows.value.find(row => row.key === stayId.value) ?? null)
 
 async function openStayCharge() {
   if (!props.customer) {
@@ -539,19 +539,21 @@ async function openStayCharge() {
   stayError.value = ''
   stayLoading.value = true
   try {
-    const docs = (await api.get<{ data: { docs: Array<Record<string, unknown>> } }>('/hospitality')).data.docs
-    stayRows.value = docs
-      .filter(doc => doc.kind === 'reservation' && doc.status === 'checked_in')
-      .map(doc => ({
-        id: String(doc.id ?? ''),
-        guest_name: String(doc.guest_name ?? ''),
-        room_number: String(doc.room_number ?? ''),
-        arrive_on: String(doc.arrive_on ?? ''),
-        depart_on: String(doc.depart_on ?? ''),
+    const stays = (await api.get<{ data: Array<Record<string, unknown>> }>('/hospitality/open-stays')).data
+    stayRows.value = stays
+      .map(stay => ({
+        key: `${stay.store_id ?? ''}:${stay.id ?? ''}`,
+        id: String(stay.id ?? ''),
+        guest_name: String(stay.guest_name ?? ''),
+        room_number: String(stay.room_number ?? ''),
+        arrive_on: String(stay.arrive_on ?? ''),
+        depart_on: String(stay.depart_on ?? ''),
+        store_id: String(stay.store_id ?? ''),
+        store_name: stay.same_store ? '' : String(stay.store_name ?? ''),
       }))
       .filter(row => row.id !== '')
-    if (!stayRows.value.some(row => row.id === stayId.value)) {
-      stayId.value = stayRows.value[0]?.id ?? ''
+    if (!stayRows.value.some(row => row.key === stayId.value)) {
+      stayId.value = stayRows.value[0]?.key ?? ''
     }
   } catch (error) {
     stayRows.value = []
@@ -573,7 +575,7 @@ function confirmStayCharge() {
     method: 'room',
     amount: props.totals.grand_total,
     currency: props.totals.currency,
-    metadata: { reservation_id: stay.id },
+    metadata: { reservation_id: stay.id, hotel_store_id: stay.store_id },
   }], (result) => {
     paying.value = false
     if (!result.success) {
@@ -995,13 +997,15 @@ const discountLabel = () => {
         <div v-else class="pos-modal__methods">
           <label
             v-for="stay in filteredStays"
-            :key="stay.id"
+            :key="stay.key"
             class="pos-method"
-            :class="{ 'pos-method--active': stayId === stay.id }"
+            :class="{ 'pos-method--active': stayId === stay.key }"
           >
-            <input v-model="stayId" type="radio" :value="stay.id" />
+            <input v-model="stayId" type="radio" :value="stay.key" />
             <span>{{ stay.room_number }} · {{ stay.guest_name }}</span>
-            <small>{{ stay.arrive_on }} – {{ stay.depart_on }}</small>
+            <small>
+              <template v-if="stay.store_name">{{ stay.store_name }} · </template>{{ stay.arrive_on }} – {{ stay.depart_on }}
+            </small>
           </label>
         </div>
         <p v-if="!stayLoading && !filteredStays.length" class="pos-modal__empty">{{ t('desk.noOpenStay') }}</p>

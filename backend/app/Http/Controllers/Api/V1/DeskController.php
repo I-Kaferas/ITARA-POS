@@ -29,6 +29,11 @@ class DeskController extends Controller
         return response()->json(['data' => $this->hospitality->snapshot($this->store(), $parsed)]);
     }
 
+    public function openStays(): JsonResponse
+    {
+        return response()->json(['data' => $this->hospitality->openStays($this->store())]);
+    }
+
     public function hospitalityDocument(string $code): JsonResponse
     {
         return response()->json([
@@ -71,9 +76,15 @@ class DeskController extends Controller
     public function productionAction(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'action' => ['required', 'string', 'max:40'],
+            'action' => ['required', 'string', 'in:produce,save_recipe,delete_recipe,reverse_run'],
             'recipe_id' => ['nullable', 'string', 'max:80'],
+            'run_id' => ['nullable', 'string', 'max:80'],
             'batches' => ['nullable', 'integer', 'min:1', 'max:500'],
+            'product_id' => ['nullable', 'uuid'],
+            'yield_quantity' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'lines' => ['nullable', 'array', 'max:60'],
+            'lines.*.product_id' => ['required', 'uuid'],
+            'lines.*.quantity' => ['required', 'numeric', 'min:0.0001', 'max:1000000'],
         ]);
 
         return response()->json([
