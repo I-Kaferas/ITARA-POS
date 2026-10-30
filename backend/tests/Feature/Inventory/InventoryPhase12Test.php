@@ -273,5 +273,20 @@ class InventoryPhase12Test extends TestCase
         $this->postJson("/api/v1/inventory/alerts/{$alert['id']}/acknowledge", [], $headers)
             ->assertOk()
             ->assertJsonPath('data.status', 'acknowledged');
+
+        $this->postJson("/api/v1/inventory/alerts/{$alert['id']}/resolve", [], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'resolved');
+
+        $this->assertSame(0, $this->getJson('/api/v1/inventory/alerts', $headers)->json('data.total'));
+        $this->assertSame(1, $this->getJson('/api/v1/inventory/alerts?status=resolved', $headers)->json('data.total'));
+
+        $this->postJson('/api/v1/inventory/alerts/refresh', [], $headers)->assertOk();
+
+        $this->assertSame(
+            1,
+            $this->getJson('/api/v1/inventory/alerts', $headers)->json('data.total'),
+            'A resolved alert comes back when the stock is still below the threshold.'
+        );
     }
 }

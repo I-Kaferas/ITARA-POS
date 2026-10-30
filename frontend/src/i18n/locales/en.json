@@ -2284,8 +2284,24 @@
     "addLine": "Add a line",
     "movementType": "Movement type",
     "refreshAlerts": "Refresh alerts",
-    "acknowledge": "Acknowledge",
+    "acknowledge": "Mark as seen",
     "resolve": "Resolve",
+    "alertsHint": "Out-of-stock and low-stock alerts close on their own when stock goes back above the threshold.",
+    "acknowledgeHint": "Marks the alert as seen. It stays in the list.",
+    "resolveHint": "Closes the alert without changing stock. It comes back on the next movement if the problem remains.",
+    "alertStock": "Stock",
+    "alertQuantity": "{qty} (threshold {threshold})",
+    "alertTypes": {
+      "LOW_STOCK": "Low stock",
+      "OUT_OF_STOCK": "Out of stock",
+      "EXPIRING_SOON": "Expiring soon",
+      "EXPIRED": "Expired"
+    },
+    "alertStatus": {
+      "active": "Active",
+      "acknowledged": "Seen",
+      "resolved": "Resolved"
+    },
     "batch": "Batch",
     "addBatch": "Add batch",
     "expires": "Expiry",

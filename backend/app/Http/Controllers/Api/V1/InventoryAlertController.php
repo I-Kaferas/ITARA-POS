@@ -89,11 +89,16 @@ class InventoryAlertController extends Controller
     public function refresh(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'warehouse_id' => ['required', 'uuid', 'exists:warehouses,id'],
+            'warehouse_id' => ['nullable', 'uuid', 'exists:warehouses,id'],
         ]);
 
-        $warehouse = Warehouse::query()->findOrFail($data['warehouse_id']);
-        $this->alertService->evaluateWarehouse($warehouse);
+        $warehouses = isset($data['warehouse_id'])
+            ? Warehouse::query()->whereKey($data['warehouse_id'])->get()
+            : Warehouse::query()->where('is_active', true)->get();
+
+        foreach ($warehouses as $warehouse) {
+            $this->alertService->evaluateWarehouse($warehouse);
+        }
 
         return response()->json(['message' => 'Alerts refreshed.']);
     }

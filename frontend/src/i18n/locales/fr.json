@@ -2287,8 +2287,24 @@
     "addLine": "Ajouter une ligne",
     "movementType": "Type de mouvement",
     "refreshAlerts": "Actualiser les alertes",
-    "acknowledge": "Accuser réception",
+    "acknowledge": "Marquer comme vue",
     "resolve": "Résoudre",
+    "alertsHint": "Les alertes de rupture et de stock bas se ferment seules quand le stock remonte au-dessus du seuil.",
+    "acknowledgeHint": "Indique que l'alerte a été vue. Elle reste dans la liste.",
+    "resolveHint": "Ferme l'alerte sans modifier le stock. Elle revient si le problème persiste au prochain mouvement.",
+    "alertStock": "Stock",
+    "alertQuantity": "{qty} (seuil {threshold})",
+    "alertTypes": {
+      "LOW_STOCK": "Stock bas",
+      "OUT_OF_STOCK": "Rupture",
+      "EXPIRING_SOON": "Expire bientôt",
+      "EXPIRED": "Expiré"
+    },
+    "alertStatus": {
+      "active": "Active",
+      "acknowledged": "Vue",
+      "resolved": "Résolue"
+    },
     "batch": "Lot",
     "addBatch": "Ajouter un lot",
     "expires": "Expiration",

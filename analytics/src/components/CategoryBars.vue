@@ -74,7 +74,7 @@ const option = computed(() => {
 </script>
 
 <template>
-  <article class="card card-pad lg:col-span-2">
+  <article class="card card-pad lg:col-span-5">
     <h3 class="mb-4 text-base font-semibold text-[var(--color-ink)]">Sales by Category</h3>
     <VChart class="h-[280px] w-full" :option="option" autoresize />
   </article>

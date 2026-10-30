@@ -67,7 +67,7 @@ const filtersVisible = computed(() => isSmUp.value || filtersOpen.value)
         <PaymentDonut :payments="data.payments" />
       </section>
 
-      <section class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <section class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-9">
         <CategoryBars :categories="data.categories" />
         <SidebarStats
           :processing-volume="data.processingVolume"

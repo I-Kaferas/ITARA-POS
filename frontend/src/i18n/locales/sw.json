@@ -2211,8 +2211,24 @@
     "addLine": "Ongeza mstari",
     "movementType": "Aina ya mienendo",
     "refreshAlerts": "Onyesha upya tahadhari",
-    "acknowledge": "Kubali kupokea",
+    "acknowledge": "Weka kuwa imeonekana",
     "resolve": "Tatua",
+    "alertsHint": "Arifa za kuisha na za hisa ndogo hufungwa zenyewe hisa inapopanda juu ya kiwango.",
+    "acknowledgeHint": "Inaonyesha kwamba arifa imeonekana. Inabaki kwenye orodha.",
+    "resolveHint": "Inafunga arifa bila kubadilisha hisa. Inarudi kwenye harakati inayofuata ikiwa tatizo linaendelea.",
+    "alertStock": "Hisa",
+    "alertQuantity": "{qty} (kiwango {threshold})",
+    "alertTypes": {
+      "LOW_STOCK": "Hisa ndogo",
+      "OUT_OF_STOCK": "Imeisha",
+      "EXPIRING_SOON": "Inakaribia kuisha muda",
+      "EXPIRED": "Imeisha muda"
+    },
+    "alertStatus": {
+      "active": "Hai",
+      "acknowledged": "Imeonekana",
+      "resolved": "Imetatuliwa"
+    },
     "batch": "Kundi",
     "addBatch": "Ongeza kundi",
     "expires": "Muda wa matumizi",

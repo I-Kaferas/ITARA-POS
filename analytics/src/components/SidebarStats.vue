@@ -10,7 +10,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 lg:col-span-1">
+  <div class="flex flex-col gap-4 lg:col-span-4">
     <article class="gradient-cta rounded-2xl p-5 text-white shadow-sm">
       <p class="text-sm text-brand-100">Processing Volume</p>
       <p class="mt-1 text-[30px] font-bold tracking-tight">

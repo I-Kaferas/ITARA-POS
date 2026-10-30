@@ -1465,10 +1465,11 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     }
   }
 
-  async function loadInventoryAlerts() {
+  async function loadInventoryAlerts(status = '') {
     loading.value = true
     try {
-      inventoryAlerts.value = await loadPaginated<InventoryAlert>('/inventory/alerts')
+      const query = status ? `?status=${encodeURIComponent(status)}` : ''
+      inventoryAlerts.value = await loadPaginated<InventoryAlert>(`/inventory/alerts${query}`)
     } finally {
       loading.value = false
     }
@@ -1482,9 +1483,9 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     return (await api.post<ApiItemResponse<InventoryAlert>>(`/inventory/alerts/${alertId}/resolve`)).data
   }
 
-  async function refreshInventoryAlerts() {
-    await api.post('/inventory/alerts/refresh')
-    return loadInventoryAlerts()
+  async function refreshInventoryAlerts(warehouseId?: string | null, status = '') {
+    await api.post('/inventory/alerts/refresh', warehouseId ? { warehouse_id: warehouseId } : {})
+    return loadInventoryAlerts(status)
   }
 
   async function createStockTransfer(payload: {
